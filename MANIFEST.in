@@ -1,0 +1,13 @@
+include capreolus/utils/cache.capnp
+include capreolus/collection/dummy.yaml
+include capreolus/collection/dummy_folds.json
+include capreolus/collection/qrels.dummy.txt
+include capreolus/collection/topics.dummy.txt
+include capreolus/collection/dummy/data/dummy_trec_doc
+include capreolus/anserini-0.7.0-fatjar.jar
+include capreolus/collection/qrels.robust2004.txt
+include capreolus/collection/rob04_cedr_folds.json
+include capreolus/collection/rob04_yang19_folds.json
+include capreolus/collection/rob04_yang19_rm3.run
+include capreolus/collection/robust04.yaml
+include capreolus/collection/topics.robust04.301-450.601-700.txt

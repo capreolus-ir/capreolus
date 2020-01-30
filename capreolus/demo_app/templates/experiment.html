@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+
+{% block content %}
+    <div class="row">
+        <div class="col-md-4">
+            <form id="searchForm" class="margin-left-2rem input-group" action="/demo/query/" method="GET">
+                <input id="querybox" name="query" class="form-control" type="text" placeholder="Search" aria-label="Search" autocomplete="off">
+                <div class="input-group-append">
+                    <input type="submit" class='form-control go-btn' value="Go">
+                </div>
+                {% for key, value in config %}
+{#                    Special check to make sure that only experiment related URL configs are stored#}
+                    {% if key != 'query' %}
+{#                        Why are there hidden input tags here?#}
+{#                        Because we would like to construct a URL with query params, and the easiest way to do this is #}
+{#                        to let the HTML form take care of it. However, HTML forms work with only <input> attributes.#}
+{#                        So I'm creating a dummy hidden HTML input form with readonly values so that when the user#}
+{#                        press the "submit" action, my URL with query params is auto-created for me#}
+                        <input name="{{ key }}" type="hidden" value="{{ value }}" readonly>
+                    {% endif %}
+                {% endfor %}
+            </form>
+        </div>
+    </div>
+    <hr>
+    <div class="row">
+        <div class="col-md-4 margin-left-2rem">
+            <div class="">
+                <table class="table table-bordered">
+                    <thead>
+                        <tr>
+                            <th>Option</th>
+                            <th>Value</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for key, value in config %}
+                            <tr>
+                                <td>
+                                    <span>{{ key }}</span>
+                                </td>
+                                <td>
+                                    <span id="{{ key }}">{{ value }}</span>
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+        </div>
+        <div class="col-md-7">
+            <div>
+                {% if has_result %}
+                    <label>query: {{ query }}</label>
+                    <div>
+                        <label>Legend: <span class="relevance-1">Relevant</span> | <span class="relevance-0">Irrelevant</span></label>
+                    </div>
+                    <hr>
+                    {% for result in results %}
+                        <div>
+                            <span>
+                                <label class="relevance-{{ result.relevance }}">
+                                    doc_id:
+                                    <a href="/demo/document/?target_index={{ target_index }}&doc_id={{ result.doc_id }}">
+                                        {{ result.doc_id }}
+                                    </a>
+                                </label>
+                            </span>
+                        </div>
+                        <div class="result-document">
+                            {{ result.doc }}
+                        </div>
+                        <hr>
+                    {% endfor %}
+
+                {% else %}
+                    <div>Nothing to show</div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+{% endblock %}
