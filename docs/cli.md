@@ -5,7 +5,7 @@ Capreolus takes a functional approach to describing an experimental pipeline. A 
 
 Capreolus constructs results and cache paths that encode all configuration options that can affect the experiment's output. While this leads to long paths, it makes them human-interpretable and eliminates the need for an external database mapping result paths to the configs used to produce them.
 
-![architecture](figure_architecture.png "Architecture Diagram")
+![architecture](images/figure_architecture.png "Architecture Diagram")
 
 ## Commands
 The CLI takes a command to run, such as the `train`, and optionally a list of configuration options for the command:

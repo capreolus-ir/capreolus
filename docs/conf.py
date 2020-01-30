@@ -106,6 +106,8 @@ html_static_path = ['_static']
 #
 # html_sidebars = {}
 
+# add logo
+html_logo = 'images/capreolus-100px.png'
 
 # -- Options for HTMLHelp output ---------------------------------------------
 
