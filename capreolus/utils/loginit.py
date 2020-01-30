@@ -5,9 +5,7 @@ import logging
 import logging.handlers
 
 
-GLOBAL_LOGGING_CONF = {
-    'level': os.environ.get("CAPREOLUS_LOGGING", logging.INFO)
-}
+GLOBAL_LOGGING_CONF = {"level": os.environ.get("CAPREOLUS_LOGGING", logging.INFO)}
 
 
 class RepeatFilter(logging.Filter):
@@ -82,7 +80,7 @@ def get_logger(name=None):
         sh.addFilter(RepeatFilter(logger))
         logger.addHandler(sh)
 
-    logger.setLevel(GLOBAL_LOGGING_CONF['level'])
+    logger.setLevel(GLOBAL_LOGGING_CONF["level"])
     if name is None:
         return logger
     else:

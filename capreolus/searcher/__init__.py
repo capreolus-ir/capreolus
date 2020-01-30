@@ -14,6 +14,7 @@ logger = get_logger(__name__)  # pylint: disable=invalid-name
 
 class Searcher:
     """ Module responsible for searching an Index. Searchers are usually coupled to an Index module (e.g., AnseriniIndex). """
+
     ALL = {}
 
     def __init__(self, index, collection, run_path, pipe_config):

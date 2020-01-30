@@ -71,5 +71,5 @@ setuptools.setup(
     python_requires=">=3.6",
     cmdclass={"develop": PostDevelopCommand, "install": PostInstallCommand},
     include_package_data=True,
-    scripts=['scripts/capreolus'],
+    scripts=["scripts/capreolus"],
 )

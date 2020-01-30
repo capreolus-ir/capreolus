@@ -64,7 +64,7 @@ class DeepTileExtractor(Extractor, BuildStoIMixin):
         # Join the tokens by a white space, but after every 20 tokens inside a double newline character
         # 20 tokens is an arbitrary decision.
         slice_count = math.ceil(len(doc_toks) / slicelen)
-        tok_slices = [" ".join(doc_toks[i * slicelen: i * slicelen + slicelen]) for i in range(slice_count)]
+        tok_slices = [" ".join(doc_toks[i * slicelen : i * slicelen + slicelen]) for i in range(slice_count)]
         doc_text = "\n\n".join(tok_slices)
 
         try:
@@ -74,7 +74,7 @@ class DeepTileExtractor(Extractor, BuildStoIMixin):
             segments = ttt.tokenize(doc_text)
             # Remove all paragraph breaks (the ones that were already there and the ones that we inserted) - we don't
             # really need them once ttt is done
-            segments = [re.sub('\n\n', ' ', segment) for segment in segments]
+            segments = [re.sub("\n\n", " ", segment) for segment in segments]
         except ValueError:
             # TextTilingTokenizer throws an error if the input is too short (eg: less than 100 chars) or if it could not
             # find any paragraphs. In that case, naively split on every artificial paragraph that we inserted
@@ -91,7 +91,7 @@ class DeepTileExtractor(Extractor, BuildStoIMixin):
         if len(segments) < p_len:
             segments = padlist(list(segments), p_len, pad_token=self.pad_tok)
         elif len(segments) > p_len:
-            segments[p_len - 1] = reduce(lambda a, b: a + b, segments[p_len - 1:])
+            segments[p_len - 1] = reduce(lambda a, b: a + b, segments[p_len - 1 :])
             segments = segments[:p_len]
 
         return segments
@@ -229,9 +229,7 @@ class DeepTileExtractor(Extractor, BuildStoIMixin):
                 logger.error("encountered exception while writing segment cache file %s: %s", cache_file, ex)
                 pass
 
-        self.doc_id_to_segments = {
-            doc_id: self.clean_segments(segments) for doc_id, segments in doc_id_to_segments.items()
-        }
+        self.doc_id_to_segments = {doc_id: self.clean_segments(segments) for doc_id, segments in doc_id_to_segments.items()}
         self.build_stoi_from_segments([segments for doc_id, segments in doc_id_to_segments.items()], keepstops, False)
         logger.info("Creating tile bars")
         self.embeddings_matrix = self.create_embedding_matrix("glove6b.50d")
@@ -267,7 +265,7 @@ class DeepTileExtractor(Extractor, BuildStoIMixin):
             "query": np.zeros(1),
             "posdoc": posdoc_tilebar,
             "negdoc": negdoc_tilebar,
-            "query_idf": np.zeros(1)
+            "query_idf": np.zeros(1),
         }
 
         return transformed

@@ -6,6 +6,7 @@ from capreolus.collection import COLLECTIONS, Collection
 from capreolus.index.anserini import AnseriniIndex
 from capreolus.utils.common import Anserini
 
+
 @pytest.fixture(scope="function")
 def trec_index(request, tmpdir):
     """

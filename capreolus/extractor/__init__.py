@@ -11,6 +11,7 @@ logger = get_logger(__name__)
 
 class Extractor:
     """ Module responsible for transforming raw query and document text into inputs suitable for a reranker. """
+
     def __init__(self, cache_path, feature_cache_dir, pipeline_config, benchmark=None, collection=None, index=None):
         """
         :param index: We need an index so as to calculate IDF

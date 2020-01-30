@@ -199,7 +199,9 @@ def test_train_api_early_stopping(monkeypatch, tmpdir):
         return Magnitude(None)
 
     monkeypatch.setattr(EmbedText, "get_magnitude_embeddings", fake_magnitude_embedding)
-    pipeline = train_pipeline({"reranker": "KNRM", "niters": 5, "benchmark": "dummy", "itersize": 1, "batch": 1}, early_stopping=True)
+    pipeline = train_pipeline(
+        {"reranker": "KNRM", "niters": 5, "benchmark": "dummy", "itersize": 1, "batch": 1}, early_stopping=True
+    )
 
     assert pipeline.reranker.__class__ == KNRM
 
