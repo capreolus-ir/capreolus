@@ -61,7 +61,7 @@ class Collection:
         archive_file = os.path.join(tmp_dir, "archive_file")
         os.makedirs(document_dir, exist_ok=True)
         os.makedirs(tmp_dir, exist_ok=True)
-        logger.info("downloading missing collection %s to temporary file %s", self.name, archive_file)
+        logger.info("downloading index for missing collection %s to temporary file %s", self.name, archive_file)
         download_file(
             self.config["documents"]["index_download"]["url"],
             archive_file,
