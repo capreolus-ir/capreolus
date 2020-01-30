@@ -29,7 +29,7 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name="capreolus",
-    version="0.1.0",
+    version="0.1.1",
     author="Andrew Yates",
     author_email="capreolus@mpi-inf.mpg.de",
     description="A toolkit for end-to-end neural ad hoc retrieval",
@@ -52,7 +52,7 @@ setuptools.setup(
         "pytrec-eval==0.4",
         "pycapnp==0.6.4",
         "pytest",
-        "pyjnius==1.2.0",
+        "pyjnius==1.2.1",
         "pescador==2.0.2",
         "pymagnitude==0.1.120",
         "h5py==2.9.0",
@@ -66,6 +66,8 @@ setuptools.setup(
         "django==2.2.1",
         "pytest-mock==1.10.4",
         "mock",
+        "pyserini==0.7.0.0",
+        "scipy==1.3.0",
     ],
     classifiers=["Programming Language :: Python :: 3", "Operating System :: OS Independent"],
     python_requires=">=3.6",
