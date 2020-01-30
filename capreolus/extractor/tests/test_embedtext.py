@@ -13,7 +13,6 @@ from capreolus.searcher.bm25 import BM25Grid
 from capreolus.tests.common_fixtures import trec_index, dummy_collection_config
 
 
-
 def test_tokenize_text(trec_index, tmpdir):
     toks_list = [["to", "be", "or", "not", "to", "be"]]
     feature = EmbedText(tmpdir, tmpdir, {}, index=trec_index)

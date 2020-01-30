@@ -21,6 +21,7 @@ import functools
 import torch
 
 from capreolus.pipeline import Pipeline, cli_module_choice, modules
+
 logger = get_logger(__name__)
 
 
@@ -63,7 +64,9 @@ def _train(_config):
     run_path = os.path.join(pipeline.reranker_path, pipeline.cfg["fold"])
     weight_path = os.path.join(run_path, "weights")
 
-    prepare_batch = functools.partial(_prepare_batch_with_strings, device=torch.device("cuda:0" if torch.cuda.is_available() else "cpu"))
+    prepare_batch = functools.partial(
+        _prepare_batch_with_strings, device=torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    )
     batches_per_epoch = pipeline_config["itersize"] // pipeline_config["batch"]
     batches_per_step = pipeline_config.get("gradacc", 1)
 
@@ -111,16 +114,11 @@ def evaluate_pipeline(pipeline):
 
     # prepare generators
     if pipeline.cfg["predontrain"]:
-        pred_fold_sizes[pipeline.cfg["fold"]] = sum(
-            1 for qid in fold["train_qids"] for docid in benchmark.pred_pairs[qid])
-        pred_folds[pipeline.cfg["fold"]] = (
-            fold["train_qids"],
-            predict_generator(pipeline.cfg, fold["train_qids"], benchmark),
-        )
+        pred_fold_sizes[pipeline.cfg["fold"]] = sum(1 for qid in fold["train_qids"] for docid in benchmark.pred_pairs[qid])
+        pred_folds[pipeline.cfg["fold"]] = (fold["train_qids"], predict_generator(pipeline.cfg, fold["train_qids"], benchmark))
     for pred_fold, pred_qids in fold["predict"].items():
         pred_fold_sizes[pred_fold] = sum(1 for qid in pred_qids for docid in benchmark.pred_pairs[qid])
         pred_folds[pred_fold] = (pred_qids, predict_generator(pipeline.cfg, pred_qids, benchmark))
-
 
     prepare_batch = functools.partial(_prepare_batch_with_strings, device=pipeline.device)
 
@@ -146,7 +144,6 @@ def evaluate_pipeline(pipeline):
 
 
 def _prepare_batch_with_strings(batch, device, skip_strings=("qid", "posdocid", "negdocid")):
-
     def process(v):
         if v and isinstance(v[0], torch.Tensor):
             # Hack to make deeptilebars work. The deeptile extractor's posdoc output is a multi-dim tensor
