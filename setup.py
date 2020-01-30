@@ -31,7 +31,7 @@ setuptools.setup(
     name="capreolus",
     version="0.1.0",
     author="Andrew Yates",
-    author_email="ayates@mpi-inf.mpg.de",
+    author_email="capreolus@mpi-inf.mpg.de",
     description="A toolkit for end-to-end neural ad hoc retrieval",
     long_description=long_description,
     long_description_content_type="text/markdown",
