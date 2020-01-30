@@ -175,7 +175,7 @@ def download_file(url, outfn, expected_hash=None):
 
     found_hash = hash_file(outfn)
     if found_hash != expected_hash:
-        raise IOError("expected file {outfn} downloaded from {url} to have SHA256 hash {expected_hash} but got {found_hash}")
+        raise IOError(f"expected file {outfn} downloaded from {url} to have SHA256 hash {expected_hash} but got {found_hash}")
 
 
 def hash_file(fn):
