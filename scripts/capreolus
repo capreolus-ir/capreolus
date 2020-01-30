@@ -1,0 +1,11 @@
+#!/bin/bash
+
+if [ -z "$CAPREOLUS_RESULTS" ]; then
+  echo "WARNING: the CAPREOLUS_RESULTS environment variable is not set; results will be saved under 'results/'" >&2
+fi
+
+if [ -z "$CAPREOLUS_CACHE" ]; then
+  echo "WARNING: the CAPREOLUS_CACHE environment variable is not set; cache files will be written to 'cache/'" >&2
+fi
+
+exec python -m capreolus.train $*
