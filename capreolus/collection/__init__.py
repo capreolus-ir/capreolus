@@ -99,7 +99,7 @@ class Collection:
 
     def set_documents(self, path):
         self.config["documents"]["path"] = path
- 
+
     @property
     def qrels(self):
         if not hasattr(self, "_qrels"):

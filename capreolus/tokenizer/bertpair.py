@@ -3,8 +3,7 @@ import sys
 
 from pytorch_transformers import BertTokenizer
 
-from capreolus.utils.common import register_component_module, import_component_modules, args_to_key, \
-    get_default_cache_dir
+from capreolus.utils.common import register_component_module, import_component_modules, args_to_key, get_default_cache_dir
 from capreolus.tokenizer import Tokenizer
 from capreolus.utils.cache_capnp import Document
 from capreolus.utils.loginit import get_logger
@@ -25,7 +24,9 @@ class BertPairTokenizer(Tokenizer):
             self.initialize_cache(self.params)
 
     def create(self):
-        self.tokenizer = BertTokenizer.from_pretrained(self.tokmodel, cache_dir=os.environ.get("CAPREOLUS_CACHE", get_default_cache_dir()))
+        self.tokenizer = BertTokenizer.from_pretrained(
+            self.tokmodel, cache_dir=os.environ.get("CAPREOLUS_CACHE", get_default_cache_dir())
+        )
         self.vocab = self.tokenizer.vocab
 
     def tokenize(self, s):

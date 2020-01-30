@@ -497,6 +497,6 @@ if __name__ == "__main__":
             pipeline.device,
             torch.cuda.max_memory_reserved() / 1024 / 1024 / 1024,
         )
-    except: # AssertionError as ae:
-        #logger.debug("unable to retrieve CUDA memory usage due to exception: %s", ae)
+    except:  # AssertionError as ae:
+        # logger.debug("unable to retrieve CUDA memory usage due to exception: %s", ae)
         pass

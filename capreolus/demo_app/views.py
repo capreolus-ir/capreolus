@@ -497,9 +497,10 @@ class BM25View(TemplateView):
         """
         Does a bm25 search and returns the most relevant 1000 docs and their ids
         """
-        with patch('pyserini.setup.configure_classpath') as mock_setup:
+        with patch("pyserini.setup.configure_classpath") as mock_setup:
             mock_setup.return_value = None
             from pyserini.search import pysearch
+
             searcher = pysearch.SimpleSearcher(index.index_path)
             searcher.set_bm25_similarity(k1, b)
             hits = searcher.search(query_string, n)

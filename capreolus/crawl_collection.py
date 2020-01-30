@@ -50,6 +50,7 @@ def spawn_child_process_to_read_docs(data):
     start = time.time()
     from pyserini.collection import pycollection
     from pyserini.index import pygenerator
+
     collection = pycollection.Collection(ctype, path)
     generator = pygenerator.Generator("JsoupGenerator")
     for i, file_segment in enumerate(collection):

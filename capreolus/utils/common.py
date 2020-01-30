@@ -32,7 +32,7 @@ class Anserini:
     @classmethod
     def get_fat_jar(cls):
         basedir = get_capreolus_base_dir()
-        paths = glob(os.path.join(basedir, 'capreolus', 'anserini-*-fatjar.jar'))
+        paths = glob(os.path.join(basedir, "capreolus", "anserini-*-fatjar.jar"))
 
         latest = max(paths, key=os.path.getctime)
         return latest

@@ -170,6 +170,7 @@ def test_query_view_get_most_relevant_doc(trec_index, anserini_tokenizer, embedd
     ]
     assert set([tuple(x.items()) for x in result_dicts]) == set([tuple(x.items()) for x in expected])
 
+
 def test_get_two_configs_from_query_dict():
     config = MultiValueDict({"model": ["KNRM", "DRMM"], "target_index": ["dummy_index"]})
     config_1, config_2 = QueryDictParserMixin.get_two_configs_from_query_dict(config)

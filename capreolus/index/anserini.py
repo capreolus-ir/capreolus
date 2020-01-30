@@ -86,7 +86,10 @@ class AnseriniIndex(Index):
 
         rootdir = self.collection.config["documents"]["path"]
         p = subprocess.run(
-            ["python", get_crawl_collection_script(), rootdir, ctype], stdout=subprocess.PIPE, input=",".join(doc_ids), encoding="utf-8"
+            ["python", get_crawl_collection_script(), rootdir, ctype],
+            stdout=subprocess.PIPE,
+            input=",".join(doc_ids),
+            encoding="utf-8",
         )
         with open("{0}/disk_crawl_temp_dump.json".format(os.getenv("CAPREOLUS_CACHE", get_default_cache_dir())), "rt") as fp:
             fetched_docs = json.load(fp)
