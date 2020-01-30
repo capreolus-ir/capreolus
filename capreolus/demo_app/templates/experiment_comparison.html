@@ -1,0 +1,130 @@
+{% extends "base.html" %}
+
+{% block content %}
+    <div class="row">
+        <div class="col-md-4">
+            <form id="searchForm" class="margin-left-2rem input-group" action="/demo/compare_query/" method="GET">
+                <input id="querybox" name="query" class="form-control" type="text" placeholder="Search" aria-label="Search" autocomplete="off">
+                <div class="input-group-append">
+                    <input type="submit" class='form-control go-btn' value="Go">
+                </div>
+                {% for config in configs %}
+                    {% if key != 'query' %}
+                        <input name="{{ config.0.0 }}" type="hidden" value="{{ config.0.1 }}" readonly>
+                    {% endif %}
+                {% endfor %}
+                {% for config in configs %}
+                    {% if key != 'query' %}
+                        <input name="{{ config.1.0 }}" type="hidden" value="{{ config.1.1 }}" readonly>
+                    {% endif %}
+                {% endfor %}
+            </form>
+        </div>
+    </div>
+    <hr>
+    <button id="btn_show_configs" class="btn btn-success margin-left-2rem" type="button" data-toggle="collapse" data-target="#configs" aria-expanded="false" >
+        Show/Hide configs
+    </button>
+    <hr>
+    <div class="row collapse" id="configs">
+        <div class="col-md-4 margin-left-2rem">
+            <div class="">
+                <table class="table table-bordered">
+                    <thead>
+                        <tr>
+                            <th>Config 1: Option</th>
+                            <th>Value</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for config in configs %}
+                            {% if config.0.1 != config.1.1 %}<tr class="config-different">{% else %}<tr>{% endif %}
+                                <td>
+                                    <span>{{ config.0.0 }}</span>
+                                </td>
+                                <td>
+                                    <span id="{{ config.0.0 }}">{{ config.0.1 }}</span>
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        <div class="col-md-4 margin-left-2rem">
+            <div class="">
+                <table class="table table-bordered">
+                    <thead>
+                        <tr>
+                            <th>Config 2: Option</th>
+                            <th>Value</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for config in configs %}
+                            {% if config.0.1 != config.1.1 %}<tr class="config-different">{% else %}<tr>{% endif %}
+                                <td>
+                                    <span>{{ config.1.0 }}</span>
+                                </td>
+                                <td>
+                                    <span id="{{ config.1.0 }}">{{ config.1.1 }}</span>
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    <div class="row">
+        {% if has_result %}
+            <div class="col-md-11 margin-left-right-2rem">
+                <label>query: {{ query }}</label>
+                <div>
+                    <label>Legend: <span class="relevance-1">Relevant</span> | <span class="relevance-0">Irrelevant</span></label>
+                </div>
+                <hr>
+                <table id="comparison_table" class="table table-bordered">
+                    <thead>
+                        <tr>
+                            <th>Doc id</th>
+                            <th>Config 1 ({{ model_1 }}) rank</th>
+                            <th>Config 2 ({{ model_2 }}) rank</th>
+                            <th>Relevance score</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for doc_id, result in combined_results %}
+                            <tr class="relevance-{{ result.relevance }}">
+                                <td>
+                                    <a href="/demo/document/?target_index={{ target_index }}&doc_id={{ doc_id }}">
+                                        {{ doc_id }}
+                                    </a>
+                                </td>
+                                {% if result.config_1_rank %}
+                                    <td data-order="{{ result.config_1_rank }}">
+                                        {{ result.config_1_rank }}
+                                    </td>
+                                {% else %}
+                                    <td data-order="1000"></td>
+                                {% endif %}
+                                {% if result.config_2_rank %}
+                                    <td data-order="{{ result.config_2_rank }}">
+                                        {{ result.config_2_rank }}
+                                    </td>
+                                {% else %}
+                                    <td data-order="1000"></td>
+                                {% endif %}
+                                <td>{{ result.relevance }}</td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <div class="margin-left-2rem">
+                <span class="margin-left-1rem">Nothing to show</span>
+            </div>
+        {% endif %}
+    </div>
+{% endblock %}

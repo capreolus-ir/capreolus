@@ -1,0 +1,34 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# editor tmp files
+*~
+
+# DB credentials
+.sql_url
+
+# mypy
+.mypy_cache/
+
+# notebooks
+.ipynb_checkpoints/
+.idea/
+# scripts with credentials
+queue.sh
+queue_cpu.sh
+
+.DS_Store
+
+.pytest_cache/
+
+# ide files
+/.vscode
+/*.code-workspace
+
+# default anserini, cache, and result directories
+/anserini
+/cache
+/results
+

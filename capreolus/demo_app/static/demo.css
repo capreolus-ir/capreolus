@@ -1,0 +1,137 @@
+label {
+    color: darkslategrey;
+}
+
+.jumbotron {
+    background-color: seagreen;
+    color: #ddd;
+    border-bottom: 1px solid #ccc;
+}
+
+#brand a{
+    color: #ddd;
+    text-decoration: none;
+}
+
+#gobtn {
+    background-color: darkolivegreen;
+    color: #dddddd;
+}
+
+#gobtn:hover {
+    background-color: olivedrab;
+    color: #dddddd;
+    cursor: pointer;
+}
+
+#gobtn .fas.fa-search{
+    line-height: unset;
+}
+.margin-left-2rem {
+    margin-left: 2rem;
+}
+
+.margin-left-right-2rem {
+    margin-left: 2rem;
+    margin-right: 2rem;
+}
+
+.margin-left-1rem {
+    margin-left: 1rem;
+}
+
+.margin-top-1rem {
+    margin-top: 1rem;
+}
+
+.result-document {
+    color: dimgray;
+    text-align: justify;
+}
+
+.go-btn {
+    border: 1px solid #aaa;
+    background-color: #eee;
+    color: darkslategrey;
+}
+
+.go-btn:hover {
+    background-color: #ddd;
+}
+
+table th, table td {
+    color: darkslategrey;
+}
+
+.relevance-1{
+    background-color: lightgreen;
+}
+
+.relevance-0{
+
+}
+
+.fake-table {
+    margin-top: 2rem;
+}
+
+.fake-table .heading .cell{
+    /*border-top: 1px solid #ddd;*/
+    font-weight: bold;
+}
+
+.fake-table .row {
+    margin-left: 2rem;
+}
+
+.fake-table .cell {
+    text-align: center;
+    padding: 10px;
+    /*border-bottom: 1px solid #ddd;*/
+    /*border-left: 1px solid #ddd;*/
+}
+
+.fake-table {
+    margin-top: 2rem;
+}
+
+.fake-table .heading .cell{
+    /*border-top: 1px solid #ddd;*/
+    font-weight: bold;
+}
+
+.fake-table .row {
+    margin-left: 2rem;
+}
+
+.fake-table .full-config {
+    text-align: left;
+    color: #777;
+}
+
+.fake-table form{
+    transition: background-color 0.2s linear;
+    border-radius: 10px;
+}
+
+.fake-table form:hover {
+    /*border-top: 1px solid lightgreen;*/
+    cursor: pointer;
+    background-color: #c6e2bf;
+}
+tr.config-different {
+    background-color: lightyellow;
+}
+
+.expand-config:hover {
+    cursor: pointer;
+    color: lightskyblue;
+}
+
+.with-left-border{
+    border-left: 1px solid #ddd;
+}
+
+form:hover .with-left-border {
+    border-left: 1px solid #999;
+}
