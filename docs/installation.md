@@ -24,8 +24,8 @@ Setup a Python 3.6+ environment in your home directory. We strongly recommend us
 
 ### Configuring Capreolus
  Capreolus uses environment variables to indicate where outputs should be stored and where document inputs can be found. Consult the list below to determine which variables should be set. [Set these environment variables](https://opensource.com/article/19/8/what-are-environment-variables) either on the fly (`export CAPREOLUS_RESULTS=...`) before running Capreolus or by editing your shell's initialization files (e.g., `~/.bashrc` or `~/.zshrc`).
-- `CAPREOLUS_RESULTS`: the directory where results will be stored. If unset, defaults to `results/` in the current directory.
-- `CAPREOLUS_CACHE`: the directory where cache files are stored. If unset, defaults to `cache/` in the current directory.
+- `CAPREOLUS_RESULTS`: the directory where results will be stored. If unset, defaults to `~/.capreolus/results/`
+- `CAPREOLUS_CACHE`: the directory where cache files are stored. If unset, defaults to `~/.capreolus/cache/`
 - `CAPREOLUS_LOGGING`: Indicates the logging level. Can take on the values `INFO`, `DEBUG`, `WARN` and `ERROR`
 - `CUDA_VISIBLE_DEVICES`: Indicates GPUs available to PyTorch, starting from 0. For example, setting to '1' will use the system's 2nd GPU (as numbered by `nvidia-smi`). Set to '' (an empty string) to force CPU. 
 

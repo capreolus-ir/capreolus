@@ -22,8 +22,8 @@ Capreolus uses environment variables to indicate where outputs should be stored 
 
 | Environment Variable          | Default Value | Purpose |
 |-------------------------------|---------------|---------|
-| `CAPREOLUS_RESULTS`             | results/    | Directory where results will be stored   |
-| `CAPREOLUS_CACHE`               | cache/      | Directory used for cache files |
+| `CAPREOLUS_RESULTS`             | ~/.capreolus/results/    | Directory where results will be stored   |
+| `CAPREOLUS_CACHE`               | ~/.capreolus/cache/      | Directory used for cache files |
 | `CUDA_VISIBLE_DEVICES`          | (unset)     | Indicates GPUs available to PyTorch, starting from 0. For example, set to '1' the system's 2nd GPU (as numbered by `nvidia-smi`). Set to '' (an empty string) to force CPU.
 
 

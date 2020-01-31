@@ -4,17 +4,19 @@ from capreolus.utils.loginit import get_logger
 from tqdm import tqdm
 import pytrec_eval
 import numpy as np
-import jnius_config
 import os
+import sysconfig
+import jnius_config
 
 from capreolus.collection import COLLECTIONS
-from capreolus.utils.common import get_capreolus_base_dir
+from capreolus.utils.common import get_capreolus_base_dir, Anserini
 
-if not jnius_config.get_classpath() == "{0}/capreolus/anserini-0.7.0-fatjar.jar".format(get_capreolus_base_dir()):
-    try:
-        jnius_config.set_classpath("{0}/capreolus/anserini-0.7.0-fatjar.jar".format(get_capreolus_base_dir()))
-    except:
-        raise Exception("The classpath is: {0}".format(jnius_config.get_classpath()))
+jnius_config.set_classpath(Anserini.get_fat_jar())
+# if not jnius_config.get_classpath() == "{0}/capreolus/anserini-0.7.0-fatjar.jar".format(get_capreolus_base_dir()):
+#     try:
+#         jnius_config.set_classpath("{0}/capreolus/anserini-0.7.0-fatjar.jar".format(get_capreolus_base_dir()))
+#     except:
+#         raise Exception("The classpath is: {0}".format(jnius_config.get_classpath()))
 
 
 import functools
