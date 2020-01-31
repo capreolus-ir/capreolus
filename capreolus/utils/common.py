@@ -1,11 +1,11 @@
 import hashlib
 import importlib
 import os
+import sysconfig
 import requests
 import sys
 from glob import glob
 
-import jnius_config
 from tqdm import tqdm
 from capreolus.utils.loginit import get_logger
 
@@ -31,8 +31,8 @@ def padlist(list_to_pad, padlen, pad_token=0):
 class Anserini:
     @classmethod
     def get_fat_jar(cls):
-        basedir = get_capreolus_base_dir()
-        paths = glob(os.path.join(basedir, "capreolus", "anserini-*-fatjar.jar"))
+        jar_path = "{0}/pyserini/resources/jars/".format(sysconfig.get_paths()['purelib'])
+        paths = glob(os.path.join(jar_path, "anserini-*-fatjar.jar"))
 
         latest = max(paths, key=os.path.getctime)
         return latest
@@ -128,11 +128,17 @@ def import_component_modules(name):
 
 
 def get_default_cache_dir():
-    return "{0}/cache".format(os.getcwd())
+    default_dir = os.path.expanduser("~/.capreolus/cache/")
+    if not os.path.exists(default_dir):
+        os.makedirs(os.path.dirname(default_dir))
+    return default_dir
 
 
 def get_default_results_dir():
-    return "{0}/results".format(os.getcwd())
+    default_dir = os.path.expanduser("~/.capreolus/results/")
+    if not os.path.exists(default_dir):
+        os.makedirs(os.path.dirname(default_dir))
+    return default_dir
 
 
 def get_crawl_collection_script():
