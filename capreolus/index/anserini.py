@@ -3,7 +3,7 @@ import math
 import os
 import subprocess
 import time
-from jnius import autoclass
+# from jnius import autoclass
 
 from capreolus.index import Index
 from capreolus.tokenizer import Tokenizer
@@ -89,6 +89,7 @@ class AnseriniIndex(Index):
             ["python", get_crawl_collection_script(), rootdir, ctype],
             stdout=subprocess.PIPE,
             input=",".join(doc_ids),
+            check=True,
             encoding="utf-8",
         )
         with open("{0}/disk_crawl_temp_dump.json".format(os.getenv("CAPREOLUS_CACHE", get_default_cache_dir())), "rt") as fp:
@@ -126,6 +127,7 @@ class AnseriniIndex(Index):
         return self._tokenizer
 
     def open(self):
+        from jnius import autoclass
         JIndexUtils = autoclass("io.anserini.index.IndexUtils")
         self.index_utils = JIndexUtils(self.index_path)
 
