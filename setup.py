@@ -10,8 +10,6 @@ class PostDevelopCommand(develop):
     """Post-installation for development mode."""
 
     def run(self):
-        # os.system("wget -O anserini-0.7.0-fatjar.jar https://search.maven.org/remotecontent?filepath=io/anserini/anserini/0.7.0/anserini-0.7.0-fatjar.jar")
-        # os.system("mv anserini-0.7.0-fatjar.jar capreolus/")
         develop.run(self)
 
 
@@ -19,8 +17,6 @@ class PostInstallCommand(install):
     """Post-installation for installation mode."""
 
     def run(self):
-        # os.system("wget -O anserini-0.7.0-fatjar.jar https://search.maven.org/remotecontent?filepath=io/anserini/anserini/0.7.0/anserini-0.7.0-fatjar.jar")
-        # os.system("mv anserini-0.7.0-fatjar.jar capreolus/")
         install.run(self)
 
 
@@ -29,7 +25,7 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name="capreolus",
-    version="0.1.1",
+    version="0.1.2",
     author="Andrew Yates",
     author_email="capreolus@mpi-inf.mpg.de",
     description="A toolkit for end-to-end neural ad hoc retrieval",
