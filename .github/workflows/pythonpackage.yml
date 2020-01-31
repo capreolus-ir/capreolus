@@ -21,11 +21,6 @@ jobs:
       uses: actions/setup-java@v1
       with:
               java-version: '11'
-    - name: Download Anserini 
-      run: |
-        cd capreolus
-        wget -O anserini-0.7.0-fatjar.jar https://search.maven.org/remotecontent?filepath=io/anserini/anserini/0.7.0/anserini-0.7.0-fatjar.jar
-        cd ..
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
@@ -36,7 +31,6 @@ jobs:
     - name: Test with pytest
       run: |
         pip install pytest
-        export CLASSPATH=./anserini-0.7.0-fatjar.jar
         export PYTHONPATH=${PYTHONPATH}:/home/runner/work/capreolus/capreolus/
         pytest -vvv
 
