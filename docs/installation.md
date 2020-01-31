@@ -11,7 +11,7 @@ Setup a Python 3.6+ environment in your home directory. We strongly recommend us
  
  c) Alternate approach with system Python: install Python 3.6+ with your system's package manager (e.g., `sudo apt install python3`). If you do not create and activate a virtual environment (*venv*) as described below, you will need to use `sudo` when installing packages with `pip` below.
  
- You may optionally [setup a virtual environment using `venv`](https://docs.python.org/3/tutorial/venv.html) to isolate Capreolus and its dependences from other packages. This is especially useful if using a system Python, because it allows you to install packages (for your own user) without `sudo`.
+ You may optionally [setup a virtual environment using `venv`](https://docs.python.org/3/tutorial/venv.html) to isolate Capreolus and its dependencies from other packages. This is especially useful if using a system Python, because it allows you to install packages (for your own user) without `sudo`.
  
 ### Installing Capreolus
 #### Via pip package (**recommended**)
