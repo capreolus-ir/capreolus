@@ -12,7 +12,7 @@ The CLI takes a command to run, such as the `train`, and optionally a list of co
 `capreolus <command> [with <configuration options>]`. If no command is specified, `train` is used as the default. Configuration options are specified in `key=value` format.
 
 ### Train Command
-The `train` command trains a reranking model for `niters` iterations on a single training set. This command displays the *results path*, where the experiment's output will be stored, at the beginning of training. As described above, this (long) path is a combination of a root directory and a string encoding all configuration options influencing the expriment's output. The root directory is indicated by the `$CAPREOLUS_RESULTS` environment variable and defaults to `results/` if unset.
+The `train` command trains a reranking model for `niters` iterations on a single training set. This command displays the *results path*, where the experiment's output will be stored, at the beginning of training. As described above, this (long) path is a combination of a root directory and a string encoding all configuration options influencing the experiment's output. The root directory is indicated by the `$CAPREOLUS_RESULTS` environment variable and defaults to `results/` if unset.
 
 **Example:**
 `capreolus train with reranker=KNRM niters=10 benchmark=robust04.title.wsdm20demo fold=s1`
@@ -28,7 +28,7 @@ done
 
 The weights from the best iteration, as measured by nDCG@20 on the dev set, are saved for later use. These are available in `<results path>/weights/dev`.
 
-After each iteration, the current weights are used to rank all documents in the dev and test sets, and these rankings are saved to the results directory. For example, `<results path>/predict/dev/0` is a TREC run file produced by rankingthe dev set queries after the first training iteration. 
+After each iteration, the current weights are used to rank all documents in the dev and test sets, and these rankings are saved to the results directory. For example, `<results path>/predict/dev/0` is a TREC run file produced by ranking the dev set queries after the first training iteration. 
 
 Plots of the training loss and dev set performance over the training iterations are saved to `<results path>/info/loss.pdf` and `<results path>/predict/dev.pdf`, respectively.
 
