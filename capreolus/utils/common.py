@@ -31,12 +31,15 @@ def padlist(list_to_pad, padlen, pad_token=0):
 class Anserini:
     @classmethod
     def get_fat_jar(cls):
-        jar_path = "{0}/pyserini/resources/jars/".format(sysconfig.get_paths()['purelib'])
-        paths = glob(os.path.join(jar_path, "anserini-*-fatjar.jar"))
+        # Go through sys.path hoping to find the pyserini install dir
+        for path in sys.path:
+            jar_path = "{0}/pyserini/resources/jars/".format(path)
+            if os.path.exists(jar_path):
+                fat_jar_path = glob(os.path.join(jar_path, "anserini-*-fatjar.jar"))
+                if fat_jar_path:
+                    return max(fat_jar_path, key=os.path.getctime)
 
-        latest = max(paths, key=os.path.getctime)
-        return latest
-
+        raise Exception("could not find anserini fat jar")
 
 def params_to_string(namekey, params, param_types, skip_check=False):
     params = {k: param_types[k](v) for k, v in params.items()}
