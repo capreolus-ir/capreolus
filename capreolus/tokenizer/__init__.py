@@ -5,7 +5,6 @@ import capnp
 
 from capreolus.utils.common import register_component_module, import_component_modules, args_to_key
 from capreolus.utils.cache_capnp import Document
-from jnius import autoclass
 
 from capreolus.utils.common import Anserini
 from capreolus.utils.loginit import get_logger
@@ -125,6 +124,8 @@ class AnseriniTokenizer(Tokenizer):
         self.create()
 
     def create(self):
+        from jnius import autoclass
+
         stemmer = self.params["stemmer"]
         keepstops = self.params["keepstops"]
 
