@@ -128,11 +128,11 @@ def import_component_modules(name):
 
 
 def get_default_cache_dir():
-    return "{0}/cache".format(get_capreolus_base_dir())
+    return "{0}/cache".format(os.getcwd())
 
 
 def get_default_results_dir():
-    return "{0}/results".format(get_capreolus_base_dir())
+    return "{0}/results".format(os.getcwd())
 
 
 def get_crawl_collection_script():
