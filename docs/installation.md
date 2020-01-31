@@ -5,7 +5,7 @@ This section covers installing Capreolus via its pip package or from source.
 ### Python
 Setup a Python 3.6+ environment in your home directory. We strongly recommend using Conda for performance reasons, but this is not strictly necessary.
 
- a) *Recommended conda approach*: install [pyenv](https://github.com/pyenv/pyenv) into your home directory, and then to use pyenv to install the conda distribution specified in `.python-version`.
+ a) *Recommended conda approach*: install [pyenv](https://github.com/pyenv/pyenv) into your home directory, and then to use pyenv to install an anaconda or miniconda distribution with Python 3.6+ (3.7+ preferred).
  
  b) Alternate conda approach: manually [install a miniconda distribution](https://docs.conda.io/projects/conda/en/latest/user-guide/install/) with Python 3.6+.
  
