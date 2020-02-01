@@ -400,7 +400,6 @@ def cli_module_choice(argv, module):
 
 def _format_config_by_module(cfg, config_mods, parameters_to_module):
     _iterate_marked = sacred.commands._iterate_marked
-    _format_entry = sacred.commands._format_entry
 
     module_configs = {}
     for k, module in parameters_to_module.items():
@@ -434,3 +433,27 @@ def _format_config_by_module(cfg, config_mods, parameters_to_module):
             lines.append(_format_entry(indent, entry))
 
     return "\n".join(lines)
+
+
+# sacred.commands._format_entry with colors removed
+def _format_entry(indent, entry):
+    import pprint
+
+    PRINTER = pprint.PrettyPrinter()
+    PRINTER.format = sacred.commands._non_unicode_repr
+
+    indent = " " * indent
+    if entry.key == "__doc__":
+        doc_string = entry.value.replace("\n", "\n" + indent)
+        assign = '{}"""{}"""'.format(indent, doc_string)
+    elif isinstance(entry, sacred.commands.ConfigEntry):
+        assign = indent + entry.key + " = " + PRINTER.pformat(entry.value)
+    else:  # isinstance(entry, PathEntry):
+        assign = indent + entry.key + ":"
+    if entry.doc:
+        doc_string = entry.doc
+        if len(assign) <= 35:
+            assign = "{:<35}  {}".format(assign, doc_string)
+        else:
+            assign += "    " + doc_string
+    return assign
