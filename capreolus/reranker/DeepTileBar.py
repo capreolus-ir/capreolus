@@ -176,10 +176,7 @@ class DeepTileBar(Reranker):
 
     @staticmethod
     def config():
-        # maxqlen = 4
         passagelen = 30
-        # ^ both hardcoded in tbcleanup.py
-        # l2regularise = True
         numberfilter = 3
         lstmhiddendim = 3
         linearhiddendim1 = 32

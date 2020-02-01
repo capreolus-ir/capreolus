@@ -330,11 +330,11 @@ class HINT(Reranker):
 
     @staticmethod
     def config():
-        # passagelen = 6
         spatialGRU = 2
         LSTMdim = 6
         kmax = 10
-        lr = 0.005  # 0.0005
+
+        lr = 0.005
         batch = 128
         return locals().copy()  # ignored by sacred
 

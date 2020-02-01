@@ -56,20 +56,13 @@ def module_config():
 # (e.g., they don't affect model training or they're manually included somewhere in the path)
 def stateless_config():
     expid = "debug"  # experiment id/name
-    predontrain = False
-    fold = "s1"
+    predontrain = False  # predict rankings on the training set
+    fold = "s1"  # fold to use; indicates qids used for training, dev, and test sets
     earlystopping = True
     return locals().copy()  # ignored by sacred
 
 
 def pipeline_config():
-    # not working / disabled
-    # resume = False  # resume from last existing weights, if any exist #TODO make this work with epoch preds
-    # saveall = True
-    # selfprediction = False
-    # uniformunk = True
-    # datamode = "basic"
-
     maxdoclen = 800  # maximum document length (in number of terms after tokenization)
     maxqlen = 4  # maximum query length (in number of terms after tokenization)
     batch = 32  # batch size
@@ -78,9 +71,9 @@ def pipeline_config():
     gradacc = 1  # number of batches to accumulate over before updating weights
     lr = 0.001  # learning rate
     seed = 123_456  # random seed to use
-    sample = "simple"
+    sample = "simple"  # query and doc sampling strategy to use when training: 'simple'
     softmaxloss = True  # True to use softmax loss (over pairs) or False to use hinge loss
-    dataparallel = "none"
+    dataparallel = "none"  # train on a single GPU if 'none' or use all available GPUs if set to 'gpu'
 
     if sample not in ["simple"]:
         raise RuntimeError(f"sample '{sample}' must be one of: simple")

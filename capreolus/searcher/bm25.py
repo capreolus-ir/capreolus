@@ -34,8 +34,8 @@ class BM25Grid(Searcher):
 
     @staticmethod
     def config():
-        bmax = 1.0
-        k1max = 1.0
+        bmax = 1.0  # maximum b value to include in grid search (starting at 0.1)
+        k1max = 1.0  # maximum k1 value to include in grid search (starting at 0.1)
         return locals().copy()  # ignored by sacred
 
     def _query_index(self):
@@ -76,8 +76,8 @@ class BM25(Searcher):
 
     @staticmethod
     def config():
-        b = 0.4
-        k1 = 0.9
+        b = 0.4  # controls document length normalization
+        k1 = 0.9  # controls term saturation
         return locals().copy()  # ignored by sacred
 
     def _query_index(self):
