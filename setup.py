@@ -35,7 +35,7 @@ setuptools.setup(
     packages=setuptools.find_packages(),
     install_requires=[
         "torch==1.2.0",
-        "torchvision",
+        "torchvision==0.4.0",
         "cython",
         "pre-commit",
         "PyYAML==5.1.1",
