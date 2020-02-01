@@ -19,11 +19,11 @@ class BM25RM3(Searcher):
 
     @staticmethod
     def config():
-        b = 0.4
-        k1 = 0.9
-        ft = 10
-        fd = 10
-        ow = 0.5
+        b = 0.4  # BM25's b parameter
+        k1 = 0.9  # BM25's k1 parameter
+        ft = 10  # feedback terms to use with RM3
+        fd = 10  # feedback docs to use with RM3
+        ow = 0.5  # original query weight
         return locals().copy()  # ignored by sacred
 
     def _query_index(self):
@@ -74,12 +74,12 @@ class BM25RM3Grid(Searcher):
     @staticmethod
     def config():
         # pylint: disable=possibly-unused-variable
-        bmax = 1.0
-        k1max = 1.0
-        ftmax = 15
-        ftstep = 5
-        fdmax = 15
-        fdstep = 5
+        bmax = 1.0  # maximum b to include in grid search (BM25)
+        k1max = 1.0  # maximum k1 to include in grid search (BM25)
+        ftmax = 15  # maximum feedback terms to include in grid search (RM3)
+        ftstep = 5  # step size for feedback terms (RM3)
+        fdmax = 15  # maximum feedback docs in to include in grid search (RM3)
+        fdstep = 5  # step size for feedback docs (RM3)
         return locals().copy()  # ignored by sacred
 
     def _query_index(self):

@@ -16,7 +16,7 @@ class DummyBenchmark(Benchmark):
     def config():
         searcher = "bm25grid"
         collection = "dummy"
-        rundocsonly = False
+        rundocsonly = False  # use only docs from the searcher as pos/neg training instances (i.e., not all qrels)
         return locals().copy()  # ignored by sacred
 
     def build(self):

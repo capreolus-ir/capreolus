@@ -49,8 +49,9 @@ class DSSM(Reranker):
 
     @staticmethod
     def config():
-        # hidden layer dimentions, should be a list of space-separated number in a string, e.g. '56 128 32', the i-th value represents the output dim of the i-th hidden layer
+        # hidden layer sizes, like '56 128', where i'th value indicates output size of the i'th layer
         nhiddens = "56"
+
         lr = 0.0001
         return locals().copy()  # ignored by sacred
 
