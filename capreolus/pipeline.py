@@ -1,3 +1,4 @@
+import functools
 import multiprocessing
 import os
 import random
@@ -118,6 +119,10 @@ class Pipeline:
         self.parameters_to_module, self.parameter_types = self.get_parameters_to_module_for_feature_parameters(ex)
         self.module_to_parameters = self.get_module_to_parameters()
         self.check_for_invalid_keys()
+
+        sacred.commands._format_config = functools.partial(
+            _format_config_by_module, parameters_to_module=self.parameters_to_module
+        )
 
     def check_for_invalid_keys(self):
         invalid_keys = []
@@ -398,3 +403,41 @@ def cli_module_choice(argv, module):
         if arg.startswith(key):
             choice = arg[len(key) :]
     return choice
+
+
+def _format_config_by_module(cfg, config_mods, parameters_to_module):
+    _iterate_marked = sacred.commands._iterate_marked
+    _format_entry = sacred.commands._format_entry
+
+    module_configs = {}
+    for k, module in parameters_to_module.items():
+        if module == "module":
+            module = k
+        elif module == "stateless":
+            module = "experiment"
+        elif module == "extractor":
+            module = "reranker"
+
+        if k != module:
+            module_configs.setdefault(module, []).append(k)
+
+    module_configs = {k: sorted(vs) for k, vs in module_configs.items()}
+    path_to_entry = {path: entry for path, entry in _iterate_marked(cfg, config_mods)}
+
+    lines = ["Configuration:"]
+    for module, module_keys in module_configs.items():
+        indent = 2
+
+        if module not in path_to_entry:
+            line = "{}{:<35}  {}".format(" " * indent, module, "")
+            lines.append(line)
+        else:
+            entry = path_to_entry[module]
+            lines.append(_format_entry(indent, entry))
+
+        for k in module_keys:
+            indent = 4
+            entry = path_to_entry[k]
+            lines.append(_format_entry(indent, entry))
+
+    return "\n".join(lines)
