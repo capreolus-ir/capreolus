@@ -405,6 +405,7 @@ def _format_config_by_module(cfg, config_mods, parameters_to_module):
     for k, module in parameters_to_module.items():
         if module == "module":
             module = k
+            module_configs.setdefault(module, [])
         elif module == "stateless":
             module = "experiment"
         elif module == "extractor":
