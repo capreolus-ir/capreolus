@@ -42,7 +42,7 @@ setuptools.setup(
         "sacred==0.7.5",
         "SQLAlchemy==1.3.5",
         "psycopg2-binary==2.8.3",
-        "matplotlib==3.1.0",
+        "matplotlib==3.1.1",
         "pytorch-transformers==1.1.0",
         "colorlog==4.0.2",
         "pytrec-eval==0.4",
