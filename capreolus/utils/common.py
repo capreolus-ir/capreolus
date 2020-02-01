@@ -41,6 +41,7 @@ class Anserini:
 
         raise Exception("could not find anserini fat jar")
 
+
 def params_to_string(namekey, params, param_types, skip_check=False):
     params = {k: param_types[k](v) for k, v in params.items()}
     s = [params[namekey]]

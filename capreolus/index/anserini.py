@@ -3,7 +3,6 @@ import math
 import os
 import subprocess
 import time
-# from jnius import autoclass
 
 from capreolus.index import Index
 from capreolus.tokenizer import Tokenizer
@@ -31,8 +30,8 @@ class AnseriniIndex(Index):
 
     @staticmethod
     def config():
-        stemmer = "porter"
-        indexstops = False
+        stemmer = "porter"  # stemmer to use: 'none', 'krovetz', 'porter'
+        indexstops = False  # include stop words in index
         return locals().copy()  # ignored by sacred
 
     def _build_index(self, config):
@@ -128,6 +127,7 @@ class AnseriniIndex(Index):
 
     def open(self):
         from jnius import autoclass
+
         JIndexUtils = autoclass("io.anserini.index.IndexUtils")
         self.index_utils = JIndexUtils(self.index_path)
 

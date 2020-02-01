@@ -25,8 +25,8 @@ class BagOfWords(Extractor):
 
     @staticmethod
     def config():
-        datamode = "unigram"  # DSSM requires trigram vector as input
-        keepstops = False
+        datamode = "unigram"  # type of input: 'unigram' or 'trigram'
+        keepstops = False  # include stopwords in the reranker's input
         return locals().copy()  # ignored by sacred
 
     def build_unigram_stoi(self, toks_list, keepstops, calculate_idf):
