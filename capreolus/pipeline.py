@@ -443,6 +443,8 @@ def _format_entry(indent, entry):
 
     PRINTER = pprint.PrettyPrinter()
     PRINTER.format = sacred.commands._non_unicode_repr
+    GREY = "\033[90m"
+    ENDC = "\033[0m"
 
     indent = " " * indent
     if entry.key == "__doc__":
@@ -453,7 +455,7 @@ def _format_entry(indent, entry):
     else:  # isinstance(entry, PathEntry):
         assign = indent + entry.key + ":"
     if entry.doc:
-        doc_string = entry.doc
+        doc_string = GREY + "# " + entry.doc + ENDC
         if len(assign) <= 35:
             assign = "{:<35}  {}".format(assign, doc_string)
         else:
