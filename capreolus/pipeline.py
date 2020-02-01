@@ -398,6 +398,7 @@ def cli_module_choice(argv, module):
     return choice
 
 
+# modified sacred.commands._format_config function that groups config options by module
 def _format_config_by_module(cfg, config_mods, parameters_to_module):
     _iterate_marked = sacred.commands._iterate_marked
 
