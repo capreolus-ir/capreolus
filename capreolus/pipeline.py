@@ -418,7 +418,7 @@ def _format_config_by_module(cfg, config_mods, parameters_to_module):
     path_to_entry = {path: entry for path, entry in _iterate_marked(cfg, config_mods)}
 
     lines = ["Configuration:"]
-    for module, module_keys in module_configs.items():
+    for module, module_keys in sorted(module_configs.items()):
         indent = 2
 
         if module not in path_to_entry:
