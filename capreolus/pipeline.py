@@ -41,8 +41,8 @@ sacred.SETTINGS.HOST_INFO.CAPTURED_ENV.append("USER")
 modules = ("collection", "index", "searcher", "benchmark", "reranker")
 
 
+# default modules
 def module_config():
-    # default modules
     collection = "robust04"
     index = "anserini"
     searcher = "bm25"
