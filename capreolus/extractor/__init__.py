@@ -40,6 +40,7 @@ class Extractor:
             return pickle.load(open(cache_file, "rb"))
         else:
             self.build_from_benchmark(*args, **kwargs)
+            os.makedirs(os.path.dirname(cache_file), exist_ok=True)
             pickle.dump(self, open(cache_file, "wb"), protocol=2)
             return self
 
