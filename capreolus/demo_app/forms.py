@@ -33,6 +33,8 @@ class QueryForm(forms.Form):
     stemmer = CharField(required=True)
     query = CharField(required=True)
     gradacc = IntegerField(required=True)
+    b = FloatField(required=False)
+    k1 = FloatField(required=False)
 
     @classmethod
     def register(cls, formcls):

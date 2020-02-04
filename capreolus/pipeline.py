@@ -99,6 +99,7 @@ def pipeline_config():
 
 class Pipeline:
     def __init__(self, module_choices):
+        self.from_demo_app = False
         self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
         ex = sacred.Experiment("capreolus")
         self.ex = ex
@@ -346,7 +347,10 @@ class Pipeline:
                 collection=self.collection,
                 index=self.index,
             )
-            extractor.build_from_benchmark(**cfg)
+            # Hack to prevent the demo app from building the extractor on every request
+            # TODO: Refactor to get rid of EmbeddingHolder in the demo app
+            if not self.from_demo_app:
+                extractor.build_from_benchmark(**cfg)
             self.extractors.append(extractor)
 
     def extractor_cache(self, cls):

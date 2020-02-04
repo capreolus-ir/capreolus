@@ -242,6 +242,7 @@ class NeuralQueryView(TemplateView):
         # construct paths e.t.c.
         config = config.copy()  # because we end up modifying config
         pipeline = Pipeline(config)
+        pipeline.from_demo_app = True
         pipeline.initialize(config)
         path_dict = pipeline.get_paths(config)
         index_path = target_index
