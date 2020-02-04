@@ -348,7 +348,7 @@ class Pipeline:
             )
             # Hack to prevent the demo app from building the extractor on every request
             # TODO: Refactor to get rid of EmbeddingHolder in the demo app
-            extractor = extractor.build_from_benchmark(**cfg)
+            extractor = extractor.build_benchmark_or_use_cached(**cfg)
             self.extractors.append(extractor)
 
     def extractor_cache(self, cls):
