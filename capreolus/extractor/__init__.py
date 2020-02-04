@@ -1,5 +1,3 @@
-import hashlib
-
 import capnp
 from tqdm import tqdm
 import numpy as np
