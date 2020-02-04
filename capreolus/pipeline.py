@@ -351,6 +351,13 @@ class Pipeline:
             # TODO: Refactor to get rid of EmbeddingHolder in the demo app
             if not self.from_demo_app:
                 extractor.build_from_benchmark(**cfg)
+            else:
+                # Hack
+                # If self.from_demo_app is true, we temporarily set the embeddings to some numpy array
+                # This is anyway going to be overwritten by the EmbeddingHolder
+                # Refer NeuralQueryView.get_most_relevant_doc_based_on_config()
+                extractor.embeddings = np.zeros((30, 30))
+
             self.extractors.append(extractor)
 
     def extractor_cache(self, cls):
