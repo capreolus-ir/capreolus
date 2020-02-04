@@ -1,3 +1,4 @@
+import hashlib
 import os
 import pickle
 
@@ -35,7 +36,7 @@ class Extractor:
 
     def build_benchmark_or_use_cached(self, *args, **kwargs):
         cache_key = str(sorted([(key, value) for key, value in self.pipeline_config.items()]))
-        cache_file = "{0}/{1}.cache".format(self.feature_cache_dir, cache_key)
+        cache_file = "{0}/{1}.cache".format(self.feature_cache_dir, hashlib.md5(cache_key.encode()).hexdigest())
         if os.path.isfile(cache_file):
             return pickle.load(open(cache_file, "rb"))
         else:
