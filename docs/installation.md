@@ -2,6 +2,15 @@
 
 This section covers installing Capreolus via its pip package or from source.
 
+### Java
+Java 11 is required. On Debian-based distributions, this can be installed with `sudo apt install openjdk-11-jre`. You may additionally need to set the `JAVA_HOME` environment variable and/or use `update-alternatives` to ensure the correct version of Java is used by default.
+```
+$ java -version
+openjdk version "11.0.5" 2019-10-15
+OpenJDK Runtime Environment (build 11.0.5+10-post-Ubuntu-0ubuntu1.119.04)
+OpenJDK 64-Bit Server VM (build 11.0.5+10-post-Ubuntu-0ubuntu1.119.04, mixed mode, sharing)
+```
+
 ### Python
 Setup a Python 3.6+ environment in your home directory. We strongly recommend using Conda for performance reasons, but this is not strictly necessary.
 
