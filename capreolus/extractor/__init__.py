@@ -1,6 +1,4 @@
 import hashlib
-import os
-import pickle
 
 import capnp
 from tqdm import tqdm
@@ -34,16 +32,6 @@ class Extractor:
     def build_from_benchmark(self, *args, **kwargs):
         raise NotImplementedError
 
-    def build_benchmark_or_use_cached(self, *args, **kwargs):
-        cache_key = str(sorted([(key, value) for key, value in self.pipeline_config.items()]))
-        cache_file = "{0}/{1}.cache".format(self.feature_cache_dir, hashlib.md5(cache_key.encode()).hexdigest())
-        if os.path.isfile(cache_file):
-            return pickle.load(open(cache_file, "rb"))
-        else:
-            self.build_from_benchmark(*args, **kwargs)
-            os.makedirs(os.path.dirname(cache_file), exist_ok=True)
-            pickle.dump(self, open(cache_file, "wb"), protocol=2)
-            return self
 
 class BuildStoIMixin:
     def build_stoi(self, toks_list, keepstops, calculate_idf):
