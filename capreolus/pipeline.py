@@ -1,3 +1,4 @@
+import functools
 import multiprocessing
 import os
 import random
@@ -40,8 +41,8 @@ sacred.SETTINGS.HOST_INFO.CAPTURED_ENV.append("USER")
 modules = ("collection", "index", "searcher", "benchmark", "reranker")
 
 
+# default modules
 def module_config():
-    # default modules
     collection = "robust04"
     index = "anserini"
     searcher = "bm25"
@@ -55,20 +56,13 @@ def module_config():
 # (e.g., they don't affect model training or they're manually included somewhere in the path)
 def stateless_config():
     expid = "debug"  # experiment id/name
-    predontrain = False
-    fold = "s1"
+    predontrain = False  # predict rankings on the training set
+    fold = "s1"  # fold to use; indicates qids used for training, dev, and test sets
     earlystopping = True
     return locals().copy()  # ignored by sacred
 
 
 def pipeline_config():
-    # not working / disabled
-    # resume = False  # resume from last existing weights, if any exist #TODO make this work with epoch preds
-    # saveall = True
-    # selfprediction = False
-    # uniformunk = True
-    # datamode = "basic"
-
     maxdoclen = 800  # maximum document length (in number of terms after tokenization)
     maxqlen = 4  # maximum query length (in number of terms after tokenization)
     batch = 32  # batch size
@@ -77,9 +71,9 @@ def pipeline_config():
     gradacc = 1  # number of batches to accumulate over before updating weights
     lr = 0.001  # learning rate
     seed = 123_456  # random seed to use
-    sample = "simple"
+    sample = "simple"  # query and doc sampling strategy to use when training: 'simple'
     softmaxloss = True  # True to use softmax loss (over pairs) or False to use hinge loss
-    dataparallel = "none"
+    dataparallel = "none"  # train on a single GPU if 'none' or use all available GPUs if set to 'gpu'
 
     if sample not in ["simple"]:
         raise RuntimeError(f"sample '{sample}' must be one of: simple")
@@ -118,6 +112,10 @@ class Pipeline:
         self.parameters_to_module, self.parameter_types = self.get_parameters_to_module_for_feature_parameters(ex)
         self.module_to_parameters = self.get_module_to_parameters()
         self.check_for_invalid_keys()
+
+        sacred.commands._format_config = functools.partial(
+            _format_config_by_module, parameters_to_module=self.parameters_to_module
+        )
 
     def check_for_invalid_keys(self):
         invalid_keys = []
@@ -398,3 +396,68 @@ def cli_module_choice(argv, module):
         if arg.startswith(key):
             choice = arg[len(key) :]
     return choice
+
+
+# modified sacred.commands._format_config function that groups config options by module
+def _format_config_by_module(cfg, config_mods, parameters_to_module):
+    _iterate_marked = sacred.commands._iterate_marked
+
+    module_configs = {}
+    for k, module in parameters_to_module.items():
+        if module == "module":
+            module = k
+            module_configs.setdefault(module, [])
+        elif module == "stateless":
+            module = "experiment"
+        elif module == "extractor":
+            module = "reranker"
+
+        if k != module:
+            module_configs.setdefault(module, []).append(k)
+
+    module_configs = {k: sorted(vs) for k, vs in module_configs.items()}
+    path_to_entry = {path: entry for path, entry in _iterate_marked(cfg, config_mods)}
+
+    lines = ["Configuration:"]
+    for module, module_keys in sorted(module_configs.items()):
+        indent = 2
+
+        if module not in path_to_entry:
+            line = "{}{:<35}  {}".format(" " * indent, module, "")
+            lines.append(line)
+        else:
+            entry = path_to_entry[module]
+            lines.append(_format_entry(indent, entry))
+
+        for k in module_keys:
+            indent = 4
+            entry = path_to_entry[k]
+            lines.append(_format_entry(indent, entry))
+
+    return "\n".join(lines)
+
+
+# sacred.commands._format_entry with colors removed
+def _format_entry(indent, entry):
+    import pprint
+
+    PRINTER = pprint.PrettyPrinter()
+    PRINTER.format = sacred.commands._non_unicode_repr
+    GREY = "\033[90m"
+    ENDC = "\033[0m"
+
+    indent = " " * indent
+    if entry.key == "__doc__":
+        doc_string = entry.value.replace("\n", "\n" + indent)
+        assign = '{}"""{}"""'.format(indent, doc_string)
+    elif isinstance(entry, sacred.commands.ConfigEntry):
+        assign = indent + entry.key + " = " + PRINTER.pformat(entry.value)
+    else:  # isinstance(entry, PathEntry):
+        assign = indent + entry.key + ":"
+    if entry.doc:
+        doc_string = GREY + "# " + entry.doc + ENDC
+        if len(assign) <= 35:
+            assign = "{:<35}  {}".format(assign, doc_string)
+        else:
+            assign += "    " + doc_string
+    return assign

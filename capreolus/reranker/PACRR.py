@@ -95,7 +95,7 @@ class PACRR(Reranker):
         idf = True  # concatenate idf signals to combine relevance score from individual query terms
         kmax = 2  # value of kmax pooling used
         combine = 32  # size of combination layers
-        nonlinearity = "relu"
+        nonlinearity = "relu"  # nonlinearity in combination layer: 'none', 'relu', 'tanh'
         return locals().copy()  # ignored by sacred
 
     @staticmethod

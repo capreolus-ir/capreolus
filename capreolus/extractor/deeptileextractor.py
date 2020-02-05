@@ -48,9 +48,9 @@ class DeepTileExtractor(Extractor, BuildStoIMixin):
 
     @staticmethod
     def config():
-        tfchannel = True
+        tfchannel = True  # include TF as a channel
         slicelen = 20
-        keepstops = False
+        keepstops = False  # include stopwords in the reranker's input
         return locals().copy()  # ignored by sacred
 
     def get_magnitude_embeddings(self, embedding_name):

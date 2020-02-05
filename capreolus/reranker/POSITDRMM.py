@@ -134,8 +134,6 @@ class POSITDRMM(Reranker):
 
     @staticmethod
     def config():
-        # passagelen = 6
-        # self.p["maxqlen"], EMBEDDING_DIM, BATCH_SIZE come from main config
         lr = 0.01
         return locals().copy()  # ignored by sacred
 
