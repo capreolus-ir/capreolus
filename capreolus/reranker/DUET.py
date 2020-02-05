@@ -153,7 +153,7 @@ class DUET(Reranker):
         activation = "relu"  # activation for ffw layers, shoule be either 'tanh' or 'relu'
 
         lr = 0.0001
-        dropoutrate = 0.5
+        dropoutrate = 0.5  # dropout probability
         return locals().copy()  # ignored by sacred
 
     @staticmethod

@@ -39,7 +39,7 @@ class EmbedText(Extractor, BuildStoIMixin):
     @staticmethod
     def config():
         embeddings = "glove6b"  # static embedding file to use: glove6b, glove6b.50d, w2vnews, or fasttext
-        keepstops = False  # keep stopwords? discard them if False
+        keepstops = False  # include stopwords in the reranker's input
         return locals().copy()  # ignored by sacred
 
     def get_magnitude_embeddings(self, embedding_name):
