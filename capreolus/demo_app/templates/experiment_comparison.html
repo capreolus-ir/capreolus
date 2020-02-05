@@ -2,7 +2,7 @@
 
 {% block content %}
     <div class="row">
-        <div class="col-md-4">
+        <div class="col-md-4 col-sm-4">
             <form id="searchForm" class="margin-left-2rem input-group" action="/demo/compare_query/" method="GET">
                 <input id="querybox" name="query" class="form-control" type="text" placeholder="Search" aria-label="Search" autocomplete="off">
                 <div class="input-group-append">
@@ -27,7 +27,7 @@
     </button>
     <hr>
     <div class="row collapse" id="configs">
-        <div class="col-md-4 margin-left-2rem">
+        <div class="col-md-4 col-sm-4 margin-left-2rem">
             <div class="">
                 <table class="table table-bordered">
                     <thead>
@@ -51,7 +51,7 @@
                 </table>
             </div>
         </div>
-        <div class="col-md-4 margin-left-2rem">
+        <div class="col-md-4 col-sm-4 margin-left-2rem">
             <div class="">
                 <table class="table table-bordered">
                     <thead>
@@ -78,7 +78,7 @@
     </div>
     <div class="row">
         {% if has_result %}
-            <div class="col-md-11 margin-left-right-2rem">
+            <div class="col-md-11 col-sm-11 margin-left-right-2rem">
                 <label>query: {{ query }}</label>
                 <div>
                     <label>Legend: <span class="relevance-1">Relevant</span> | <span class="relevance-0">Irrelevant</span></label>
