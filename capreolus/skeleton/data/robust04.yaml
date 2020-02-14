@@ -1,0 +1,19 @@
+name: robust04
+
+topics:
+  type: trec
+  path: topics.robust04.301-450.601-700.txt
+  
+qrels:
+  type: trec
+  path: qrels.robust2004.txt
+
+documents:
+  type: trec
+  path: /GW/NeuralIR/nobackup/Aquaint-TREC-3-4/NEWS_data
+  index_download:
+    url: https://git.uwaterloo.ca/jimmylin/anserini-indexes/raw/master/index-robust04-20191213.tar.gz
+    sha256: dddb81f16d70ea6b9b0f94d6d6b888ed2ef827109a14ca21fd82b2acd6cbd450
+    index_directory_inside: index-robust04-20191213/
+    index_config_string: anserini_indexstops-False_stemmer-porter
+    expected_document_count: 528030
