@@ -9,7 +9,6 @@ class Benchmark(ModuleBase, metaclass=RegisterableModule):
     """the module base class"""
 
     module_type = "benchmark"
-    cfg = {}
 
 
 class WSDM20Demo(Benchmark):
