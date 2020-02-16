@@ -13,7 +13,7 @@ class Collection(ModuleBase, metaclass=RegisterableModule):
 
 class Robust04(Collection):
     name = "robust04"
-    path = "/home/andrew/Aquaint-TREC-3-4"
+    # path = "/home/andrew/Aquaint-TREC-3-4"
     collection_type = "TrecCollection"
     generator_type = "JsoupGenerator"
 
