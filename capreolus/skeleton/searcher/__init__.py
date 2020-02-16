@@ -5,7 +5,6 @@ class Searcher(ModuleBase, metaclass=RegisterableModule):
     """the module base class"""
 
     module_type = "searcher"
-    cfg = {}
 
 
 class SDM(Searcher):
