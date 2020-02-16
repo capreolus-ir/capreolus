@@ -8,6 +8,7 @@ import logging.handlers
 GLOBAL_LOGGING_CONF = {"level": os.environ.get("CAPREOLUS_LOGGING", logging.INFO)}
 print(GLOBAL_LOGGING_CONF)
 
+
 class RepeatFilter(logging.Filter):
     def __init__(self, logger, maxlevel=logging.DEBUG, max_repeats=5):
         super(RepeatFilter, self).__init__()
