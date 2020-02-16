@@ -29,7 +29,7 @@ class Dependency:
     """
 
     def __init__(self, module, name=None, config_overrides=None):
-        importlib.import_module(module)
+        importlib.import_module(module) # TODO: for what?
         self.module = module
         self.name = name
         self.config_overrides = config_overrides
@@ -55,6 +55,7 @@ class RegisterableModule(type):
 
     def register_plugin(cls, plugin):
         if cls.plugins.get(plugin.name, plugin) != plugin:
+            # TODO: shall we allow the duplicate module name??
             print(f"WARNING: replacing entry {cls.plugins[plugin.name]} for {plugin.name} with {plugin}")
         cls.plugins[plugin.name] = plugin
 
@@ -109,7 +110,7 @@ class ModuleBase:
 
         # create module config consisting of (1) the module class name and (2) its config options (from config())
         ingredient.add_config({"_name": cls.name})
-        ingredient.config(cls.config)
+        ingredient.config(cls.config) # TODO: should be ingredient.config(cls.cfg)??
 
         # add ingredient's commands to the shared command_list
         for command_name, command_func in cls.commands.items():
@@ -133,6 +134,8 @@ class ModuleBase:
             provided_modules: modules provided by the pipeline
             prefix: used to recursively set ingredient names; should be set to None on function call
         """
+        # TODO: (ask) when will be the condition that pipeline (task) won't provide enough modules
+        # and each module can only rely on their own dependency
 
         if command_list is None:
             command_list = []
