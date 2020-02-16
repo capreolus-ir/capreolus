@@ -12,6 +12,7 @@ from capreolus.utils.loginit import get_logger
 
 logger = get_logger(__name__)  # pylint: disable=invalid-name
 
+
 class Anserini:
     @classmethod
     def get_fat_jar(cls):
@@ -24,6 +25,7 @@ class Anserini:
                     return max(fat_jar_path, key=os.path.getctime)
 
         raise Exception("could not find anserini fat jar")
+
 
 def download_file(url, outfn, expected_hash=None):
     """ Download url to the file outfn. If expected_hash is provided, use it to both verify the file was downloaded
@@ -66,4 +68,3 @@ def hash_file(fn):
             sha.update(data)
 
     return sha.hexdigest()
-
