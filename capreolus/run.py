@@ -1,8 +1,9 @@
 import sys
+sys.path.append('/home/x978zhan/mpi-spring/capreolus_v2')
 
 from capreolus.pipeline import Pipeline
 
-# NEXT:
+# TODO:
 # - make pipeline use the function callback method (for commnd)
 # - add commands for ingredients like index
 # - add commands for train and evaluate to mirrow current setup

@@ -11,6 +11,8 @@ sacred.SETTINGS.CONFIG.READ_ONLY_CONFIG = False
 from capreolus.registry import all_known_modules
 from capreolus.task import Task
 
+print('pipeline: ', __name__)
+
 
 class Pipeline:
     def __init__(self, task_name, rewritten_args):
