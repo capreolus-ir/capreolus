@@ -11,12 +11,16 @@ class Benchmark(ModuleBase, metaclass=RegisterableModule):
     module_type = "benchmark"
     cfg = {}
 
+    def get_topic_path_and_type(self):
+        return self.topic_file, self.topic_type
+
 
 class WSDM20Demo(Benchmark):
     name = "wsdm20demo"
     qrel_file = PACKAGE_PATH / "data" / "qrels.robust2004.txt"
     topic_file = PACKAGE_PATH / "data" / "topics.robust04.301-450.601-700.txt"
     fold_file = PACKAGE_PATH / "data" / "rob04_yang19_folds.json"
+    topic_type = "trec"
 
     @staticmethod
     def config():
