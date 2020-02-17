@@ -82,6 +82,7 @@ def get_logger(name=None):
 
     logger.setLevel(GLOBAL_LOGGING_CONF["level"])
     if name is None:
-        return logger
-    else:
-        return logging.getLogger(name)
+        name = "capreolus"
+    if not name.startswith("capreolus"):
+        name = "capreolus." + name
+    return logging.getLogger(name)
