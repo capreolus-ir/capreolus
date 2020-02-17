@@ -14,7 +14,6 @@ all_known_modules = {}
 
 PACKAGE_PATH = Path(os.path.dirname(__file__))
 RESULTS_BASE_PATH = Path(os.environ.get("CAPREOLUS_RESULTS", os.path.expanduser("~/.capreolus/results/")))
-CACHE_BASE_PATH = Path(os.environ.get("CAPREOLUS_CACHE", os.path.expanduser("~/.capreolus/cache/")))
 MAX_THREADS = int(os.environ.get("CAPREOLUS_THREADS", multiprocessing.cpu_count()))
 
 
@@ -158,6 +157,7 @@ class ModuleBase(RegisterableMixIn):
     def __init__(self, cfg):
         """ Use classmethod instantiate_from_config. """
         self.cfg = sacred.config.custom_containers.ReadOnlyDict(cfg)
+        self.modules = {}
 
     # this module's dependencies: dict mapping config keys to Dependency objects
     dependencies = {}
@@ -173,8 +173,8 @@ class ModuleBase(RegisterableMixIn):
         """ Return a path encoding the module's config, which can be used for caching.
             The path is a function of the module's config and the configs of its dependencies.
         """
-
-        return CACHE_BASE_PATH / self.get_module_path(include_provided=True)
+        cache_base_path = Path(os.environ.get("CAPREOLUS_CACHE", os.path.expanduser("~/.capreolus/cache/")))
+        return cache_base_path / self.get_module_path(include_provided=True)
 
     def get_module_path(self, include_provided=True):
         """ Return a path encoding the module's config, including its dependenceis """
