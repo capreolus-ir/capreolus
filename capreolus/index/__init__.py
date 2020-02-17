@@ -1,9 +1,9 @@
 import logging
+import math
 import os
 import subprocess
 
 from capreolus.registry import ModuleBase, RegisterableModule, Dependency, MAX_THREADS
-from capreolus.collection import Collection
 from capreolus.utils.common import Anserini
 from capreolus.utils.loginit import get_logger
 
@@ -33,6 +33,9 @@ class Index(ModuleBase, metaclass=RegisterableModule):
             print("done", file=donef)
 
     def _create_index(self):
+        raise NotImplementedError()
+
+    def get_doc(self, doc_id):
         raise NotImplementedError()
 
     def get_docs(self, doc_ids):
@@ -79,39 +82,10 @@ class AnseriniIndex(Index):
             raise RuntimeError("command failed")
 
     def get_docs(self, doc_ids):
-        if self.collection.is_large_collection:
-            return self.get_documents_from_disk(doc_ids)
-        else:
-            return [self.getdoc(doc_id) for doc_id in doc_ids]
+        # if self.collection.is_large_collection:
+        #     return self.get_documents_from_disk(doc_ids)
 
-    def get_documents_from_disk(self, doc_ids):
-        """
-        Does not make use of the index. We use pyserini's disk traversal methods to retrieve documents. This allows
-        us to get away with much smaller index sizes on disk, since indexes now does not have to store the document
-        """
-        start = time.time()
-        logger.info("Starting to get documents from disk")
-        document_type = self.collection.config["documents"]["type"]
-        if document_type == "trec":
-            ctype = "TrecCollection"
-        elif document_type == "trecweb":
-            ctype = "TrecwebCollection"
-        else:
-            # For clueweb12, document_type in yaml is the same as anserini - ClueWeb12Collection
-            ctype = document_type
-
-        rootdir = self.collection.config["documents"]["path"]
-        p = subprocess.run(
-            ["python", get_crawl_collection_script(), rootdir, ctype],
-            stdout=subprocess.PIPE,
-            input=",".join(doc_ids),
-            check=True,
-            encoding="utf-8",
-        )
-        with open("{0}/disk_crawl_temp_dump.json".format(os.getenv("CAPREOLUS_CACHE", get_default_cache_dir())), "rt") as fp:
-            fetched_docs = json.load(fp)
-
-        return [fetched_docs.get(doc_id, []) for doc_id in doc_ids]
+        return [self.getdoc(doc_id) for doc_id in doc_ids]
 
     def getdoc(self, docid):
         try:
@@ -123,6 +97,8 @@ class AnseriniIndex(Index):
 
     def getdf(self, term):
         # returns 0 for missing terms
+        if not hasattr(self, "reader") or self.reader is None:
+            self.open()
         jterm = self.JTerm("contents", term)
         return self.reader.docFreq(jterm)
 

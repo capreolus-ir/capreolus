@@ -1,4 +1,4 @@
-from capreolus.registry import ModuleBase, RegisterableModule
+from capreolus.registry import ModuleBase, RegisterableModule, PACKAGE_PATH
 
 
 class Collection(ModuleBase, metaclass=RegisterableModule):
@@ -14,6 +14,13 @@ class Collection(ModuleBase, metaclass=RegisterableModule):
 class Robust04(Collection):
     name = "robust04"
     path = "/home/andrew/Aquaint-TREC-3-4"
+    collection_type = "TrecCollection"
+    generator_type = "JsoupGenerator"
+
+
+class DummyCollection(Collection):
+    name = "dummy"
+    path = PACKAGE_PATH / "data" / "dummy" / "data"
     collection_type = "TrecCollection"
     generator_type = "JsoupGenerator"
 

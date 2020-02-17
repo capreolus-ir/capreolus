@@ -9,18 +9,9 @@ class Benchmark(ModuleBase, metaclass=RegisterableModule):
     """the module base class"""
 
     module_type = "benchmark"
-
-
-class WSDM20Demo(Benchmark):
-    name = "wsdm20demo"
-    qrel_file = PACKAGE_PATH / "data" / "qrels.robust2004.txt"
-    topic_file = PACKAGE_PATH / "data" / "topics.robust04.301-450.601-700.txt"
-    fold_file = PACKAGE_PATH / "data" / "rob04_yang19_folds.json"
-
-    @staticmethod
-    def config():
-        fold = "s1"
-        rundocsonly = True  # use only docs from the searcher as pos/neg training instances (i.e., not all qrels)
+    qrel_file = None
+    topic_file = None
+    fold_file = None
 
     @property
     def qrels(self):
@@ -37,5 +28,31 @@ class WSDM20Demo(Benchmark):
     @property
     def folds(self):
         if not hasattr(self, "_folds"):
-            self._folds = json.load(open(os.path.join(self.collection.basepath, fold_file), "rt"))
+            self._folds = json.load(open(self.fold_file, "rt"))
         return self._folds
+
+
+class DummyBenchmark(Benchmark):
+    name = "dummy"
+    qrel_file = PACKAGE_PATH / "data" / "qrels.dummy.txt"
+    topic_file = PACKAGE_PATH / "data" / "topics.dummy.txt"
+    fold_file = PACKAGE_PATH / "data" / "dummy_folds.json"
+
+    @staticmethod
+    def config():
+        fold = "s1"
+        rundocsonly = False
+
+
+
+
+class WSDM20Demo(Benchmark):
+    name = "wsdm20demo"
+    qrel_file = PACKAGE_PATH / "data" / "qrels.robust2004.txt"
+    topic_file = PACKAGE_PATH / "data" / "topics.robust04.301-450.601-700.txt"
+    fold_file = PACKAGE_PATH / "data" / "rob04_yang19_folds.json"
+
+    @staticmethod
+    def config():
+        fold = "s1"
+        rundocsonly = True  # use only docs from the searcher as pos/neg training instances (i.e., not all qrels)
