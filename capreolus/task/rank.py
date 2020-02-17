@@ -35,6 +35,8 @@ def train(config, modules):
     searcher["index"].create_index()
     print(searcher["index"].getdoc("FBIS4-16592"))
 
+    searcher.search()
+    print("finished")
 
 def evaluate(config, modules):
     output_path = _pipeline_path(config, modules)
@@ -63,7 +65,8 @@ class RankTask(Task):
 
     name = "rank"
     module_order = ["collection", "searcher", "benchmark"]
-    module_defaults = {"searcher": "SDM", "collection": "robust04", "benchmark": "wsdm20demo"}
+    # module_defaults = {"searcher": "SDM", "collection": "robust04", "benchmark": "wsdm20demo"}
+    module_defaults = {"searcher": "BM25", "collection": "robust04", "benchmark": "wsdm20demo"}
     config_functions = [pipeline_config]
     config_overrides = []
     commands = {"train": train, "evaluate": evaluate, "describe": describe}
