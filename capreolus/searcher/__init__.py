@@ -1,9 +1,11 @@
 import os, subprocess
 from collections import defaultdict
 
+import numpy as np
+
 from capreolus.registry import ModuleBase, RegisterableModule, Dependency, MAX_THREADS
-from capreolus.utils.common import Anserini
 from capreolus.utils.loginit import get_logger
+from capreolus.utils.common import Anserini
 
 logger = get_logger(__name__)
 
@@ -85,8 +87,13 @@ class BM25(Searcher):
 
     @staticmethod
     def config():
-        b = 0.4
-        k1 = 0.9
+        gridsearch = True
+        if gridsearch:
+            bmax = 1.0
+            k1max = 1.0
+        else:
+            b = 0.4
+            k1 = 0.9
 
     def _search(self):
         # from dependencies
@@ -102,8 +109,13 @@ class BM25(Searcher):
         # elif topic_type == "ClueWeb12Collection"
         #     topic_reader = "Webxml"
 
-        bs = [self.cfg["b"]]
-        k1s = [self.cfg["k1"]]
+        if self.cfg["gridsearch"]:
+            bs = np.around(np.arange(0.1, self.cfg["bmax"]+0.1, 0.1), 1)
+            k1s = np.around(np.arange(0.1, self.cfg["k1max"]+0.1, 0.1), 1)
+        else:
+            bs = [self.cfg["b"]]
+            k1s = [self.cfg["k1"]]
+
         bstr = " ".join(str(x) for x in bs)
         k1str = " ".join(str(x) for x in k1s)
 
@@ -117,9 +129,9 @@ class BM25(Searcher):
         app = subprocess.Popen(cmd.split(), stdout=subprocess.PIPE, universal_newlines=True)
         # for line in app.stdout:
         # fields = line.strip().split()
-        outp = app.stdout   # check if it's verbose
-        for line in outp:
-            logger.info("[anserini] %s", line)
+        # outp = app.stdout
+        # for line in outp:
+        #     logger.info("[anserini] %s", line)
 
         app.wait()
         if app.returncode != 0:
