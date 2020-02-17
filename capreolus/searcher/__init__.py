@@ -1,5 +1,6 @@
 import os
 import subprocess
+from collections import defaultdict
 
 import numpy as np
 
@@ -14,6 +15,27 @@ class Searcher(ModuleBase, metaclass=RegisterableModule):
 
     module_type = "searcher"
 
+    @staticmethod
+    def load_trec_run(fn):
+        run = defaultdict(dict)
+        with open(fn, "rt") as f:
+            for line in f:
+                line = line.strip()
+                if len(line) > 0:
+                    qid, _, docid, rank, score, desc = line.split(" ")
+                    run[qid][docid] = float(score)
+        return run
+
+    @staticmethod
+    def write_trec_run(preds, outfn):
+        count = 0
+        with open(outfn, "wt") as outf:
+            for qid in sorted(preds):
+                rank = 1
+                for docid, score in sorted(preds[qid].items(), key=lambda x: x[1], reverse=True):
+                    print(f"{qid} Q0 {docid} {rank} {score} capreolus", file=outf)
+                    rank += 1
+                    count += 1
 
 
 class AnseriniSearcherMixIn:
