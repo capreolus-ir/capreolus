@@ -68,7 +68,7 @@ class RerankTask(Task):
 
     name = "rerank"
     module_order = ["collection", "searcher", "reranker", "benchmark"]
-    module_defaults = {"searcher": "SDM", "reranker": "KNRM", "collection": "robust04", "benchmark": "wsdm20demo"}
+    module_defaults = {"searcher": "BM25", "reranker": "KNRM", "collection": "robust04", "benchmark": "wsdm20demo"}
     config_functions = [pipeline_config]
     config_overrides = []
     commands = {"train": train, "evaluate": evaluate, "describe": describe}
