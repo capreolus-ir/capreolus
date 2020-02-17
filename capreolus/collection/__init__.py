@@ -10,8 +10,6 @@ class Collection(ModuleBase, metaclass=RegisterableModule):
     def get_path_and_types(self):
         return self.path, self.collection_type, self.generator_type
 
-    def get_topics_path_and_type(self):
-        return self.topic_path, self.topic_type
 
 class Robust04(Collection):
     name = "robust04"
@@ -20,8 +18,6 @@ class Robust04(Collection):
     collection_type = "TrecCollection"
     generator_type = "JsoupGenerator"
 
-    topic_path = "/home/x978zhan/mpi-spring/data/robust04/topics.robust04.301-450.601-700.txt"
-    topic_type = "trec"
 
 class Robust05(Collection):
     name = "robust05"

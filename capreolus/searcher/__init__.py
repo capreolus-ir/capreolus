@@ -48,18 +48,18 @@ class Searcher(ModuleBase, metaclass=RegisterableModule):
         donefn = self._get_run_dir() / "done"
         return donefn.exists()
 
-    def search(self):
+    def search(self, topic_path, topic_type):
         if self.exists():
             return
 
         self["index"].create_index()
-        self._search()
+        self._search(topic_path, topic_type)
 
         donefn = self._get_run_dir() / "done"
         with open(donefn, "wt", encoding="utf-8") as f:
             print("done", file=f)
 
-    def _search(self):
+    def _search(self, topic_path, topic_type):
         raise NotImplementedError()
 
 
@@ -80,7 +80,6 @@ class SDM(Searcher):
         ow = 0.5
         uw = 0.2
 
-
 class BM25(Searcher):
     name = "BM25"
     dependencies = {"index": Dependency(module="index", name="anserini")}
@@ -95,16 +94,15 @@ class BM25(Searcher):
             b = 0.4
             k1 = 0.9
 
-    def _search(self):
+    def _search(self, topic_path, topic_type):
         # from dependencies
-        index, collection = self["index"], self["index"]["collection"]
+        index = self["index"]
         index_path = index.get_index_path()
-        topics_path, topics_type = collection.get_topics_path_and_type()
         stemmer = index.cfg["stemmer"]
         stops = "-keepStopwords" if index.cfg["indexstops"] else ""
 
         outpath = self.get_run_path()
-        if topics_type == "trec":
+        if topic_type == "trec":
             topic_reader = "Trec"
         # elif topic_type == "ClueWeb12Collection"
         #     topic_reader = "Webxml"
@@ -120,7 +118,7 @@ class BM25(Searcher):
         k1str = " ".join(str(x) for x in k1s)
 
         anserini_fat_jar = Anserini.get_fat_jar()
-        cmd = f"java -classpath {anserini_fat_jar} -Xms512M -Xmx31G -Dapp.name=SearchCollection io.anserini.search.SearchCollection -topicreader {topic_reader} -index {index_path} {stops} -stemmer {stemmer} -topics {topics_path} -output {outpath} -inmem -threads {MAX_THREADS} -bm25 -b {bstr} -k1 {k1str}"
+        cmd = f"java -classpath {anserini_fat_jar} -Xms512M -Xmx31G -Dapp.name=SearchCollection io.anserini.search.SearchCollection -topicreader {topic_reader} -index {index_path} {stops} -stemmer {stemmer} -topics {topic_path} -output {outpath} -inmem -threads {MAX_THREADS} -bm25 -b {bstr} -k1 {k1str}"
 
         logger.info("running bm25 search, output to %s", outpath)
         logger.debug(cmd)
