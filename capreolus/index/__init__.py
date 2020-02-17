@@ -1,6 +1,6 @@
-import os
-import math
 import logging
+import os
+
 import subprocess
 
 from capreolus.registry import ModuleBase, RegisterableModule, Dependency, MAX_THREADS
@@ -73,24 +73,7 @@ class AnseriniIndex(Index):
 
         # Anserini output is verbose, so ignore DEBUG log lines and send other output through our logger
         for line in app.stdout:
-            fields = line.strip().split()
-
-            # is this a log line?
-            # at least 5 fields should exist
-            # (0) date field should be 10 digits and begin with 20. e.g. 2020-02-14
-            # (3) function field should begin with [
-            if len(fields) > 5 and len(fields[0]) == 10 and fields[3][0] == "[":
-                # skip debug messages
-                if fields[2] == "DEBUG":
-                    continue
-
-                loglevel = logging._nameToLevel.get(fields[2], 40)
-                msg = " ".join(fields[3:])
-            else:
-                loglevel = logging._nameToLevel["WARNING"]
-                msg = line.strip()
-
-            logger.log(loglevel, "[AnseriniProcess] %s", msg)
+            Anserini.filter_and_log_anserini_output(line, logger)
 
         app.wait()
         if app.returncode != 0:

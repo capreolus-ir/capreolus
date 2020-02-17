@@ -5,7 +5,6 @@ class Extractor(ModuleBase, metaclass=RegisterableModule):
     """the module base class"""
 
     module_type = "extractor"
-    cfg = {}
 
 
 class EmbedText(Extractor):

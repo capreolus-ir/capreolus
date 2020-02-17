@@ -24,6 +24,3 @@ class Robust05(Collection):
     path = "missingpath"
     collection_type = "TrecCollection"
     generator_type = "JsoupGenerator"
-
-    topic_path = "missingpath"
-    topic_type = "missingtype"

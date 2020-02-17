@@ -9,10 +9,7 @@ class Benchmark(ModuleBase, metaclass=RegisterableModule):
     """the module base class"""
 
     module_type = "benchmark"
-    cfg = {}
 
-    def get_topic_path_and_type(self):
-        return self.topic_file, self.topic_type
 
 
 class WSDM20Demo(Benchmark):
@@ -20,7 +17,6 @@ class WSDM20Demo(Benchmark):
     qrel_file = PACKAGE_PATH / "data" / "qrels.robust2004.txt"
     topic_file = PACKAGE_PATH / "data" / "topics.robust04.301-450.601-700.txt"
     fold_file = PACKAGE_PATH / "data" / "rob04_yang19_folds.json"
-    topic_type = "trec"
 
     @staticmethod
     def config():
@@ -42,5 +38,5 @@ class WSDM20Demo(Benchmark):
     @property
     def folds(self):
         if not hasattr(self, "_folds"):
-            self._folds = json.load(open(os.path.join(self.collection.basepath, fold_file), "rt"))
+            self._folds = json.load(open(os.path.join(self.collection.basepath, self.fold_file), "rt"))
         return self._folds
