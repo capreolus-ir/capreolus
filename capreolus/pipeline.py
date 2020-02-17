@@ -131,8 +131,8 @@ class Pipeline:
     def create_experiment(self, experiment_name, interactive=False):
         """ Create a sacred.Experiment containing config options for the chosen modules (and their dependencies) """
 
-        chosen = self._extract_choices_from_argv(sys.argv)
-        sys.argv = self._rewrite_argv_for_ingredients(sys.argv)
+        chosen = self._extract_choices_from_argv(self.rewritten_args)
+        self.rewritten_args = self._rewrite_argv_for_ingredients(self.rewritten_args)
 
         ingredients, ingredient_commands = self._create_module_ingredients(chosen)
         # for ingredient in ingredients:

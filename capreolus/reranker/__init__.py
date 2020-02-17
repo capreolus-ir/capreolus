@@ -9,8 +9,6 @@ class Reranker(ModuleBase, metaclass=RegisterableModule):
     module_type = "reranker"
     dependencies = {"extractor": Dependency(module="extractor", name="embedtext")}
 
-    cfg = {}
-
 
 class KNRM(Reranker):
     name = "KNRM"
