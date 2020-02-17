@@ -1,15 +1,29 @@
-import importlib
-import os.path
-from glob import glob
+from capreolus.registry import ModuleBase, RegisterableModule, Dependency
 
-from capreolus.utils.loginit import get_logger
+# from extractor import Extractor
 
-logger = get_logger(__name__)  # pylint: disable=invalid-name
 
-# import all model modules so that the model classes are registered
-pwd = os.path.dirname(__file__)
-logger.debug("checking for reranker to import in: %s", pwd)
-for fn in glob(os.path.join(pwd, "*.py")):
-    modname = os.path.basename(fn)[:-3]
-    if not (modname.startswith("__") or modname.startswith("flycheck_")):
-        importlib.import_module(f"capreolus.reranker.{modname}")
+class Reranker(ModuleBase, metaclass=RegisterableModule):
+    """the module base class"""
+
+    module_type = "reranker"
+    dependencies = {"extractor": Dependency(module="extractor", name="embedtext")}
+
+
+class KNRM(Reranker):
+    name = "KNRM"
+    # dependencies = {"extractor": "EmbedText"}
+
+    @staticmethod
+    def config():
+        gradkernels = True
+        scoretanh = False
+
+
+class PACRR(Reranker):
+    name = "PACRR"
+
+    @staticmethod
+    def config():
+        kmax = 5
+        nfilters = 2
