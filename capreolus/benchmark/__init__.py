@@ -40,3 +40,6 @@ class WSDM20Demo(Benchmark):
         if not hasattr(self, "_folds"):
             self._folds = json.load(open(os.path.join(self.collection.basepath, self.fold_file), "rt"))
         return self._folds
+
+    def get_topic_file(self):
+        return self.topic_file
