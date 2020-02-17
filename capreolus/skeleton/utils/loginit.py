@@ -6,7 +6,6 @@ import logging.handlers
 
 
 GLOBAL_LOGGING_CONF = {"level": os.environ.get("CAPREOLUS_LOGGING", logging.INFO)}
-print(GLOBAL_LOGGING_CONF)
 
 
 class RepeatFilter(logging.Filter):
