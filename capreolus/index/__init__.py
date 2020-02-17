@@ -1,6 +1,4 @@
-import json
 import logging
-import math
 import os
 import subprocess
 
@@ -74,24 +72,7 @@ class AnseriniIndex(Index):
 
         # Anserini output is verbose, so ignore DEBUG log lines and send other output through our logger
         for line in app.stdout:
-            fields = line.strip().split()
-
-            # is this a log line?
-            # at least 5 fields should exist
-            # (0) date field should be 10 digits and begin with 20. e.g. 2020-02-14
-            # (3) function field should begin with [
-            if len(fields) > 5 and len(fields[0]) == 10 and fields[3][0] == "[":
-                # skip debug messages
-                if fields[2] == "DEBUG":
-                    continue
-
-                loglevel = logging._nameToLevel.get(fields[2], 40)
-                msg = " ".join(fields[3:])
-            else:
-                loglevel = logging._nameToLevel["WARNING"]
-                msg = line.strip()
-
-            logger.log(loglevel, "[AnseriniProcess] %s", msg)
+            Anserini.filter_and_log_anserini_output(line, logger)
 
         app.wait()
         if app.returncode != 0:
@@ -103,35 +84,34 @@ class AnseriniIndex(Index):
         else:
             return [self.getdoc(doc_id) for doc_id in doc_ids]
 
-    # TODO: Uncomment this
-    # def get_documents_from_disk(self, doc_ids):
-    #     """
-    #     Does not make use of the index. We use pyserini's disk traversal methods to retrieve documents. This allows
-    #     us to get away with much smaller index sizes on disk, since indexes now does not have to store the document
-    #     """
-    #     start = time.time()
-    #     logger.info("Starting to get documents from disk")
-    #     document_type = self.collection.config["documents"]["type"]
-    #     if document_type == "trec":
-    #         ctype = "TrecCollection"
-    #     elif document_type == "trecweb":
-    #         ctype = "TrecwebCollection"
-    #     else:
-    #         # For clueweb12, document_type in yaml is the same as anserini - ClueWeb12Collection
-    #         ctype = document_type
-    #
-    #     rootdir = self.collection.config["documents"]["path"]
-    #     p = subprocess.run(
-    #         ["python", get_crawl_collection_script(), rootdir, ctype],
-    #         stdout=subprocess.PIPE,
-    #         input=",".join(doc_ids),
-    #         check=True,
-    #         encoding="utf-8",
-    #     )
-    #     with open("{0}/disk_crawl_temp_dump.json".format(os.getenv("CAPREOLUS_CACHE", get_default_cache_dir())), "rt") as fp:
-    #         fetched_docs = json.load(fp)
-    #
-    #     return [fetched_docs.get(doc_id, []) for doc_id in doc_ids]
+    def get_documents_from_disk(self, doc_ids):
+        """
+        Does not make use of the index. We use pyserini's disk traversal methods to retrieve documents. This allows
+        us to get away with much smaller index sizes on disk, since indexes now does not have to store the document
+        """
+        start = time.time()
+        logger.info("Starting to get documents from disk")
+        document_type = self.collection.config["documents"]["type"]
+        if document_type == "trec":
+            ctype = "TrecCollection"
+        elif document_type == "trecweb":
+            ctype = "TrecwebCollection"
+        else:
+            # For clueweb12, document_type in yaml is the same as anserini - ClueWeb12Collection
+            ctype = document_type
+
+        rootdir = self.collection.config["documents"]["path"]
+        p = subprocess.run(
+            ["python", get_crawl_collection_script(), rootdir, ctype],
+            stdout=subprocess.PIPE,
+            input=",".join(doc_ids),
+            check=True,
+            encoding="utf-8",
+        )
+        with open("{0}/disk_crawl_temp_dump.json".format(os.getenv("CAPREOLUS_CACHE", get_default_cache_dir())), "rt") as fp:
+            fetched_docs = json.load(fp)
+
+        return [fetched_docs.get(doc_id, []) for doc_id in doc_ids]
 
     def getdoc(self, docid):
         try:
