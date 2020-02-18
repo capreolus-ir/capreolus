@@ -1,3 +1,5 @@
+import torch
+
 from capreolus.registry import ModuleBase, RegisterableModule, Dependency, MAX_THREADS
 from capreolus.utils.loginit import get_logger
 
@@ -5,10 +7,41 @@ logger = get_logger(__name__)  # pylint: disable=invalid-name
 
 
 class Trainer(ModuleBase, metaclass=RegisterableModule):
-    """the module base class"""
-
     module_type = "trainer"
+
+
+class PytorchTrainer(Trainer):
+    name = "pytorch"
     dependencies = {}
+
+    @staticmethod
+    def config():
+        # TODO move maxdoclen, maxqlen to extractor?
+        maxdoclen = 800  # maximum document length (in number of terms after tokenization)
+        maxqlen = 4  # maximum query length (in number of terms after tokenization)
+
+        batch = 32  # batch size
+        niters = 20  # number of iterations to train for
+        itersize = 512  # number of training instances in one iteration (epoch)
+        gradacc = 1  # number of batches to accumulate over before updating weights
+        lr = 0.001  # learning rate
+        softmaxloss = True  # True to use softmax loss (over pairs) or False to use hinge loss
+
+        # sanity checks
+        if batch < 1:
+            raise ValueError("batch must be >= 1")
+
+        if niters <= 0:
+            raise ValueError("niters must be > 0")
+
+        if itersize < batch:
+            raise ValueError("itersize must be >= batch")
+
+        if gradacc < 1 or not float(gradacc).is_integer():
+            raise ValueError("gradacc must be an integer >= 1")
+
+        if lr <= 0:
+            raise ValueError("lr must be > 0")
 
     def single_train_iteration(self, model, train_data):
         iter_loss = []
@@ -72,7 +105,7 @@ class Trainer(ModuleBase, metaclass=RegisterableModule):
 
     def predict(self, model, pred_data, pred_fn):
         # save to pred_fn
-        model.to(pipeline.device)
+        model.to(self.device)
         model.eval()
 
         with torch.autograd.no_grad():
@@ -82,36 +115,3 @@ class Trainer(ModuleBase, metaclass=RegisterableModule):
                 for qid, docid, score in zip(qid_batch, docid_batch, scores):
                     # Need to use float16 because pytrec_eval's c function call crashes with higher precision floats
                     preds[qid][docid] = score.astype(np.float16).item()
-
-
-class PytorchTrainer(Trainer):
-    name = "pytorch"
-
-    @staticmethod
-    def config():
-        # TODO move maxdoclen, maxqlen to extractor?
-        maxdoclen = 800  # maximum document length (in number of terms after tokenization)
-        maxqlen = 4  # maximum query length (in number of terms after tokenization)
-
-        batch = 32  # batch size
-        niters = 20  # number of iterations to train for
-        itersize = 512  # number of training instances in one iteration (epoch)
-        gradacc = 1  # number of batches to accumulate over before updating weights
-        lr = 0.001  # learning rate
-        softmaxloss = True  # True to use softmax loss (over pairs) or False to use hinge loss
-
-        # sanity checks
-        if batch < 1:
-            raise ValueError("batch must be >= 1")
-
-        if niters <= 0:
-            raise ValueError("niters must be > 0")
-
-        if itersize < batch:
-            raise ValueError("itersize must be >= batch")
-
-        if gradacc < 1 or not float(gradacc).is_integer():
-            raise ValueError("gradacc must be an integer >= 1")
-
-        if lr <= 0:
-            raise ValueError("lr must be > 0")
