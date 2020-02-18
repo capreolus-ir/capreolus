@@ -47,7 +47,7 @@ extensions = [
     "sphinx.ext.githubpages",
     "sphinx.ext.napoleon",
     "recommonmark",
-    "sphinxcontrib.apidoc"
+    "autoapi.extension",
 ]
 
 # Add any paths that contain templates here, relative to this directory.
@@ -167,7 +167,9 @@ todo_include_todos = True
 
 napoleon_google_docstring = True
 
-apidoc_module_dir = '../capreolus'
-apidoc_output_dir = '.'
-apidoc_excluded_paths = ["tests", "flycheck_*"]
-apidoc_separate_modules = True
+autoapi_type = 'python'
+autoapi_dirs = ['../capreolus']
+autoapi_ignore = ["*tests/*", "flycheck_*"]
+autoapi_options = ['members', 'undoc-members', 'show-inheritance', 'show-module-summary']
+# do not show _private and __special__ members
+# autoapi_options = ['members', 'undoc-members', 'private-members', 'show-inheritance', 'special-members', 'show-module-summary']
