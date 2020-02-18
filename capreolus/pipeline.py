@@ -21,7 +21,7 @@ class Pipeline:
         self.rewritten_args = rewritten_args
 
         for module in self.task.module_order:
-            importlib.import_module(module)
+            importlib.import_module(f"capreolus.{module}")
 
         # create a sacred experiment to attach config options, ingredients, etc. to
         self.ex = self.create_experiment(self.task.name)
