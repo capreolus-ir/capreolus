@@ -20,4 +20,4 @@ pwd = os.path.dirname(__file__)
 for fn in glob(os.path.join(pwd, "*.py")):
     modname = os.path.basename(fn)[:-3]
     if not (modname.startswith("__") or modname.startswith("flycheck_")):
-        importlib.import_module(f"task.{modname}")
+        importlib.import_module(f"capreolus.task.{modname}")
