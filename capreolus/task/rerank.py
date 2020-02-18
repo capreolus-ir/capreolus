@@ -1,36 +1,11 @@
-import json
 import os
 from capreolus.task import Task
-from capreolus.registry import print_module_graph, RESULTS_BASE_PATH
+from capreolus.registry import RESULTS_BASE_PATH
 
 
 def describe(config, modules):
-    print("\n--- module dependency graph ---")
-    print("run.py")
-    for module, obj in modules.items():
-        print_module_graph(obj, prefix=" ")
-    print("-------------------------------")
-
-    print("\n\n--- config: ---")
-    print(json.dumps(config, indent=4))
-
-    # prepare an output path that contains all config options
-    # experiment_id / collection / benchmark / [[index/searcher]] / [[index/extractor/reranker]] / pytorch-pipeline / <fold>
     output_path = _pipeline_path(config, modules)
-    print("\n\nresults path:", output_path)
-
-    print("cache paths:")
-    for module, obj in modules.items():
-        print("  ", obj.get_cache_path())
-
-    searcher = modules["searcher"]
-    reranker = modules["reranker"]
-    benchmark = modules["benchmark"]
-
-    # now we can use the modules via their APIs (which still need to be defined)
-    # ... set up a training loop ...
-    # ... for batch in benchmark.datagen ...
-    # ... reranker.forward(batch) ...
+    return Task.describe_pipeline(config, modules, output_path)
 
 
 def train(config, modules):
