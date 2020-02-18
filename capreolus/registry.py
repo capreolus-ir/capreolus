@@ -105,7 +105,7 @@ class RegisterableMixIn:
 
         # create module config consisting of (1) the module class name and (2) its config options (from config())
         ingredient.add_config({"_name": cls.name})
-        ingredient.config(cls.config)
+        ingredient.config(cls.config) # should be ingredient.config(cls.cfg)?
 
         # add ingredient's commands to the shared command_list
         for command_name, command_func in cls.commands.items():

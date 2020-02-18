@@ -44,8 +44,6 @@ class DummyBenchmark(Benchmark):
         rundocsonly = False
 
 
-
-
 class WSDM20Demo(Benchmark):
     name = "wsdm20demo"
     qrel_file = PACKAGE_PATH / "data" / "qrels.robust2004.txt"
