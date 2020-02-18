@@ -13,10 +13,16 @@ from capreolus.task import Task
 
 
 class Pipeline:
-    def __init__(self, task_name, rewritten_args):
-        """ Declare a pipeline consisting of one or more modules.
-            The modules will be initialized in `module_order` with the default classes provided in `module_defaults`. """
+    """ Declare a pipeline consisting of one or more modules.
 
+        The modules requested by the Task will be initialized following `Task.module_order`. If any module classes are not specified in `rewritten_args`, the defaults in `Task.module_defaults` will be used.
+
+        Args:
+            task_name (str): The name of a registered Task (e.g., rerank)
+            rewritten_args (list): The list of command line arguments to pass to sacred (with the task name removed)
+    """
+
+    def __init__(self, task_name, rewritten_args):
         self.task = Task.plugins[task_name]
         self.rewritten_args = rewritten_args
 
@@ -24,7 +30,7 @@ class Pipeline:
             importlib.import_module(f"capreolus.{module}")
 
         # create a sacred experiment to attach config options, ingredients, etc. to
-        self.ex = self.create_experiment(self.task.name)
+        self.ex = self._create_experiment(self.task.name)
 
         # add provided config_functions to experiment
         for config_function in self.task.config_functions:
@@ -37,11 +43,11 @@ class Pipeline:
         self.ex.default_command = self.task.default_command
 
     def _command_wrapper(self, _config, command_func):
-        modules = self.create_modules(_config)
+        modules = self._create_modules(_config)
         return command_func(_config, modules)
 
     def _ingredient_command_wrapper(self, _config, command_func, path):
-        modules = self.create_modules(_config)
+        modules = self._create_modules(_config)
 
         path_elements = path.split(".")
         current_module = modules[path_elements[0]]
@@ -51,6 +57,11 @@ class Pipeline:
         return command_func(current_module)
 
     def run(self):
+        """ Run the Pipeline described by this object.
+
+            This involves first determining which config options to use (via sacred), given the defaults and any options specified by the user. The command to run is similarly determined. Next, the Task's command is called and passed the active config and active modules.
+        """
+
         # TODO this is a hack to make Tasks show up in the sacred print msg. fix help messages to remove it.
         for command_name in reversed(sorted(self.task.plugins)):
             self.ex.commands[command_name] = self.ex.commands["print_config"]
@@ -131,7 +142,7 @@ class Pipeline:
 
         return rewritten_args
 
-    def create_experiment(self, experiment_name, interactive=False):
+    def _create_experiment(self, experiment_name, interactive=False):
         """ Create a sacred.Experiment containing config options for the chosen modules (and their dependencies) """
 
         chosen = self._extract_choices_from_argv(self.rewritten_args)
@@ -172,7 +183,7 @@ class Pipeline:
 
         return self.ex
 
-    def create_modules(self, _config):
+    def _create_modules(self, _config):
         """ Instantiate and return the chosen modules using the given config options """
 
         modules = OrderedDict()
