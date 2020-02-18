@@ -29,7 +29,7 @@ def evaluate(config, modules):
     searcher = modules["searcher"]
     benchmark = modules["benchmark"]
 
-    metric = "map"  # TODO: where shall we put 'metric' in config?
+    metric = config["optimize"]
     output_dir = searcher.get_cache_path() / benchmark.name
     best_results = evaluator.search_best_run(output_dir, benchmark, metric)
     print(f"best result with respect to {metric}: {best_results[metric]}, \npath: {best_results['path']}")
@@ -54,6 +54,7 @@ class RankTask(Task):
     def pipeline_config():
         expid = "debug"
         seed = 123_456
+        optimize = "map"  # metric to maximize on the dev set
 
     name = "rank"
     module_order = ["collection", "searcher", "benchmark"]
