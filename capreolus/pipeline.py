@@ -69,6 +69,9 @@ class Pipeline:
             if module_name is None:
                 raise Exception(f"a {module} module was not declared in the module choices or pipeline defaults")
 
+            if module_name not in all_known_modules[module].plugins:
+                raise KeyError(f"could not find class for requested module {module}={module_name}")
+
             module_cls = all_known_modules[module].plugins[module_name]
             module_ingredient, command_list = module_cls.resolve_dependencies(module, all_known_modules, provided_modules)
 
