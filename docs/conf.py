@@ -47,6 +47,7 @@ extensions = [
     "sphinx.ext.githubpages",
     "sphinx.ext.napoleon",
     "recommonmark",
+    "sphinxcontrib.apidoc"
 ]
 
 # Add any paths that contain templates here, relative to this directory.
@@ -166,3 +167,7 @@ todo_include_todos = True
 
 napoleon_google_docstring = True
 
+apidoc_module_dir = '../capreolus'
+apidoc_output_dir = '.'
+apidoc_excluded_paths = ["tests", "flycheck_*"]
+apidoc_separate_modules = True
