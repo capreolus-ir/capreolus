@@ -3,7 +3,7 @@ import os
 from capreolus.task import Task
 from capreolus.registry import print_module_graph, RESULTS_BASE_PATH
 
-from capreolus.evalutation import score
+from capreolus import evalutation
 
 def describe(config, modules):
     print("\n--- module dependency graph ---")
@@ -29,7 +29,6 @@ def describe(config, modules):
 
 def train(config, modules):
     # output_path = _pipeline_path(config, modules)
-    print("**** got train")
     searcher = modules["searcher"]
     benchmark = modules["benchmark"]
 
@@ -42,14 +41,14 @@ def train(config, modules):
 
 
 def evaluate(config, modules):
-    output_path = _pipeline_path(config, modules)
-    print("**** got evaluate!!")
-
+    # output_path = _pipeline_path(config, modules)
     searcher = modules["searcher"]
     benchmark = modules["benchmark"]
 
-    output_path = searcher.get_cache_path() / benchmark.name / "searcher"
-    score(runfile=output_path, benchmark=benchmark, metrics=["ndcg_cut_20", "map"])
+    metric = "map"  # TODO: where shall we put 'metric' in config?
+    output_dir = searcher.get_cache_path() / benchmark.name
+    best_results = evalutation.search_best_run(output_dir, benchmark, metric)
+    print(f"best result with respect to {metric}: {best_results[metric]}, \npath: {best_results['path']}")
 
 
 def _pipeline_path(config, modules):
