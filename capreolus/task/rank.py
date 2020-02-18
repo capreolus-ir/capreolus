@@ -3,6 +3,8 @@ import os
 from capreolus.task import Task
 from capreolus.registry import print_module_graph, RESULTS_BASE_PATH
 
+from capreolus import evaluator
+
 
 def describe(config, modules):
     print("\n--- module dependency graph ---")
@@ -27,8 +29,7 @@ def describe(config, modules):
 
 
 def train(config, modules):
-    output_path = _pipeline_path(config, modules)
-    print("**** got train")
+    # output_path = _pipeline_path(config, modules)
     searcher = modules["searcher"]
     benchmark = modules["benchmark"]
     topics_fn = benchmark.topic_file
@@ -36,10 +37,20 @@ def train(config, modules):
     search_results_folder = searcher.query_from_file(topics_fn, os.path.join(searcher.get_cache_path(), benchmark.name))
     print("Search results are at: " + search_results_folder)
 
+    topicsfn = benchmark.get_topic_file()
+    output_path = searcher.get_cache_path() / benchmark.name
+    searcher.query_from_file(topicsfn, output_path)
+
 
 def evaluate(config, modules):
-    output_path = _pipeline_path(config, modules)
-    print("**** got evaluate!!")
+    # output_path = _pipeline_path(config, modules)
+    searcher = modules["searcher"]
+    benchmark = modules["benchmark"]
+
+    metric = "map"  # TODO: where shall we put 'metric' in config?
+    output_dir = searcher.get_cache_path() / benchmark.name
+    best_results = evaluator.search_best_run(output_dir, benchmark, metric)
+    print(f"best result with respect to {metric}: {best_results[metric]}, \npath: {best_results['path']}")
 
 
 def _pipeline_path(config, modules):
