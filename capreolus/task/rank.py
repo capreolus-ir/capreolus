@@ -3,7 +3,8 @@ import os
 from capreolus.task import Task
 from capreolus.registry import print_module_graph, RESULTS_BASE_PATH
 
-from capreolus import evalutation
+from capreolus import evaluator
+
 
 def describe(config, modules):
     print("\n--- module dependency graph ---")
@@ -47,7 +48,7 @@ def evaluate(config, modules):
 
     metric = "map"  # TODO: where shall we put 'metric' in config?
     output_dir = searcher.get_cache_path() / benchmark.name
-    best_results = evalutation.search_best_run(output_dir, benchmark, metric)
+    best_results = evaluator.search_best_run(output_dir, benchmark, metric)
     print(f"best result with respect to {metric}: {best_results[metric]}, \npath: {best_results['path']}")
 
 
