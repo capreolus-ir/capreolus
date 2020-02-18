@@ -1,6 +1,5 @@
 import logging
 import os
-
 import subprocess
 
 from capreolus.registry import ModuleBase, RegisterableModule, Dependency, MAX_THREADS

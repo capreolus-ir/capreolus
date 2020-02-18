@@ -90,4 +90,3 @@ def hash_file(fn):
             sha.update(data)
 
     return sha.hexdigest()
-

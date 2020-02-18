@@ -8,7 +8,7 @@ from capreolus.registry import ModuleBase, RegisterableModule, Dependency, MAX_T
 from capreolus.utils.common import Anserini
 from capreolus.utils.loginit import get_logger
 
-logger = get_logger(__name__)
+logger = get_logger(__name__)  # pylint: disable=invalid-name
 
 class Searcher(ModuleBase, metaclass=RegisterableModule):
     """the module base class"""
