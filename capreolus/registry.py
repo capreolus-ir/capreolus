@@ -29,7 +29,7 @@ class Dependency:
     """
 
     def __init__(self, module, name=None, config_overrides=None):
-        importlib.import_module(module)
+        importlib.import_module(f"capreolus.{module}")
         self.module = module
         self.name = name
         self.config_overrides = config_overrides
