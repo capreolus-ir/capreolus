@@ -2,3 +2,4 @@ cython
 sphinx
 sphinxcontrib-apidoc
 recommonmark
+pyjnius==1.2.1
