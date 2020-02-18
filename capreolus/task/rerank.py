@@ -10,7 +10,29 @@ def describe(config, modules):
 
 def train(config, modules):
     output_path = _pipeline_path(config, modules)
-    print("**** got train")
+
+    searcher = modules["searcher"]
+    benchmark = modules["benchmark"]
+    reranker = modules["reranker"]
+    evaluator = modules["evaluate"]
+    searcher['index'].create_index()
+
+    result_dir = searcher.query_from_file()
+    best_search_run_fn = get_best_search_run(result_dir, benchmark.qrels, metrics)  
+
+    # create train/pred pairs here (not in benchmark)
+    # train_pairs, pred_pairs = benchmark.create_train_pred_pairs(best_search_run_fn)
+
+    # (query_text, posdoc, negdoc) - return the actual query text _and_ the qid
+    train_sampler = sampler.get_train_sampler(best_search_run_fn, benchmark, reranker.extractor)
+    dev_sampler = sampler.get_dev_triplets(best_search_run_fn, benchmark, reranker.extractor)
+    test_sampler = sampler.get_test_triplets(best_search_run_fn, benchmark, reranker.extractor)
+
+    trained_model = trainer.train(reranker, train_pairs)
+
+    reranker_pred_fn = trainer.predict(trained_model, test_sampler)
+
+    return evaluator.evaluate(reranker_pred_fn)
 
 
 def evaluate(config, modules):
