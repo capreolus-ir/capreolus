@@ -67,16 +67,56 @@ class PytorchTrainer(Trainer):
 
         return iter_loss.mean()
 
+    def load_loss_file(self, fn):
+        loss = []
+        with fn.open(mode="rt") as f:
+            for lineidx, line in enumerate(f):
+                line = line.strip()
+                if not line:
+                    continue
+
+                iteridx, iterloss = line.rstrip().split()
+
+                if int(iteridx) != lineidx:
+                    raise IOError(f"malformed loss file {fn} ... did two processes write to it?")
+
+                loss.append(float(iterloss))
+
+        return loss
+
+    def fastforward_training(self, model, weights_path, loss_fn):
+        if not (weights_path.exists() and loss_fn.exists()):
+            return 0
+
+        try:
+            loss = self.load_loss_file(loss_fn)
+        except IOError:
+            return 0
+
+        last_loss_iteration = len(loss) - 1
+        weights_fn = weights_path / f"{last_loss_iteration}.p"
+        if not weights_fn.exists():
+            return 0
+
+        try:
+            model.load_weights(weights_fn)
+            return last_loss_iteration
+        except:
+            return 0
+
     def train(self, model, train_data, train_output_path, dev_data, dev_output_path):
         model.to(self.device)
         self.optimizer = something
 
         weights_output_path = train_output_path / "weights"
         info_output_path = train_output_path / "info"
+        loss_fn = info_output_path / "loss.txt"
+        # how do we save optimizer weights along with model??
+        initial_iter = self.fastforward_training(model, weights_output_path, loss_fn)
+        # TODO make sure train_data is seeded correctly. maybe it should signal when to end epoch?
 
         train_loss = []
         dev_metrics = []
-        initial_iter = 0
         for niter in range(initial_iter, self.cfg["niters"]):
             model.train()
 
@@ -97,8 +137,7 @@ class PytorchTrainer(Trainer):
             model.save_weights(weights_fn)
 
         # write train_loss to file
-        loss_fn = info_output_path / "loss.txt"
-        with open(loss_fn, "wt") as outf:
+        with loss_fn.open(mode="wt") as outf:
             for idx, loss in enumerate(train_loss):
                 print(f"{idx} {loss}", file=outf)
         # write dev metrics to a combined file or leave them separate?
