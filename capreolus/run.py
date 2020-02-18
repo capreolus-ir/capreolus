@@ -1,4 +1,5 @@
 import sys
+
 from capreolus.pipeline import Pipeline
 
 # NEXT:
