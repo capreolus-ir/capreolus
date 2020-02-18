@@ -21,7 +21,7 @@ class Pipeline:
         self.rewritten_args = rewritten_args
 
         for module in self.task.module_order:
-            importlib.import_module(module)
+            importlib.import_module(f"capreolus.{module}")
 
         # create a sacred experiment to attach config options, ingredients, etc. to
         self.ex = self.create_experiment(self.task.name)
@@ -68,6 +68,9 @@ class Pipeline:
             module_name = choices.get(module, self.task.module_defaults.get(module))
             if module_name is None:
                 raise Exception(f"a {module} module was not declared in the module choices or pipeline defaults")
+
+            if module_name not in all_known_modules[module].plugins:
+                raise KeyError(f"could not find class for requested module {module}={module_name}")
 
             module_cls = all_known_modules[module].plugins[module_name]
             module_ingredient, command_list = module_cls.resolve_dependencies(module, all_known_modules, provided_modules)
