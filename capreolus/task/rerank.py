@@ -15,22 +15,23 @@ def train(config, modules):
     benchmark = modules["benchmark"]
     reranker = modules["reranker"]
     evaluator = modules["evaluate"]
-    searcher['index'].create_index()
+    searcher["index"].create_index()
 
     result_dir = searcher.query_from_file()
-    best_search_run_fn = get_best_search_run(result_dir, benchmark.qrels, metrics)  
+    best_search_run_fn = get_best_search_run(result_dir, benchmark.qrels, metrics)
 
     # create train/pred pairs here (not in benchmark)
     # train_pairs, pred_pairs = benchmark.create_train_pred_pairs(best_search_run_fn)
 
     # (query_text, posdoc, negdoc) - return the actual query text _and_ the qid
     train_sampler = sampler.get_train_sampler(best_search_run_fn, benchmark, reranker.extractor)
-    dev_sampler = sampler.get_dev_triplets(best_search_run_fn, benchmark, reranker.extractor)
-    test_sampler = sampler.get_test_triplets(best_search_run_fn, benchmark, reranker.extractor)
+    dev_instances = sampler.get_dev_iterator(best_search_run_fn, benchmark, reranker.extractor)
+    test_instances = sampler.get_test_iterator(best_search_run_fn, benchmark, reranker.extractor)
 
-    trained_model = trainer.train(reranker, train_pairs)
+    trained_model = trainer.train(reranker, train_sampler, dev_instances, weights_path)
 
-    reranker_pred_fn = trainer.predict(trained_model, test_sampler)
+    trained_model.load_best_model(reranker, metric="map")
+    reranker_pred_fn = trainer.predict(trained_model, test_instances, output_fn)
 
     return evaluator.evaluate(reranker_pred_fn)
 
@@ -59,9 +60,6 @@ class RerankTask(Task):
     def pipeline_config():
         expid = "debug"
         seed = 123_456
-
-        # ... pytorch stuff ...
-        batch = 32
 
     name = "rerank"
     module_order = ["collection", "searcher", "reranker", "benchmark"]
