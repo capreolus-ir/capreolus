@@ -1,0 +1,4 @@
+cython
+sphinx
+sphinxcontrib-apidoc
+recommonmark
