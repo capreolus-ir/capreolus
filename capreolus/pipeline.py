@@ -207,13 +207,25 @@ class Pipeline:
 
 
 class Notebook:
-    def __init__(self, module_defaults, config_string="", module_order=None):
-        """ Construct a pipeline consising of the modules in `module_defaults` and config options in `config`.
-            Modules will be initialized in `module_order` if it is provided.
-            If not, `Collection` modules are initialized first, followed by the remaining modules in alphabetical order.
-            This is safe as long as Collection is the only required dependency. You will need to set `module_order` if not.
-        """
+    """ Construct a pipeline to be used interactively.
 
+        The returned object contains `config` and `modules` attributes that are analogous to those used with a Task.
+
+        The pipeline will consist of the modules in `module_defaults` with the config options in `config`.
+        Modules will be initialized in `module_order` if it is provided.
+        If not, `Collection` modules are initialized first, followed by the remaining modules in alphabetical order.
+        This is safe as long as Collection is the only required dependency. You will need to set `module_order` if not.
+
+        Args:
+            module_defaults (dict): Map of module names to their default classes. e.g., `{"collection": "robust04", "searcher": "BM25", "benchmark": "wsdm20demo"}`
+            config_string (str): Config string of the same form used on the command line. As with the CLI, default moduels may be overridden (e.g., `searcher=BM25Grid`) and module's config options may be changed (e.g., `searcher.b=0.5`).
+            module_order: (list): Order in which to initialize the modules in `module_defaults`. If None, a reasonable default will be used (see above).
+
+        Returns:
+            Notebook: an object with `config` and `modules` attributes.
+    """
+
+    def __init__(self, module_defaults, config_string="", module_order=None):
         if not module_order:
             # move collection to the front, if present, then sort alphabetically.
             module_order = sorted(module_defaults.keys(), key=lambda x: (x != "collection", x))
