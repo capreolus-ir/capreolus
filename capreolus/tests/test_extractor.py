@@ -14,9 +14,14 @@ MAXDOCLEN = 7
 
 def test_embedtext_creation():
     extractor_cfg = {
-        "_name": "embedtext", "index": "anserini", "tokenizer": "anserini",
-        "embeddings": "glove6b", "zerounk": True, "calcidf": True,
-        "maxqlen": MAXQLEN, "maxdoclen": MAXDOCLEN
+        "_name": "embedtext",
+        "index": "anserini",
+        "tokenizer": "anserini",
+        "embeddings": "glove6b",
+        "zerounk": True,
+        "calcidf": True,
+        "maxqlen": MAXQLEN,
+        "maxdoclen": MAXDOCLEN,
     }
     extractor = EmbedText(extractor_cfg)
 
@@ -40,7 +45,7 @@ def test_embedtext_creation():
 
     extractor.create(train_pairs, pred_pairs, benchmark.topics[benchmark.query_type])
 
-    expected_vocabs = ['dummy', 'doc', 'hello', 'greetings', 'world', 'from', 'outer', 'space', '<pad>']
+    expected_vocabs = ["dummy", "doc", "hello", "greetings", "world", "from", "outer", "space", "<pad>"]
     expected_stoi = {s: i for i, s in enumerate(expected_vocabs)}
 
     assert set(extractor.stoi.keys()) == set(expected_stoi.keys())
@@ -60,12 +65,15 @@ def test_embedtext_creation():
 
 def test_embedtext_id2vec(extractor):
     benchmark = DummyBenchmark({"_fold": "s1", "rundocsonly": False})
-    qids = list(benchmark.qrels.keys()) # ["301"]
+    qids = list(benchmark.qrels.keys())  # ["301"]
     qid = qids[0]
     docids = list(benchmark.qrels[qid].keys())
 
     docid1, docid2 = docids[0], docids[1]
-    q, d1, d2 = extractor.id2vec(qid, docid1, docid2)
+    data = extractor.id2vec(qid, docid1, docid2)
+    q, d1, d2, idf = [data[k] for k in ["query", "posdoc", "negdoc", "idfs"]]
+
+    assert q.shape[0] == idf.shape[0]
 
     topics = benchmark.topics[benchmark.query_type]
     emb_path = "glove/light/glove.6B.300d"

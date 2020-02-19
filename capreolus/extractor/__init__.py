@@ -87,6 +87,9 @@ class EmbedText(Extractor):
         self.itos = {i: s for s, i in self.stoi.items()}
         logger.info(f"vocabulary constructued, with {len(self.itos)} terms in total")
 
+    def _get_idf(self, toks):
+        return [self.idf.get(tok, 0) for tok in toks]
+
     def _build_embedding_matrix(self):
         assert len(self.stoi) > 1  # needs more vocab than self.pad_tok
 
@@ -139,21 +142,29 @@ class EmbedText(Extractor):
         if not posdoc:
             raise MissingDocError(qid, posid)
 
+        idfs = padlist(self._get_idf(query), qlen, 0)
         query = _tok2vec(padlist(query, qlen, self.pad_tok))
         posdoc = _tok2vec(padlist(posdoc, doclen, self.pad_tok))
 
+        data = {
+            "qid": qid,
+            "posdocid": posid,
+            "idfs": np.array(idfs, dtype=np.float32),
+            "query": np.array(query, dtype=np.float32),
+            "posdoc": np.array(posdoc, dtype=np.float32),
+            "query_idf": np.array(idfs, dtype=np.float32),
+        }
+
         if not negid:
             logger.debug(f"missing negtive doc id for qid {qid}")
-            return query, posdoc
+            return data
 
         negdoc = self.docid2toks.get(negid, None)
         if not negdoc:
             raise MissingDocError(qid, negid)
 
         negdoc = _tok2vec(padlist(negdoc, doclen, self.pad_tok))
-        return query, posdoc, negdoc
+        data["negdocid"] = negid
+        data["negdoc"] = np.array(negdoc, dtype=np.float32)
 
-
-# query = [self.embeddings[self.stoi[term]] for term in self.qid2toks.get(qid, "")]
-# posdoc = [self.embeddings[self.stoi[term]] for term in self.docid2toks.get(posid, "")]
-# negdoc = [self.embeddings[self.stoi[term]] for term in self.docid2toks.get(negid, "")]
+        return data
