@@ -43,11 +43,12 @@ class PytorchTrainer(Trainer):
         if lr <= 0:
             raise ValueError("lr must be > 0")
 
-    def single_train_iteration(self, model, train_dataloader):
+    def single_train_iteration(self, model, optimizer, train_dataloader):
         """Train model for one iteration using instances from train_dataloader.
 
         Args:
            model (Reranker): a PyTorch Reranker
+           optimizer (Optimizer): a PyTorch Optimizer
            train_dataloader (DataLoader): a PyTorch DataLoader that iterates over training instances
 
         Returns:
@@ -70,8 +71,8 @@ class PytorchTrainer(Trainer):
             batches_since_update += 1
             if batches_since_update == batches_per_step:
                 batches_since_update = 0
-                self.optimizer.step()
-                self.optimizer.zero_grad()
+                optimizer.step()
+                optimizer.zero_grad()
 
             if (bi + 1) % batches_per_epoch == 0:
                 break
@@ -162,8 +163,9 @@ class PytorchTrainer(Trainer):
 
         """
 
-        model.to(self.device)
+        model = model.to(self.device)
         optimizer = torch.optim.Adam(filter(lambda param: param.requires_grad, model.parameters()), lr=self.cfg["lr"])
+        self.loss  # TODO
 
         weights_output_path = train_output_path / "weights"
         info_output_path = train_output_path / "info"
@@ -183,7 +185,7 @@ class PytorchTrainer(Trainer):
                 train_dataset, batch_size=self.cfg["batch"], pin_memory=True, num_workers=0
             )
 
-            iter_loss_tensor = self.single_train_iteration(model, train_dataloader)
+            iter_loss_tensor = self.single_train_iteration(model, optimizer, train_dataloader)
             del train_dataloader
 
             train_loss.append(iter_loss_tensor.item())
@@ -191,7 +193,7 @@ class PytorchTrainer(Trainer):
 
             # write model weights to file
             weights_fn = weights_output_path / f"{niter}.p"
-            model.save(weights_fn, self.optimizer)
+            model.save(weights_fn, optimizer)
             # TODO also save optimizer state
 
             # predict performance on dev set
@@ -220,7 +222,7 @@ class PytorchTrainer(Trainer):
         """
 
         # save to pred_fn
-        model.to(self.device)
+        model = model.to(self.device)
         model.eval()
 
         with torch.autograd.no_grad():
