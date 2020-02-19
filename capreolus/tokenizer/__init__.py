@@ -17,7 +17,6 @@ class AnseriniTokenizer(Tokenizer):
 
     def __init__(self, cfg):
         super().__init__(cfg)
-        # self.analyzer = self._create_analyzer()
         self._tokenize = self._get_tokenize_fn()
 
     def _get_tokenize_fn(self):
@@ -35,10 +34,10 @@ class AnseriniTokenizer(Tokenizer):
         return _tokenize
 
     def tokenize(self, sentences):
-        if not sentences or len(sentences) == 0:    # either "" or []
+        if not sentences or len(sentences) == 0:  # either "" or []
             return []
 
         if isinstance(sentences, str):
-           return self._tokenize(sentences)
+            return self._tokenize(sentences)
 
         return [self._tokenize(s) for s in sentences]
