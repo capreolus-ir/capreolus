@@ -18,3 +18,6 @@ class EmbedText(Extractor):
     @staticmethod
     def config():
         keepstops = False
+
+    def id2vec(self, qid, posdocid, negdocid=None):
+        pass
