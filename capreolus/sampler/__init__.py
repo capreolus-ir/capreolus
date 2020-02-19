@@ -16,6 +16,7 @@ class TrainDataset(torch.utils.data.IterableDataset):
         self.search_run = search_run
         self.benchmark = benchmark
         self.extractor = extractor
+        self.iterations = 0
 
     def __iter__(self):
         """
@@ -45,7 +46,8 @@ class TrainDataset(torch.utils.data.IterableDataset):
         # Convert each query and doc id to the corresponding feature/embedding and yield
         def genf():
             while True:
-                # random.shuffle(valid_qids)
+                random.seed(self.iterations)
+                random.shuffle(valid_qids)
 
                 for qid in valid_qids:
                     posdocid = random.choice(qid_to_reldocs[qid])
@@ -53,6 +55,7 @@ class TrainDataset(torch.utils.data.IterableDataset):
 
                     try:
                         query_feature, posdoc_feature, negdoc_feature = extractor.id2vec(qid, posdocid, negdocid)
+                        self.iterations += 1
                         yield {"query": query_feature, "posdoc": posdoc_feature, "negdoc": negdoc_feature}
                     # TODO: Replace below catch-all exception with MissingDocError
                     except Exception:
