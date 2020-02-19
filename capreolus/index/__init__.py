@@ -85,9 +85,9 @@ class AnseriniIndex(Index):
         # if self.collection.is_large_collection:
         #     return self.get_documents_from_disk(doc_ids)
 
-        return [self.getdoc(doc_id) for doc_id in doc_ids]
+        return [self.get_doc(doc_id) for doc_id in doc_ids]
 
-    def getdoc(self, docid):
+    def get_doc(self, docid):
         try:
             if not hasattr(self, "index_utils") or self.index_utils is None:
                 self.open()
