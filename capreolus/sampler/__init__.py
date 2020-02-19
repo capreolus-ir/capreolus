@@ -7,9 +7,9 @@ from capreolus.utils.loginit import get_logger
 logger = get_logger(__name__)
 
 
-class TrainSampler(torch.utils.data.IterableDataset):
+class TrainDataset(torch.utils.data.IterableDataset):
     """
-    Samples training and prediction data from the dataset
+    Samples training data. Intended to be used with a pytorch DataLoader
     """
 
     def __init__(self, search_run, benchmark, extractor):
@@ -18,6 +18,9 @@ class TrainSampler(torch.utils.data.IterableDataset):
         self.extractor = extractor
 
     def __iter__(self):
+        """
+        Returns: Triplets of the form (query_feature, posdoc_feature, negdoc_feature)
+        """
         extractor = self.extractor
         benchmark = self.benchmark
         search_run = self.search_run
@@ -39,6 +42,7 @@ class TrainSampler(torch.utils.data.IterableDataset):
         # Remove the qids that does not have relevant/irrelevant docs associated with it
         valid_qids = [qid for qid in train_qids if qid_to_reldocs.get(qid) and qid_to_negdocs.get(qid)]
 
+        # Convert each query and doc id to the corresponding feature/embedding and yield
         def genf():
             while True:
                 # random.shuffle(valid_qids)
@@ -59,7 +63,11 @@ class TrainSampler(torch.utils.data.IterableDataset):
         return genf()
 
 
-class PredSampler(torch.utils.data.IterableDataset):
+class PredDataset(torch.utils.data.IterableDataset):
+    """
+    Creates a Dataset for evaluation (test) data to be used with a pytorch DataLoader
+    """
+
     def __init__(self, search_run, benchmark, extractor):
         self.search_run = search_run
         self.benchmark = benchmark
@@ -67,12 +75,7 @@ class PredSampler(torch.utils.data.IterableDataset):
 
     def __iter__(self):
         """
-        Samples prediction data from the collection, according to the information specified in the benchmark
-        Args:
-            search_run: 
-
-        Returns:
-
+        Returns: Tuples of the form (query_feature, posdoc_feature)
         """
         benchmark = self.benchmark
         extractor = self.extractor

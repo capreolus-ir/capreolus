@@ -51,7 +51,8 @@ class AnseriniSearcherMixIn:
             logger.debug(f"skipping Anserini SearchCollection call because path already exists: {donefn}")
             return
 
-        self["index"].create_index()
+        if not self["index"].exists():
+            raise Exception("Index not build")
 
         os.makedirs(output_base_path, exist_ok=True)
         output_path = os.path.join(output_base_path, "searcher")
