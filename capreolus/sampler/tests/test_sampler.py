@@ -5,7 +5,7 @@ import numpy as np
 
 from capreolus.benchmark import DummyBenchmark
 from capreolus.extractor import EmbedText
-from capreolus.sampler import TrainSampler, PredSampler
+from capreolus.sampler import TrainDataset, PredDataset
 from capreolus.tests.common_fixtures import tmpdir_as_cache, dummy_index
 
 
@@ -13,7 +13,7 @@ def test_train_sampler(monkeypatch, tmpdir):
     search_run = {"301": {"LA010189-0001": 50, "LA010189-0002": 100}}
     benchmark = DummyBenchmark({"fold": "s1", "rundocsonly": True})
     extractor = EmbedText({"keepstops": True})
-    train_dataset = TrainSampler(search_run, benchmark, extractor)
+    train_dataset = TrainDataset(search_run, benchmark, extractor)
 
     def mock_id2vec(*args, **kwargs):
         return np.array([1, 2, 3, 4]), np.array([1, 1, 1, 1]), np.array([2, 2, 2, 2])
@@ -40,7 +40,7 @@ def test_pred_sampler(monkeypatch, tmpdir):
     search_run = {"301": {"LA010189-0001": 50, "LA010189-0002": 100}}
     benchmark = DummyBenchmark({"fold": "s1", "rundocsonly": True})
     extractor = EmbedText({"keepstops": True})
-    pred_dataset = PredSampler(search_run, benchmark, extractor)
+    pred_dataset = PredDataset(search_run, benchmark, extractor)
 
     def mock_id2vec(*args, **kwargs):
         return np.array([1, 2, 3, 4]), np.array([1, 1, 1, 1])
