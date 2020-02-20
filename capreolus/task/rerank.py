@@ -1,7 +1,12 @@
 import json
 import os
+
+import torch
+
+from capreolus.sampler import TrainDataset, PredDataset
 from capreolus.task import Task
 from capreolus.registry import print_module_graph, RESULTS_BASE_PATH
+from capreolus import evaluator
 
 
 def describe(config, modules):
@@ -34,13 +39,36 @@ def describe(config, modules):
 
 
 def train(config, modules):
-    output_path = _pipeline_path(config, modules)
-    print("**** got train")
+    searcher = modules["searcher"]
+    benchmark = modules["benchmark"]
+    reranker = modules["reranker"]
+    extractor = reranker.modules["extractor"]
+
+    topics_fn = benchmark.topic_file
+    metric = "map"
+    searcher.index.create_index()
+    search_results_folder = searcher.query_from_file(topics_fn, os.path.join(searcher.get_cache_path(), benchmark.name))
+    best_search_run_path = evaluator.search_best_run(search_results_folder, benchmark, metric)["path"]
+    best_search_run = searcher.load_trec_run(best_search_run_path)
+    train_dataset = TrainDataset(best_search_run, benchmark, extractor)
+    train_dataloader = torch.utils.data.DataLoader(train_dataset, batch_size=config["batch"])
+    # Call the reranker's score() method here
 
 
 def evaluate(config, modules):
     output_path = _pipeline_path(config, modules)
-    print("**** got evaluate!!")
+    searcher = modules["searcher"]
+    benchmark = modules["benchmark"]
+    reranker = modules["reranker"]
+    extractor = reranker.modules["extractor"]
+
+    metric = "map"
+    searcher_output_dir = searcher.get_cache_path() / benchmark.name
+    best_search_run_path = evaluator.search_best_run(searcher_output_dir, benchmark, metric)["path"]
+    best_search_run = searcher.load_trec_run(best_search_run_path)
+    pred_dataset = PredDataset(best_search_run, benchmark, extractor)
+    pred_dataloader = torch.utils.data.DataLoader(pred_dataset, batch_size=config["batch"])
+    # The reranker's test() method is called here
 
 
 def _pipeline_path(config, modules):

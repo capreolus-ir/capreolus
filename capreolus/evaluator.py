@@ -48,10 +48,7 @@ def eval_runfile(runfile, qrels, metric):
         a dict storing specified metric score and path to the corresponding runfile
     """
     _verify_metric(metric)
-    return {
-        metric: _eval_runfile(runfile, dev_qids=list(qrels.keys()), qrels=qrels, metric=metric),
-        "path": runfile,
-    }
+    return {metric: _eval_runfile(runfile, dev_qids=list(qrels.keys()), qrels=qrels, metric=metric), "path": runfile}
 
 
 def search_best_run(runfile_dir, benchmark, metric, folds=None):
