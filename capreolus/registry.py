@@ -105,7 +105,7 @@ class RegisterableMixIn:
 
         # create module config consisting of (1) the module class name and (2) its config options (from config())
         ingredient.add_config({"_name": cls.name})
-        ingredient.config(cls.config) # should be ingredient.config(cls.cfg)?
+        ingredient.config(cls.config)
 
         # add ingredient's commands to the shared command_list
         for command_name, command_func in cls.commands.items():
@@ -202,17 +202,16 @@ class ModuleBase(RegisterableMixIn):
     def __getitem__(self, key):
         return self.modules[key]
 
+    def print_module_graph(self, prefix=""):
+        childprefix = prefix + "    "
+        this = f"{self.module_type}={self.name}"
+        print(prefix + this)
+        for child in self.modules.values():
+            child.print_module_graph(prefix=childprefix)
+
 
 def print_ingredient(ingredient, prefix=""):
     childprefix = prefix + "  "
     print(prefix + ingredient.path)
     for child in ingredient.ingredients:
         print_ingredient(child, prefix=childprefix)
-
-
-def print_module_graph(module, prefix=""):
-    childprefix = prefix + "    "
-    this = f"{module.module_type}={module.name}"
-    print(prefix + this)
-    for child in module.modules.values():
-        print_module_graph(child, prefix=childprefix)
