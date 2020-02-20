@@ -90,3 +90,18 @@ def hash_file(fn):
             sha.update(data)
 
     return sha.hexdigest()
+
+
+def padlist(list_to_pad, padlen, pad_token=0):
+    """
+    Pads a list with pad_token
+    Args:
+        list_to_pad: a list of str / int / float, each entry represents the token / token id
+        padlen: int, max length of the expected list, list_to_pad would either be truncated or padded to this length
+        pad_token: str / int, representing the padding token / token id
+
+    Returns: padded list
+    """
+    padded_list = list_to_pad[:padlen]
+    padded_list = padded_list + [pad_token] * (padlen - len(list_to_pad))
+    return padded_list
