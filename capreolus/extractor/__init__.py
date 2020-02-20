@@ -117,18 +117,20 @@ class EmbedText(Extractor):
     def exist(self):
         return isinstance(self.embeddings, np.ndarray) and 0 < len(self.stoi) == self.embeddings.shape[0]
 
-    def create(self, train_pairs, pred_pairs, topics):
+    # def create(self, train_pairs, pred_pairs, topics):
+    def create(self, qids, docids, topics):
+
         if self.exist():
             return
 
         self["index"].create_index()
 
-        qids = set(train_pairs.keys()) | set(pred_pairs.keys())
-        docids = set()
-        for ids in train_pairs.values():
-            docids.update(ids)
-        for ids in pred_pairs.values():
-            docids.update(ids)
+        # qids = set(train_pairs.keys()) | set(pred_pairs.keys())
+        # docids = set()
+        # for ids in train_pairs.values():
+        #     docids.update(ids)
+        # for ids in pred_pairs.values():
+        #     docids.update(ids)
 
         self._build_vocab(qids, docids, topics)
         self._build_embedding_matrix()
