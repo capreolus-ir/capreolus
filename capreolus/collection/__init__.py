@@ -71,7 +71,7 @@ class Robust04(Collection):
         logger.info("downloading index for missing collection %s to temporary file %s", self.name, archive_file)
         download_file(url, archive_file, expected_hash=sha256)
 
-        logger.debug("extracting to %s", tmp_dir)
+        logger.info("extracting index to %s (before moving to correct cache path)", tmp_dir)
         with tarfile.open(archive_file) as tar:
             tar.extractall(path=tmp_dir)
 
@@ -80,7 +80,7 @@ class Robust04(Collection):
             raise ValueError(f"could not find expected index directory {extracted_dir} in {tmp_dir}")
 
         # 2. Move index to its correct location in the cache
-        index_dir = os.path.join(cachedir, self.name, index_cache_path_string, "index")
+        index_dir = os.path.join(cachedir, index_cache_path_string, "index")
         shutil.move(extracted_dir, index_dir)
 
         # 3. Extract raw documents from the Anserini index to document_dir
