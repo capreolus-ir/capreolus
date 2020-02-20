@@ -57,3 +57,16 @@ class WSDM20Demo(Benchmark):
     def config():
         fold = "s1"
         rundocsonly = True  # use only docs from the searcher as pos/neg training instances (i.e., not all qrels)
+
+
+class ANTIQUE(Benchmark):
+    name = "antique"
+    qrel_file = PACKAGE_PATH / "data" / "qrels.antique.txt"
+    topic_file = PACKAGE_PATH / "data" / "topics.antique.txt"
+    fold_file = PACKAGE_PATH / "data" / "antique.json"
+    query_type = None
+
+    @staticmethod
+    def condif():
+        fold = "s1"
+        rundocsonly = True
