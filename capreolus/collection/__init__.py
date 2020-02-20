@@ -30,3 +30,10 @@ class Robust05(Collection):
     path = "missingpath"
     collection_type = "TrecCollection"
     generator_type = "JsoupGenerator"
+
+
+class ANTIQUE(Collection):
+    name = "antique"
+    path = "/home/x978zhan/mpi-spring/data/antique/collection"
+    collection_type = "TrecCollection"
+    generator_type = "JsoupGenerator"
