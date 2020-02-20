@@ -3,7 +3,7 @@ import json
 import os
 from glob import glob
 
-from capreolus.registry import RegisterableModule, print_module_graph
+from capreolus.registry import RegisterableModule
 
 
 class Task(metaclass=RegisterableModule):
@@ -27,7 +27,7 @@ class Task(metaclass=RegisterableModule):
 
         print("--- module dependency graph ---")
         for module, obj in modules.items():
-            print_module_graph(obj, prefix=" ")
+            obj.print_module_graph(prefix=" ")
         print("\n")
 
         print("\n------- config ----------------")
