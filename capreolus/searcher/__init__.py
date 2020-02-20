@@ -10,6 +10,7 @@ from capreolus.utils.loginit import get_logger
 
 logger = get_logger(__name__)  # pylint: disable=invalid-name
 
+
 class Searcher(ModuleBase, metaclass=RegisterableModule):
     """the module base class"""
 
@@ -50,7 +51,8 @@ class AnseriniSearcherMixIn:
             logger.debug(f"skipping Anserini SearchCollection call because path already exists: {donefn}")
             return
 
-        self["index"].create_index()
+        if not self["index"].exists():
+            raise Exception("Index not build")
 
         os.makedirs(output_base_path, exist_ok=True)
         output_path = os.path.join(output_base_path, "searcher")
