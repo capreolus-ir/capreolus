@@ -11,6 +11,7 @@ logger = get_logger(__name__)
 VALID_METRICS = {"P", "map", "map_cut", "ndcg_cut", "Rprec", "recip_rank"}
 CUT_POINTS = [5, 10, 15, 20, 30, 100, 200, 500, 1000]
 
+
 def _verify_metric(metric):
     expected_metrics = {m for m in VALID_METRICS if not m.endswith("_cut") and m != "P"} | {
         m + "_" + str(cutoff) for cutoff in CUT_POINTS for m in VALID_METRICS if m.endswith("_cut") or m == "P"
@@ -47,10 +48,7 @@ def eval_runfile(runfile, qrels, metric):
         a dict storing specified metric score and path to the corresponding runfile
     """
     _verify_metric(metric)
-    return {
-        metric: _eval_runfile(runfile, dev_qids=list(qrels.keys()), qrels=qrels, metric=metric),
-        "path": runfile,
-    }
+    return {metric: _eval_runfile(runfile, dev_qids=list(qrels.keys()), qrels=qrels, metric=metric), "path": runfile}
 
 
 def search_best_run(runfile_dir, benchmark, metric, folds=None):
@@ -77,10 +75,8 @@ def search_best_run(runfile_dir, benchmark, metric, folds=None):
         scores = []
         for s, v in folds.items():
             score = _eval_runfile(
-                runfile,
-                dev_qids=(set(v["train_qids"]) | set(v["predict"]["dev"])),
-                qrels=benchmark.qrels,
-                metric=metric)
+                runfile, dev_qids=(set(v["train_qids"]) | set(v["predict"]["dev"])), qrels=benchmark.qrels, metric=metric
+            )
             scores.append(score)
             if score > best_scores[s][metric]:
                 best_scores[s] = {metric: score, "path": runfile}
