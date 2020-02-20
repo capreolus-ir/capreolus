@@ -20,19 +20,19 @@ class Task(metaclass=RegisterableModule):
         if not output_path:
             output_path = "[none defined]"
 
-        print("cache paths:")
+        print("module cache paths:")
         for module, obj in modules.items():
             print("  ", obj.get_cache_path())
-        print("")
+        print("\n")
 
         print("--- module dependency graph ---")
         for module, obj in modules.items():
             print_module_graph(obj, prefix=" ")
-        print("-------------------------------")
+        print("\n")
 
         print("\n------- config ----------------")
         print(json.dumps(config, indent=4))
-        print("-------------------------------")
+        print("\n")
 
         print("\n\nresults path:", output_path)
 
