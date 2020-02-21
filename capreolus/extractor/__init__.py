@@ -61,7 +61,7 @@ class EmbedText(Extractor):
         zerounk = False
         calcidf = True
         maxqlen = 4
-        maxdoclen = 7
+        maxdoclen = 800
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -84,7 +84,7 @@ class EmbedText(Extractor):
         self._extend_stoi(self.qid2toks.values(), calc_idf=self.cfg["calcidf"])
         self._extend_stoi(self.docid2toks.values(), calc_idf=self.cfg["calcidf"])
         self.itos = {i: s for s, i in self.stoi.items()}
-        logger.info(f"vocabulary constructued, with {len(self.itos)} terms in total")
+        logger.info(f"vocabulary constructed, with {len(self.itos)} terms in total")
 
     def _get_idf(self, toks):
         return [self.idf.get(tok, 0) for tok in toks]
@@ -126,25 +126,28 @@ class EmbedText(Extractor):
         self._build_vocab(qids, docids, topics)
         self._build_embedding_matrix()
 
-    def id2vec(self, qid, posid, negid=None):
-        def _tok2vec(toks):
-            return [self.embeddings[self.stoi[tok]] for tok in toks]
+    def _tok2vec(self, toks):
+        # return [self.embeddings[self.stoi[tok]] for tok in toks]
+        return [self.stoi[tok] for tok in toks]
 
+    def id2vec(self, qid, posid, negid=None):
+        # TODO find a way to calculate qlen/doclen stats earlier, so we can log them and check sanity of our values
         qlen, doclen = self.cfg["maxqlen"], self.cfg["maxdoclen"]
-        query, posdoc = self.qid2toks.get(qid, None), self.docid2toks.get(posid, None)
+        query, posdoc = self.qid2toks[qid], self.docid2toks.get(posid, None)
         if not posdoc:
             raise MissingDocError(qid, posid)
 
         idfs = padlist(self._get_idf(query), qlen, 0)
-        query = _tok2vec(padlist(query, qlen, self.pad_tok))
-        posdoc = _tok2vec(padlist(posdoc, doclen, self.pad_tok))
+        query = self._tok2vec(padlist(query, qlen, self.pad_tok))
+        posdoc = self._tok2vec(padlist(posdoc, doclen, self.pad_tok))
 
+        # TODO determine whether pin_memory is happening. may not be because we don't place the strings in a np or torch object
         data = {
             "qid": qid,
             "posdocid": posid,
             "idfs": np.array(idfs, dtype=np.float32),
-            "query": np.array(query, dtype=np.float32),
-            "posdoc": np.array(posdoc, dtype=np.float32),
+            "query": np.array(query, dtype=np.long),
+            "posdoc": np.array(posdoc, dtype=np.long),
             "query_idf": np.array(idfs, dtype=np.float32),
         }
 
@@ -156,8 +159,8 @@ class EmbedText(Extractor):
         if not negdoc:
             raise MissingDocError(qid, negid)
 
-        negdoc = _tok2vec(padlist(negdoc, doclen, self.pad_tok))
+        negdoc = self._tok2vec(padlist(negdoc, doclen, self.pad_tok))
         data["negdocid"] = negid
-        data["negdoc"] = np.array(negdoc, dtype=np.float32)
+        data["negdoc"] = np.array(negdoc, dtype=np.long)
 
         return data
