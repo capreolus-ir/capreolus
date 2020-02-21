@@ -45,13 +45,14 @@ def evaluate(config, modules):
     benchmark = modules["benchmark"]
 
     metric = "map"  # TODO: where shall we put 'metric' in config?
+    all_metric = {"map", "P_10", "ndcg_cut_10"}
     output_dir = searcher.get_cache_path() / benchmark.name
-    best_results = evaluator.search_best_run(output_dir, benchmark, metric)
-    print(f"best result with respect to {metric}: {best_results[metric]}, \nbest runfile: {best_results['path']}")
+    best_results = evaluator.search_best_run(output_dir, benchmark, primary_metric=metric, metrics=all_metric)
 
-    runs = searcher.load_trec_run(best_results["path"])
-    results = evaluator.eval_runs(runs, benchmark.qrels, config["eval_metrics"])
-    print("result on other metrics:", " ".join(["%s: %.4f" % (k, v) for k, v in results.items()]))
+    scores = [f"\t{s}: {score}" for s, score in best_results["score"].items()]
+    pathes = [f"\t{s}: {path}" for s, path in best_results["path"].items()]
+    print(f"best result with respect to {metric}: \n", "\n".join(scores))
+    print("path for each split: \n", "\n".join(pathes))
 
 
 def _pipeline_path(config, modules):
@@ -73,7 +74,7 @@ class RankTask(Task):
     def pipeline_config():
         expid = "debug"
         seed = 123_456
-        eval_metrics = {"map", "ndcg_cut_20", "P_20"}
+        eval_metrics = {"map", "ndcg_cut_20", "ndcg_cut_10", "P_20"}
 
     name = "rank"
     module_order = ["collection", "searcher", "benchmark"]
