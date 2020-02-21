@@ -26,7 +26,7 @@ def train(config, modules):
     searcher_cache_dir = os.path.join(searcher.get_cache_path(), benchmark.name)
     searcher_run_dir = searcher.query_from_file(topics_fn, searcher_cache_dir)
 
-    best_search_run_path = evaluator.search_best_run(searcher_run_dir, benchmark, metric)["path"]
+    best_search_run_path = evaluator.search_best_run(searcher_run_dir, benchmark, metric)["path"][fold]
     best_search_run = searcher.load_trec_run(best_search_run_path)
 
     docids = set(docid for querydocs in best_search_run.values() for docid in querydocs)
@@ -41,7 +41,9 @@ def train(config, modules):
 
     train_output_path = _pipeline_path(config, modules)
     dev_output_path = train_output_path / "pred" / "dev"
-    trained_model = reranker["trainer"].train(reranker, train_dataset, train_output_path, dev_dataset, dev_output_path)
+    trained_model = reranker["trainer"].train(
+        reranker, train_dataset, train_output_path, dev_dataset, dev_output_path, benchmark.qrels
+    )
     trained_model.load_best_model(reranker, metric="map")
 
     test_run = {qid: docs for qid, docs in best_search_run.items() if qid in benchmark.folds[fold]["predict"]["test"]}
@@ -50,6 +52,7 @@ def train(config, modules):
 
     reranker_pred_fn = reranker["trainer"].predict(trained_model, test_dataset, test_output_path)
 
+    metrics = evaluator.eval_runs(preds, benchmark.qrels, ["ndcg_cut_20", "map", "P_20"])
     return evaluator.evaluate(reranker_pred_fn)
 
 
