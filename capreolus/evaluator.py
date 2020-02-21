@@ -127,9 +127,11 @@ def search_best_run(runfile_dir, benchmark, primary_metric, metrics=None, folds=
             if score > best_scores[s][primary_metric]:
                 best_scores[s] = {primary_metric: score, "path": runfile}
 
-    test_runs = {}
+    test_runs, test_qrels = {}, {}
     for s, score_dict in best_scores.items():
         test_qids = folds[s]["predict"]["test"]
         test_runs.update({qid: v for qid, v in Searcher.load_trec_run(score_dict["path"]).items() if qid in test_qids})
-    scores = eval_runs(test_runs, benchmark.qrels, metrics)
+        test_qrels.update({qid: v for qid, v in benchmark.qrels.items() if qid in test_qids})
+
+    scores = eval_runs(test_runs, test_qrels, metrics)
     return {"score": scores, "path": {s: os.path.basename(v["path"]) for s, v in best_scores.items()}}
