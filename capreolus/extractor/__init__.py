@@ -63,16 +63,6 @@ class EmbedText(Extractor):
         maxqlen = 4
         maxdoclen = 800
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.itos = {self.pad: self.pad_tok}
-        self.stoi = {self.pad_tok: self.pad}
-        self.qid2toks = defaultdict(list)
-        self.docid2toks = defaultdict(list)
-        self.idf = defaultdict(lambda: 0)
-        self.embeddings = None
-        # self.cache = self.load_cache()    # TODO
-
     def _get_pretrained_emb(self):
         magnitude_cache = CACHE_BASE_PATH / "magnitude/"
         return Magnitude(MagnitudeUtils.download_model(self.embed_paths[self.cfg["embeddings"]], download_dir=magnitude_cache))
@@ -114,7 +104,12 @@ class EmbedText(Extractor):
         self.embeddings = embed_matrix
 
     def exist(self):
-        return isinstance(self.embeddings, np.ndarray) and 0 < len(self.stoi) == self.embeddings.shape[0]
+        return (
+            hasattr(self, "embeddings")
+            and self.embeddings is not None
+            and isinstance(self.embeddings, np.ndarray)
+            and 0 < len(self.stoi) == self.embeddings.shape[0]
+        )
 
     def create(self, qids, docids, topics):
 
@@ -122,6 +117,14 @@ class EmbedText(Extractor):
             return
 
         self["index"].create_index()
+
+        self.itos = {self.pad: self.pad_tok}
+        self.stoi = {self.pad_tok: self.pad}
+        self.qid2toks = defaultdict(list)
+        self.docid2toks = defaultdict(list)
+        self.idf = defaultdict(lambda: 0)
+        self.embeddings = None
+        # self.cache = self.load_cache()    # TODO
 
         self._build_vocab(qids, docids, topics)
         self._build_embedding_matrix()
