@@ -163,6 +163,7 @@ class PytorchTrainer(Trainer):
 
         """
 
+        self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
         model = model.to(self.device)
         optimizer = torch.optim.Adam(filter(lambda param: param.requires_grad, model.parameters()), lr=self.cfg["lr"])
         self.loss  # TODO
@@ -221,6 +222,7 @@ class PytorchTrainer(Trainer):
 
         """
 
+        self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
         # save to pred_fn
         model = model.to(self.device)
         model.eval()
