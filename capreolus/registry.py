@@ -165,6 +165,7 @@ class ModuleBase(RegisterableMixIn):
     # this module's class methods that should be exposed as commands
     commands = {}
     cfg = None
+    config_keys_not_in_path = []
 
     @staticmethod
     def config():
@@ -195,7 +196,11 @@ class ModuleBase(RegisterableMixIn):
     def _this_module_path_only(self):
         """ Return a path encoding only the module's config (and not its dependencies' configs) """
 
-        module_cfg = {k: v for k, v in self.cfg.items() if k not in self.dependencies}
+        module_cfg = {
+            k: v
+            for k, v in self.cfg.items()
+            if k not in self.dependencies and (not self.config_keys_not_in_path or k not in self.config_keys_not_in_path)
+        }
         module_name_key = self.module_type + "-" + module_cfg.pop("_name")
         return "_".join([module_name_key] + [f"{k}-{v}" for k, v in sorted(module_cfg.items())])
 
