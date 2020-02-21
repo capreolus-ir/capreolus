@@ -1,58 +1,52 @@
-import json
 import os
 
 import torch
 
 from capreolus.sampler import TrainDataset, PredDataset
 from capreolus.task import Task
-from capreolus.registry import print_module_graph, RESULTS_BASE_PATH
+from capreolus.registry import RESULTS_BASE_PATH
 from capreolus import evaluator
 
 
 def describe(config, modules):
-    print("\n--- module dependency graph ---")
-    print("run.py")
-    for module, obj in modules.items():
-        print_module_graph(obj, prefix=" ")
-    print("-------------------------------")
-
-    print("\n\n--- config: ---")
-    print(json.dumps(config, indent=4))
-
-    # prepare an output path that contains all config options
-    # experiment_id / collection / benchmark / [[index/searcher]] / [[index/extractor/reranker]] / pytorch-pipeline / <fold>
     output_path = _pipeline_path(config, modules)
-    print("\n\nresults path:", output_path)
-
-    print("cache paths:")
-    for module, obj in modules.items():
-        print("  ", obj.get_cache_path())
-
-    searcher = modules["searcher"]
-    reranker = modules["reranker"]
-    benchmark = modules["benchmark"]
-
-    # now we can use the modules via their APIs (which still need to be defined)
-    # ... set up a training loop ...
-    # ... for batch in benchmark.datagen ...
-    # ... reranker.forward(batch) ...
+    return Task.describe_pipeline(config, modules, output_path)
 
 
 def train(config, modules):
+    output_path = _pipeline_path(config, modules)
+    metric = "map"
+
     searcher = modules["searcher"]
     benchmark = modules["benchmark"]
     reranker = modules["reranker"]
-    extractor = reranker.modules["extractor"]
+    evaluator = modules["evaluate"]
+    searcher["index"].create_index()
 
     topics_fn = benchmark.topic_file
-    metric = "map"
-    searcher.index.create_index()
-    search_results_folder = searcher.query_from_file(topics_fn, os.path.join(searcher.get_cache_path(), benchmark.name))
-    best_search_run_path = evaluator.search_best_run(search_results_folder, benchmark, metric)["path"]
+    searcher_cache_dir = os.path.join(searcher.get_cache_path(), benchmark.name)
+    searcher_run_dir = searcher.query_from_file(topics_fn, searcher_cache_dir)
+
+    best_search_run_path = evaluator.search_best_run(searcher_run_dir, benchmark, metric)["path"]
     best_search_run = searcher.load_trec_run(best_search_run_path)
+
+    # create train/pred pairs here (not in benchmark)
+    # train_pairs, pred_pairs = benchmark.create_train_pred_pairs(best_search_run_fn)
+
+    # (query_text, posdoc, negdoc) - samplerreturns the actual query text _and_ the qid
+
+    # TODO API in flux
+    train_sampler = sampler.get_train_sampler(best_search_run_fn, benchmark, reranker.extractor)
+    dev_instances = sampler.get_dev_iterator(best_search_run_fn, benchmark, reranker.extractor)
+    test_instances = sampler.get_test_iterator(best_search_run_fn, benchmark, reranker.extractor)
+
     train_dataset = TrainDataset(best_search_run, benchmark, extractor)
-    train_dataloader = torch.utils.data.DataLoader(train_dataset, batch_size=config["batch"])
-    # Call the reranker's score() method here
+    trained_model = trainer.train(reranker, train_sampler, dev_instances, weights_path)
+
+    trained_model.load_best_model(reranker, metric="map")
+    reranker_pred_fn = trainer.predict(trained_model, test_instances, output_fn)
+
+    return evaluator.evaluate(reranker_pred_fn)
 
 
 def evaluate(config, modules):
@@ -90,9 +84,6 @@ class RerankTask(Task):
     def pipeline_config():
         expid = "debug"
         seed = 123_456
-
-        # ... pytorch stuff ...
-        batch = 32
 
     name = "rerank"
     module_order = ["collection", "searcher", "reranker", "benchmark"]
