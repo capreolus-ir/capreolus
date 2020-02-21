@@ -20,6 +20,7 @@ class Extractor(ModuleBase, metaclass=RegisterableModule):
         if not self.stoi:
             logger.warning("extending stoi while it's not yet instantiated")
             self.stoi = {}
+        # TODO is this warning working correctly?
         if calc_idf and not self.idf:
             logger.warning("extending idf while it's not yet instantiated")
             self.idf = {}
