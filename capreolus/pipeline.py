@@ -94,6 +94,7 @@ def pipeline_config():
 class Pipeline:
     def __init__(self, module_choices):
         self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+        self.from_demo_app = False
         ex = sacred.Experiment("capreolus")
         self.ex = ex
         ex.path = "capreolus"
@@ -344,7 +345,17 @@ class Pipeline:
                 collection=self.collection,
                 index=self.index,
             )
-            extractor.build_from_benchmark(**cfg)
+            # Hack to prevent the demo app from building the extractor on every request
+            # TODO: Refactor to get rid of EmbeddingHolder in the demo app
+            if not self.from_demo_app:
+                extractor.build_from_benchmark(**cfg)
+            else:
+                # Hack
+                # If self.from_demo_app is true, we temporarily set the embeddings to some numpy array
+                # This is anyway going to be overwritten by the EmbeddingHolder
+                # Refer NeuralQueryView.get_most_relevant_doc_based_on_config()
+                extractor.embeddings = np.zeros((30, 30))
+
             self.extractors.append(extractor)
 
     def extractor_cache(self, cls):

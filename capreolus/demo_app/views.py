@@ -242,6 +242,7 @@ class NeuralQueryView(TemplateView):
         # construct paths e.t.c.
         config = config.copy()  # because we end up modifying config
         pipeline = Pipeline(config)
+        pipeline.from_demo_app = True
         pipeline.initialize(config)
         path_dict = pipeline.get_paths(config)
         index_path = target_index
@@ -332,7 +333,8 @@ class DocumentView(TemplateView):
 
     def get(self, request, *args, **kwargs):
         index_class = Index.get_index_from_index_path(request.GET["target_index"])
-        index = index_class(request.GET["target_index"])
+        # Hack - set the collection and index key as None since we won't need them for the purpose of WSDM demo
+        index = index_class(None, request.GET["target_index"], None)
         doc_id = request.GET["doc_id"]
         context = {"doc": index.getdoc(doc_id)}
 
@@ -477,7 +479,7 @@ class BM25View(TemplateView):
     @staticmethod
     def get_bm25_results(query_string, target_index, b, k1):
         index_class = Index.get_index_from_index_path(target_index)
-        index = index_class(target_index)
+        index = index_class(None, target_index, None)
 
         bm25_kwargs = {"n": NUM_RESULTS_TO_SHOW}
         if b is not None:

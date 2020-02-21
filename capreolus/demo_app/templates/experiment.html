@@ -2,7 +2,7 @@
 
 {% block content %}
     <div class="row">
-        <div class="col-md-4">
+        <div class="col-md-4 col-sm-4">
             <form id="searchForm" class="margin-left-2rem input-group" action="/demo/query/" method="GET">
                 <input id="querybox" name="query" class="form-control" type="text" placeholder="Search" aria-label="Search" autocomplete="off">
                 <div class="input-group-append">
@@ -24,7 +24,7 @@
     </div>
     <hr>
     <div class="row">
-        <div class="col-md-4 margin-left-2rem">
+        <div class="col-md-4 col-sm-4 margin-left-2rem">
             <div class="">
                 <table class="table table-bordered">
                     <thead>
@@ -49,7 +49,7 @@
             </div>
 
         </div>
-        <div class="col-md-7">
+        <div class="col-md-7 col-sm-7">
             <div>
                 {% if has_result %}
                     <label>query: {{ query }}</label>

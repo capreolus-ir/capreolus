@@ -27,6 +27,9 @@ class Extractor:
     def transform_qid_posdocid_negdocid(self, q_id, posdoc_id, negdoc_id=None):
         raise NotImplementedError
 
+    def build_from_benchmark(self, *args, **kwargs):
+        raise NotImplementedError
+
 
 class BuildStoIMixin:
     def build_stoi(self, toks_list, keepstops, calculate_idf):
