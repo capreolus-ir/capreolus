@@ -62,11 +62,37 @@ def test_embedtext_creation():
     return extractor
 
 
-def test_embedtext_id2vec(extractor):
+def test_embedtext_id2vec():
+    extractor_cfg = {
+        "_name": "embedtext",
+        "index": "anserini",
+        "tokenizer": "anserini",
+        "embeddings": "glove6b",
+        "zerounk": True,
+        "calcidf": True,
+        "maxqlen": MAXQLEN,
+        "maxdoclen": MAXDOCLEN,
+    }
+    extractor = EmbedText(extractor_cfg)
+
     benchmark = DummyBenchmark({"_fold": "s1", "rundocsonly": False})
+    collection = DummyCollection({"_name": "dummy"})
+
+    index_cfg = {"_name": "anserini", "indexstops": False, "stemmer": "porter"}
+    index = AnseriniIndex(index_cfg)
+    index.modules["collection"] = collection
+
+    tok_cfg = {"_name": "anserini", "keepstops": True, "stemmer": "none"}
+    tokenizer = AnseriniTokenizer(tok_cfg)
+
+    extractor.modules["index"] = index
+    extractor.modules["tokenizer"] = tokenizer
+
     qids = list(benchmark.qrels.keys())  # ["301"]
     qid = qids[0]
     docids = list(benchmark.qrels[qid].keys())
+
+    extractor.create(qids, docids, benchmark.topics[benchmark.query_type])
 
     docid1, docid2 = docids[0], docids[1]
     data = extractor.id2vec(qid, docid1, docid2)
@@ -75,8 +101,8 @@ def test_embedtext_id2vec(extractor):
     assert q.shape[0] == idf.shape[0]
 
     topics = benchmark.topics[benchmark.query_type]
-    emb_path = "glove/light/glove.6B.300d"
-    fullemb = Magnitude(MagnitudeUtils.download_model(emb_path))
+    # emb_path = "glove/light/glove.6B.300d"
+    # fullemb = Magnitude(MagnitudeUtils.download_model(emb_path))
 
     assert len(q) == MAXQLEN
     assert len(d1) == MAXDOCLEN
