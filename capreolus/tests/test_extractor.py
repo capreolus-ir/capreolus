@@ -41,9 +41,8 @@ def test_embedtext_creation():
     qids = list(benchmark.qrels.keys())  # ["301"]
     qid = qids[0]
     docids = list(benchmark.qrels[qid].keys())
-    train_pairs, pred_pairs = {qid: [docids[0]]}, {qid: [docids[1]]}
 
-    extractor.create(train_pairs, pred_pairs, benchmark.topics[benchmark.query_type])
+    extractor.create(qids, docids, benchmark.topics[benchmark.query_type])
 
     expected_vocabs = ["dummy", "doc", "hello", "greetings", "world", "from", "outer", "space", "<pad>"]
     expected_stoi = {s: i for i, s in enumerate(expected_vocabs)}
