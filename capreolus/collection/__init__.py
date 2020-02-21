@@ -132,7 +132,7 @@ class Robust04(Collection):
             return document_dir
 
         # 1. Download and extract Anserini index to a temporary location
-        tmp_dir = os.path.join(cachedir, "tmp")
+        tmp_dir = os.path.join(cachedir, "tmp_download")
         archive_file = os.path.join(tmp_dir, "archive_file")
         os.makedirs(document_dir, exist_ok=True)
         os.makedirs(tmp_dir, exist_ok=True)
@@ -149,16 +149,16 @@ class Robust04(Collection):
 
         # 2. Move index to its correct location in the cache
         index_dir = os.path.join(cachedir, index_cache_path_string, "index")
-        if os.path.exists(index_dir):
-            logging.warning("rm %s", index_dir)
-            shutil.rmtree(index_dir)
-        shutil.move(extracted_dir, index_dir)
+        if not os.path.exists(os.path.join("index_dir", "done")):
+            if os.path.exists(index_dir):
+                shutil.rmtree(index_dir)
+            shutil.move(extracted_dir, index_dir)
 
         # 3. Extract raw documents from the Anserini index to document_dir
         anserini_index_to_trec_docs(index_dir, document_dir, index_expected_document_count)
 
-        # remove temporary file and create a /done we can use to verify extraction was successful
-        os.remove(archive_file)
+        # remove temporary files and create a /done we can use to verify extraction was successful
+        shutil.rmtree(tmp_dir)
         with open(done_file, "wt") as outf:
             print("", file=outf)
 
