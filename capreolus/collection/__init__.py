@@ -167,7 +167,7 @@ class Robust04(Collection):
 
 class DummyCollection(Collection):
     name = "dummy"
-    path = PACKAGE_PATH / "data" / "dummy" / "data"
+    _path = PACKAGE_PATH / "data" / "dummy" / "data"
     collection_type = "TrecCollection"
     generator_type = "JsoupGenerator"
 
