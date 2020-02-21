@@ -91,42 +91,45 @@ def eval_runfile(runfile, qrels, metrics):
     return _eval_runs(runs, qrels, metrics, dev_qids=list(qrels.keys()))
 
 
-def search_best_run(runfile_dir, benchmark, metric, folds=None):
+def search_best_run(runfile_dir, benchmark, primary_metric, metrics=None, folds=None):
     """
     Select the runfile with respect to the specified metric
 
     Args:
         runfile_dir: the directory path to all the runfiles to select from
         benchmark: Benchmark class
-        metric: str, metric expected to calculate, e.g. ndcg_cut_20, etc
+        primary_metric: str, metric used to select the best runfile , e.g. ndcg_cut_20, etc
+        metrics: str or list, metric expected by be calculated on the best runs
         folds: str, the name of fold to select from
 
     Returns:
        a dict storing specified metric score and path to the corresponding runfile
     """
-    _verify_metric([metric])
-    runfiles = [os.path.join(runfile_dir, f) for f in os.listdir(runfile_dir) if f != "done"]
-    if len(runfiles) == 1:
-        return {metric: eval_runfile(runfiles[0], benchmark.qrels, metric)[metric], "path": runfiles[0]}
+    metrics = [] if not metrics else ([metrics] if isinstance(metrics, str) else list(metrics))
+    if primary_metric not in metrics:
+        metrics = [primary_metric] + metrics
+    _verify_metric(metrics)
 
     folds = {s: benchmark.folds[s] for s in [folds]} if folds else benchmark.folds
-    best_scores = {s: {metric: 0, "path": None} for s in [*folds, "avg"]}
+    runfiles = [os.path.join(runfile_dir, f) for f in os.listdir(runfile_dir) if f != "done"]
+
+    if len(runfiles) == 1:
+        return {"score": eval_runfile(runfiles[0], benchmark.qrels, metrics), "path": {s: runfiles[0] for s in folds}}
+
+    best_scores = {s: {primary_metric: 0, "path": None} for s in folds}
     for runfile in runfiles:
-        scores = []
         runs = Searcher.load_trec_run(runfile)
         for s, v in folds.items():
             score = _eval_runs(
-                runs, benchmark.qrels, [metric],
+                runs, benchmark.qrels, [primary_metric],
                 dev_qids=(set(v["train_qids"]) | set(v["predict"]["dev"])),
-            )[metric]
-            scores.append(score)
-            if score > best_scores[s][metric]:
-                best_scores[s] = {metric: score, "path": runfile}
+            )[primary_metric]
+            if score > best_scores[s][primary_metric]:
+                best_scores[s] = {primary_metric: score, "path": runfile}
 
-        if np.mean(scores) > best_scores["avg"][metric]:
-            best_scores["avg"] = {metric: np.mean(scores), "path": runfile}
-
-    key = list(folds.keys())[0] if len(folds) == 1 else "avg"
-    best_scores = best_scores[key]
-    best_scores[metric] = eval_runfile(best_scores["path"], benchmark.qrels, metric)[metric]
-    return best_scores
+    test_runs = {}
+    for s, score_dict in best_scores.items():
+        test_qids = folds[s]["predict"]["test"]
+        test_runs.update({qid: v for qid, v in Searcher.load_trec_run(score_dict["path"]).items() if qid in test_qids})
+    scores = eval_runs(test_runs, benchmark.qrels, metrics)
+    return {"score": scores, "path": {s: os.path.basename(v["path"]) for s, v in best_scores.items()}}
