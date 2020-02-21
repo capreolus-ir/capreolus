@@ -40,4 +40,4 @@ class Reranker(ModuleBase, metaclass=RegisterableModule):
 
         optimizer_fn = weights_fn.as_posix() + ".optimizer"
         with open(optimizer_fn, "rb") as f:
-            optimizer.load_state_dict(pickle.load(f), strict=True)
+            optimizer.load_state_dict(pickle.load(f))
