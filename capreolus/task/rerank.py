@@ -4,8 +4,8 @@ import torch
 
 from capreolus.sampler import TrainDataset, PredDataset
 from capreolus.task import Task
-from capreolus.registry import RESULTS_BASE_PATH
-import capreolus.evaluator as evaluator
+from capreolus.registry import RESULTS_BASE_PATH, CACHE_BASE_PATH
+from capreolus import evaluator
 
 
 def describe(config, modules):
@@ -15,6 +15,7 @@ def describe(config, modules):
 
 def train(config, modules):
     metric = "map"
+    fold = config["fold"]
 
     searcher = modules["searcher"]
     benchmark = modules["benchmark"]
@@ -28,16 +29,12 @@ def train(config, modules):
     best_search_run_path = evaluator.search_best_run(searcher_run_dir, benchmark, metric)["path"]
     best_search_run = searcher.load_trec_run(best_search_run_path)
 
-    # create train/pred pairs here (not in benchmark)
-    # train_pairs, pred_pairs = benchmark.create_train_pred_pairs(best_search_run_fn)
-
     docids = set(docid for querydocs in best_search_run.values() for docid in querydocs)
     reranker["extractor"].create(qids=best_search_run.keys(), docids=docids, topics=benchmark.topics[benchmark.query_type])
     reranker.build()
 
-    # (query_text, posdoc, negdoc) - samplerreturns the actual query text _and_ the qid
-    train_run = {qid: docs for qid, docs in best_search_run.items() if qid in benchmark.folds["s1"]["train_qids"]}
-    dev_run = {qid: docs for qid, docs in best_search_run.items() if qid in benchmark.folds["s1"]["predict"]["dev"]}
+    train_run = {qid: docs for qid, docs in best_search_run.items() if qid in benchmark.folds[fold]["train_qids"]}
+    dev_run = {qid: docs for qid, docs in best_search_run.items() if qid in benchmark.folds[fold]["predict"]["dev"]}
 
     train_dataset = TrainDataset(qid_docid_to_rank=train_run, qrels=benchmark.qrels, extractor=reranker["extractor"])
     dev_dataset = PredDataset(qid_docid_to_rank=dev_run, extractor=reranker["extractor"])
@@ -47,7 +44,7 @@ def train(config, modules):
     trained_model = reranker["trainer"].train(reranker, train_dataset, train_output_path, dev_dataset, dev_output_path)
     trained_model.load_best_model(reranker, metric="map")
 
-    test_run = {qid: docs for qid, docs in best_search_run.items() if qid in benchmark.folds["s1"]["predict"]["test"]}
+    test_run = {qid: docs for qid, docs in best_search_run.items() if qid in benchmark.folds[fold]["predict"]["test"]}
     test_dataset = PredDataset(qid_docid_to_rank=test_run, extractor=reranker["extractor"])
     test_output_path = train_output_path / "pred" / "test"
 
@@ -75,6 +72,7 @@ def evaluate(config, modules):
 def _pipeline_path(config, modules):
     pipeline_cfg = {k: v for k, v in config.items() if k not in modules and k not in ["expid", "fold"]}
     pipeline_path = "_".join(["task-rerank"] + [f"{k}-{v}" for k, v in sorted(pipeline_cfg.items())])
+
     output_path = (
         RESULTS_BASE_PATH
         / config["expid"]
