@@ -25,7 +25,7 @@ def _verify_metric(metrics):
     }
     for metric in metrics:
         if metric not in expected_metrics:
-            raise ValueError(f"Unexpected evaluation metric: {metric}, should be one of { ' '.join(expected_metrics)}")
+            raise ValueError(f"Unexpected evaluation metric: {metric}, should be one of { ' '.join(sorted(expected_metrics))}")
 
 
 def _transform_metric(metrics):

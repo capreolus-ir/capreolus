@@ -1,4 +1,5 @@
 import importlib
+import json
 import os
 from glob import glob
 
@@ -13,6 +14,27 @@ class Task(metaclass=RegisterableModule):
     module_defaults = {}
     config_functions = []
     config_overrides = []
+
+    @staticmethod
+    def describe_pipeline(config, modules, output_path=None):
+        if not output_path:
+            output_path = "[none defined]"
+
+        print("module cache paths:")
+        for module, obj in modules.items():
+            print("  ", obj.get_cache_path())
+        print("\n")
+
+        print("--- module dependency graph ---")
+        for module, obj in modules.items():
+            obj.print_module_graph(prefix=" ")
+        print("\n")
+
+        print("\n------- config ----------------")
+        print(json.dumps(config, indent=4))
+        print("\n")
+
+        print("\n\nresults path:", output_path)
 
 
 # import all tasks so that the classes are always registered

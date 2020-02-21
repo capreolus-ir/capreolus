@@ -1,31 +1,13 @@
-import json
 import os
 from capreolus.task import Task
-from capreolus.registry import print_module_graph, RESULTS_BASE_PATH
+from capreolus.registry import RESULTS_BASE_PATH
 
 from capreolus import evaluator
 
 
 def describe(config, modules):
-    print("\n--- module dependency graph ---")
-    for module, obj in modules.items():
-        print_module_graph(obj, prefix=" ")
-    print("-------------------------------")
-
-    print("\n\n--- config: ---")
-    print(json.dumps(config, indent=4))
-
-    # prepare an output path that contains all config options
-    # experiment_id / collection / benchmark / [[index/searcher]] / [[index/extractor/reranker]] / pytorch-pipeline / <fold>
     output_path = _pipeline_path(config, modules)
-    print("\n\nresults path:", output_path)
-
-    print("cache paths:")
-    for module, obj in modules.items():
-        print("  ", obj.get_cache_path())
-
-    searcher = modules["searcher"]
-    benchmark = modules["benchmark"]
+    return Task.describe_pipeline(config, modules, output_path)
 
 
 def train(config, modules):
@@ -44,7 +26,7 @@ def evaluate(config, modules):
     searcher = modules["searcher"]
     benchmark = modules["benchmark"]
 
-    metric = "map"  # TODO: where shall we put 'metric' in config?
+    metric = config["optimize"]
     all_metric = {"map", "P_10", "ndcg_cut_10"}
     output_dir = searcher.get_cache_path() / benchmark.name
     best_results = evaluator.search_best_run(output_dir, benchmark, primary_metric=metric, metrics=all_metric)
@@ -75,6 +57,7 @@ class RankTask(Task):
         expid = "debug"
         seed = 123_456
         eval_metrics = {"map", "ndcg_cut_20", "ndcg_cut_10", "P_20"}
+        optimize = "map"  # metric to maximize on the dev set
 
     name = "rank"
     module_order = ["collection", "searcher", "benchmark"]
