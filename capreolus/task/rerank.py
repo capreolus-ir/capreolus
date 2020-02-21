@@ -5,7 +5,7 @@ import torch
 from capreolus.sampler import TrainDataset, PredDataset
 from capreolus.task import Task
 from capreolus.registry import RESULTS_BASE_PATH
-from capreolus import evaluator
+import capreolus.evaluator as evaluator
 
 
 def describe(config, modules):
@@ -14,13 +14,11 @@ def describe(config, modules):
 
 
 def train(config, modules):
-    output_path = _pipeline_path(config, modules)
     metric = "map"
 
     searcher = modules["searcher"]
     benchmark = modules["benchmark"]
     reranker = modules["reranker"]
-    evaluator = modules["evaluate"]
     searcher["index"].create_index()
 
     topics_fn = benchmark.topic_file
@@ -33,18 +31,27 @@ def train(config, modules):
     # create train/pred pairs here (not in benchmark)
     # train_pairs, pred_pairs = benchmark.create_train_pred_pairs(best_search_run_fn)
 
+    docids = set(docid for querydocs in best_search_run.values() for docid in querydocs)
+    reranker["extractor"].create(qids=best_search_run.keys(), docids=docids, topics=benchmark.topics[benchmark.query_type])
+    reranker.build()
+
     # (query_text, posdoc, negdoc) - samplerreturns the actual query text _and_ the qid
+    train_run = {qid: docs for qid, docs in best_search_run.items() if qid in benchmark.folds["s1"]["train_qids"]}
+    dev_run = {qid: docs for qid, docs in best_search_run.items() if qid in benchmark.folds["s1"]["predict"]["dev"]}
 
-    # TODO API in flux
-    train_sampler = sampler.get_train_sampler(best_search_run_fn, benchmark, reranker.extractor)
-    dev_instances = sampler.get_dev_iterator(best_search_run_fn, benchmark, reranker.extractor)
-    test_instances = sampler.get_test_iterator(best_search_run_fn, benchmark, reranker.extractor)
+    train_dataset = TrainDataset(qid_docid_to_rank=train_run, qrels=benchmark.qrels, extractor=reranker["extractor"])
+    dev_dataset = PredDataset(qid_docid_to_rank=dev_run, extractor=reranker["extractor"])
 
-    train_dataset = TrainDataset(best_search_run, benchmark, extractor)
-    trained_model = trainer.train(reranker, train_sampler, dev_instances, weights_path)
-
+    train_output_path = _pipeline_path(config, modules)
+    dev_output_path = train_output_path / "pred" / "dev"
+    trained_model = reranker["trainer"].train(reranker, train_dataset, train_output_path, dev_dataset, dev_output_path)
     trained_model.load_best_model(reranker, metric="map")
-    reranker_pred_fn = trainer.predict(trained_model, test_instances, output_fn)
+
+    test_run = {qid: docs for qid, docs in best_search_run.items() if qid in benchmark.folds["s1"]["predict"]["test"]}
+    test_dataset = PredDataset(qid_docid_to_rank=test_run, extractor=reranker["extractor"])
+    test_output_path = train_output_path / "pred" / "test"
+
+    reranker_pred_fn = reranker["trainer"].predict(trained_model, test_dataset, test_output_path)
 
     return evaluator.evaluate(reranker_pred_fn)
 
@@ -54,7 +61,7 @@ def evaluate(config, modules):
     searcher = modules["searcher"]
     benchmark = modules["benchmark"]
     reranker = modules["reranker"]
-    extractor = reranker.modules["extractor"]
+    reranker.build()
 
     metric = "map"
     searcher_output_dir = searcher.get_cache_path() / benchmark.name
@@ -66,7 +73,7 @@ def evaluate(config, modules):
 
 
 def _pipeline_path(config, modules):
-    pipeline_cfg = {k: v for k, v in config.items() if k not in modules and k not in ["expid"]}
+    pipeline_cfg = {k: v for k, v in config.items() if k not in modules and k not in ["expid", "fold"]}
     pipeline_path = "_".join(["task-rerank"] + [f"{k}-{v}" for k, v in sorted(pipeline_cfg.items())])
     output_path = (
         RESULTS_BASE_PATH
@@ -74,8 +81,9 @@ def _pipeline_path(config, modules):
         / modules["collection"].get_module_path()
         / modules["searcher"].get_module_path(include_provided=False)
         / modules["reranker"].get_module_path(include_provided=False)
-        / pipeline_path
         / modules["benchmark"].get_module_path()
+        / pipeline_path
+        / config["fold"]
     )
     return output_path
 
@@ -84,6 +92,8 @@ class RerankTask(Task):
     def pipeline_config():
         expid = "debug"
         seed = 123_456
+        fold = "s1"
+        # rundocsonly = True  # use only docs from the searcher as pos/neg training instances (i.e., not all qrels)
 
     name = "rerank"
     module_order = ["collection", "searcher", "reranker", "benchmark"]
