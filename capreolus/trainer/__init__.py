@@ -7,6 +7,7 @@ from capreolus.registry import ModuleBase, RegisterableModule, Dependency, MAX_T
 from capreolus.reranker.common import pair_hinge_loss, pair_softmax_loss
 from capreolus.searcher import Searcher
 from capreolus.utils.loginit import get_logger
+from capreolus import evaluator
 
 logger = get_logger(__name__)  # pylint: disable=invalid-name
 
@@ -48,12 +49,11 @@ class PytorchTrainer(Trainer):
         if lr <= 0:
             raise ValueError("lr must be > 0")
 
-    def single_train_iteration(self, reranker, optimizer, train_dataloader):
+    def single_train_iteration(self, reranker, train_dataloader):
         """Train model for one iteration using instances from train_dataloader.
 
         Args:
            model (Reranker): a PyTorch Reranker
-           optimizer (Optimizer): a PyTorch Optimizer
            train_dataloader (DataLoader): a PyTorch DataLoader that iterates over training instances
 
         Returns:
@@ -76,8 +76,8 @@ class PytorchTrainer(Trainer):
             batches_since_update += 1
             if batches_since_update == batches_per_step:
                 batches_since_update = 0
-                optimizer.step()
-                optimizer.zero_grad()
+                self.optimizer.step()
+                self.optimizer.zero_grad()
 
             if (bi + 1) % batches_per_epoch == 0:
                 break
@@ -111,7 +111,7 @@ class PytorchTrainer(Trainer):
 
         return loss
 
-    def fastforward_training(self, reranker, optimizer, weights_path, loss_fn):
+    def fastforward_training(self, reranker, weights_path, loss_fn):
         """Skip to the last training iteration whose weights were saved.
 
         If saved model and optimizer weights are available, this method will load those weights into model
@@ -129,7 +129,6 @@ class PytorchTrainer(Trainer):
 
         Args:
            model (Reranker): a PyTorch Reranker whose state should be loaded
-           optimizer (Optimizer): a PyTorch Optimizer whose state should be loaded
            weights_path (Path): directory containing model and optimizer weights
            loss_fn (Path): file containing loss history
 
@@ -151,13 +150,13 @@ class PytorchTrainer(Trainer):
         weights_fn = weights_path / f"{last_loss_iteration}.p"
 
         try:
-            reranker.load_weights(weights_fn, optimizer)
-            # TODO also load optimizer state
+            reranker.load_weights(weights_fn, self.optimizer)
             return last_loss_iteration + 1
         except:
+            logger.info("attempted to load weights from %s but failed, starting at iteration 0", weights_fn)
             return 0
 
-    def train(self, reranker, train_dataset, train_output_path, dev_data, dev_output_path):
+    def train(self, reranker, train_dataset, train_output_path, dev_data, dev_output_path, qrels, metric):
         """Train a model following the trainer's config (specifying batch size, number of iterations, etc).
 
         Args:
@@ -170,7 +169,7 @@ class PytorchTrainer(Trainer):
 
         self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
         model = reranker.model.to(self.device)
-        optimizer = torch.optim.Adam(filter(lambda param: param.requires_grad, model.parameters()), lr=self.cfg["lr"])
+        self.optimizer = torch.optim.Adam(filter(lambda param: param.requires_grad, model.parameters()), lr=self.cfg["lr"])
 
         if self.cfg["softmaxloss"]:
             self.loss = pair_softmax_loss
@@ -178,16 +177,19 @@ class PytorchTrainer(Trainer):
             self.loss = pair_hinge_loss
 
         os.makedirs(dev_output_path, exist_ok=True)
+        dev_best_weight_fn = train_output_path / "dev.best"
         weights_output_path = train_output_path / "weights"
         info_output_path = train_output_path / "info"
         os.makedirs(weights_output_path, exist_ok=True)
         os.makedirs(info_output_path, exist_ok=True)
 
         loss_fn = info_output_path / "loss.txt"
-        initial_iter = self.fastforward_training(reranker, optimizer, weights_output_path, loss_fn)
+        initial_iter = self.fastforward_training(reranker, weights_output_path, loss_fn)
+        logger.info("starting training from iteration %s/%s", initial_iter, self.cfg["niters"])
 
         train_loss = []
-        dev_metrics = []
+        dev_best_metric = -np.inf
+        logger.critical("TODO: remove niters from trainer module_path")
         for niter in range(initial_iter, self.cfg["niters"]):
             model.train()
 
@@ -199,7 +201,7 @@ class PytorchTrainer(Trainer):
                 train_dataset, batch_size=self.cfg["batch"], pin_memory=True, num_workers=0
             )
 
-            iter_loss_tensor = self.single_train_iteration(reranker, optimizer, train_dataloader)
+            iter_loss_tensor = self.single_train_iteration(reranker, train_dataloader)
             del train_dataloader
 
             train_loss.append(iter_loss_tensor.item())
@@ -207,21 +209,30 @@ class PytorchTrainer(Trainer):
 
             # write model weights to file
             weights_fn = weights_output_path / f"{niter}.p"
-            reranker.save_weights(weights_fn, optimizer)
-            # TODO also save optimizer state
+            reranker.save_weights(weights_fn, self.optimizer)
 
             # predict performance on dev set
             pred_fn = dev_output_path / f"{niter}.run"
-            self.predict(reranker, dev_data, pred_fn)
+            preds = self.predict(reranker, dev_data, pred_fn)
 
-            # write dev metrics to file
-            # TODO re-enable
-            # metrics = evaluator.evaluate(pred_fn)
-            # dev_metrics.append(metrics)
-            # logger.info("dev metrics")
+            # log dev metrics
+            metrics = evaluator.eval_runs(preds, qrels, ["ndcg_cut_20", "map", "P_20"])
+            logger.info("dev metrics: %s", " ".join([f"{metric}={v:0.3f}" for metric, v in sorted(metrics.items())]))
+
+            # write best dev weights to file
+            if metrics[metric] > dev_best_metric:
+                reranker.save_weights(dev_best_weight_fn, self.optimizer)
 
             # write train_loss to file
             loss_fn.write_text("\n".join(f"{idx} {loss}" for idx, loss in enumerate(train_loss)))
+
+    def load_best_model(self, reranker, train_output_path):
+        self.optimizer = torch.optim.Adam(
+            filter(lambda param: param.requires_grad, reranker.model.parameters()), lr=self.cfg["lr"]
+        )
+
+        dev_best_weight_fn = train_output_path / "dev.best"
+        reranker.load_weights(dev_best_weight_fn, self.optimizer)
 
     def predict(self, reranker, pred_data, pred_fn):
         """Predict query-document scores on `pred_data` using `model` and write a corresponding run file to `pred_fn`
