@@ -170,10 +170,3 @@ class DummyCollection(Collection):
     _path = PACKAGE_PATH / "data" / "dummy" / "data"
     collection_type = "TrecCollection"
     generator_type = "JsoupGenerator"
-
-
-class Robust05(Collection):
-    name = "robust05"
-    path = "missingpath"
-    collection_type = "TrecCollection"
-    generator_type = "JsoupGenerator"
