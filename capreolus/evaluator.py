@@ -17,7 +17,7 @@ def _verify_metric(metric):
         m + "_" + str(cutoff) for cutoff in CUT_POINTS for m in VALID_METRICS if m.endswith("_cut") or m == "P"
     }
     if metric not in expected_metrics:
-        raise ValueError(f"Unexpected evaluation metric: {metric}, should be one of { ' '.join(expected_metrics)}")
+        raise ValueError(f"Unexpected evaluation metric: {metric}, should be one of { ' '.join(sorted(expected_metrics))}")
 
 
 def _transform_metric(metric):

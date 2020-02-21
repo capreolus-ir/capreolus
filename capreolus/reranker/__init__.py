@@ -7,7 +7,10 @@ class Reranker(ModuleBase, metaclass=RegisterableModule):
     """the module base class"""
 
     module_type = "reranker"
-    dependencies = {"extractor": Dependency(module="extractor", name="embedtext")}
+    dependencies = {
+        "extractor": Dependency(module="extractor", name="embedtext"),
+        "trainer": Dependency(module="trainer", name="pytorch"),
+    }
 
 
 class KNRM(Reranker):
