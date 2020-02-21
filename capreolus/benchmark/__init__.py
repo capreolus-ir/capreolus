@@ -40,11 +40,6 @@ class DummyBenchmark(Benchmark):
     fold_file = PACKAGE_PATH / "data" / "dummy_folds.json"
     query_type = "title"
 
-    @staticmethod
-    def config():
-        fold = "s1"
-        rundocsonly = False
-
 
 class WSDM20Demo(Benchmark):
     name = "wsdm20demo"
@@ -53,11 +48,6 @@ class WSDM20Demo(Benchmark):
     fold_file = PACKAGE_PATH / "data" / "rob04_yang19_folds.json"
     query_type = "title"
 
-    @staticmethod
-    def config():
-        fold = "s1"
-        rundocsonly = True  # use only docs from the searcher as pos/neg training instances (i.e., not all qrels)
-
 
 class ANTIQUE(Benchmark):
     name = "antique"
@@ -65,8 +55,3 @@ class ANTIQUE(Benchmark):
     topic_file = PACKAGE_PATH / "data" / "topics.antique.txt"
     fold_file = PACKAGE_PATH / "data" / "antique.json"
     query_type = None
-
-    @staticmethod
-    def condif():
-        fold = "s1"
-        rundocsonly = True
