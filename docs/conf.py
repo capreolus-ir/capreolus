@@ -173,3 +173,12 @@ autoapi_ignore = ["*tests/*", "flycheck_*"]
 autoapi_options = ['members', 'undoc-members', 'show-inheritance', 'show-module-summary']
 # do not show _private and __special__ members
 # autoapi_options = ['members', 'undoc-members', 'private-members', 'show-inheritance', 'special-members', 'show-module-summary']
+
+
+def skip_check(app, what, name, obj, skip, options):
+    # keep sphinx's default
+    return skip
+
+
+def setup(app):
+    app.connect("autoapi-skip-member", skip_check)
