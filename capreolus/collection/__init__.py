@@ -170,3 +170,8 @@ class DummyCollection(Collection):
     _path = PACKAGE_PATH / "data" / "dummy" / "data"
     collection_type = "TrecCollection"
     generator_type = "JsoupGenerator"
+
+    def _validate_document_path(self, path):
+        """ Validate that the document path contains `dummy_trec_doc` """
+
+        return os.path.isfile(path / "dummy_trec_doc")
