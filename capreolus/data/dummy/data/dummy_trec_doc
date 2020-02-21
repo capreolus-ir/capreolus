@@ -47,15 +47,7 @@ Dummys
 <DOCNO> LA010189-0002 </DOCNO>
 <DOCID> 1 </DOCID>
 <DATE>
-<P>
-Dummy
-</P>
 </DATE>
-<SECTION>
-<P>
-Dummy
-</P>
-</SECTION>
 <LENGTH>
 <P>
 10 words
@@ -66,12 +58,12 @@ Dummy
 Dummy
 </P>
 <P>
-Dummy
+LessDummy
 </P>
 </HEADLINE>
 <BYLINE>
 <P>
-Dummy
+LessDummy
 </P>
 </BYLINE>
 <TEXT>
