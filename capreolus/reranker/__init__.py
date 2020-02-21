@@ -3,8 +3,6 @@ import pickle
 
 from capreolus.registry import ModuleBase, RegisterableModule, Dependency
 
-# from extractor import Extractor
-
 
 class Reranker(ModuleBase, metaclass=RegisterableModule):
     """the module base class"""
