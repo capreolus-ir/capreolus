@@ -105,7 +105,7 @@ class RegisterableMixIn:
 
         # create module config consisting of (1) the module class name and (2) its config options (from config())
         ingredient.add_config({"_name": cls.name})
-        ingredient.config(cls.config)  # should be ingredient.config(cls.cfg)?
+        ingredient.config(cls.config)
 
         # add ingredient's commands to the shared command_list
         for command_name, command_func in cls.commands.items():
@@ -165,6 +165,7 @@ class ModuleBase(RegisterableMixIn):
     # this module's class methods that should be exposed as commands
     commands = {}
     cfg = None
+    config_keys_not_in_path = []
 
     @staticmethod
     def config():
@@ -195,12 +196,23 @@ class ModuleBase(RegisterableMixIn):
     def _this_module_path_only(self):
         """ Return a path encoding only the module's config (and not its dependencies' configs) """
 
-        module_cfg = {k: v for k, v in self.cfg.items() if k not in self.dependencies}
+        module_cfg = {
+            k: v
+            for k, v in self.cfg.items()
+            if k not in self.dependencies and (not self.config_keys_not_in_path or k not in self.config_keys_not_in_path)
+        }
         module_name_key = self.module_type + "-" + module_cfg.pop("_name")
         return "_".join([module_name_key] + [f"{k}-{v}" for k, v in sorted(module_cfg.items())])
 
     def __getitem__(self, key):
         return self.modules[key]
+
+    def print_module_graph(self, prefix=""):
+        childprefix = prefix + "    "
+        this = f"{self.module_type}={self.name}"
+        print(prefix + this)
+        for child in self.modules.values():
+            child.print_module_graph(prefix=childprefix)
 
 
 def print_ingredient(ingredient, prefix=""):
@@ -208,11 +220,3 @@ def print_ingredient(ingredient, prefix=""):
     print(prefix + ingredient.path)
     for child in ingredient.ingredients:
         print_ingredient(child, prefix=childprefix)
-
-
-def print_module_graph(module, prefix=""):
-    childprefix = prefix + "    "
-    this = f"{module.module_type}={module.name}"
-    print(prefix + this)
-    for child in module.modules.values():
-        print_module_graph(child, prefix=childprefix)
