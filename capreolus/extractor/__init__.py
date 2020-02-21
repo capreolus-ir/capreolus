@@ -3,7 +3,7 @@ from collections import defaultdict
 import numpy as np
 from pymagnitude import Magnitude, MagnitudeUtils
 
-from capreolus.registry import ModuleBase, RegisterableModule, Dependency
+from capreolus.registry import ModuleBase, RegisterableModule, Dependency, CACHE_BASE_PATH
 from capreolus.utils.loginit import get_logger
 from capreolus.utils.common import padlist
 from capreolus.utils.exceptions import MissingDocError
@@ -42,13 +42,13 @@ class Extractor(ModuleBase, metaclass=RegisterableModule):
 class EmbedText(Extractor):
     name = "embedtext"
     dependencies = {
-        "index": Dependency(module="index", name="anserini", config_overrides={"keepstops": True}),
+        "index": Dependency(module="index", name="anserini", config_overrides={"indexstops": True, "stemmer": "none"}),
         "tokenizer": Dependency(module="tokenizer", name="anserini"),
     }
 
     pad = 0
     pad_tok = "<pad>"
-    embed_pathes = {
+    embed_paths = {
         "glove6b": "glove/light/glove.6B.300d",
         "glove6b.50d": "glove/light/glove.6B.50d",
         "w2vnews": "word2vec/light/GoogleNews-vectors-negative300",
@@ -74,13 +74,12 @@ class EmbedText(Extractor):
         # self.cache = self.load_cache()    # TODO
 
     def _get_pretrained_emb(self):
-        return Magnitude(
-            MagnitudeUtils.download_model(self.embed_pathes[self.cfg["embeddings"]], download_dir=self.get_cache_path())
-        )
+        magnitude_cache = CACHE_BASE_PATH / "magnitude/"
+        return Magnitude(MagnitudeUtils.download_model(self.embed_paths[self.cfg["embeddings"]], download_dir=magnitude_cache))
 
     def _build_vocab(self, qids, docids, topics):
         tokenize = self["tokenizer"].tokenize
-        self.qid2toks = {qid: tokenize(topics.get(qid, "")) for qid in qids}
+        self.qid2toks = {qid: tokenize(topics[qid]) for qid in qids}
         self.docid2toks = {docid: tokenize(self["index"].get_doc(docid)) for docid in docids}
         self._extend_stoi(self.qid2toks.values(), calc_idf=self.cfg["calcidf"])
         self._extend_stoi(self.docid2toks.values(), calc_idf=self.cfg["calcidf"])
@@ -108,7 +107,7 @@ class EmbedText(Extractor):
                 n_missed += 1
                 embed_matrix[idx] = np.zeros(emb_dim) if self.cfg["zerounk"] else np.random.normal(scale=0.5, size=emb_dim)
 
-        logger.info(f"Embedding matrix {self.cfg['embeddings']} constructued, with shape {embed_matrix.shape}")
+        logger.info(f"embedding matrix {self.cfg['embeddings']} constructed, with shape {embed_matrix.shape}")
         if n_missed > 0:
             logger.warning(f"{n_missed}/{len(self.stoi)} (%.3f) term missed" % (n_missed / len(self.stoi)))
 
