@@ -23,7 +23,7 @@ def load_trec_topics(queryfn):
     title, desc, narr = defaultdict(list), defaultdict(list), defaultdict(list)
 
     block = None
-    if queryfn.endswith(".gz"):
+    if str(queryfn).endswith(".gz"):
         openf = gzip.open
     else:
         openf = open
