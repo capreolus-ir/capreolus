@@ -13,20 +13,27 @@ class TrainDataset(torch.utils.data.IterableDataset):
     Samples training data. Intended to be used with a pytorch DataLoader
     """
 
-    def __init__(self, training_judgments, extractor):
+    def __init__(self, qid_docid_to_rank, qrels, extractor):
         self.extractor = extractor
         self.iterations = 0
 
+        # remove qids from qid_docid_to_rank that do not have relevance labels in the qrels
+        qid_docid_to_rank = qid_docid_to_rank.copy()
+        for qid in list(qid_docid_to_rank.keys()):
+            if qid not in qrels:
+                logger.warning("skipping qid=%s that was missing from the qrels", qid)
+                del qid_docid_to_rank[qid]
+
         self.qid_to_reldocs = {
-            qid: [docid for docid, label in doclabels.items() if label > 0] for qid, doclabels in training_judgments.items()
+            qid: [docid for docid in docids if qrels[qid].get(docid, 0) > 0] for qid, docids in qid_docid_to_rank.items()
         }
 
         self.qid_to_negdocs = {
-            qid: [docid for docid, label in doclabels.items() if label <= 0] for qid, doclabels in training_judgments.items()
+            qid: [docid for docid in docids if qrels[qid].get(docid, 0) <= 0] for qid, docids in qid_docid_to_rank.items()
         }
 
         # remove any qids that do not have both relevant and non-relevant documents for training
-        for qid in list(training_judgments.keys()):
+        for qid in qid_docid_to_rank:
             posdocs = len(self.qid_to_reldocs[qid])
             negdocs = len(self.qid_to_negdocs[qid])
 
@@ -65,9 +72,9 @@ class PredDataset(torch.utils.data.IterableDataset):
     Creates a Dataset for evaluation (test) data to be used with a pytorch DataLoader
     """
 
-    def __init__(self, pred_pairs, extractor):
+    def __init__(self, qid_docid_to_rank, extractor):
         def genf():
-            for qid, docids in pred_pairs.items():
+            for qid, docids in qid_docid_to_rank.items():
                 for docid in docids:
                     try:
                         query_feature, posdoc_feature = extractor.id2vec(qid, docid)
