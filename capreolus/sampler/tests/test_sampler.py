@@ -10,10 +10,10 @@ from capreolus.tests.common_fixtures import tmpdir_as_cache, dummy_index
 
 
 def test_train_sampler(monkeypatch, tmpdir):
-    search_run = {"301": {"LA010189-0001": 50, "LA010189-0002": 100}}
     benchmark = DummyBenchmark({"fold": "s1", "rundocsonly": True})
     extractor = EmbedText({"keepstops": True})
-    train_dataset = TrainDataset(search_run, benchmark, extractor)
+    training_judgments = benchmark.qrels.copy()
+    train_dataset = TrainDataset(training_judgments, extractor)
 
     def mock_id2vec(*args, **kwargs):
         return np.array([1, 2, 3, 4]), np.array([1, 1, 1, 1]), np.array([2, 2, 2, 2])
@@ -38,24 +38,19 @@ def test_train_sampler(monkeypatch, tmpdir):
 
 def test_pred_sampler(monkeypatch, tmpdir):
     search_run = {"301": {"LA010189-0001": 50, "LA010189-0002": 100}}
-    benchmark = DummyBenchmark({"fold": "s1", "rundocsonly": True})
     extractor = EmbedText({"keepstops": True})
-    pred_dataset = PredDataset(search_run, benchmark, extractor)
+    pred_dataset = PredDataset(search_run, extractor)
 
     def mock_id2vec(*args, **kwargs):
         return np.array([1, 2, 3, 4]), np.array([1, 1, 1, 1])
 
     monkeypatch.setattr(EmbedText, "id2vec", mock_id2vec)
-    dataloader = torch.utils.data.DataLoader(pred_dataset, batch_size=32)
+    dataloader = torch.utils.data.DataLoader(pred_dataset, batch_size=2)
     for idx, batch in enumerate(dataloader):
-        assert len(batch["query"]) == 32
-        assert len(batch["posdoc"]) == 32
+        assert len(batch["query"]) == 2
+        assert len(batch["posdoc"]) == 2
         assert batch.get("negdoc") is None
         assert np.array_equal(batch["query"][0], np.array([1, 2, 3, 4]))
-        assert np.array_equal(batch["query"][30], np.array([1, 2, 3, 4]))
+        assert np.array_equal(batch["query"][1], np.array([1, 2, 3, 4]))
         assert np.array_equal(batch["posdoc"][0], np.array([1, 1, 1, 1]))
-        assert np.array_equal(batch["posdoc"][30], np.array([1, 1, 1, 1]))
-
-        # Just making sure that the dataloader can do multiple iterations
-        if idx > 3:
-            break
+        assert np.array_equal(batch["posdoc"][1], np.array([1, 1, 1, 1]))
