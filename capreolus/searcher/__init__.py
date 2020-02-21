@@ -92,6 +92,7 @@ class BM25(Searcher, AnseriniSearcherMixIn):
     def config():
         b = 0.4  # controls document length normalization
         k1 = 0.9  # controls term saturation
+        hits = 1000
 
     def query_from_file(self, topicsfn, output_path):
         """
@@ -107,7 +108,8 @@ class BM25(Searcher, AnseriniSearcherMixIn):
         k1s = [self.cfg["k1"]]
         bstr = " ".join(str(x) for x in bs)
         k1str = " ".join(str(x) for x in k1s)
-        anserini_param_str = f"-bm25 -b {bstr} -k1 {k1str}"
+        hits = self.cfg["hits"]
+        anserini_param_str = f"-bm25 -b {bstr} -k1 {k1str} -hits {hits}"
         self._anserini_query_from_file(topicsfn, anserini_param_str, output_path)
 
         return output_path
@@ -123,13 +125,15 @@ class BM25Grid(Searcher, AnseriniSearcherMixIn):
     def config():
         bmax = 1.0  # maximum b value to include in grid search (starting at 0.1)
         k1max = 1.0  # maximum k1 value to include in grid search (starting at 0.1)
+        hits = 1000
 
     def query_from_file(self, topicsfn, output_path):
         bs = np.around(np.arange(0.1, self.cfg["bmax"] + 0.1, 0.1), 1)
         k1s = np.around(np.arange(0.1, self.cfg["k1max"] + 0.1, 0.1), 1)
         bstr = " ".join(str(x) for x in bs)
         k1str = " ".join(str(x) for x in k1s)
-        anserini_param_str = f"-bm25 -b {bstr} -k1 {k1str}"
+        hits = self.cfg["hits"]
+        anserini_param_str = f"-bm25 -b {bstr} -k1 {k1str} -hits {hits}"
         self._anserini_query_from_file(topicsfn, anserini_param_str, output_path)
 
         return output_path
