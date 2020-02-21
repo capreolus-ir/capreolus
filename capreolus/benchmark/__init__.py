@@ -12,6 +12,7 @@ class Benchmark(ModuleBase, metaclass=RegisterableModule):
     qrel_file = None
     topic_file = None
     fold_file = None
+    query_type = None
 
     @property
     def qrels(self):
@@ -37,6 +38,7 @@ class DummyBenchmark(Benchmark):
     qrel_file = PACKAGE_PATH / "data" / "qrels.dummy.txt"
     topic_file = PACKAGE_PATH / "data" / "topics.dummy.txt"
     fold_file = PACKAGE_PATH / "data" / "dummy_folds.json"
+    query_type = "title"
 
     @staticmethod
     def config():
@@ -49,8 +51,22 @@ class WSDM20Demo(Benchmark):
     qrel_file = PACKAGE_PATH / "data" / "qrels.robust2004.txt"
     topic_file = PACKAGE_PATH / "data" / "topics.robust04.301-450.601-700.txt"
     fold_file = PACKAGE_PATH / "data" / "rob04_yang19_folds.json"
+    query_type = "title"
 
     @staticmethod
     def config():
         fold = "s1"
         rundocsonly = True  # use only docs from the searcher as pos/neg training instances (i.e., not all qrels)
+
+
+class ANTIQUE(Benchmark):
+    name = "antique"
+    qrel_file = PACKAGE_PATH / "data" / "qrels.antique.txt"
+    topic_file = PACKAGE_PATH / "data" / "topics.antique.txt"
+    fold_file = PACKAGE_PATH / "data" / "antique.json"
+    query_type = None
+
+    @staticmethod
+    def condif():
+        fold = "s1"
+        rundocsonly = True

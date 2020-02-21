@@ -14,8 +14,9 @@
 #
 import os
 import sys
-sys.path.insert(0, os.path.abspath('../'))
-assert os.path.exists(os.path.abspath('../capreolus'))
+
+sys.path.insert(0, os.path.abspath("../"))
+assert os.path.exists(os.path.abspath("../capreolus"))
 
 # -- Project information -----------------------------------------------------
 
@@ -167,10 +168,10 @@ todo_include_todos = True
 
 napoleon_google_docstring = True
 
-autoapi_type = 'python'
-autoapi_dirs = ['../capreolus']
+autoapi_type = "python"
+autoapi_dirs = ["../capreolus"]
 autoapi_ignore = ["*tests/*", "flycheck_*"]
-autoapi_options = ['members', 'undoc-members', 'show-inheritance', 'show-module-summary']
+autoapi_options = ["members", "undoc-members", "show-inheritance", "show-module-summary"]
 # do not show _private and __special__ members
 # autoapi_options = ['members', 'undoc-members', 'private-members', 'show-inheritance', 'special-members', 'show-module-summary']
 
