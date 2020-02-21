@@ -42,14 +42,13 @@ class TrainDataset(torch.utils.data.IterableDataset):
                 del self.qid_to_reldocs[qid]
                 del self.qid_to_negdocs[qid]
 
-    def __iter__(self):
-        """
-        Returns: Triplets of the form (query_feature, posdoc_feature, negdoc_feature)
-        """
-
+    def generator_func(self):
         # Convert each query and doc id to the corresponding feature/embedding and yield
         while True:
             all_qids = sorted(self.qid_to_reldocs)
+            if len(all_qids) == 0:
+                raise RuntimeError("TrainDataset has no valid qids")
+
             random.seed(self.iterations)
             random.shuffle(all_qids)
 
@@ -58,13 +57,19 @@ class TrainDataset(torch.utils.data.IterableDataset):
                 negdocid = random.choice(self.qid_to_negdocs[qid])
 
                 try:
-                    query_feature, posdoc_feature, negdoc_feature = self.extractor.id2vec(qid, posdocid, negdocid)
-                    yield {"query": query_feature, "posdoc": posdoc_feature, "negdoc": negdoc_feature}
+                    yield self.extractor.id2vec(qid, posdocid, negdocid)
                 except MissingDocError:
                     # at training time we warn but ignore on missing docs
                     logger.warning(
                         "skipping training pair with missing features: qid=%s posid=%s negid=%s", qid, posdocid, negdocid
                     )
+
+    def __iter__(self):
+        """
+        Returns: Triplets of the form (query_feature, posdoc_feature, negdoc_feature)
+        """
+
+        return iter(self.generator_func())
 
 
 class PredDataset(torch.utils.data.IterableDataset):
@@ -77,8 +82,7 @@ class PredDataset(torch.utils.data.IterableDataset):
             for qid, docids in qid_docid_to_rank.items():
                 for docid in docids:
                     try:
-                        query_feature, posdoc_feature = extractor.id2vec(qid, docid)
-                        yield {"query": query_feature, "posdoc": posdoc_feature}
+                        yield extractor.id2vec(qid, docid)
                     except MissingDocError:
                         # when predictiong we raise an exception on missing docs, as this may invalidate results
                         logger.error("got none features for prediction: qid=%s posid=%s", qid, docid)
@@ -91,4 +95,4 @@ class PredDataset(torch.utils.data.IterableDataset):
         Returns: Tuples of the form (query_feature, posdoc_feature)
         """
 
-        return self.generator_func()
+        return iter(self.generator_func())
