@@ -1,6 +1,7 @@
 import random
 import torch.utils.data
 
+from capreolus.utils.exceptions import MissingDocError
 from capreolus.utils.loginit import get_logger
 
 
@@ -12,58 +13,51 @@ class TrainDataset(torch.utils.data.IterableDataset):
     Samples training data. Intended to be used with a pytorch DataLoader
     """
 
-    def __init__(self, search_run, benchmark, extractor):
-        self.search_run = search_run
-        self.benchmark = benchmark
+    def __init__(self, training_judgments, extractor):
         self.extractor = extractor
         self.iterations = 0
+
+        self.qid_to_reldocs = {
+            qid: [docid for docid, label in doclabels.items() if label > 0] for qid, doclabels in training_judgments.items()
+        }
+
+        self.qid_to_negdocs = {
+            qid: [docid for docid, label in doclabels.items() if label <= 0] for qid, doclabels in training_judgments.items()
+        }
+
+        # remove any qids that do not have both relevant and non-relevant documents for training
+        for qid in list(training_judgments.keys()):
+            posdocs = len(self.qid_to_reldocs[qid])
+            negdocs = len(self.qid_to_negdocs[qid])
+
+            if posdocs == 0 or negdocs == 0:
+                logger.warning("removing training qid=%s with %s positive docs and %s negative docs", qid, posdocs, negdocs)
+                del self.qid_to_reldocs[qid]
+                del self.qid_to_negdocs[qid]
 
     def __iter__(self):
         """
         Returns: Triplets of the form (query_feature, posdoc_feature, negdoc_feature)
         """
-        extractor = self.extractor
-        benchmark = self.benchmark
-        search_run = self.search_run
-
-        train_qids = benchmark.folds[benchmark.cfg["fold"]]["train_qids"]
-        is_rundocsonly = benchmark.cfg["rundocsonly"]
-        if is_rundocsonly:
-            # Create qrels from only those docs that showed up in the search results
-            qrels = {
-                qid: {docid: label for docid, label in benchmark.qrels[qid].items() if docid in search_run[qid]}
-                for qid in train_qids
-            }
-        else:
-            qrels = benchmark.qrels
-
-        qid_to_reldocs = {qid: [docid for docid, label in qrels[qid].items() if label > 0] for qid in qrels}
-        qid_to_negdocs = {qid: [docid for docid, label in qrels[qid].items() if label <= 0] for qid in qrels}
-
-        # Remove the qids that does not have relevant/irrelevant docs associated with it
-        valid_qids = [qid for qid in train_qids if qid_to_reldocs.get(qid) and qid_to_negdocs.get(qid)]
 
         # Convert each query and doc id to the corresponding feature/embedding and yield
-        def genf():
-            while True:
-                random.seed(self.iterations)
-                random.shuffle(valid_qids)
+        while True:
+            all_qids = sorted(self.qid_to_reldocs)
+            random.seed(self.iterations)
+            random.shuffle(all_qids)
 
-                for qid in valid_qids:
-                    posdocid = random.choice(qid_to_reldocs[qid])
-                    negdocid = random.choice(qid_to_negdocs[qid])
+            for qid in all_qids:
+                posdocid = random.choice(self.qid_to_reldocs[qid])
+                negdocid = random.choice(self.qid_to_negdocs[qid])
 
-                    try:
-                        query_feature, posdoc_feature, negdoc_feature = extractor.id2vec(qid, posdocid, negdocid)
-                        self.iterations += 1
-                        yield {"query": query_feature, "posdoc": posdoc_feature, "negdoc": negdoc_feature}
-                    # TODO: Replace below catch-all exception with MissingDocError
-                    except Exception:
-                        # The extractor should emit the above error
-                        logger.warning("got none features: qid=%s posid=%s negid=%s", qid, posdocid, negdocid)
-                        raise
-
-        return genf()
+                try:
+                    query_feature, posdoc_feature, negdoc_feature = self.extractor.id2vec(qid, posdocid, negdocid)
+                    yield {"query": query_feature, "posdoc": posdoc_feature, "negdoc": negdoc_feature}
+                except MissingDocError:
+                    # at training time we warn but ignore on missing docs
+                    logger.warning(
+                        "skipping training pair with missing features: qid=%s posid=%s negid=%s", qid, posdocid, negdocid
+                    )
 
 
 class PredDataset(torch.utils.data.IterableDataset):
@@ -71,30 +65,23 @@ class PredDataset(torch.utils.data.IterableDataset):
     Creates a Dataset for evaluation (test) data to be used with a pytorch DataLoader
     """
 
-    def __init__(self, search_run, benchmark, extractor):
-        self.search_run = search_run
-        self.benchmark = benchmark
-        self.extractor = extractor
+    def __init__(self, pred_pairs, extractor):
+        def genf():
+            for qid, docids in pred_pairs.items():
+                for docid in docids:
+                    try:
+                        query_feature, posdoc_feature = extractor.id2vec(qid, docid)
+                        yield {"query": query_feature, "posdoc": posdoc_feature}
+                    except MissingDocError:
+                        # when predictiong we raise an exception on missing docs, as this may invalidate results
+                        logger.error("got none features for prediction: qid=%s posid=%s", qid, docid)
+                        raise
+
+        self.generator_func = genf
 
     def __iter__(self):
         """
         Returns: Tuples of the form (query_feature, posdoc_feature)
         """
-        benchmark = self.benchmark
-        extractor = self.extractor
-        search_run = self.search_run
-        test_qids = benchmark.folds[benchmark.cfg["fold"]]["predict"]["test"]
 
-        def genf():
-            while True:
-                for qid in test_qids:
-                    for posdocid in search_run[qid].keys():
-                        try:
-                            query_feature, posdoc_feature = extractor.id2vec(qid, posdocid)
-                            yield {"query": query_feature, "posdoc": posdoc_feature}
-                        # TODO: Replace with MissingDocError
-                        except Exception:
-                            logger.warning("got none features: qid=%s posid=%s", qid, posdocid)
-                            raise
-
-        return genf()
+        return self.generator_func()
