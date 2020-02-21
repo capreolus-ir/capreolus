@@ -7,6 +7,7 @@ from capreolus.registry import ModuleBase, RegisterableModule, Dependency, MAX_T
 from capreolus.reranker.common import pair_hinge_loss, pair_softmax_loss
 from capreolus.searcher import Searcher
 from capreolus.utils.loginit import get_logger
+from capreolus import evaluator
 
 logger = get_logger(__name__)  # pylint: disable=invalid-name
 
@@ -157,7 +158,7 @@ class PytorchTrainer(Trainer):
         except:
             return 0
 
-    def train(self, reranker, train_dataset, train_output_path, dev_data, dev_output_path):
+    def train(self, reranker, train_dataset, train_output_path, dev_data, dev_output_path, qrels):
         """Train a model following the trainer's config (specifying batch size, number of iterations, etc).
 
         Args:
@@ -212,13 +213,12 @@ class PytorchTrainer(Trainer):
 
             # predict performance on dev set
             pred_fn = dev_output_path / f"{niter}.run"
-            self.predict(reranker, dev_data, pred_fn)
+            preds = self.predict(reranker, dev_data, pred_fn)
 
             # write dev metrics to file
-            # TODO re-enable
-            # metrics = evaluator.evaluate(pred_fn)
-            # dev_metrics.append(metrics)
-            # logger.info("dev metrics")
+            metrics = evaluator.eval_runs(preds, qrels, ["ndcg_cut_20", "map", "P_20"])
+            dev_metrics.append(metrics)
+            logger.info("dev metrics: %s", " ".join([f"{metric}={v:0.3f}" for metric, v in sorted(metrics.items())]))
 
             # write train_loss to file
             loss_fn.write_text("\n".join(f"{idx} {loss}" for idx, loss in enumerate(train_loss)))
