@@ -243,6 +243,7 @@ class Notebook:
             print("returning control to notebook")
             self.config = config
             self.modules = modules
+            self.describe_pipeline = partial(NotebookTask.describe_pipeline, config=self.config, modules=self.modules)
 
         class NotebookTask(Task):
             def notebook_config():
