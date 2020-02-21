@@ -6,6 +6,9 @@ from capreolus.sampler import TrainDataset, PredDataset
 from capreolus.task import Task
 from capreolus.registry import RESULTS_BASE_PATH, CACHE_BASE_PATH
 from capreolus import evaluator
+from capreolus.utils.loginit import get_logger
+
+logger = get_logger(__name__)
 
 
 def describe(config, modules):
@@ -41,19 +44,18 @@ def train(config, modules):
 
     train_output_path = _pipeline_path(config, modules)
     dev_output_path = train_output_path / "pred" / "dev"
-    trained_model = reranker["trainer"].train(
-        reranker, train_dataset, train_output_path, dev_dataset, dev_output_path, benchmark.qrels
-    )
-    trained_model.load_best_model(reranker, metric="map")
+    reranker["trainer"].train(reranker, train_dataset, train_output_path, dev_dataset, dev_output_path, benchmark.qrels)
+    logger.critical("*** TODO: load_best_model missing")
+    # reranker["trainer"].load_best_model(reranker, metric="map")
 
     test_run = {qid: docs for qid, docs in best_search_run.items() if qid in benchmark.folds[fold]["predict"]["test"]}
     test_dataset = PredDataset(qid_docid_to_rank=test_run, extractor=reranker["extractor"])
-    test_output_path = train_output_path / "pred" / "test"
+    test_output_path = train_output_path / "pred" / "test" / "best"
 
-    reranker_pred_fn = reranker["trainer"].predict(trained_model, test_dataset, test_output_path)
+    test_preds = reranker["trainer"].predict(reranker, test_dataset, test_output_path)
 
-    metrics = evaluator.eval_runs(preds, benchmark.qrels, ["ndcg_cut_20", "map", "P_20"])
-    return evaluator.evaluate(reranker_pred_fn)
+    metrics = evaluator.eval_runs(test_preds, benchmark.qrels, ["ndcg_cut_20", "map", "P_20"])
+    print("test metrics:", metrics)
 
 
 def evaluate(config, modules):
