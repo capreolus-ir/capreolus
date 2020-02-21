@@ -6,6 +6,9 @@ from capreolus.sampler import TrainDataset, PredDataset
 from capreolus.task import Task
 from capreolus.registry import RESULTS_BASE_PATH, CACHE_BASE_PATH
 from capreolus import evaluator
+from capreolus.utils.loginit import get_logger
+
+logger = get_logger(__name__)
 
 
 def describe(config, modules):
@@ -26,7 +29,7 @@ def train(config, modules):
     searcher_cache_dir = os.path.join(searcher.get_cache_path(), benchmark.name)
     searcher_run_dir = searcher.query_from_file(topics_fn, searcher_cache_dir)
 
-    best_search_run_path = evaluator.search_best_run(searcher_run_dir, benchmark, metric)["path"]
+    best_search_run_path = evaluator.search_best_run(searcher_run_dir, benchmark, metric)["path"][fold]
     best_search_run = searcher.load_trec_run(best_search_run_path)
 
     docids = set(docid for querydocs in best_search_run.values() for docid in querydocs)
@@ -41,32 +44,40 @@ def train(config, modules):
 
     train_output_path = _pipeline_path(config, modules)
     dev_output_path = train_output_path / "pred" / "dev"
-    trained_model = reranker["trainer"].train(reranker, train_dataset, train_output_path, dev_dataset, dev_output_path)
-    trained_model.load_best_model(reranker, metric="map")
-
-    test_run = {qid: docs for qid, docs in best_search_run.items() if qid in benchmark.folds[fold]["predict"]["test"]}
-    test_dataset = PredDataset(qid_docid_to_rank=test_run, extractor=reranker["extractor"])
-    test_output_path = train_output_path / "pred" / "test"
-
-    reranker_pred_fn = reranker["trainer"].predict(trained_model, test_dataset, test_output_path)
-
-    return evaluator.evaluate(reranker_pred_fn)
+    reranker["trainer"].train(reranker, train_dataset, train_output_path, dev_dataset, dev_output_path, benchmark.qrels, metric)
 
 
 def evaluate(config, modules):
-    output_path = _pipeline_path(config, modules)
+    metric = "map"
+    fold = config["fold"]
+    train_output_path = _pipeline_path(config, modules)
+
     searcher = modules["searcher"]
     benchmark = modules["benchmark"]
     reranker = modules["reranker"]
+
+    topics_fn = benchmark.topic_file
+    searcher_cache_dir = os.path.join(searcher.get_cache_path(), benchmark.name)
+    searcher_run_dir = searcher.query_from_file(topics_fn, searcher_cache_dir)
+
+    best_search_run_path = evaluator.search_best_run(searcher_run_dir, benchmark, metric)["path"][fold]
+    best_search_run = searcher.load_trec_run(best_search_run_path)
+
+    docids = set(docid for querydocs in best_search_run.values() for docid in querydocs)
+    reranker["extractor"].create(qids=best_search_run.keys(), docids=docids, topics=benchmark.topics[benchmark.query_type])
     reranker.build()
 
-    metric = "map"
-    searcher_output_dir = searcher.get_cache_path() / benchmark.name
-    best_search_run_path = evaluator.search_best_run(searcher_output_dir, benchmark, metric)["path"]
-    best_search_run = searcher.load_trec_run(best_search_run_path)
-    pred_dataset = PredDataset(best_search_run, benchmark, extractor)
-    pred_dataloader = torch.utils.data.DataLoader(pred_dataset, batch_size=config["batch"])
-    # The reranker's test() method is called here
+    reranker["trainer"].load_best_model(reranker, train_output_path)
+
+    test_run = {qid: docs for qid, docs in best_search_run.items() if qid in benchmark.folds[fold]["predict"]["test"]}
+    test_dataset = PredDataset(qid_docid_to_rank=test_run, extractor=reranker["extractor"])
+    test_output_path = train_output_path / "pred" / "test" / "best"
+
+    test_preds = reranker["trainer"].predict(reranker, test_dataset, test_output_path)
+
+    metrics = evaluator.eval_runs(test_preds, benchmark.qrels, ["ndcg_cut_20", "map", "P_20"])
+    print("*** TODO these are metrics on a single fold. we will need to aggregate across folds here later (eg if fold=all)")
+    print("test metrics:", metrics)
 
 
 def _pipeline_path(config, modules):
