@@ -16,7 +16,7 @@ def train(config, modules):
     benchmark = modules["benchmark"]
     topics_fn = benchmark.topic_file
 
-    searcher.index.create_index()
+    searcher["index"].create_index()
     search_results_folder = searcher.query_from_file(topics_fn, os.path.join(searcher.get_cache_path(), benchmark.name))
     print("Search results are at: " + search_results_folder)
 
