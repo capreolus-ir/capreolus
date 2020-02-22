@@ -1,4 +1,6 @@
+import random
 import os
+
 
 import numpy as np
 import torch
@@ -19,6 +21,11 @@ def describe(config, modules):
 
 
 def train(config, modules):
+    random.seed(config["seed"])
+    np.random.seed(config["seed"])
+    torch.manual_seed(config["seed"])
+    torch.cuda.manual_seed_all(config["seed"])
+
     metric = "map"
     fold = config["fold"]
 
