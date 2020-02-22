@@ -20,7 +20,7 @@ def test_anserini_get_docs(tmpdir_as_cache, dummy_index):
     docs = dummy_index.get_docs(["LA010189-0001", "LA010189-0002"])
     assert docs == [
         "Dummy Dummy Dummy Hello world, greetings from outer space!",
-        "Dummy LessDummy Hello world, greetings from outer space!"
+        "Dummy LessDummy Hello world, greetings from outer space!",
     ]
 
 

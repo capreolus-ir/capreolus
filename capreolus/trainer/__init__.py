@@ -68,9 +68,7 @@ class PytorchTrainer(Trainer):
 
         for bi, batch in enumerate(train_dataloader):
             # TODO make sure _prepare_batch_with_strings equivalent is happening inside the sampler
-            batch = {
-                k: v.to(self.device) if k not in ["qid", "posdocid", "negdocid"] else v
-                for k, v in batch.items()}
+            batch = {k: v.to(self.device) if not isinstance(v, list) else v for k, v in batch.items()}
             doc_scores = reranker.score(batch)
             loss = self.loss(doc_scores)
             iter_loss.append(loss)
@@ -259,10 +257,8 @@ class PytorchTrainer(Trainer):
         pred_dataloader = torch.utils.data.DataLoader(pred_data, batch_size=self.cfg["batch"], pin_memory=True, num_workers=0)
         with torch.autograd.no_grad():
             for bi, batch in enumerate(pred_dataloader):
-                batch = {
-                    k: v.to(self.device) if k not in ["qid", "posdocid", "negdocid"] else v
-                    for k, v in batch.items()}
-                doc_scores = model.score(batch)
+                batch = {k: v.to(self.device) if not isinstance(v, list) else v for k, v in batch.items()}
+                scores = reranker.test(batch)
                 scores = scores.view(-1).cpu().numpy()
                 for qid, docid, score in zip(batch["qid"], batch["posdocid"], scores):
                     # Need to use float16 because pytrec_eval's c function call crashes with higher precision floats
