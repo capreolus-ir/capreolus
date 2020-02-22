@@ -1,5 +1,6 @@
 import sys
-sys.path.append('/home/xinyu1zhang/mpi-spring/capreolus')
+
+sys.path.append("/home/xinyu1zhang/mpi-spring/capreolus")
 
 import functools
 import os
@@ -33,6 +34,7 @@ plt.switch_backend("agg")
 
 pipeline = Pipeline({module: cli_module_choice(sys.argv, module) for module in modules})
 pipeline.ex.logger = logger
+
 
 @pipeline.ex.main
 def train(_config, _run):
