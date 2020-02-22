@@ -32,7 +32,9 @@ def train(config, modules):
     searcher = modules["searcher"]
     benchmark = modules["benchmark"]
     reranker = modules["reranker"]
-    searcher["index"].create_index()
+
+    if "index" in searcher.modules:
+        searcher["index"].create_index()
 
     topics_fn = benchmark.topic_file
     searcher_cache_dir = os.path.join(searcher.get_cache_path(), benchmark.name)
