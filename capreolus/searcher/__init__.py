@@ -4,7 +4,7 @@ from collections import defaultdict
 
 import numpy as np
 
-from capreolus.registry import ModuleBase, RegisterableModule, Dependency, MAX_THREADS
+from capreolus.registry import ModuleBase, RegisterableModule, Dependency, MAX_THREADS, PACKAGE_PATH
 from capreolus.utils.common import Anserini
 from capreolus.utils.loginit import get_logger
 
