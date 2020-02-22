@@ -155,10 +155,6 @@ class EmbedText(Extractor):
             "query_idf": np.array(idfs, dtype=np.float32),
         }
 
-        if not negid:
-            logger.debug(f"missing negtive doc id for qid {qid}")
-            return data
-
         negdoc = self.docid2toks.get(negid, None)
         if not negdoc:
             raise MissingDocError(qid, negid)
