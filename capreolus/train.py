@@ -1,3 +1,6 @@
+import sys
+sys.path.append('/home/xinyu1zhang/mpi-spring/capreolus')
+
 import functools
 import os
 import resource
@@ -31,14 +34,13 @@ plt.switch_backend("agg")
 pipeline = Pipeline({module: cli_module_choice(sys.argv, module) for module in modules})
 pipeline.ex.logger = logger
 
-
 @pipeline.ex.main
 def train(_config, _run):
     pipeline.initialize(_config)
     reranker = pipeline.reranker
     benchmark = pipeline.benchmark
     logger.debug("initialized pipeline with results path: %s", pipeline.reranker_path)
-    post_pipeline_init_time = time.time()
+
     run_path = os.path.join(pipeline.reranker_path, pipeline.cfg["fold"])
     logger.info("initialized pipeline with results path: %s", run_path)
     post_pipeline_init_time = time.time()

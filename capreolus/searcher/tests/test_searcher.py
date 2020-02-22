@@ -1,63 +1,43 @@
 import os
-
+import numpy as np
 import pytest
-import pytrec_eval
+from sacred.config import ConfigScope
 
-from capreolus.tests.common_fixtures import trec_index, dummy_collection_config
-from capreolus.collection import Collection
-from capreolus.searcher.bm25 import BM25Grid
-from capreolus.searcher import Searcher
-
-
-def test_bm25grid_create(trec_index, dummy_collection_config, tmpdir):
-    collection = Collection(dummy_collection_config)
-    pipeline_config = {"indexstops": True, "maxthreads": 1, "stemmer": "anserini", "bmax": 0.2, "k1max": 0.2}
-
-    bm25_run = BM25Grid(trec_index, collection, os.path.join(tmpdir, "searcher"), pipeline_config)
-    bm25_run.create()
-
-    # Make sure that the searcher file is generated
-    os.path.isfile(os.path.join(tmpdir, "searcher", "done"))
+from capreolus.benchmark import DummyBenchmark
+from capreolus.searcher import BM25, BM25Grid
+from capreolus.tests.common_fixtures import tmpdir_as_cache, dummy_index
 
 
-def test_cross_validated_ranking(trec_index, dummy_collection_config, tmpdir):
-    collection = Collection(dummy_collection_config)
-    pipeline_config = {"indexstops": True, "maxthreads": 1, "stemmer": "anserini", "bmax": 0.2, "k1max": 0.2}
+def test_searcher_bm25(tmpdir_as_cache, tmpdir, dummy_index):
+    searcher_config = ConfigScope(BM25.config)()
+    searcher_config["_name"] = BM25.name
+    searcher = BM25(searcher_config)
+    searcher.modules["index"] = dummy_index
+    topics_fn = DummyBenchmark.topic_file
 
-    bm25_run = BM25Grid(trec_index, collection, os.path.join(tmpdir, "searcher"), pipeline_config)
-    test_ranking = bm25_run.crossvalidated_ranking(["301"], ["301"])
+    output_fn = searcher.query_from_file(topics_fn, os.path.join(searcher.get_cache_path(), DummyBenchmark.name))
 
-    assert test_ranking["301"]["LA010189-0001"] > 0
-    assert test_ranking["301"]["LA010189-0002"] > 0
+    assert output_fn == os.path.join(searcher.get_cache_path(), DummyBenchmark.name)
+
+    with open(os.path.join(output_fn, "searcher"), "r") as fp:
+        file_contents = fp.readlines()
+
+    assert file_contents == ["301 Q0 LA010189-0001 1 0.140200 Anserini\n", "301 Q0 LA010189-0002 2 0.140199 Anserini\n"]
 
 
-def test_search_run_metrics(tmpdir):
-    qrels_dict = {"q1": {"d1": 1, "d2": 0, "d3": 2}, "q2": {"d5": 0, "d6": 1}}
-    run_dict = {"q1": {"d1": 1.1, "d2": 1.0}, "q2": {"d5": 9.0, "d6": 8.0}, "q3": {"d7": 1.0, "d8": 2.0}}
-    valid_metrics = {"P", "map", "map_cut", "ndcg_cut", "Rprec", "recip_rank"}
+def test_searcher_bm25_grid(tmpdir_as_cache, tmpdir, dummy_index):
+    searcher_config = ConfigScope(BM25Grid.config)()
+    searcher_config["_name"] = BM25Grid.name
+    searcher = BM25Grid(searcher_config)
+    searcher.modules["index"] = dummy_index
+    bs = np.around(np.arange(0.1, 1 + 0.1, 0.1), 1)
+    k1s = np.around(np.arange(0.1, 1 + 0.1, 0.1), 1)
+    topics_fn = DummyBenchmark.topic_file
 
-    fn = tmpdir / "searcher"
-    Searcher.write_trec_run(run_dict, fn)
+    output_fn = searcher.query_from_file(topics_fn, os.path.join(searcher.get_cache_path(), DummyBenchmark.name))
+    assert output_fn == os.path.join(searcher.get_cache_path(), DummyBenchmark.name)
 
-    # calculate results with q1 and q2
-    searcher = Searcher(None, None, None, None)
-    qids = set(qrels_dict.keys())
-    evaluator = pytrec_eval.RelevanceEvaluator(qrels_dict, valid_metrics)
-    partial_metrics = searcher.search_run_metrics(fn, evaluator, qids)
-
-    # cache file exists?
-    assert os.path.exists(fn + ".metrics")
-
-    # add q3 and re-run to update cache
-    qrels_dict["q3"] = {"d7": 0, "d8": 2}
-    qids = set(qrels_dict.keys())
-    evaluator = pytrec_eval.RelevanceEvaluator(qrels_dict, valid_metrics)
-    metrics = searcher.search_run_metrics(fn, evaluator, qids)
-    assert "q3" in metrics
-    assert "q2" in metrics
-
-    # remove original file to ensure results loaded from cache,
-    # then make sure metrics haven't changed (and include the new q3)
-    os.remove(fn)
-    cached_metrics = searcher.search_run_metrics(fn, evaluator, qids)
-    assert metrics == cached_metrics
+    for k1 in k1s:
+        for b in bs:
+            assert os.path.exists(os.path.join(output_fn, "searcher_k1={0},b={1}".format(k1, b)))
+    assert os.path.exists(os.path.join(output_fn, "done"))

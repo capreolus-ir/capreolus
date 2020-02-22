@@ -4,14 +4,14 @@ import torch
 _hinge_loss = torch.nn.MarginRankingLoss(margin=1, reduction="mean")
 
 
-def pair_softmax_loss(positive_t1, negative_t1, batch_size=None):
-    scores = torch.stack((positive_t1, negative_t1), dim=1)
+def pair_softmax_loss(pos_neg_scores):
+    scores = torch.stack(pos_neg_scores, dim=1)
     return torch.mean(1.0 - scores.softmax(dim=1)[:, 0])
 
 
-def pair_hinge_loss(positive_t1, negative_t1, batch_size=None):
-    label = torch.ones_like(positive_t1)  # , dtype=torch.int)
-    return _hinge_loss(positive_t1, negative_t1, label)
+def pair_hinge_loss(pos_neg_scores):
+    label = torch.ones_like(pos_neg_scores[0])  # , dtype=torch.int)
+    return _hinge_loss(pos_neg_scores[0], pos_neg_scores[1], label)
 
 
 class SimilarityMatrix(torch.nn.Module):

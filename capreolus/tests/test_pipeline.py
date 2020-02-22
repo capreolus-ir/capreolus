@@ -1,162 +1,78 @@
-import os
-
 import pytest
-from pymagnitude import Magnitude
-from pytest_mock import mocker
-import sacred
 
-from capreolus.benchmark.robust04 import Robust04Benchmark
-from capreolus.collection import Collection
-from capreolus.extractor.embedtext import EmbedText
-from capreolus.index.anserini import AnseriniIndex
-from capreolus.reranker.KNRM import KNRM
-from capreolus.reranker.PACRR import PACRR
-from capreolus.pipeline import Pipeline
-from capreolus.searcher.bm25 import BM25Grid
-from capreolus.utils.common import forced_types
+from collections import namedtuple
+from capreolus.pipeline import Pipeline, Notebook
 
 
-def test_get_parameters_to_module():
-    pipeline = Pipeline({})
-    ex = sacred.Experiment("capreolus")
-
-    parameters_to_module = pipeline.get_parameters_to_module(ex)
-    assert parameters_to_module == {
-        "collection": "module",
-        "index": "module",
-        "searcher": "module",
-        "benchmark": "module",
-        "reranker": "module",
-        "expid": "stateless",
-        "earlystopping": "stateless",
-        "predontrain": "stateless",
-        "fold": "stateless",
-        "maxdoclen": "pipeline",
-        "maxqlen": "pipeline",
-        "batch": "pipeline",
-        "niters": "pipeline",
-        "itersize": "pipeline",
-        "gradacc": "pipeline",
-        "lr": "pipeline",
-        "seed": "pipeline",
-        "sample": "pipeline",
-        "softmaxloss": "pipeline",
-        "dataparallel": "pipeline",
-    }
+class DummyPipeline(Pipeline):
+    def __init__(self, task):
+        self.task = task
 
 
-def test_get_parameter_types(mocker):
-    pipeline = Pipeline({})
-    ex = sacred.Experiment("capreolus")
+def test_extract_choices_from_argv():
+    # manually assign these to avoid calling import_module
+    pipeline = DummyPipeline(namedtuple("task", "module_order")(["m1", "m2"]))
 
-    def mock_config(method_that_generates_input_dict):
-        input_dict = method_that_generates_input_dict()
+    arg_prefix = ["foo.py", "with"]
 
-        # Just messing with the types to make sure that get_parameter_types does what it should
-        input_dict.update({"index": None, "niters": True})
-        return lambda: input_dict
+    choices = pipeline._extract_choices_from_argv(arg_prefix)
+    assert choices == {}
 
-    mocker.patch.object(ex, "config", mock_config)
-    parameter_types = pipeline.get_parameter_types(ex)
-    assert parameter_types == {
-        "pipeline": type("string"),  # "pipeline" key is added by the method
-        "collection": type("robust04"),
-        "earlystopping": forced_types[type(True)],
-        "index": forced_types[type(None)],
-        "searcher": type("bm25grid"),
-        "benchmark": type("robust04.title.wsdm20demo"),
-        "reranker": type("PACRR"),
-        "expid": type("debug"),
-        "predontrain": forced_types[type(True)],
-        "fold": type("s1"),
-        "maxdoclen": type(800),
-        "maxqlen": type(4),
-        "batch": type(32),
-        "niters": forced_types[type(True)],
-        "itersize": type(4096),
-        "gradacc": type(1),
-        "lr": type(0.001),
-        "seed": type(123_456),
-        "sample": type("simple"),
-        "softmaxloss": forced_types[type(True)],
-        "dataparallel": type("none"),
-    }
+    choices = pipeline._extract_choices_from_argv(arg_prefix + "m1=foo1 m2=foo2 m3=foo3".split())
+    assert choices == {"m1": "foo1", "m2": "foo2"}
 
 
-def test_get_module_to_class():
-    pipeline = Pipeline({})
-    module_choices = {"reranker": "KNRM"}  # default is PACRR
+def test_rewrite_argv_for_ingredients():
+    # manually assign these to avoid calling import_module
+    pipeline = DummyPipeline(namedtuple("task", "module_order")(["m1", "m2"]))
 
-    module2class = pipeline.get_module_to_class({})
-    assert module2class["collection"].__class__ == Collection
-    assert module2class["index"].__class__ == AnseriniIndex.__class__
-    assert module2class["searcher"].__class__ == BM25Grid.__class__
-    assert module2class["benchmark"].__class__ == Robust04Benchmark.__class__
-    assert module2class["reranker"].__class__ == PACRR.__class__
+    arg_prefix = ["foo.py", "with"]
 
-    module2class = pipeline.get_module_to_class(module_choices)
-    assert module2class["reranker"].__class__ == KNRM.__class__
+    rewritten_args = pipeline._rewrite_argv_for_ingredients(arg_prefix)
+    assert rewritten_args == arg_prefix
+
+    rewritten_args = pipeline._rewrite_argv_for_ingredients(arg_prefix + "m1=foo1 m2=foo2 m3=foo3".split())
+    assert rewritten_args == arg_prefix + "m1._name=foo1 m2._name=foo2 m3=foo3".split()
 
 
-def test_get_parameters_to_module_including_missing_and_extractors():
-    """
-        Calls Pipeline.__init__() which in turn calls
-        1. self.get_parameters_to_module
-        2. get_parameters_to_module_for_missing_parameters
-        3. get_parameters_to_module_for_feature_parameters
-    """
-    pipeline = Pipeline({})
-    ex = sacred.Experiment("capreolus")
+# we don't currently test other Pipeline functions, which are tightly coupled,
+# but we do test that Tasks are created as we expect
+def test_simple_task_construction():
+    module_defaults = {"searcher": "BM25", "collection": "robust04", "benchmark": "wsdm20demo"}
+    nb = Notebook(module_defaults)
 
-    # parameters_to_module, parameter_types = pipeline.get_parameters_to_module_for_missing_parameters(ex)
+    for module_type, module_class in module_defaults.items():
+        assert module_type in nb.config
+        assert nb.config[module_type]["_name"] == module_class
 
-    assert pipeline.parameters_to_module == {
-        "collection": "module",
-        "benchmark": "module",
-        "reranker": "module",
-        "expid": "stateless",
-        "predontrain": "stateless",
-        "earlystopping": "stateless",
-        "maxdoclen": "pipeline",
-        "maxqlen": "pipeline",
-        "batch": "pipeline",
-        "niters": "pipeline",
-        "itersize": "pipeline",
-        "gradacc": "pipeline",
-        "lr": "pipeline",
-        "seed": "pipeline",
-        "sample": "pipeline",
-        "softmaxloss": "pipeline",
-        "dataparallel": "pipeline",
-        # AnseriniIndex specific config
-        "stemmer": "index",
-        "indexstops": "index",
-        # BM25Grid specific config
-        "index": "module",
-        # Robust04Benchmark specific config
-        "fold": "stateless",
-        "searcher": "module",
-        "rundocsonly": "benchmark",
-        # PACRR specific config
-        "mingram": "reranker",
-        "maxgram": "reranker",
-        "nfilters": "reranker",
-        "idf": "reranker",
-        "kmax": "reranker",
-        "combine": "reranker",
-        "nonlinearity": "reranker",
-        # EmbedText specific config
-        "embeddings": "extractor",
-        "keepstops": "extractor",
-    }
+        assert module_type in nb.modules
+        assert nb.modules[module_type].name == nb.config[module_type]["_name"]
 
 
-def test_check_for_invalid_keys():
-    pipeline = Pipeline({})
-    ex = sacred.Experiment("capreolus")
-    pipeline.check_for_invalid_keys()
+def test_task_construction_with_config():
+    module_defaults = {"searcher": "BM25", "collection": "robust04", "benchmark": "wsdm20demo"}
+    config_string = "searcher=BM25Grid"
+    nb = Notebook(module_defaults, config_string=config_string)
 
-    pipeline.parameters_to_module["foo_bar"] = "reranker"
+    assert nb.config["searcher"]["_name"] == "BM25Grid"
+    assert "k1" not in nb.config["searcher"]  # only present for BM25
+    assert "bmax" in nb.config["searcher"]  # only present for BM25Grid
 
-    with pytest.raises(ValueError):
-        pipeline.check_for_invalid_keys()
+    assert "searcher" in nb.modules
+    assert nb.modules["searcher"].name == nb.config["searcher"]["_name"]
+
+
+def test_task_construction_failure_on_bad_config():
+    module_defaults = {"searcher": "BM25", "collection": "robust04", "benchmark": "wsdm20demo"}
+
+    # sacred calls exit(1) when the config cannot be parsed correctly
+    with pytest.raises(SystemExit):
+        nb = Notebook(module_defaults, config_string="unknownoption=wasadded")
+
+    # _create_module_ingredients fails if a module cannot be found
+    with pytest.raises(KeyError):
+        nb = Notebook(module_defaults, config_string="searcher=nosuchsearchermodule")
+
+    # and still fails if the module and module class are valid but the combination is not
+    with pytest.raises(KeyError):
+        nb = Notebook(module_defaults, config_string="searcher=robust04")
