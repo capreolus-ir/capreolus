@@ -137,3 +137,21 @@ class BM25Grid(Searcher, AnseriniSearcherMixIn):
         self._anserini_query_from_file(topicsfn, anserini_param_str, output_path)
 
         return output_path
+
+
+class StaticBM25RM3Rob04Yang19(Searcher):
+    """ Tuned BM25+RM3 run used by Yang et al. in [1]. This should be used only with a benchmark using the same folds and queries.
+
+        [1] Wei Yang, Kuang Lu, Peilin Yang, and Jimmy Lin. Critically Examining the "Neural Hype": Weak Baselines and  the Additivity of Effectiveness Gains from Neural Ranking Models. SIGIR 2019.
+    """
+
+    name = "bm25staticrob04yang19"
+
+    def query_from_file(self, topicsfn, output_path):
+        import shutil
+
+        outfn = os.path.join(output_path, "static.run")
+        os.makedirs(output_path, exist_ok=True)
+        shutil.copy2(PACKAGE_PATH / "data" / "rob04_yang19_rm3.run", outfn)
+
+        return output_path
