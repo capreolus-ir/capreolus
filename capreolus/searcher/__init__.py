@@ -123,8 +123,7 @@ class BM25Grid(Searcher, AnseriniSearcherMixIn):
 
     @staticmethod
     def config():
-        bmax = 0.9  # maximum b value to include in grid search (starting at 0.1)
-        k1max = 1.0  # maximum k1 value to include in grid search (starting at 0.1)
+        bmax = 1.0  # maximum b value to include in grid search (starting at 0.1)
         hits = 1000
 
     def query_from_file(self, topicsfn, output_path):

@@ -18,6 +18,7 @@ def test_downloadifmissing():
 
     path_to_col = "~/tmp_antique22/collection"
     path_to_idx = "~/tmp_antique22/index"
+
     if os.path.exists(path_to_col):
         _remove_folder(path_to_col)
     assert not os.path.exists(path_to_col)

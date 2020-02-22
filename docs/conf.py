@@ -12,10 +12,11 @@
 # add these directories to sys.path here. If the directory is relative to the
 # documentation root, use os.path.abspath to make it absolute, like shown here.
 #
-# import os
-# import sys
-# sys.path.insert(0, os.path.abspath('.'))
+import os
+import sys
 
+sys.path.insert(0, os.path.abspath("../"))
+assert os.path.exists(os.path.abspath("../capreolus"))
 
 # -- Project information -----------------------------------------------------
 
@@ -45,7 +46,9 @@ extensions = [
     "sphinx.ext.mathjax",
     "sphinx.ext.viewcode",
     "sphinx.ext.githubpages",
+    "sphinx.ext.napoleon",
     "recommonmark",
+    "autoapi.extension",
 ]
 
 # Add any paths that contain templates here, relative to this directory.
@@ -70,7 +73,8 @@ language = None
 # List of patterns, relative to source directory, that match files and
 # directories to ignore when looking for source files.
 # This pattern also affects html_static_path and html_extra_path .
-exclude_patterns = ["_build", "Thumbs.db", ".DS_Store"]
+exclude_patterns = ["_build", "Thumbs.db", ".DS_Store", "flycheck_*"]
+apidoc_excluded_paths = ["flycheck_*"]
 
 # The name of the Pygments (syntax highlighting) style to use.
 pygments_style = "sphinx"
@@ -161,3 +165,21 @@ texinfo_documents = [
 
 # If true, `todo` and `todoList` produce output, else they produce nothing.
 todo_include_todos = True
+
+napoleon_google_docstring = True
+
+autoapi_type = "python"
+autoapi_dirs = ["../capreolus"]
+autoapi_ignore = ["*tests/*", "flycheck_*"]
+autoapi_options = ["members", "undoc-members", "show-inheritance", "show-module-summary"]
+# do not show _private and __special__ members
+# autoapi_options = ['members', 'undoc-members', 'private-members', 'show-inheritance', 'special-members', 'show-module-summary']
+
+
+def skip_check(app, what, name, obj, skip, options):
+    # keep sphinx's default
+    return skip
+
+
+def setup(app):
+    app.connect("autoapi-skip-member", skip_check)
