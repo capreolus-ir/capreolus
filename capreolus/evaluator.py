@@ -48,8 +48,7 @@ def _eval_runs(runs, qrels, metrics, dev_qids):
     dev_qrels = {qid: labels for qid, labels in qrels.items() if qid in dev_qids}
     evaluator = pytrec_eval.RelevanceEvaluator(dev_qrels, _transform_metric(metrics))
 
-    tmpx = evaluator.evaluate(runs).values()
-    scores = [[metrics_dict.get(m, -1) for m in metrics] for metrics_dict in tmpx]
+    scores = [[metrics_dict.get(m, -1) for m in metrics] for metrics_dict in evaluator.evaluate(runs).values()]
     scores = np.array(scores).mean(axis=0).tolist()
     scores = dict(zip(metrics, scores))
     return scores
