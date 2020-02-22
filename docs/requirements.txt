@@ -1,0 +1,4 @@
+cython
+sphinx
+recommonmark
+sphinx-autoapi
