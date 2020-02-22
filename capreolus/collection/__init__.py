@@ -1,236 +1,225 @@
-import gzip
 import os
 import shutil
 import tarfile
-import yaml
 
+from capreolus.registry import ModuleBase, RegisterableModule, PACKAGE_PATH
 from capreolus.utils.common import download_file
-from capreolus.utils.trec import load_qrels, load_trec_topics
 from capreolus.utils.loginit import get_logger
+from capreolus.utils.trec import anserini_index_to_trec_docs
 
-logger = get_logger(__name__)  # pylint: disable=invalid-name
-
-_data_keys = ["topics", "qrels", "documents"]
-_datadir = os.path.dirname(__file__)
+logger = get_logger(__name__)
 
 
-def parse_collections():
-    logger.debug("checking for collections to import in: %s", _datadir)
-    d = {}
-    for fn in os.listdir(_datadir):
-        if fn.endswith(".yaml"):
-            with open(os.path.join(_datadir, fn), "rt") as f:
-                logger.debug("loading %s", fn)
-                collection = Collection(yaml.load(f.read(), Loader=yaml.SafeLoader))
-                d[collection.name] = collection
-    return d
+class Collection(ModuleBase, metaclass=RegisterableModule):
+    """the module base class"""
+
+    module_type = "collection"
+    is_large_collection = False
+    _path = None
+
+    def get_path_and_types(self):
+        if not self.validate_document_path(self._path):
+            self._path = self.find_document_path()
+
+        return self._path, self.collection_type, self.generator_type
+
+    def validate_document_path(self, path):
+        """ Attempt to validate the document collection at `path`.
+
+            By default, this will only check whether `path` exists. Subclasses should override
+            `_validate_document_path(path)` with their own logic to perform more detailed checks.
+
+            Returns:
+                True if the path is valid following the logic described above, or False if it is not
+         """
+
+        if not (path and os.path.exists(path)):
+            return False
+
+        return self._validate_document_path(path)
+
+    def _validate_document_path(self, path):
+        """ Collection-specific logic for validating the document collection path. Subclasses should override this.
+
+            Returns:
+                this default method provided by Collection always returns true
+         """
+
+        return True
+
+    def find_document_path(self):
+        """ Find the location of this collection's documents (i.e., the raw document collection).
+
+            We first check the collection's config for a path key. If found, `self.validate_document_path` checks
+            whether the path is valid. Subclasses should override the private method `self._validate_document_path`
+            with custom logic for performing checks further than existence of the directory. See `Robust04`.
+
+            If a valid path was not found, call `download_if_missing`.
+            Subclasses should override this method if downloading the needed documents is possible.
+
+            If a valid document path cannot be found, an exception is thrown.
+
+            Returns:
+                path to this collection's raw documents
+        """
+
+        # first, see if the path was provided as a config option
+        if "path" in self.cfg and self.validate_document_path(self.cfg["path"]):
+            return self.cfg["path"]
+
+        # if not, see if the collection can be obtained through its download_if_missing method
+        return self.download_if_missing()
+
+    def download_if_missing(self):
+        raise IOError(
+            f"a download URL is not configured for collection={self.name} and the collection path does not exist; you must manually place the document collection at this path in order to use this collection"
+        )
+
+    def download_if_missing(self):
+        raise IOError(
+            f"a download URL is not configured for collection={self.name} and the collection path {self.path} does not exist; you must manually place the document collection at this path in order to use this collection"
+        )
 
 
-class Collection:
-    IRRELEVANT = 0
+class Robust04(Collection):
+    name = "robust04"
+    collection_type = "TrecCollection"
+    generator_type = "JsoupGenerator"
+    config_keys_not_in_path = ["path"]
 
-    def __init__(self, config):
-        Collection.validate_config(config)
-        self.basepath = _datadir
-        Collection.normalize_paths(config, self.basepath)
-        self.name = config["name"]
-        self.config = config
-        self.is_large_collection = config.get("is_large_collection")
+    @staticmethod
+    def config():
+        path = "Aquaint-TREC-3-4"
 
-    def download_if_missing(self, cachedir):
-        if os.path.exists(self.config["documents"]["path"]):
-            return
-        elif "index_download" not in self.config["documents"]:
-            raise IOError(
-                f"a download URL is not available for collection={self.name} and the collection path {self.config['documents']['path']} does not exist; you must manully place the document collection at this path in order to use this collection"
-            )
+    def download_if_missing(self):
+        return self.download_index(
+            url="https://git.uwaterloo.ca/jimmylin/anserini-indexes/raw/master/index-robust04-20191213.tar.gz",
+            sha256="dddb81f16d70ea6b9b0f94d6d6b888ed2ef827109a14ca21fd82b2acd6cbd450",
+            index_directory_inside="index-robust04-20191213/",
+            # this string should match how the index was built (i.e., Anserini, stopwords removed, Porter stemming)
+            index_cache_path_string="index-anserini_indexstops-False_stemmer-porter",
+            index_expected_document_count=528030,
+            cachedir=self.get_cache_path(),
+        )
 
-        # Download the collection from URL and extract into a path in the cache directory.
-        # To avoid re-downloading every call, we create an empty '/done' file in this directory on success.
-        downloaded_collection_dir = os.path.join(cachedir, self.name, "downloaded")
-        done_file = os.path.join(downloaded_collection_dir, "done")
-        document_dir = os.path.join(downloaded_collection_dir, "documents")
+    def _validate_document_path(self, path):
+        """ Validate that the document path appears to contain robust04's documents (Aquaint-TREC-3-4).
 
-        self.config["documents"]["path"] = document_dir
-        # already downloaded?
-        if os.path.exists(done_file):
+            Validation is performed by looking for four directories (case-insensitive): `FBIS`, `FR94`, `FT`, and `LATIMES`.
+            These directories may either be at the root of `path` or they may be in `path/NEWS_data` (case-insensitive).
+
+            Returns:
+                True if the Aquaint-TREC-3-4 document directories are found or False if not
+        """
+
+        if not os.path.isdir(path):
+            return False
+
+        contents = {fn.lower(): fn for fn in os.listdir(path)}
+        if "news_data" in contents:
+            contents = {fn.lower(): fn for fn in os.listdir(os.path.join(path, contents["news_data"]))}
+
+        if "fbis" in contents and "fr94" in contents and "ft" in contents and "latimes" in contents:
             return True
 
+        return False
+
+    def download_index(
+        self, cachedir, url, sha256, index_directory_inside, index_cache_path_string, index_expected_document_count
+    ):
+        # Download the collection from URL and extract into a path in the cache directory.
+        # To avoid re-downloading every call, we create an empty '/done' file in this directory on success.
+        done_file = os.path.join(cachedir, "done")
+        document_dir = os.path.join(cachedir, "documents")
+
+        # already downloaded?
+        if os.path.exists(done_file):
+            return document_dir
+
         # 1. Download and extract Anserini index to a temporary location
-        tmp_dir = os.path.join(downloaded_collection_dir, "tmp")
+        tmp_dir = os.path.join(cachedir, "tmp_download")
         archive_file = os.path.join(tmp_dir, "archive_file")
         os.makedirs(document_dir, exist_ok=True)
         os.makedirs(tmp_dir, exist_ok=True)
         logger.info("downloading index for missing collection %s to temporary file %s", self.name, archive_file)
-        download_file(
-            self.config["documents"]["index_download"]["url"],
-            archive_file,
-            expected_hash=self.config["documents"]["index_download"]["sha256"],
-        )
+        download_file(url, archive_file, expected_hash=sha256)
 
-        logger.debug("extracting to %s", tmp_dir)
+        logger.info("extracting index to %s (before moving to correct cache path)", tmp_dir)
         with tarfile.open(archive_file) as tar:
             tar.extractall(path=tmp_dir)
 
-        extracted_dir = os.path.join(tmp_dir, self.config["documents"]["index_download"]["index_directory_inside"])
+        extracted_dir = os.path.join(tmp_dir, index_directory_inside)
         if not (os.path.exists(extracted_dir) and os.path.isdir(extracted_dir)):
             raise ValueError(f"could not find expected index directory {extracted_dir} in {tmp_dir}")
 
-        # 2. Move Anserini index to its correct location in the cache
-        index_config = self.config["documents"]["index_download"]["index_config_string"]
-        index_dir = os.path.join(cachedir, self.name, index_config, "index")
-        shutil.move(extracted_dir, index_dir)
+        # 2. Move index to its correct location in the cache
+        index_dir = os.path.join(cachedir, index_cache_path_string, "index")
+        if not os.path.exists(os.path.join("index_dir", "done")):
+            if os.path.exists(index_dir):
+                shutil.rmtree(index_dir)
+            shutil.move(extracted_dir, index_dir)
 
         # 3. Extract raw documents from the Anserini index to document_dir
-        index_to_trec_docs(index_dir, document_dir, self.config["documents"]["index_download"]["expected_document_count"])
+        anserini_index_to_trec_docs(index_dir, document_dir, index_expected_document_count)
 
-        # remove temporary file and create a /done we can use to verify extraction was successful
-        os.remove(archive_file)
+        # remove temporary files and create a /done we can use to verify extraction was successful
+        shutil.rmtree(tmp_dir)
         with open(done_file, "wt") as outf:
             print("", file=outf)
 
-        logger.info("missing collection %s saved to %s", self.config["name"], document_dir)
-
-    def set_qrels(self, path):
-        self._qrels = load_qrels(path)
-
-    def set_topics(self, path):
-        self._topics = load_trec_topics(path)
-
-    def set_documents(self, path):
-        self.config["documents"]["path"] = path
-
-    @property
-    def qrels(self):
-        if not hasattr(self, "_qrels"):
-            self._qrels = load_qrels(self.config["qrels"]["path"])
-        return self._qrels
-
-    @property
-    def topics(self):
-        if not hasattr(self, "_topics"):
-            self._topics = load_trec_topics(self.config["topics"]["path"])
-        return self._topics
-
-    def get_qid_from_query_string(self, query_string):
-        # TODO: This is a linear search across all topics (250 topics in Rob04). Verify that this doesn't add
-        # significantly to the API response time
-        for q_id, query in self.topics["title"].items():
-            if query_string.lower() == query.lower():
-                return q_id
-
-        return None
-
-    def get_relevance(self, query_string, doc_ids):
-        """
-        Get the relevance of a set of documents for a given query_string
-        If the query string supplied is not part of the collection topic, we return 0 (IRRELEVANT)
-        If the doc_id supplied is not part of the collection qrels, we return [0, 0, 0..]
-        Else, we return the labels associated with doc_ids in qrels
-        """
-        assert isinstance(doc_ids, list)
-
-        q_id = self.get_qid_from_query_string(query_string)
-        if not q_id:
-            # TODO: Is this assumption correct? Perhaps a different collection would have non-relevant as 1?
-            return [self.IRRELEVANT] * len(doc_ids)
-
-        all_relevant_docs = self.qrels.get(q_id)
-        if all_relevant_docs is None:
-            # No relevant documents for this topic. Unlikely
-            return [self.IRRELEVANT] * len(doc_ids)
-
-        relevances = [all_relevant_docs.get(doc_id, self.IRRELEVANT) for doc_id in doc_ids]
-
-        return relevances
-
-    def get_query_suggestions(self, query, num=10):
-        """
-        Returns topic titles that include the given query
-        """
-        titles = self.topics["title"]
-        suggestions = []
-        count = 0
-
-        # TODO: Sloppy linear search. This may not scale if there are too many topics. Optimize later
-        for q_id, title in titles.items():
-            if query.lower() in title.lower():
-                suggestions.append(title)
-                count += 1
-                if count >= num:
-                    return suggestions
-
-        return suggestions
-
-    @staticmethod
-    def validate_config(config):
-        missing = [k for k in ["name"] + _data_keys if k not in config]
-        if len(missing) > 0:
-            raise RuntimeError(f"keys missing from collection config: {missing}")
-
-        for key in _data_keys:
-            if "path" not in config[key]:
-                raise RuntimeError(f"missing path for key={key}")
-            if "type" not in config[key]:
-                config[key]["type"] = "trec"
-
-    @staticmethod
-    def normalize_paths(config, basepath):
-        # join correctly handles the presence of a / in arguments
-        for key in _data_keys:
-            config[key]["path"] = os.path.join(basepath, os.path.expandvars(config[key]["path"]))
-
-    @staticmethod
-    def get_collection_from_index_path(index_path):
-        """
-        The index specified by index_path need NOT be the same as the index which was used to searcher the experiment\
-        The user can choose any index from the dropdown in the UI
-        This method tells you, based on the path, whether the index was made from a known collection (eg: robust04) or
-        whether it's an index on something else (like a wikipedia dump)
-        :param index_path: The path to the index
-        :return: A collection class, or None
-        """
-        for name, collection in COLLECTIONS.items():
-            if name in index_path:
-                return collection
-
-        return None
+        return document_dir
 
 
-def to_trectxt(docno, txt):
-    s = f"<DOC>\n<DOCNO> {docno} </DOCNO>\n"
-    s += f"<TEXT>\n{txt}\n</TEXT>\n</DOC>\n"
-    return s
+class DummyCollection(Collection):
+    name = "dummy"
+    _path = PACKAGE_PATH / "data" / "dummy" / "data"
+    collection_type = "TrecCollection"
+    generator_type = "JsoupGenerator"
+
+    def _validate_document_path(self, path):
+        """ Validate that the document path contains `dummy_trec_doc` """
+        return True
+
+class Robust05(Collection):
+    name = "robust05"
+    path = "missingpath"
+    collection_type = "TrecCollection"
+    generator_type = "JsoupGenerator"
 
 
-def index_to_trec_docs(index_dir, output_dir, expected_doc_count):
-    from jnius import autoclass
+class ANTIQUE(Collection):
+    name = "antique"
+    path = PACKAGE_PATH / "data" / "antique-collection"
 
-    JIndexUtils = autoclass("io.anserini.index.IndexUtils")
-    index_utils = JIndexUtils(index_dir)
+    collection_type = "TrecCollection"
+    generator_type = "JsoupGenerator"
 
-    docids = set()
-    for i in range(expected_doc_count):
-        try:
-            docid = index_utils.convertLuceneDocidToDocid(i)
-            docids.add(docid)
-        except:
-            # we reached the end?
-            pass
+    def download_if_missing(self):
+        if os.path.exists(self.path):
+            return
 
-    if len(docids) != expected_doc_count:
-        raise ValueError(
-            f"we expected to retrieve {expected_doc_count} documents from the index, but actually found {len(docids)}"
-        )
+        url = "https://ciir.cs.umass.edu/downloads/Antique/antique-collection.txt"
+        tmp_dir = os.path.join(os.path.dirname(self.path), "tmp")
+        tmp_filename = os.path.join(tmp_dir, "tmp.anqique.file")
+        coll_filename = os.path.join(self.path, "antique-collection.txt")
 
-    output_handles = [gzip.open(os.path.join(output_dir, f"{i}.gz"), "wt") for i in range(100, 200)]
-    for docidx, docid in enumerate(sorted(docids)):
-        txt = to_trectxt(docid, index_utils.getRawDocument(docid))
-        handleidx = docidx % len(output_handles)
-        print(txt, file=output_handles[handleidx])
+        os.makedirs(tmp_dir, exist_ok=True)
+        download_file(url, tmp_filename, expected_hash=False)
+        self._convert_to_trec(inp_path=tmp_filename, outp_path=coll_filename)
+        logger.info(f"antique collection file prepared, stored at {coll_filename}")
 
-    for handle in output_handles:
-        handle.close()
+        for file in os.listdir(tmp_dir):    # in case there are legacy files
+            os.remove(os.path.join(tmp_dir, file))
+        shutil.rmtree(tmp_dir)
 
+    def _convert_to_trec(self, inp_path, outp_path):
+        assert os.path.exists(inp_path)
+        os.makedirs(os.path.dirname(outp_path), exist_ok=True)
 
-COLLECTIONS = parse_collections()
+        fout = open(outp_path, "w", encoding="utf-8")
+        with open(inp_path, "r", encoding="utf-8") as f:
+            for line in f:
+                docid, doc = line.strip().split('\t')
+                fout.write(f"<DOC>\n<DOCNO>{docid}</DOCNO>\n<TEXT>\n{doc}\n</TEXT>\n</DOC>\n")
+        fout.close()
+        logger.debug(f"Converted file {os.path.basename(inp_path)} to TREC format, output to: {outp_path}")
