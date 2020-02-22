@@ -262,6 +262,7 @@ class PytorchTrainer(Trainer):
                 batch = {
                     k: v.to(self.device) if k not in ["qid", "posdocid", "negdocid"] else v
                     for k, v in batch.items()}
+                doc_scores = model.score(batch)
                 scores = scores.view(-1).cpu().numpy()
                 for qid, docid, score in zip(batch["qid"], batch["posdocid"], scores):
                     # Need to use float16 because pytrec_eval's c function call crashes with higher precision floats
