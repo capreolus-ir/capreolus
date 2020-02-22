@@ -1,5 +1,6 @@
 import os
 
+import numpy as np
 import torch
 
 from capreolus.sampler import TrainDataset, PredDataset
@@ -80,13 +81,33 @@ def evaluate(config, modules):
         test_preds = reranker["trainer"].predict(reranker, test_dataset, test_output_path)
 
     metrics = evaluator.eval_runs(test_preds, benchmark.qrels, ["ndcg_cut_20", "map", "P_20"])
-    print("*** TODO these are metrics on a single fold. we will need to aggregate across folds here later (eg if fold=all)")
-    print("test metrics:", metrics)
+    print("test metrics for fold=%s:" % fold, metrics)
+
+    print("\ncomputing metrics across all folds")
+    avg = {}
+    found = 0
+    for fold in benchmark.folds:
+        pred_path = _pipeline_path(config, modules, fold=fold) / "pred" / "test" / "best"
+        if not os.path.exists(pred_path):
+            print("\tfold=%s results are missing and will not be included" % fold)
+            continue
+
+        found += 1
+        preds = Searcher.load_trec_run(pred_path)
+        metrics = evaluator.eval_runs(preds, benchmark.qrels, ["ndcg_cut_20", "map", "P_20"])
+        for metric, val in metrics.items():
+            avg.setdefault(metric, []).append(val)
+
+    avg = {k: np.mean(v) for k, v in avg.items()}
+    print(f"average metrics across {found}/{len(benchmark.folds)} folds:", avg)
 
 
-def _pipeline_path(config, modules):
+def _pipeline_path(config, modules, fold=None):
     pipeline_cfg = {k: v for k, v in config.items() if k not in modules and k not in ["expid", "fold"]}
     pipeline_path = "_".join(["task-rerank"] + [f"{k}-{v}" for k, v in sorted(pipeline_cfg.items())])
+
+    if not fold:
+        fold = config["fold"]
 
     output_path = (
         RESULTS_BASE_PATH
@@ -96,7 +117,7 @@ def _pipeline_path(config, modules):
         / modules["reranker"].get_module_path(include_provided=False)
         / modules["benchmark"].get_module_path()
         / pipeline_path
-        / config["fold"]
+        / fold
     )
     return output_path
 
