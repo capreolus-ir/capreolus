@@ -178,6 +178,8 @@ class DummyCollection(Collection):
 
     def _validate_document_path(self, path):
         """ Validate that the document path contains `dummy_trec_doc` """
+        return True
+
 
 class Robust05(Collection):
     name = "robust05"
@@ -207,7 +209,7 @@ class ANTIQUE(Collection):
         self._convert_to_trec(inp_path=tmp_filename, outp_path=coll_filename)
         logger.info(f"antique collection file prepared, stored at {coll_filename}")
 
-        for file in os.listdir(tmp_dir):    # in case there are legacy files
+        for file in os.listdir(tmp_dir):  # in case there are legacy files
             os.remove(os.path.join(tmp_dir, file))
         shutil.rmtree(tmp_dir)
 
@@ -218,7 +220,7 @@ class ANTIQUE(Collection):
         fout = open(outp_path, "w", encoding="utf-8")
         with open(inp_path, "r", encoding="utf-8") as f:
             for line in f:
-                docid, doc = line.strip().split('\t')
+                docid, doc = line.strip().split("\t")
                 fout.write(f"<DOC>\n<DOCNO>{docid}</DOCNO>\n<TEXT>\n{doc}\n</TEXT>\n</DOC>\n")
         fout.close()
         logger.debug(f"Converted file {os.path.basename(inp_path)} to TREC format, output to: {outp_path}")
