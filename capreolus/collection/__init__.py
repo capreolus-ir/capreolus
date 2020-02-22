@@ -77,7 +77,7 @@ class Collection(ModuleBase, metaclass=RegisterableModule):
 
     def download_if_missing(self):
         raise IOError(
-            f"a download URL is not configured for collection={self.name} and the collection path {self.path} does not exist; you must manually place the document collection at this path in order to use this collection"
+            f"a download URL is not configured for collection={self.name} and the collection path {self._path} does not exist; you must manually place the document collection at this path in order to use this collection"
         )
 
 
@@ -178,6 +178,8 @@ class DummyCollection(Collection):
 
     def _validate_document_path(self, path):
         """ Validate that the document path contains `dummy_trec_doc` """
+        return 'dummy_trec_doc' in os.listdir(path)
+
 
 class Robust05(Collection):
     name = "robust05"
