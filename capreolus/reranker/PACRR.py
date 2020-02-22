@@ -95,7 +95,6 @@ class PACRR(Reranker):
         kmax = 2  # value of kmax pooling used
         combine = 32  # size of combination layers
         nonlinearity = "relu"  # nonlinearity in combination layer: 'none', 'relu', 'tanh'
-        return locals().copy()  # ignored by sacred
 
     # TODO: Move to a common place
     def build(self):
