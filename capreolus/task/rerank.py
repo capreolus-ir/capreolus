@@ -29,7 +29,6 @@ def train(config, modules):
     searcher_cache_dir = os.path.join(searcher.get_cache_path(), benchmark.name)
     searcher_run_dir = searcher.query_from_file(topics_fn, searcher_cache_dir)
 
-    # tmp, for debug
     results = evaluator.search_best_run(searcher_run_dir, benchmark, metric)
     print("score: ", results["score"])
     # end of tmp
