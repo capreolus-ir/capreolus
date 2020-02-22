@@ -1,5 +1,4 @@
 import os
-from tqdm import tqdm
 import numpy as np
 import torch
 
@@ -191,7 +190,7 @@ class PytorchTrainer(Trainer):
         train_loss = []
         dev_best_metric = -np.inf
         logger.critical("TODO: remove niters from trainer module_path")
-        for niter in tqdm(range(initial_iter, self.cfg["niters"])):
+        for niter in range(initial_iter, self.cfg["niters"]):
             model.train()
 
             # we must keep train_dataset updated with the current iteration
