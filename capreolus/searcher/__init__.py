@@ -162,7 +162,13 @@ class BM25RM3(Searcher, AnseriniSearcherMixIn):
         paras = {k: " ".join(self.cfg[k].split("-")) for k in ["k1", "b", "fbTerms", "fbDocs", "originalQueryWeight"]}
         hits = str(self.cfg["hits"])
 
-        anserini_param_str = "-rm3 " + " ".join(f"-rm3.{k} {paras[k]}" for k in ["fbTerms", "fbDocs", "originalQueryWeight"]) + " -bm25 " + " ".join(f"-{k} {paras[k]}" for k in ["k1", "b"]) + f" -hits {hits}"
+        anserini_param_str = (
+            "-rm3 "
+            + " ".join(f"-rm3.{k} {paras[k]}" for k in ["fbTerms", "fbDocs", "originalQueryWeight"])
+            + " -bm25 "
+            + " ".join(f"-{k} {paras[k]}" for k in ["k1", "b"])
+            + f" -hits {hits}"
+        )
         self._anserini_query_from_file(topicsfn, anserini_param_str, output_path)
 
         return output_path
