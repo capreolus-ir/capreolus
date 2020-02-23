@@ -191,13 +191,17 @@ class ANTIQUE(Collection):
     def download_if_missing(self):
         url = "https://ciir.cs.umass.edu/downloads/Antique/antique-collection.txt"
         cachedir = self.get_cache_path()
+        document_dir = os.path.join(cachedir, "documents")
+        coll_filename = os.path.join(document_dir, "antique-collection.txt")
+
+        if os.path.exists(coll_filename):
+            return coll_filename
+
         tmp_dir = cachedir / "tmp"
-        os.makedirs(tmp_dir, exist_ok=True)
         tmp_filename = os.path.join(tmp_dir, "tmp.anqique.file")
 
-        document_dir = os.path.join(cachedir, "documents")
+        os.makedirs(tmp_dir, exist_ok=True)
         os.makedirs(document_dir, exist_ok=True)
-        coll_filename = os.path.join(document_dir, "antique-collection.txt")
 
         download_file(url, tmp_filename, expected_hash="68b6688f5f2668c93f0e8e43384f66def768c4da46da4e9f7e2629c1c47a0c36")
         self._convert_to_trec(inp_path=tmp_filename, outp_path=coll_filename)
