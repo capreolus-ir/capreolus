@@ -200,15 +200,18 @@ class PytorchTrainer(Trainer):
         )
 
         train_loss = []
-        if initial_iter > 0 and initial_iter < self.cfg["niters"]:
-            logger.debug("fastforwarding train_dataloader to iteration %s", initial_iter)
-            batches_per_epoch = self.cfg["itersize"] // self.cfg["batch"]
-            for niter in range(initial_iter):
-                for bi, batch in enumerate(train_dataloader):
-                    if (bi + 1) % batches_per_epoch == 0:
-                        break
-
+        # are we resuming training?
+        if initial_iter > 0:
             train_loss = self.load_loss_file(loss_fn)
+
+            # are we done training?
+            if initial_iter < self.cfg["niters"]:
+                logger.debug("fastforwarding train_dataloader to iteration %s", initial_iter)
+                batches_per_epoch = self.cfg["itersize"] // self.cfg["batch"]
+                for niter in range(initial_iter):
+                    for bi, batch in enumerate(train_dataloader):
+                        if (bi + 1) % batches_per_epoch == 0:
+                            break
 
         dev_best_metric = -np.inf
         for niter in range(initial_iter, self.cfg["niters"]):
