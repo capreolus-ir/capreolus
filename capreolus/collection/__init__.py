@@ -3,7 +3,7 @@ import shutil
 import tarfile
 
 from capreolus.registry import ModuleBase, RegisterableModule, PACKAGE_PATH
-from capreolus.utils.common import download_file
+from capreolus.utils.common import download_file, hash_file
 from capreolus.utils.loginit import get_logger
 from capreolus.utils.trec import anserini_index_to_trec_docs
 
@@ -98,7 +98,7 @@ class Robust04(Collection):
             index_directory_inside="index-robust04-20191213/",
             # this string should match how the index was built (i.e., Anserini, stopwords removed, Porter stemming)
             index_cache_path_string="index-anserini_indexstops-False_stemmer-porter",
-            index_expected_document_count=528030,
+            index_expected_document_count=528_030,
             cachedir=self.get_cache_path(),
         )
 
@@ -223,3 +223,7 @@ class ANTIQUE(Collection):
                 fout.write(f"<DOC>\n<DOCNO>{docid}</DOCNO>\n<TEXT>\n{doc}\n</TEXT>\n</DOC>\n")
         fout.close()
         logger.debug(f"Converted file {os.path.basename(inp_path)} to TREC format, output to: {outp_path}")
+
+    def _validate_document_path(self, path):
+        """ Checks that the sha256sum is correct """
+        return hash_file(path) == "409e0960f918970977ceab9e5b1d372f45395af25d53b95644bdc9ccbbf973da"
