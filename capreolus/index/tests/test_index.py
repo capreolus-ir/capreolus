@@ -25,10 +25,10 @@ def test_anserini_get_docs(tmpdir_as_cache, dummy_index):
 
 
 def test_anserini_get_df(tmpdir_as_cache, dummy_index):
-    df = dummy_index.getdf("hello")
+    df = dummy_index.get_df("hello")
     assert df == 2
 
 
 def test_anserini_get_idf(tmpdir_as_cache, dummy_index):
-    idf = dummy_index.getidf("hello")
+    idf = dummy_index.get_idf("hello")
     assert idf == 0.1823215567939546
