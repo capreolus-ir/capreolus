@@ -5,6 +5,7 @@ import sys
 from collections import OrderedDict
 from functools import partial
 from glob import glob
+from inspect import isclass
 
 import sacred
 
@@ -24,8 +25,11 @@ class Pipeline:
             rewritten_args (list): The list of command line arguments to pass to sacred (with the task name removed)
     """
 
-    def __init__(self, task_name, rewritten_args):
-        self.task = Task.plugins[task_name]
+    def __init__(self, task_name, rewritten_args, task_obj_passed=False):
+        if task_obj_passed:
+            self.task = task_name
+        else:
+            self.task = Task.plugins[task_name]
         self.rewritten_args = rewritten_args
 
         for module in self.task.module_order:
@@ -221,59 +225,84 @@ class Notebook:
 
         The returned object contains `config` and `modules` attributes that are analogous to those used with a Task.
 
-        The pipeline will consist of the modules in `module_defaults` with the config options in `config`.
+        The pipeline will consist of the modules in `pipeline_description` with the config options in `config`.
         Modules will be initialized in `module_order` if it is provided.
         If not, `Collection` modules are initialized first, followed by the remaining modules in alphabetical order.
         This is safe as long as Collection is the only required dependency. You will need to set `module_order` if not.
 
         Args:
-            module_defaults (dict): Map of module names to their default classes. e.g., `{"collection": "robust04", "searcher": "BM25", "benchmark": "wsdm20demo"}`
+            pipeline_description (dict or Task): either a dict describing the desired modules or a Task class whose environment should be created.
+            If a Task is provided, it should be provided as a class rather than a class instance. e.g. `Notebook(task.rank.RankTask)`
+            If a dict is provided, it must be in one of two valid formats:
+                1. Simple format: `{module_type: module_class}`
+                   For example, `{"collection": "robust04", "searcher": "BM25", "benchmark": "wsdm20demo"}`.
+                   If this format is used, `module_type` is used as the module's name in the pipeline.
+                   This means only one module of each module_type can be requested.
+                2. [WIP] Full format: `{module_name: (module_type, module_class)}
+                   For example, `{"collection1": ("collection", "robust04"), "collection2": ("collection", "antique")}`.
+                   This format is more verbose, but it allows for full flexibility.
             config_string (str): Config string of the same form used on the command line. As with the CLI, default moduels may be overridden (e.g., `searcher=BM25Grid`) and module's config options may be changed (e.g., `searcher.b=0.5`).
-            module_order: (list): Order in which to initialize the modules in `module_defaults`. If None, a reasonable default will be used (see above).
+            module_order: (list): Order in which to initialize the modules in a dict passed to `pipeline_description`. Ignored if a Task is passed. If None, a reasonable default will be used (see above).
 
         Returns:
             Notebook: an object with `config` and `modules` attributes.
     """
 
-    def __init__(self, module_defaults, config_string="", module_order=None):
-        if not module_order:
-            # move collection to the front, if present, then sort alphabetically.
-            module_order = sorted(module_defaults.keys(), key=lambda x: (x != "collection", x))
-
-        missing_modules = set(module_defaults.keys()) - set(module_order)
-        if len(missing_modules) > 0:
-            raise ValueError(
-                "When module_order is provided, it must contain every module in module_defaults, but these modules were missing: {missing_modules}"
-            )
-
-        self.config = None
-        self.modules = None
-
+    def __init__(self, pipeline_description, config_string="", module_order=None):
         def interactive(config, modules):
             print("returning control to notebook")
             self.config = config
             self.modules = modules
-            self.describe_pipeline = partial(NotebookTask.describe_pipeline, config=self.config, modules=self.modules)
 
-        class NotebookTask(Task):
-            def notebook_config():
-                seed = 123_456
+            self.describe_pipeline = partial(Task.describe_pipeline, config=self.config, modules=self.modules)
+            for command, func in self.task.commands.items():
+                setattr(self, command, partial(func, config=self.config, modules=self.modules))
 
-            name = "notebook"
-            module_order = None
-            module_defaults = None
-            config_functions = [notebook_config]
-            config_overrides = []
-            commands = {"interactive": interactive}
-            default_command = interactive
+        if isinstance(pipeline_description, Task):
+            raise RuntimeError("Notebook requires a Task class, but you passed a Task object")
 
-        NotebookTask.module_order = module_order
-        NotebookTask.module_defaults = module_defaults
+        if isclass(pipeline_description) and issubclass(pipeline_description, Task):
+            task = pipeline_description()
+            task.commands.update({"interactive": interactive})
+            task.default_command = interactive
+            task.name = f"{task.name}.notebook"
+        else:
+            module_defaults = pipeline_description
+
+            if not module_order:
+                # move collection to the front, if present, then sort alphabetically.
+                module_order = sorted(module_defaults.keys(), key=lambda x: (x != "collection", x))
+
+            missing_modules = set(module_defaults.keys()) - set(module_order)
+            if len(missing_modules) > 0:
+                raise ValueError(
+                    "When module_order is provided, it must contain every module in module_defaults, but these modules were missing: {missing_modules}"
+                )
+
+            self.config = None
+            self.modules = None
+
+            class NotebookTask(Task):
+                def notebook_config():
+                    seed = 123_456
+
+                name = "notebook"
+                module_order = None
+                module_defaults = None
+                config_functions = [notebook_config]
+                config_overrides = []
+                commands = {"interactive": interactive}
+                default_command = interactive
+
+            task = NotebookTask()
+            task.module_order = module_order
+            task.module_defaults = module_defaults
 
         config_args = config_string.split()
         if len(config_args) > 0 and config_args[0] != "with":
             config_args.insert(0, "with")
         rewritten_args = ["notebook", "interactive"] + config_args
 
-        pipeline = Pipeline("notebook", rewritten_args=rewritten_args)
+        self.task = task
+        pipeline = Pipeline(self.task, rewritten_args=rewritten_args, task_obj_passed=True)
         pipeline.run()
