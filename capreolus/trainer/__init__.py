@@ -212,9 +212,7 @@ class PytorchTrainer(Trainer):
         for niter in range(initial_iter, self.cfg["niters"]):
             model.train()
 
-            # we must keep train_dataset updated with the current iteration
             iter_loss_tensor = self.single_train_iteration(reranker, train_dataloader)
-            del train_dataloader
 
             train_loss.append(iter_loss_tensor.item())
             logger.info("iter = %d loss = %f", niter, train_loss[-1])
