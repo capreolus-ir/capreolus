@@ -35,6 +35,8 @@ class KNRM_class(nn.Module):
     def forward(self, doctoks, querytoks, query_idf):
         doc = self.embedding(doctoks)
         query = self.embedding(querytoks)
+
+        # query = torch.rand_like(query)  # debug
         simmat = self.simmat(query, doc, querytoks, doctoks)
         kernels = self.kernels(simmat)
         BATCH, KERNELS, VIEWS, QLEN, DLEN = kernels.shape
@@ -76,6 +78,10 @@ class KNRM(Reranker):
             self.model(pos_sentence, query_sentence, query_idf).view(-1),
             self.model(neg_sentence, query_sentence, query_idf).view(-1),
         ]
+        # return [
+        #     self.model(neg_sentence, query_sentence, query_idf).view(-1),
+        #     self.model(pos_sentence, query_sentence, query_idf).view(-1),
+        # ]
 
     def test(self, d):
         query_idf = d["query_idf"]

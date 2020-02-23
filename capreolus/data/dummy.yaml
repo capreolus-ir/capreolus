@@ -1,0 +1,13 @@
+name: dummy
+
+topics:
+  type: trec
+  path: topics.dummy.txt
+
+qrels:
+  type: trec
+  path: qrels.dummy.txt
+
+documents:
+  type: trec
+  path: dummy/data
