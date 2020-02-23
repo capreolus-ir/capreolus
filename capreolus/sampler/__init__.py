@@ -15,7 +15,7 @@ class TrainDataset(torch.utils.data.IterableDataset):
 
     def __init__(self, qid_docid_to_rank, qrels, extractor):
         self.extractor = extractor
-        self.iterations = 0
+        self.iterations = 0  # TODO remove
 
         # remove qids from qid_docid_to_rank that do not have relevance labels in the qrels
         qid_docid_to_rank = qid_docid_to_rank.copy()
@@ -49,7 +49,6 @@ class TrainDataset(torch.utils.data.IterableDataset):
             if len(all_qids) == 0:
                 raise RuntimeError("TrainDataset has no valid qids")
 
-            random.seed(self.iterations)
             random.shuffle(all_qids)
 
             for qid in all_qids:

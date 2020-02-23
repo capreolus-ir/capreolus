@@ -21,6 +21,7 @@ class Trainer(ModuleBase, metaclass=RegisterableModule):
 class PytorchTrainer(Trainer):
     name = "pytorch"
     dependencies = {}
+    config_keys_not_in_path = ["niters"]
 
     @staticmethod
     def config():
@@ -194,20 +195,24 @@ class PytorchTrainer(Trainer):
         initial_iter = self.fastforward_training(reranker, weights_output_path, loss_fn)
         logger.info("starting training from iteration %s/%s", initial_iter, self.cfg["niters"])
 
+        train_dataloader = torch.utils.data.DataLoader(
+            train_dataset, batch_size=self.cfg["batch"], pin_memory=True, num_workers=0
+        )
+
+        if initial_iter > 0 and initial_iter < self.cfg["niters"]:
+            logger.debug("fastforwarding train_dataloader to iteration %s", initial_iter)
+            batches_per_epoch = self.cfg["itersize"] // self.cfg["batch"]
+            for niter in range(initial_iter):
+                for bi, batch in enumerate(train_dataloader):
+                    if (bi + 1) % batches_per_epoch == 0:
+                        break
+
         train_loss = []
         dev_best_metric = -np.inf
-        logger.critical("TODO: remove niters from trainer module_path")
         for niter in range(initial_iter, self.cfg["niters"]):
             model.train()
 
             # we must keep train_dataset updated with the current iteration
-            # because this is used to seed the training data order!
-            train_dataset.iteration = niter
-            # now create a DataLoader for this iteration
-            train_dataloader = torch.utils.data.DataLoader(
-                train_dataset, batch_size=self.cfg["batch"], pin_memory=True, num_workers=0
-            )
-
             iter_loss_tensor = self.single_train_iteration(reranker, train_dataloader)
             del train_dataloader
 
