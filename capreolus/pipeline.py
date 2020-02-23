@@ -84,7 +84,13 @@ class Pipeline:
             self.ex.commands[command_name] = self.ex.commands["print_config"]
             self.ex.commands.move_to_end(command_name, last=False)
 
-        self.ex.run_commandline(argv=self.rewritten_args)
+        try:
+            self.ex.run_commandline(argv=self.rewritten_args)
+            del self.ex
+        except:
+            # delete experiment object so that we can create a new notebook pipeline without restarting kernel
+            del self.ex
+            raise
 
     def _create_module_ingredients(self, choices):
         """ Using any module `choices` and the module defaults in `self.task.module_defaults`, create ingredients for each module """
