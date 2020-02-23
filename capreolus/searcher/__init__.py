@@ -1,9 +1,10 @@
 import os
 import subprocess
-from collections import defaultdict
+from collections import defaultdict, OrderedDict
 
 import numpy as np
 
+from pyserini.search import pysearch
 from capreolus.registry import ModuleBase, RegisterableModule, Dependency, MAX_THREADS, PACKAGE_PATH
 from capreolus.utils.common import Anserini
 from capreolus.utils.loginit import get_logger
@@ -51,8 +52,8 @@ class AnseriniSearcherMixIn:
             logger.debug(f"skipping Anserini SearchCollection call because path already exists: {donefn}")
             return
 
-        if not self["index"].exists():
-            raise Exception("Index not build")
+        # create index if it does not exist. the call returns immediately if the index does exist.
+        self["index"].create_index()
 
         os.makedirs(output_base_path, exist_ok=True)
         output_path = os.path.join(output_base_path, "searcher")
@@ -114,6 +115,14 @@ class BM25(Searcher, AnseriniSearcherMixIn):
 
         return output_path
 
+    def query(self, query):
+        self["index"].create_index()
+        searcher = pysearch.SimpleSearcher(self["index"].get_index_path().as_posix())
+        searcher.set_bm25_similarity(self.cfg["k1"], self.cfg["b"])
+
+        hits = searcher.search(query)
+        return OrderedDict({hit.docid: hit.score for hit in hits})
+
 
 class BM25Grid(Searcher, AnseriniSearcherMixIn):
     """ BM25 with a grid search for k1 and b. Search is from 0.1 to bmax/k1max in 0.1 increments """
@@ -138,6 +147,14 @@ class BM25Grid(Searcher, AnseriniSearcherMixIn):
         self._anserini_query_from_file(topicsfn, anserini_param_str, output_path)
 
         return output_path
+
+    def query(self, query, b, k1):
+        self["index"].create_index()
+        searcher = pysearch.SimpleSearcher(self["index"].get_index_path().as_posix())
+        searcher.set_bm25_similarity(k1, b)
+
+        hits = searcher.search(query)
+        return OrderedDict({hit.docid: hit.score for hit in hits})
 
 
 class BM25RM3(Searcher, AnseriniSearcherMixIn):
@@ -174,6 +191,15 @@ class BM25RM3(Searcher, AnseriniSearcherMixIn):
 
         return output_path
 
+    def query(self, query, b, k1, fbterms, fbdocs, ow):
+        self["index"].create_index()
+        searcher = pysearch.SimpleSearcher(self["index"].get_index_path().as_posix())
+        searcher.set_bm25_similarity(k1, b)
+        searcher.set_rm3_reranker(fb_terms=fbterms, fb_docs=fbdocs, original_query_weight=ow)
+
+        hits = searcher.search(query)
+        return OrderedDict({hit.docid: hit.score for hit in hits})
+
 
 class StaticBM25RM3Rob04Yang19(Searcher):
     """ Tuned BM25+RM3 run used by Yang et al. in [1]. This should be used only with a benchmark using the same folds and queries.
@@ -191,3 +217,6 @@ class StaticBM25RM3Rob04Yang19(Searcher):
         shutil.copy2(PACKAGE_PATH / "data" / "rob04_yang19_rm3.run", outfn)
 
         return output_path
+
+    def query(self, *args, **kwargs):
+        raise NotImplementedError("this searcher uses a static run file, so it cannot handle new queries")
