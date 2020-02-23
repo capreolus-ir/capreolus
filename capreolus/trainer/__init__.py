@@ -199,6 +199,7 @@ class PytorchTrainer(Trainer):
             train_dataset, batch_size=self.cfg["batch"], pin_memory=True, num_workers=0
         )
 
+        train_loss = []
         if initial_iter > 0 and initial_iter < self.cfg["niters"]:
             logger.debug("fastforwarding train_dataloader to iteration %s", initial_iter)
             batches_per_epoch = self.cfg["itersize"] // self.cfg["batch"]
@@ -207,7 +208,8 @@ class PytorchTrainer(Trainer):
                     if (bi + 1) % batches_per_epoch == 0:
                         break
 
-        train_loss = []
+            train_loss = self.load_loss_file(loss_fn)
+
         dev_best_metric = -np.inf
         for niter in range(initial_iter, self.cfg["niters"]):
             model.train()
