@@ -57,7 +57,7 @@ class Collection(ModuleBase, metaclass=RegisterableModule):
             If a valid path was not found, call `download_if_missing`.
             Subclasses should override this method if downloading the needed documents is possible.
 
-            If a valid document path cannot be found, an exception is thrown. 
+            If a valid document path cannot be found, an exception is thrown.
 
             Returns:
                 path to this collection's raw documents
@@ -183,7 +183,7 @@ class DummyCollection(Collection):
 
 class ANTIQUE(Collection):
     name = "antique"
-    _path = "/home/x978zhan/mpi-spring/data/antique/collection"
+    _path = PACKAGE_PATH / "data" / "antique-collection"
 
     collection_type = "TrecCollection"
     generator_type = "JsoupGenerator"

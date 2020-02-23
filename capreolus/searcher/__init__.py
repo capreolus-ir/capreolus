@@ -123,8 +123,8 @@ class BM25Grid(Searcher, AnseriniSearcherMixIn):
 
     @staticmethod
     def config():
-        bmax = 1.0  # maximum b value to include in grid search (starting at 0.1)
         k1max = 1.0  # maximum k1 value to include in grid search (starting at 0.1)
+        bmax = 1.0  # maximum b value to include in grid search (starting at 0.1)
         hits = 1000
 
     def query_from_file(self, topicsfn, output_path):
@@ -134,6 +134,42 @@ class BM25Grid(Searcher, AnseriniSearcherMixIn):
         k1str = " ".join(str(x) for x in k1s)
         hits = self.cfg["hits"]
         anserini_param_str = f"-bm25 -b {bstr} -k1 {k1str} -hits {hits}"
+
+        self._anserini_query_from_file(topicsfn, anserini_param_str, output_path)
+
+        return output_path
+
+
+class BM25RM3(Searcher, AnseriniSearcherMixIn):
+
+    name = "BM25RM3"
+    dependencies = {"index": Dependency(module="index", name="anserini")}
+
+    @staticmethod
+    def config():
+        k1 = BM25RM3.list2str([0.65, 0.70, 0.75])
+        b = BM25RM3.list2str([0.60, 0.7])  # [0.60, 0.65, 0.7]
+        fbTerms = BM25RM3.list2str([65, 70, 95, 100])
+        fbDocs = BM25RM3.list2str([5, 10, 15])
+        originalQueryWeight = BM25RM3.list2str([0.2, 0.25])
+        hits = 1000
+
+    @staticmethod
+    def list2str(l):
+        return "-".join(str(x) for x in l)
+
+    def query_from_file(self, topicsfn, output_path):
+        # paras = {k: self.list2str(self.cfg[k]) for k in ["k1", "b", "fbTerms", "fbDocs", "originalQueryWeight"]}
+        paras = {k: " ".join(self.cfg[k].split("-")) for k in ["k1", "b", "fbTerms", "fbDocs", "originalQueryWeight"]}
+        hits = str(self.cfg["hits"])
+
+        anserini_param_str = (
+            "-rm3 "
+            + " ".join(f"-rm3.{k} {paras[k]}" for k in ["fbTerms", "fbDocs", "originalQueryWeight"])
+            + " -bm25 "
+            + " ".join(f"-{k} {paras[k]}" for k in ["k1", "b"])
+            + f" -hits {hits}"
+        )
         self._anserini_query_from_file(topicsfn, anserini_param_str, output_path)
 
         return output_path
