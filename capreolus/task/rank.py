@@ -56,7 +56,7 @@ class RankTask(Task):
     def pipeline_config():
         expid = "debug"
         seed = 123_456
-        eval_metrics = {"map", "ndcg_cut_20", "ndcg_cut_10", "P_20"}
+        # eval_metrics = {"map", "ndcg_cut_20", "ndcg_cut_10", "P_20"}
         optimize = "map"  # metric to maximize on the dev set
 
     name = "rank"
