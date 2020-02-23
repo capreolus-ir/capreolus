@@ -13,6 +13,9 @@ sacred.SETTINGS.CONFIG.READ_ONLY_CONFIG = False
 
 from capreolus.registry import PACKAGE_PATH, all_known_modules
 from capreolus.task import Task
+from capreolus.utils.loginit import get_logger
+
+logger = get_logger(__name__)  # pylint: disable=invalid-name
 
 
 class Pipeline:
