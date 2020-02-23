@@ -264,6 +264,7 @@ class Notebook:
             self.modules = modules
 
             self.describe_pipeline = partial(Task.describe_pipeline, config=self.config, modules=self.modules)
+            self.module_graph = partial(Task.module_graph, config=self.config, modules=self.modules)
             for command, func in self.task.commands.items():
                 setattr(self, command, partial(func, config=self.config, modules=self.modules))
 
