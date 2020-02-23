@@ -5,7 +5,9 @@ import requests
 import sys
 from glob import glob
 
+import numpy as np
 from tqdm import tqdm
+import matplotlib.pyplot as plt
 
 from capreolus.utils.loginit import get_logger
 
@@ -105,3 +107,43 @@ def padlist(list_to_pad, padlen, pad_token=0):
     padded_list = list_to_pad[:padlen]
     padded_list = padded_list + [pad_token] * (padlen - len(list_to_pad))
     return padded_list
+
+
+def plot_loss(history, outfn, interactive=False):
+    # epochs, losses = zip(*history)
+    losses = history
+    epochs = list(range(len(history)))
+    best_epoch = epochs[np.argmin(losses)]
+    fig = plt.figure()
+    plt.plot(epochs, losses, "k-.")
+    plt.ylabel("Training Loss")
+    plt.tick_params("y")
+    plt.xlabel("Iteration")
+    plt.title("min loss: %d %.3f" % (best_epoch, losses[best_epoch]))
+    fig.savefig(outfn, format="pdf")
+    if interactive:
+        plt.show(block=False)
+    plt.close()
+
+
+def plot_metrics(metrics, outfn, interactive=False, show={"map", "P_20", "ndcg_cut_20"}):
+    title = "maxs: "
+    fig = plt.figure()
+    for metric, xys in metrics.items():
+        if metric not in show:
+            continue
+        print(xys)
+        # plt.plot(*zip(*xys), label=metric)
+        plt.plot(xys, label=metric)
+        max_iter, max_metric = max(xys, key=lambda x: x[1])
+        title += f"{metric} {max_metric:0.3f} ({max_iter}) "
+
+    plt.ylabel("Metric")
+    plt.tick_params("y")
+    plt.xlabel("Iteration")
+    plt.title(title)
+    plt.legend()
+    fig.savefig(outfn, format="pdf")
+    if interactive:
+        plt.show(block=False)
+    plt.close()
