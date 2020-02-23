@@ -1,14 +1,16 @@
 import importlib
+import os
 import sys
 
 from collections import OrderedDict
 from functools import partial
+from glob import glob
 
 import sacred
 
 sacred.SETTINGS.CONFIG.READ_ONLY_CONFIG = False
 
-from capreolus.registry import all_known_modules
+from capreolus.registry import PACKAGE_PATH, all_known_modules
 from capreolus.task import Task
 
 
@@ -27,7 +29,15 @@ class Pipeline:
         self.rewritten_args = rewritten_args
 
         for module in self.task.module_order:
+            # import the base module
             importlib.import_module(f"capreolus.{module}")
+
+            # attempt to import any files in the module's subdirectory
+            module_path = PACKAGE_PATH / module
+            for fn in glob(os.path.join(module_path, "*.py")):
+                modname = os.path.basename(fn)[:-3]
+                if not (modname.startswith("__") or modname.startswith("flycheck_")):
+                    importlib.import_module(f"capreolus.{module}.{modname}")
 
         # create a sacred experiment to attach config options, ingredients, etc. to
         self.ex = self._create_experiment(self.task.name)
