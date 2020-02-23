@@ -112,7 +112,7 @@ def padlist(list_to_pad, padlen, pad_token=0):
 def plot_loss(history, outfn, interactive=False):
     # epochs, losses = zip(*history)
     losses = history
-    epochs = list(range(len(history)))
+    epochs = list(range(1, len(history)+1))
     best_epoch = epochs[np.argmin(losses)]
     fig = plt.figure()
     plt.plot(epochs, losses, "k-.")
@@ -132,10 +132,12 @@ def plot_metrics(metrics, outfn, interactive=False, show={"map", "P_20", "ndcg_c
     for metric, xys in metrics.items():
         if metric not in show:
             continue
-        print(xys)
         # plt.plot(*zip(*xys), label=metric)
-        plt.plot(xys, label=metric)
-        max_iter, max_metric = max(xys, key=lambda x: x[1])
+        epochs = list(range(1, len(xys)+1))
+        plt.plot(epochs, xys, label=metric)
+        # max_iter, max_metric = max(xys, key=lambda x: x[1])
+        max_metric = max(xys)
+        max_iter = xys.index(max_metric) + 1
         title += f"{metric} {max_metric:0.3f} ({max_iter}) "
 
     plt.ylabel("Metric")
