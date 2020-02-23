@@ -1,7 +1,13 @@
+import os
+
+import numpy as np
 import torch
 
 from capreolus.registry import ModuleBase, RegisterableModule, Dependency, MAX_THREADS
+from capreolus.reranker.common import pair_hinge_loss, pair_softmax_loss
+from capreolus.searcher import Searcher
 from capreolus.utils.loginit import get_logger
+from capreolus import evaluator
 
 logger = get_logger(__name__)  # pylint: disable=invalid-name
 
@@ -43,12 +49,11 @@ class PytorchTrainer(Trainer):
         if lr <= 0:
             raise ValueError("lr must be > 0")
 
-    def single_train_iteration(self, model, optimizer, train_dataloader):
+    def single_train_iteration(self, reranker, train_dataloader):
         """Train model for one iteration using instances from train_dataloader.
 
         Args:
            model (Reranker): a PyTorch Reranker
-           optimizer (Optimizer): a PyTorch Optimizer
            train_dataloader (DataLoader): a PyTorch DataLoader that iterates over training instances
 
         Returns:
@@ -63,7 +68,8 @@ class PytorchTrainer(Trainer):
 
         for bi, batch in enumerate(train_dataloader):
             # TODO make sure _prepare_batch_with_strings equivalent is happening inside the sampler
-            doc_scores = model.score(batch)
+            batch = {k: v.to(self.device) if not isinstance(v, list) else v for k, v in batch.items()}
+            doc_scores = reranker.score(batch)
             loss = self.loss(doc_scores)
             iter_loss.append(loss)
             loss.backward()
@@ -71,13 +77,13 @@ class PytorchTrainer(Trainer):
             batches_since_update += 1
             if batches_since_update == batches_per_step:
                 batches_since_update = 0
-                optimizer.step()
-                optimizer.zero_grad()
+                self.optimizer.step()
+                self.optimizer.zero_grad()
 
             if (bi + 1) % batches_per_epoch == 0:
                 break
 
-        return iter_loss.mean()
+        return torch.stack(iter_loss).mean()
 
     def load_loss_file(self, fn):
         """Loads loss history from fn
@@ -106,7 +112,7 @@ class PytorchTrainer(Trainer):
 
         return loss
 
-    def fastforward_training(self, model, optimizer, weights_path, loss_fn):
+    def fastforward_training(self, reranker, weights_path, loss_fn):
         """Skip to the last training iteration whose weights were saved.
 
         If saved model and optimizer weights are available, this method will load those weights into model
@@ -124,7 +130,6 @@ class PytorchTrainer(Trainer):
 
         Args:
            model (Reranker): a PyTorch Reranker whose state should be loaded
-           optimizer (Optimizer): a PyTorch Optimizer whose state should be loaded
            weights_path (Path): directory containing model and optimizer weights
            loss_fn (Path): file containing loss history
 
@@ -146,13 +151,13 @@ class PytorchTrainer(Trainer):
         weights_fn = weights_path / f"{last_loss_iteration}.p"
 
         try:
-            model.load_weights(weights_fn, optimizer)
-            # TODO also load optimizer state
+            reranker.load_weights(weights_fn, self.optimizer)
             return last_loss_iteration + 1
         except:
+            logger.info("attempted to load weights from %s but failed, starting at iteration 0", weights_fn)
             return 0
 
-    def train(self, model, train_dataset, train_output_path, dev_data, dev_output_path):
+    def train(self, reranker, train_dataset, train_output_path, dev_data, dev_output_path, qrels, metric):
         """Train a model following the trainer's config (specifying batch size, number of iterations, etc).
 
         Args:
@@ -163,17 +168,29 @@ class PytorchTrainer(Trainer):
 
         """
 
-        model = model.to(self.device)
-        optimizer = torch.optim.Adam(filter(lambda param: param.requires_grad, model.parameters()), lr=self.cfg["lr"])
-        self.loss  # TODO
+        self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+        model = reranker.model.to(self.device)
+        self.optimizer = torch.optim.Adam(filter(lambda param: param.requires_grad, model.parameters()), lr=self.cfg["lr"])
 
+        if self.cfg["softmaxloss"]:
+            self.loss = pair_softmax_loss
+        else:
+            self.loss = pair_hinge_loss
+
+        os.makedirs(dev_output_path, exist_ok=True)
+        dev_best_weight_fn = train_output_path / "dev.best"
         weights_output_path = train_output_path / "weights"
         info_output_path = train_output_path / "info"
+        os.makedirs(weights_output_path, exist_ok=True)
+        os.makedirs(info_output_path, exist_ok=True)
+
         loss_fn = info_output_path / "loss.txt"
-        initial_iter = self.fastforward_training(model, optimizer, weights_output_path, loss_fn)
+        initial_iter = self.fastforward_training(reranker, weights_output_path, loss_fn)
+        logger.info("starting training from iteration %s/%s", initial_iter, self.cfg["niters"])
 
         train_loss = []
-        dev_metrics = []
+        dev_best_metric = -np.inf
+        logger.critical("TODO: remove niters from trainer module_path")
         for niter in range(initial_iter, self.cfg["niters"]):
             model.train()
 
@@ -185,7 +202,7 @@ class PytorchTrainer(Trainer):
                 train_dataset, batch_size=self.cfg["batch"], pin_memory=True, num_workers=0
             )
 
-            iter_loss_tensor = self.single_train_iteration(model, optimizer, train_dataloader)
+            iter_loss_tensor = self.single_train_iteration(reranker, train_dataloader)
             del train_dataloader
 
             train_loss.append(iter_loss_tensor.item())
@@ -193,22 +210,32 @@ class PytorchTrainer(Trainer):
 
             # write model weights to file
             weights_fn = weights_output_path / f"{niter}.p"
-            model.save(weights_fn, optimizer)
-            # TODO also save optimizer state
+            reranker.save_weights(weights_fn, self.optimizer)
 
             # predict performance on dev set
             pred_fn = dev_output_path / f"{niter}.run"
-            self.predict(model, dev_data, pred_fn)
-            # write dev metrics to file
-            metrics = evaluator.evaluate(pred_fn)
-            dev_metrics.append(metrics)
-            # logger.info("dev metrics")
+            preds = self.predict(reranker, dev_data, pred_fn)
+
+            # log dev metrics
+            metrics = evaluator.eval_runs(preds, qrels, ["ndcg_cut_20", "map", "P_20"])
+            logger.info("dev metrics: %s", " ".join([f"{metric}={v:0.3f}" for metric, v in sorted(metrics.items())]))
+
+            # write best dev weights to file
+            if metrics[metric] > dev_best_metric:
+                reranker.save_weights(dev_best_weight_fn, self.optimizer)
 
             # write train_loss to file
-            with loss_fn.write_text() as lossf:
-                print("\n".join(f"{idx} {loss}" for idx, loss in train_loss), file=lossf)
+            loss_fn.write_text("\n".join(f"{idx} {loss}" for idx, loss in enumerate(train_loss)))
 
-    def predict(self, model, pred_data, pred_fn):
+    def load_best_model(self, reranker, train_output_path):
+        self.optimizer = torch.optim.Adam(
+            filter(lambda param: param.requires_grad, reranker.model.parameters()), lr=self.cfg["lr"]
+        )
+
+        dev_best_weight_fn = train_output_path / "dev.best"
+        reranker.load_weights(dev_best_weight_fn, self.optimizer)
+
+    def predict(self, reranker, pred_data, pred_fn):
         """Predict query-document scores on `pred_data` using `model` and write a corresponding run file to `pred_fn`
 
         Args:
@@ -221,14 +248,23 @@ class PytorchTrainer(Trainer):
 
         """
 
+        self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
         # save to pred_fn
-        model = model.to(self.device)
+        model = reranker.model.to(self.device)
         model.eval()
 
+        preds = {}
+        pred_dataloader = torch.utils.data.DataLoader(pred_data, batch_size=self.cfg["batch"], pin_memory=True, num_workers=0)
         with torch.autograd.no_grad():
-            for bi, batch in enumerate(pred_data):
-                doc_scores = model.score(batch)
+            for bi, batch in enumerate(pred_dataloader):
+                batch = {k: v.to(self.device) if not isinstance(v, list) else v for k, v in batch.items()}
+                scores = reranker.test(batch)
                 scores = scores.view(-1).cpu().numpy()
-                for qid, docid, score in zip(qid_batch, docid_batch, scores):
+                for qid, docid, score in zip(batch["qid"], batch["posdocid"], scores):
                     # Need to use float16 because pytrec_eval's c function call crashes with higher precision floats
-                    preds[qid][docid] = score.astype(np.float16).item()
+                    preds.setdefault(qid, {})[docid] = score.astype(np.float16).item()
+
+        os.makedirs(os.path.dirname(pred_fn), exist_ok=True)
+        Searcher.write_trec_run(preds, pred_fn)
+
+        return preds

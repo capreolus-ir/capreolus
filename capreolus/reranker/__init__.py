@@ -1,3 +1,6 @@
+import os
+import pickle
+
 from capreolus.registry import ModuleBase, RegisterableModule, Dependency
 
 # from extractor import Extractor
@@ -12,21 +15,29 @@ class Reranker(ModuleBase, metaclass=RegisterableModule):
         "trainer": Dependency(module="trainer", name="pytorch"),
     }
 
+    def save_weights(self, weights_fn, optimizer):
+        if not os.path.exists(os.path.dirname(weights_fn)):
+            os.makedirs(os.path.dirname(weights_fn))
 
-class KNRM(Reranker):
-    name = "KNRM"
-    # dependencies = {"extractor": "EmbedText"}
+        d = {k: v for k, v in self.model.state_dict().items() if ("embedding.weight" not in k and "_nosave_" not in k)}
+        with open(weights_fn, "wb") as outf:
+            pickle.dump(d, outf, protocol=-1)
 
-    @staticmethod
-    def config():
-        gradkernels = True
-        scoretanh = False
+        optimizer_fn = weights_fn.as_posix() + ".optimizer"
+        with open(optimizer_fn, "wb") as outf:
+            pickle.dump(optimizer.state_dict(), outf, protocol=-1)
 
+    def load_weights(self, weights_fn, optimizer):
+        with open(weights_fn, "rb") as f:
+            d = pickle.load(f)
 
-class PACRR(Reranker):
-    name = "PACRR"
+        cur_keys = set(k for k in self.model.state_dict().keys() if not ("embedding.weight" in k or "_nosave_" in k))
+        missing = cur_keys - set(d.keys())
+        if len(missing) > 0:
+            raise RuntimeError("loading state_dict with keys that do not match current model: %s" % missing)
 
-    @staticmethod
-    def config():
-        kmax = 5
-        nfilters = 2
+        self.model.load_state_dict(d, strict=False)
+
+        optimizer_fn = weights_fn.as_posix() + ".optimizer"
+        with open(optimizer_fn, "rb") as f:
+            optimizer.load_state_dict(pickle.load(f))

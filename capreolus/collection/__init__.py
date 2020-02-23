@@ -77,7 +77,7 @@ class Collection(ModuleBase, metaclass=RegisterableModule):
 
     def download_if_missing(self):
         raise IOError(
-            f"a download URL is not configured for collection={self.name} and the collection path {self.path} does not exist; you must manually place the document collection at this path in order to use this collection"
+            f"a download URL is not configured for collection={self.name} and the collection path {self._path} does not exist; you must manually place the document collection at this path in order to use this collection"
         )
 
 
@@ -178,47 +178,44 @@ class DummyCollection(Collection):
 
     def _validate_document_path(self, path):
         """ Validate that the document path contains `dummy_trec_doc` """
-
-class Robust05(Collection):
-    name = "robust05"
-    path = "missingpath"
-    collection_type = "TrecCollection"
-    generator_type = "JsoupGenerator"
+        return "dummy_trec_doc" in os.listdir(path)
 
 
 class ANTIQUE(Collection):
     name = "antique"
-    path = "/home/x978zhan/mpi-spring/data/antique/collection"
+    _path = "/home/x978zhan/mpi-spring/data/antique/collection"
 
     collection_type = "TrecCollection"
     generator_type = "JsoupGenerator"
 
     def download_if_missing(self):
-        if os.path.exists(self.path):
-            return
-
         url = "https://ciir.cs.umass.edu/downloads/Antique/antique-collection.txt"
-        tmp_dir = os.path.join(os.path.dirname(self.path), "tmp")
-        tmp_filename = os.path.join(tmp_dir, "tmp.anqique.file")
-        coll_filename = os.path.join(self.path, "antique-collection.txt")
-
+        cachedir = self.get_cache_path()
+        tmp_dir = cachedir / "tmp"
         os.makedirs(tmp_dir, exist_ok=True)
-        download_file(url, tmp_filename, expected_hash=False)
+        tmp_filename = os.path.join(tmp_dir, "tmp.anqique.file")
+
+        document_dir = os.path.join(cachedir, "documents")
+        os.makedirs(document_dir, exist_ok=True)
+        coll_filename = os.path.join(document_dir, "antique-collection.txt")
+
+        download_file(url, tmp_filename, expected_hash="68b6688f5f2668c93f0e8e43384f66def768c4da46da4e9f7e2629c1c47a0c36")
         self._convert_to_trec(inp_path=tmp_filename, outp_path=coll_filename)
         logger.info(f"antique collection file prepared, stored at {coll_filename}")
 
-        for file in os.listdir(tmp_dir):    # in case there are legacy files
+        for file in os.listdir(tmp_dir):  # in case there are legacy files
             os.remove(os.path.join(tmp_dir, file))
         shutil.rmtree(tmp_dir)
 
+        return document_dir
+
     def _convert_to_trec(self, inp_path, outp_path):
         assert os.path.exists(inp_path)
-        os.makedirs(os.path.dirname(outp_path), exist_ok=True)
 
-        fout = open(outp_path, "w", encoding="utf-8")
-        with open(inp_path, "r", encoding="utf-8") as f:
+        fout = open(outp_path, "wt", encoding="utf-8")
+        with open(inp_path, "rt", encoding="utf-8") as f:
             for line in f:
-                docid, doc = line.strip().split('\t')
+                docid, doc = line.strip().split("\t")
                 fout.write(f"<DOC>\n<DOCNO>{docid}</DOCNO>\n<TEXT>\n{doc}\n</TEXT>\n</DOC>\n")
         fout.close()
         logger.debug(f"Converted file {os.path.basename(inp_path)} to TREC format, output to: {outp_path}")
