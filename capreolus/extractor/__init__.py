@@ -35,7 +35,7 @@ class Extractor(ModuleBase, metaclass=RegisterableModule):
                 if tok not in self.stoi:
                     self.stoi[tok] = len(self.stoi)
                 if calc_idf and tok not in self.idf:
-                    self.idf[tok] = self["index"].getidf(tok)
+                    self.idf[tok] = self["index"].get_idf(tok)
 
         logger.debug(f"added {len(self.stoi)-n_words_before} terms to the stoi of extractor {self.name}")
 

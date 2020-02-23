@@ -8,6 +8,9 @@ from pathlib import Path
 # from types import MappingProxyType
 
 import sacred
+from capreolus.utils.loginit import get_logger
+
+logger = get_logger(__name__)  # pylint: disable=invalid-name
 
 # mapping of module types (e.g., "collection") to the module base classes
 all_known_modules = {}
@@ -55,7 +58,7 @@ class RegisterableModule(type):
 
     def register_plugin(cls, plugin):
         if cls.plugins.get(plugin.name, plugin) != plugin:
-            print(f"WARNING: replacing entry {cls.plugins[plugin.name]} for {plugin.name} with {plugin}")
+            logger.debug(f"WARNING: replacing entry {cls.plugins[plugin.name]} for {plugin.name} with {plugin}")
         cls.plugins[plugin.name] = plugin
 
 
