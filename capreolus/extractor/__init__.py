@@ -35,7 +35,7 @@ class Extractor(ModuleBase, metaclass=RegisterableModule):
                 if tok not in self.stoi:
                     self.stoi[tok] = len(self.stoi)
                 if calc_idf and tok not in self.idf:
-                    self.idf[tok] = self["index"].getidf(tok)
+                    self.idf[tok] = self["index"].get_idf(tok)
 
         logger.debug(f"added {len(self.stoi)-n_words_before} terms to the stoi of extractor {self.name}")
 
@@ -134,10 +134,20 @@ class EmbedText(Extractor):
         # return [self.embeddings[self.stoi[tok]] for tok in toks]
         return [self.stoi[tok] for tok in toks]
 
-    def id2vec(self, qid, posid, negid=None):
+    def id2vec(self, qid, posid, negid=None, query=None):
+        if query is not None:
+            if qid is None:
+                query = self["tokenizer"].tokenize(query)
+                pass
+            else:
+                raise RuntimeError("received both a qid and query, but only one can be passed")
+
+        else:
+            query = self.qid2toks[qid]
+
         # TODO find a way to calculate qlen/doclen stats earlier, so we can log them and check sanity of our values
         qlen, doclen = self.cfg["maxqlen"], self.cfg["maxdoclen"]
-        query, posdoc = self.qid2toks[qid], self.docid2toks.get(posid, None)
+        posdoc = self.docid2toks.get(posid, None)
         if not posdoc:
             raise MissingDocError(qid, posid)
 

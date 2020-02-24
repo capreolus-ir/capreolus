@@ -16,6 +16,11 @@ class Task(metaclass=RegisterableModule):
     config_overrides = []
 
     @staticmethod
+    def module_graph(config, modules):
+        for module, obj in modules.items():
+            obj.print_module_graph(prefix=" ")
+
+    @staticmethod
     def describe_pipeline(config, modules, output_path=None):
         if not output_path:
             output_path = "[none defined]"
