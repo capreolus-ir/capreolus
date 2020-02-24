@@ -3,7 +3,7 @@ import shutil
 import tarfile
 
 from capreolus.registry import ModuleBase, RegisterableModule, PACKAGE_PATH
-from capreolus.utils.common import download_file
+from capreolus.utils.common import download_file, hash_file
 from capreolus.utils.loginit import get_logger
 from capreolus.utils.trec import anserini_index_to_trec_docs
 
@@ -98,7 +98,7 @@ class Robust04(Collection):
             index_directory_inside="index-robust04-20191213/",
             # this string should match how the index was built (i.e., Anserini, stopwords removed, Porter stemming)
             index_cache_path_string="index-anserini_indexstops-False_stemmer-porter",
-            index_expected_document_count=528030,
+            index_expected_document_count=528_030,
             cachedir=self.get_cache_path(),
         )
 
@@ -191,13 +191,17 @@ class ANTIQUE(Collection):
     def download_if_missing(self):
         url = "https://ciir.cs.umass.edu/downloads/Antique/antique-collection.txt"
         cachedir = self.get_cache_path()
+        document_dir = os.path.join(cachedir, "documents")
+        coll_filename = os.path.join(document_dir, "antique-collection.txt")
+
+        if os.path.exists(coll_filename):
+            return document_dir
+
         tmp_dir = cachedir / "tmp"
-        os.makedirs(tmp_dir, exist_ok=True)
         tmp_filename = os.path.join(tmp_dir, "tmp.anqique.file")
 
-        document_dir = os.path.join(cachedir, "documents")
+        os.makedirs(tmp_dir, exist_ok=True)
         os.makedirs(document_dir, exist_ok=True)
-        coll_filename = os.path.join(document_dir, "antique-collection.txt")
 
         download_file(url, tmp_filename, expected_hash="68b6688f5f2668c93f0e8e43384f66def768c4da46da4e9f7e2629c1c47a0c36")
         self._convert_to_trec(inp_path=tmp_filename, outp_path=coll_filename)
@@ -219,3 +223,7 @@ class ANTIQUE(Collection):
                 fout.write(f"<DOC>\n<DOCNO>{docid}</DOCNO>\n<TEXT>\n{doc}\n</TEXT>\n</DOC>\n")
         fout.close()
         logger.debug(f"Converted file {os.path.basename(inp_path)} to TREC format, output to: {outp_path}")
+
+    def _validate_document_path(self, path):
+        """ Checks that the sha256sum is correct """
+        return hash_file(path) == "409e0960f918970977ceab9e5b1d372f45395af25d53b95644bdc9ccbbf973da"
