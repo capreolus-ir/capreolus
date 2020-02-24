@@ -220,3 +220,41 @@ class StaticBM25RM3Rob04Yang19(Searcher):
 
     def query(self, *args, **kwargs):
         raise NotImplementedError("this searcher uses a static run file, so it cannot handle new queries")
+
+
+class DirichletQL(Searcher, AnseriniSearcherMixIn):
+    """ Dirichlet QL with a fixed mu """
+
+    name = "DirichletQL"
+    dependencies = {"index": Dependency(module="index", name="anserini")}
+
+    @staticmethod
+    def config():
+        mu = 1000  # mu smoothing parameter
+        hits = 1000
+
+    def query_from_file(self, topicsfn, output_path):
+        """
+        Runs Dirichlet QL search. Takes a query from the topic files, and fires it against the index
+        Args:
+            topicsfn: Path to a topics file
+            output_path: Path where the results of the search (i.e the run file) should be stored
+
+        Returns: Path to the run file where the results of the search are stored
+
+        """
+        mus = [self.cfg["mu"]]
+        mustr = " ".join(str(x) for x in mus)
+        hits = self.cfg["hits"]
+        anserini_param_str = f"-qld -mu {mustr} -hits {hits}"
+        self._anserini_query_from_file(topicsfn, anserini_param_str, output_path)
+
+        return output_path
+
+    def query(self, query):
+        self["index"].create_index()
+        searcher = pysearch.SimpleSearcher(self["index"].get_index_path().as_posix())
+        searcher.set_lm_dirichlet_similarity(self.cfg["mu"])
+
+        hits = searcher.search(query)
+        return OrderedDict({hit.docid: hit.score for hit in hits})
