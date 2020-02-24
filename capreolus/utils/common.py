@@ -112,7 +112,7 @@ def padlist(list_to_pad, padlen, pad_token=0):
 def plot_loss(history, outfn, interactive=False):
     # epochs, losses = zip(*history)
     losses = history
-    epochs = list(range(1, len(history)+1))
+    epochs = list(range(0, len(history)))
     best_epoch = epochs[np.argmin(losses)]
     fig = plt.figure()
     plt.plot(epochs, losses, "k-.")

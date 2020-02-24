@@ -195,7 +195,7 @@ class ANTIQUE(Collection):
         coll_filename = os.path.join(document_dir, "antique-collection.txt")
 
         if os.path.exists(coll_filename):
-            return coll_filename
+            return document_dir
 
         tmp_dir = cachedir / "tmp"
         tmp_filename = os.path.join(tmp_dir, "tmp.anqique.file")
