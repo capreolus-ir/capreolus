@@ -8,7 +8,7 @@ from capreolus.searcher import Searcher
 
 logger = get_logger(__name__)
 
-VALID_METRICS = {"P", "map", "map_cut", "ndcg_cut", "Rprec", "recip_rank"}
+VALID_METRICS = {"P", "map", "map_cut", "ndcg_cut", "Rprec", "recip_rank", "set_recall"}
 CUT_POINTS = [5, 10, 15, 20, 30, 100, 200, 500, 1000]
 
 
