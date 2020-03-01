@@ -32,9 +32,15 @@ class KNRM_class(nn.Module):
             combine_steps.append(nn.Tanh())
         self.combine = nn.Sequential(*combine_steps)
 
+    def get_embedding(self, toks):
+        """
+        Return vector embeddings (usually glove6b) for each token
+        """
+        return self.embedding(toks)
+
     def forward(self, doctoks, querytoks, query_idf):
-        doc = self.embedding(doctoks)
-        query = self.embedding(querytoks)
+        doc = self.get_embedding(doctoks)
+        query = self.get_embedding(querytoks)
         simmat = self.simmat(query, doc, querytoks, doctoks)
         kernels = self.kernels(simmat)
         BATCH, KERNELS, VIEWS, QLEN, DLEN = kernels.shape
