@@ -3,7 +3,7 @@ from allennlp.modules.seq2seq_encoders import StackedSelfAttentionEncoder
 from torch import nn
 
 from reranker import Reranker
-from reranker.KNRM import KNRM_class, KNRM
+from reranker.KNRM import KNRM_class
 from capreolus.utils.loginit import get_logger
 
 logger = get_logger(__name__)  # pylint: disable=invalid-name
@@ -43,7 +43,7 @@ class TK_class(KNRM_class):
         return self.mixer * embedding + (1 - self.mixer) * contextual_embedding
 
 
-class TK(KNRM):
+class TK(Reranker):
     name = "TK"
     citation = """Add citation"""
     # TODO: Declare the dependency on EmbedText
@@ -63,3 +63,28 @@ class TK(KNRM):
             self.model = TK_class(self["extractor"], self.cfg)
         return self.model
 
+    def score(self, d):
+        query_idf = d["query_idf"]
+        query_sentence = d["query"]
+        pos_sentence, neg_sentence = d["posdoc"], d["negdoc"]
+        return [
+            self.model(pos_sentence, query_sentence, query_idf).view(-1),
+            self.model(neg_sentence, query_sentence, query_idf).view(-1),
+        ]
+
+    def test(self, d):
+        query_idf = d["query_idf"]
+        query_sentence = d["query"]
+        pos_sentence = d["posdoc"]
+        return self.model(pos_sentence, query_sentence, query_idf).view(-1)
+
+    def query(self, query, docids):
+        if not hasattr(self["extractor"], "docid2toks"):
+            raise RuntimeError(
+                "reranker's extractor has not been created yet. try running the task's train() method first.")
+
+        results = []
+        for docid in docids:
+            d = self["extractor"].id2vec(qid=None, query=query, posid=docid)
+            results.append(self.test(d))
+        return results

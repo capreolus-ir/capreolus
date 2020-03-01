@@ -31,6 +31,7 @@ def test_pacrr(dummy_index, tmpdir, tmpdir_as_cache, monkeypatch):
             "gradacc": 1,
             "lr": 0.001,
             "softmaxloss": True,
+            "interactive": False
         }
     )
     reranker.modules["trainer"] = trainer
@@ -75,6 +76,7 @@ def test_tk(dummy_index, tmpdir, tmpdir_as_cache, monkeypatch):
             "gradacc": 1,
             "lr": 0.001,
             "softmaxloss": True,
+            "interactive": False
         }
     )
     reranker.modules["trainer"] = trainer
