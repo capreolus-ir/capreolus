@@ -1,8 +1,9 @@
 import torch
 from allennlp.modules.seq2seq_encoders import StackedSelfAttentionEncoder
 from torch import nn
-from capreolus.reranker.common import create_emb_layer, SimilarityMatrix, RbfKernelBank
 from reranker import Reranker
+from capreolus.reranker.common import create_emb_layer, SimilarityMatrix, RbfKernelBank
+
 from capreolus.utils.loginit import get_logger
 
 logger = get_logger(__name__)  # pylint: disable=invalid-name
