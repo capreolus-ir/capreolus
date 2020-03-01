@@ -1,11 +1,13 @@
 import os
 import numpy as np
 import torch
+import json
 
 from capreolus.registry import ModuleBase, RegisterableModule, Dependency, MAX_THREADS
 from capreolus.reranker.common import pair_hinge_loss, pair_softmax_loss
 from capreolus.searcher import Searcher
 from capreolus.utils.loginit import get_logger
+from capreolus.utils.common import plot_metrics, plot_loss
 from capreolus import evaluator
 
 logger = get_logger(__name__)  # pylint: disable=invalid-name
@@ -18,6 +20,7 @@ class Trainer(ModuleBase, metaclass=RegisterableModule):
 class PytorchTrainer(Trainer):
     name = "pytorch"
     dependencies = {}
+    config_keys_not_in_path = ["niters"]
 
     @staticmethod
     def config():
@@ -30,7 +33,9 @@ class PytorchTrainer(Trainer):
         itersize = 512  # number of training instances in one iteration (epoch)
         gradacc = 1  # number of batches to accumulate over before updating weights
         lr = 0.001  # learning rate
-        softmaxloss = True  # True to use softmax loss (over pairs) or False to use hinge loss
+        softmaxloss = False  # True to use softmax loss (over pairs) or False to use hinge loss
+
+        interactive = False  # True for training with Notebook or False for command line environment
 
         # sanity checks
         if batch < 1:
@@ -184,25 +189,34 @@ class PytorchTrainer(Trainer):
         os.makedirs(info_output_path, exist_ok=True)
 
         loss_fn = info_output_path / "loss.txt"
+        metrics_fn = dev_output_path / "metrics.json"
+        metrics_history = {}
         initial_iter = self.fastforward_training(reranker, weights_output_path, loss_fn)
         logger.info("starting training from iteration %s/%s", initial_iter, self.cfg["niters"])
 
+        train_dataloader = torch.utils.data.DataLoader(
+            train_dataset, batch_size=self.cfg["batch"], pin_memory=True, num_workers=0
+        )
+
         train_loss = []
+        # are we resuming training?
+        if initial_iter > 0:
+            train_loss = self.load_loss_file(loss_fn)
+
+            # are we done training?
+            if initial_iter < self.cfg["niters"]:
+                logger.debug("fastforwarding train_dataloader to iteration %s", initial_iter)
+                batches_per_epoch = self.cfg["itersize"] // self.cfg["batch"]
+                for niter in range(initial_iter):
+                    for bi, batch in enumerate(train_dataloader):
+                        if (bi + 1) % batches_per_epoch == 0:
+                            break
+
         dev_best_metric = -np.inf
-        logger.critical("TODO: remove niters from trainer module_path")
         for niter in range(initial_iter, self.cfg["niters"]):
             model.train()
 
-            # we must keep train_dataset updated with the current iteration
-            # because this is used to seed the training data order!
-            train_dataset.iteration = niter
-            # now create a DataLoader for this iteration
-            train_dataloader = torch.utils.data.DataLoader(
-                train_dataset, batch_size=self.cfg["batch"], pin_memory=True, num_workers=0
-            )
-
             iter_loss_tensor = self.single_train_iteration(reranker, train_dataloader)
-            del train_dataloader
 
             train_loss.append(iter_loss_tensor.item())
             logger.info("iter = %d loss = %f", niter, train_loss[-1])
@@ -222,9 +236,16 @@ class PytorchTrainer(Trainer):
             # write best dev weights to file
             if metrics[metric] > dev_best_metric:
                 reranker.save_weights(dev_best_weight_fn, self.optimizer)
+            for m in metrics:
+                metrics_history.setdefault(m, []).append(metrics[m])
 
             # write train_loss to file
             loss_fn.write_text("\n".join(f"{idx} {loss}" for idx, loss in enumerate(train_loss)))
+
+        json.dump(metrics_history, open(metrics_fn, "w", encoding="utf-8"))
+        plot_metrics(metrics_history, str(dev_output_path) + ".pdf", interactive=self.cfg["interactive"])
+        print("training loss: ", train_loss)
+        plot_loss(train_loss, str(loss_fn).replace(".txt", ".pdf"), interactive=self.cfg["interactive"])
 
     def load_best_model(self, reranker, train_output_path):
         self.optimizer = torch.optim.Adam(

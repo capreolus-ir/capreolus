@@ -31,10 +31,11 @@ def evaluate(config, modules):
     output_dir = searcher.get_cache_path() / benchmark.name
     best_results = evaluator.search_best_run(output_dir, benchmark, primary_metric=metric, metrics=all_metric)
 
-    scores = [f"\t{s}: {score}" for s, score in best_results["score"].items()]
     pathes = [f"\t{s}: {path}" for s, path in best_results["path"].items()]
-    print(f"best result with respect to {metric}: \n", "\n".join(scores))
     print("path for each split: \n", "\n".join(pathes))
+
+    scores = [f"\t{s}: {score}" for s, score in best_results["score"].items()]
+    print(f"cross-validated results when optimizing for {metric}: \n", "\n".join(scores))
 
 
 def _pipeline_path(config, modules):
@@ -56,7 +57,7 @@ class RankTask(Task):
     def pipeline_config():
         expid = "debug"
         seed = 123_456
-        eval_metrics = {"map", "ndcg_cut_20", "ndcg_cut_10", "P_20"}
+        # eval_metrics = {"map", "ndcg_cut_20", "ndcg_cut_10", "P_20"}
         optimize = "map"  # metric to maximize on the dev set
 
     name = "rank"

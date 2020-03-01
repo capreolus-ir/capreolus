@@ -1,9 +1,10 @@
 import os
 import subprocess
-from collections import defaultdict
+from collections import defaultdict, OrderedDict
 
 import numpy as np
 
+from pyserini.search import pysearch
 from capreolus.registry import ModuleBase, RegisterableModule, Dependency, MAX_THREADS, PACKAGE_PATH
 from capreolus.utils.common import Anserini
 from capreolus.utils.loginit import get_logger
@@ -51,8 +52,8 @@ class AnseriniSearcherMixIn:
             logger.debug(f"skipping Anserini SearchCollection call because path already exists: {donefn}")
             return
 
-        if not self["index"].exists():
-            raise Exception("Index not build")
+        # create index if it does not exist. the call returns immediately if the index does exist.
+        self["index"].create_index()
 
         os.makedirs(output_base_path, exist_ok=True)
         output_path = os.path.join(output_base_path, "searcher")
@@ -114,6 +115,14 @@ class BM25(Searcher, AnseriniSearcherMixIn):
 
         return output_path
 
+    def query(self, query):
+        self["index"].create_index()
+        searcher = pysearch.SimpleSearcher(self["index"].get_index_path().as_posix())
+        searcher.set_bm25_similarity(self.cfg["k1"], self.cfg["b"])
+
+        hits = searcher.search(query)
+        return OrderedDict({hit.docid: hit.score for hit in hits})
+
 
 class BM25Grid(Searcher, AnseriniSearcherMixIn):
     """ BM25 with a grid search for k1 and b. Search is from 0.1 to bmax/k1max in 0.1 increments """
@@ -123,8 +132,8 @@ class BM25Grid(Searcher, AnseriniSearcherMixIn):
 
     @staticmethod
     def config():
-        bmax = 1.0  # maximum b value to include in grid search (starting at 0.1)
         k1max = 1.0  # maximum k1 value to include in grid search (starting at 0.1)
+        bmax = 1.0  # maximum b value to include in grid search (starting at 0.1)
         hits = 1000
 
     def query_from_file(self, topicsfn, output_path):
@@ -134,9 +143,62 @@ class BM25Grid(Searcher, AnseriniSearcherMixIn):
         k1str = " ".join(str(x) for x in k1s)
         hits = self.cfg["hits"]
         anserini_param_str = f"-bm25 -b {bstr} -k1 {k1str} -hits {hits}"
+
         self._anserini_query_from_file(topicsfn, anserini_param_str, output_path)
 
         return output_path
+
+    def query(self, query, b, k1):
+        self["index"].create_index()
+        searcher = pysearch.SimpleSearcher(self["index"].get_index_path().as_posix())
+        searcher.set_bm25_similarity(k1, b)
+
+        hits = searcher.search(query)
+        return OrderedDict({hit.docid: hit.score for hit in hits})
+
+
+class BM25RM3(Searcher, AnseriniSearcherMixIn):
+
+    name = "BM25RM3"
+    dependencies = {"index": Dependency(module="index", name="anserini")}
+
+    @staticmethod
+    def config():
+        k1 = BM25RM3.list2str([0.65, 0.70, 0.75])
+        b = BM25RM3.list2str([0.60, 0.7])  # [0.60, 0.65, 0.7]
+        fbTerms = BM25RM3.list2str([65, 70, 95, 100])
+        fbDocs = BM25RM3.list2str([5, 10, 15])
+        originalQueryWeight = BM25RM3.list2str([0.2, 0.25])
+        hits = 1000
+
+    @staticmethod
+    def list2str(l):
+        return "-".join(str(x) for x in l)
+
+    def query_from_file(self, topicsfn, output_path):
+        # paras = {k: self.list2str(self.cfg[k]) for k in ["k1", "b", "fbTerms", "fbDocs", "originalQueryWeight"]}
+        paras = {k: " ".join(self.cfg[k].split("-")) for k in ["k1", "b", "fbTerms", "fbDocs", "originalQueryWeight"]}
+        hits = str(self.cfg["hits"])
+
+        anserini_param_str = (
+            "-rm3 "
+            + " ".join(f"-rm3.{k} {paras[k]}" for k in ["fbTerms", "fbDocs", "originalQueryWeight"])
+            + " -bm25 "
+            + " ".join(f"-{k} {paras[k]}" for k in ["k1", "b"])
+            + f" -hits {hits}"
+        )
+        self._anserini_query_from_file(topicsfn, anserini_param_str, output_path)
+
+        return output_path
+
+    def query(self, query, b, k1, fbterms, fbdocs, ow):
+        self["index"].create_index()
+        searcher = pysearch.SimpleSearcher(self["index"].get_index_path().as_posix())
+        searcher.set_bm25_similarity(k1, b)
+        searcher.set_rm3_reranker(fb_terms=fbterms, fb_docs=fbdocs, original_query_weight=ow)
+
+        hits = searcher.search(query)
+        return OrderedDict({hit.docid: hit.score for hit in hits})
 
 
 class StaticBM25RM3Rob04Yang19(Searcher):
@@ -155,3 +217,44 @@ class StaticBM25RM3Rob04Yang19(Searcher):
         shutil.copy2(PACKAGE_PATH / "data" / "rob04_yang19_rm3.run", outfn)
 
         return output_path
+
+    def query(self, *args, **kwargs):
+        raise NotImplementedError("this searcher uses a static run file, so it cannot handle new queries")
+
+
+class DirichletQL(Searcher, AnseriniSearcherMixIn):
+    """ Dirichlet QL with a fixed mu """
+
+    name = "DirichletQL"
+    dependencies = {"index": Dependency(module="index", name="anserini")}
+
+    @staticmethod
+    def config():
+        mu = 1000  # mu smoothing parameter
+        hits = 1000
+
+    def query_from_file(self, topicsfn, output_path):
+        """
+        Runs Dirichlet QL search. Takes a query from the topic files, and fires it against the index
+        Args:
+            topicsfn: Path to a topics file
+            output_path: Path where the results of the search (i.e the run file) should be stored
+
+        Returns: Path to the run file where the results of the search are stored
+
+        """
+        mus = [self.cfg["mu"]]
+        mustr = " ".join(str(x) for x in mus)
+        hits = self.cfg["hits"]
+        anserini_param_str = f"-qld -mu {mustr} -hits {hits}"
+        self._anserini_query_from_file(topicsfn, anserini_param_str, output_path)
+
+        return output_path
+
+    def query(self, query):
+        self["index"].create_index()
+        searcher = pysearch.SimpleSearcher(self["index"].get_index_path().as_posix())
+        searcher.set_lm_dirichlet_similarity(self.cfg["mu"])
+
+        hits = searcher.search(query)
+        return OrderedDict({hit.docid: hit.score for hit in hits})

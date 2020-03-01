@@ -49,9 +49,17 @@ class WSDM20Demo(Benchmark):
     query_type = "title"
 
 
+class Robust04Yang19(Benchmark):
+    name = "robust04.yang19"
+    qrel_file = PACKAGE_PATH / "data" / "qrels.robust2004.txt"
+    topic_file = PACKAGE_PATH / "data" / "topics.robust04.301-450.601-700.txt"
+    fold_file = PACKAGE_PATH / "data" / "rob04_yang19_folds.json"
+    query_type = "title"
+
+
 class ANTIQUE(Benchmark):
     name = "antique"
     qrel_file = PACKAGE_PATH / "data" / "qrels.antique.txt"
     topic_file = PACKAGE_PATH / "data" / "topics.antique.txt"
     fold_file = PACKAGE_PATH / "data" / "antique.json"
-    query_type = None
+    query_type = "title"

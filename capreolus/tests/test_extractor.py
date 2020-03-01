@@ -44,7 +44,7 @@ def test_embedtext_creation():
 
     extractor.create(qids, docids, benchmark.topics[benchmark.query_type])
 
-    expected_vocabs = ["dummy", "doc", "hello", "greetings", "world", "from", "outer", "space", "<pad>"]
+    expected_vocabs = ["lessdummy", "dummy", "doc", "hello", "greetings", "world", "from", "outer", "space", "<pad>"]
     expected_stoi = {s: i for i, s in enumerate(expected_vocabs)}
 
     assert set(extractor.stoi.keys()) == set(expected_stoi.keys())

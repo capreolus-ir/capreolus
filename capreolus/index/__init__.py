@@ -95,16 +95,16 @@ class AnseriniIndex(Index):
         except Exception as e:
             raise
 
-    def getdf(self, term):
+    def get_df(self, term):
         # returns 0 for missing terms
         if not hasattr(self, "reader") or self.reader is None:
             self.open()
         jterm = self.JTerm("contents", term)
         return self.reader.docFreq(jterm)
 
-    def getidf(self, term):
+    def get_idf(self, term):
         """ BM25's IDF with a floor of 0 """
-        df = self.getdf(term)
+        df = self.get_df(term)
         idf = (self.numdocs - df + 0.5) / (df + 0.5)
         idf = math.log(1 + idf)
         return max(idf, 0)

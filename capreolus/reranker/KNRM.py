@@ -82,9 +82,23 @@ class KNRM(Reranker):
             self.model(pos_sentence, query_sentence, query_idf).view(-1),
             self.model(neg_sentence, query_sentence, query_idf).view(-1),
         ]
+        # return [
+        #     self.model(neg_sentence, query_sentence, query_idf).view(-1),
+        #     self.model(pos_sentence, query_sentence, query_idf).view(-1),
+        # ]
 
     def test(self, d):
         query_idf = d["query_idf"]
         query_sentence = d["query"]
         pos_sentence = d["posdoc"]
         return self.model(pos_sentence, query_sentence, query_idf).view(-1)
+
+    def query(self, query, docids):
+        if not hasattr(self["extractor"], "docid2toks"):
+            raise RuntimeError("reranker's extractor has not been created yet. try running the task's train() method first.")
+
+        results = []
+        for docid in docids:
+            d = self["extractor"].id2vec(qid=None, query=query, posid=docid)
+            results.append(self.test(d))
+        return results

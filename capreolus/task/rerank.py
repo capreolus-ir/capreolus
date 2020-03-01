@@ -40,7 +40,10 @@ def train(config, modules):
     searcher_cache_dir = os.path.join(searcher.get_cache_path(), benchmark.name)
     searcher_run_dir = searcher.query_from_file(topics_fn, searcher_cache_dir)
 
-    best_search_run_path = evaluator.search_best_run(searcher_run_dir, benchmark, metric)["path"][fold]
+    results = evaluator.search_best_run(searcher_run_dir, benchmark, metric)
+    print("score: ", results["score"])
+    # end of tmp
+    best_search_run_path = results["path"][fold]
     best_search_run = searcher.load_trec_run(best_search_run_path)
 
     docids = set(docid for querydocs in best_search_run.values() for docid in querydocs)
@@ -89,7 +92,7 @@ def evaluate(config, modules):
 
         test_preds = reranker["trainer"].predict(reranker, test_dataset, test_output_path)
 
-    metrics = evaluator.eval_runs(test_preds, benchmark.qrels, ["ndcg_cut_20", "map", "P_20"])
+    metrics = evaluator.eval_runs(test_preds, benchmark.qrels, ["ndcg_cut_20", "map", "P_20", "P_10"])
     print("test metrics for fold=%s:" % fold, metrics)
 
     print("\ncomputing metrics across all folds")
@@ -103,7 +106,7 @@ def evaluate(config, modules):
 
         found += 1
         preds = Searcher.load_trec_run(pred_path)
-        metrics = evaluator.eval_runs(preds, benchmark.qrels, ["ndcg_cut_20", "map", "P_20"])
+        metrics = evaluator.eval_runs(preds, benchmark.qrels, ["ndcg_cut_20", "map", "P_20", "P_10"])
         for metric, val in metrics.items():
             avg.setdefault(metric, []).append(val)
 
