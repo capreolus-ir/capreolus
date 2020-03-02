@@ -11,7 +11,7 @@ from capreolus.sampler import TrainDataset, PredDataset
 from capreolus.tests.common_fixtures import tmpdir_as_cache, dummy_index
 from capreolus.tokenizer import AnseriniTokenizer
 from capreolus.trainer import PytorchTrainer
-from reranker.TK import TK
+from capreolus.reranker.TK import TK
 
 
 def test_pacrr(dummy_index, tmpdir, tmpdir_as_cache, monkeypatch):
