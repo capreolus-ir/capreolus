@@ -28,6 +28,7 @@ class TK_class(KNRM_class):
                                                           residual_dropout_prob=0,
                                                           attention_dropout_prob=0)
         self.mixer = nn.Parameter(torch.full([1, 1, 1], 0.5, dtype=torch.float32, requires_grad=True))
+        self.pad = extractor.pad
 
     def get_embedding(self, toks):
         """
@@ -36,7 +37,8 @@ class TK_class(KNRM_class):
         embedding = self.embedding(toks)
         # TODO: Hoffstaeter's implementation makes use of masking. Check if it's required here
         # See https://github.com/sebastian-hofstaetter/transformer-kernel-ranking/blob/master/matchmaker/models/tk.py#L88
-        contextual_embedding = self.attention_encoder(embedding, None)
+        mask = (embedding > self.pad).to(dtype=embedding.dtype)
+        contextual_embedding = self.attention_encoder(embedding, mask)
 
         return self.mixer * embedding + (1 - self.mixer) * contextual_embedding
 
@@ -54,7 +56,7 @@ class TK(KNRM):
         projdim = 32
         ffdim = 100
         numlayers = 2
-        numattheads = 16
+        numattheads = 8
 
     def build(self):
         if not hasattr(self, "model"):
