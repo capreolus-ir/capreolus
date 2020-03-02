@@ -13,10 +13,10 @@ def test_train_sampler(monkeypatch, tmpdir):
     benchmark = DummyBenchmark({"fold": "s1", "rundocsonly": True})
     extractor = EmbedText({"keepstops": True})
     training_judgments = benchmark.qrels.copy()
-    train_dataset = TrainDataset(training_judgments, extractor)
+    train_dataset = TrainDataset(training_judgments, training_judgments, extractor)
 
     def mock_id2vec(*args, **kwargs):
-        return np.array([1, 2, 3, 4]), np.array([1, 1, 1, 1]), np.array([2, 2, 2, 2])
+        return {"query": np.array([1, 2, 3, 4]), "posdoc": np.array([1, 1, 1, 1]), "negdoc": np.array([2, 2, 2, 2])}
 
     monkeypatch.setattr(EmbedText, "id2vec", mock_id2vec)
     dataloader = torch.utils.data.DataLoader(train_dataset, batch_size=32)
@@ -42,11 +42,12 @@ def test_pred_sampler(monkeypatch, tmpdir):
     pred_dataset = PredDataset(search_run, extractor)
 
     def mock_id2vec(*args, **kwargs):
-        return np.array([1, 2, 3, 4]), np.array([1, 1, 1, 1])
+        return {"query": np.array([1, 2, 3, 4]), "posdoc": np.array([1, 1, 1, 1])}
 
     monkeypatch.setattr(EmbedText, "id2vec", mock_id2vec)
     dataloader = torch.utils.data.DataLoader(pred_dataset, batch_size=2)
     for idx, batch in enumerate(dataloader):
+        print(idx, batch)
         assert len(batch["query"]) == 2
         assert len(batch["posdoc"]) == 2
         assert batch.get("negdoc") is None
