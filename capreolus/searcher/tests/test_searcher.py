@@ -22,7 +22,7 @@ def test_searcher_bm25(tmpdir_as_cache, tmpdir, dummy_index):
     with open(os.path.join(output_fn, "searcher"), "r") as fp:
         file_contents = fp.readlines()
 
-    assert file_contents == ["301 Q0 LA010189-0001 1 0.140200 Anserini\n", "301 Q0 LA010189-0002 2 0.140199 Anserini\n"]
+    assert file_contents == ["301 Q0 LA010189-0001 1 0.139500 Anserini\n", "301 Q0 LA010189-0002 2 0.097000 Anserini\n"]
 
 
 def test_searcher_bm25_grid(tmpdir_as_cache, tmpdir, dummy_index):
