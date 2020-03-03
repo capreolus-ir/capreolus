@@ -5,9 +5,8 @@ from allennlp.modules.matrix_attention.cosine_matrix_attention import CosineMatr
 from torch import nn
 from torch.autograd import Variable
 
-from capreolus.reranker.KNRM import KNRM_class, KNRM
 from capreolus.utils.loginit import get_logger
-from capreolus.reranker import Reranker
+import capreolus.reranker
 from reranker.common import create_emb_layer
 
 logger = get_logger(__name__)  # pylint: disable=invalid-name
@@ -137,7 +136,7 @@ class TK_class(nn.Module):
         return score
 
 
-class TK(Reranker):
+class TK(capreolus.reranker.Reranker):
     name = "TK"
     citation = """Add citation"""
     # TODO: Declare the dependency on EmbedText
