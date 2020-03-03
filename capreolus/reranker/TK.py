@@ -39,11 +39,11 @@ class TK_class(KNRM_class):
         # See https://github.com/sebastian-hofstaetter/transformer-kernel-ranking/blob/master/matchmaker/models/tk.py#L88
         # The embedding is of the shape (batch_size, maxdoclen, embedding_size)
         # We want the mask to be of the shape (batch_size, maxdoclen). In other words, the mask says 1 if a token is not the pad token
-        mask = ((embedding != torch.zeros(4)).to(dtype=embedding.dtype).sum(-1) != 0).to(dtype=embedding.dtype)
-
+        mask = ((embedding != torch.zeros(self.embeddim).to(embedding.device)).to(dtype=embedding.dtype).sum(-1) != 0).to(dtype=embedding.dtype)
+        embedding = embedding * mask.unsqueeze(-1)
         contextual_embedding = self.attention_encoder(embedding, mask)
 
-        return self.mixer * embedding + (1 - self.mixer) * contextual_embedding
+        return (self.mixer * embedding + (1 - self.mixer) * contextual_embedding) * mask.unsqueeze(-1)
 
 
 class TK(KNRM):

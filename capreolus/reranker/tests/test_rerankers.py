@@ -65,7 +65,7 @@ def test_tk(dummy_index, tmpdir, tmpdir_as_cache, monkeypatch):
 
     monkeypatch.setattr(EmbedText, "_get_pretrained_emb", fake_magnitude_embedding)
 
-    reranker = TK({"gradkernels": True, "scoretanh": False, "singlefc": True, "projdim": 8, "ffdim": 20, "numlayers": 2, "numattheads": 2,})
+    reranker = TK({"gradkernels": True, "scoretanh": False, "singlefc": True, "projdim": 32, "ffdim": 100, "numlayers": 2, "numattheads": 2,})
     trainer = PytorchTrainer(
         {
             "maxdoclen": 200,
