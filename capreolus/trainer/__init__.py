@@ -174,11 +174,13 @@ class PytorchTrainer(Trainer):
 
         self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
         model = reranker.model.to(self.device)
+        selected_params = [param for name, param in model.named_parameters() if not name.startswith("embedding") and not name.startswith("attention_encoder")]
         self.optimizer = torch.optim.Adam([
             {'params': model.embedding.parameters(), 'lr': 0.0001},
             {'params': model.attention_encoder.parameters(), 'lr': 0.0001},
-            {'params': filter(lambda tup: not tup[0].startswith('embedding') and not tup[0].startswith('attention_encoder'), model.named_parameters()), 'lr': 0.001}
+            {'params': selected_params, 'lr': 0.001}
         ])
+
         if self.cfg["softmaxloss"]:
             self.loss = pair_softmax_loss
         else:
