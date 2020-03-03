@@ -174,8 +174,11 @@ class PytorchTrainer(Trainer):
 
         self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
         model = reranker.model.to(self.device)
-        self.optimizer = torch.optim.Adam(filter(lambda param: param.requires_grad, model.parameters()), lr=self.cfg["lr"])
-
+        self.optimizer = torch.optim.Adam([
+            {'params': model.embedding.parameters(), 'lr': 0.0001},
+            {'params': model.attention_encoder.parameters(), 'lr': 0.0001},
+            {'params': filter(lambda tup: tup[0].startswith('embedding') and tup[0].startswith('attention_encoder'), model.named_parameters()), 'lr': 0.001}
+        ])
         if self.cfg["softmaxloss"]:
             self.loss = pair_softmax_loss
         else:
