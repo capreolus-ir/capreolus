@@ -1,15 +1,24 @@
 import torch
 from allennlp.modules.seq2seq_encoders import StackedSelfAttentionEncoder
 from allennlp.modules.matrix_attention.cosine_matrix_attention import CosineMatrixAttention
-
+from capreolus.reranker.KNRM import KNRM
 from torch import nn
 from torch.autograd import Variable
-
 from capreolus.utils.loginit import get_logger
-import capreolus.reranker
-from reranker.common import create_emb_layer
 
 logger = get_logger(__name__)  # pylint: disable=invalid-name
+
+
+def create_emb_layer(weights, non_trainable=True):
+    layer = torch.nn.Embedding(*weights.shape)
+    layer.load_state_dict({"weight": torch.tensor(weights)})
+
+    if non_trainable:
+        layer.weight.requires_grad = False
+    else:
+        layer.weight.requires_grad = True
+
+    return layer
 
 
 class TK_class(nn.Module):
@@ -33,8 +42,8 @@ class TK_class(nn.Module):
                                                           dropout_prob=0,
                                                           residual_dropout_prob=0,
                                                           attention_dropout_prob=0)
-        kernels_mu = torch.tensor([1.0, 0.9, 0.7, 0.5, 0.3, 0.1, -0.1, -0.3, -0.5, -0.7, -0.9], requires_grad=False).float()
-        kernels_sigma = torch.tensor([0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1], requires_grad=False).float()
+        kernels_mu = torch.tensor([1.0, 0.9, 0.7, 0.5, 0.3, 0.1, -0.1, -0.3, -0.5, -0.7, -0.9], requires_grad=False).float().cuda()
+        kernels_sigma = torch.tensor([0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1], requires_grad=False).float().cuda()
         n_kernels = len(kernels_mu)
 
         self.mu = Variable(kernels_mu).view(1, 1, 1, n_kernels)
@@ -136,7 +145,7 @@ class TK_class(nn.Module):
         return score
 
 
-class TK(capreolus.reranker.Reranker):
+class TK(KNRM):
     name = "TK"
     citation = """Add citation"""
     # TODO: Declare the dependency on EmbedText
