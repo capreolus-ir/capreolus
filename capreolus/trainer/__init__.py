@@ -177,7 +177,7 @@ class PytorchTrainer(Trainer):
         self.optimizer = torch.optim.Adam([
             {'params': model.embedding.parameters(), 'lr': 0.0001},
             {'params': model.attention_encoder.parameters(), 'lr': 0.0001},
-            {'params': filter(lambda tup: tup[0].startswith('embedding') and tup[0].startswith('attention_encoder'), model.named_parameters()), 'lr': 0.001}
+            {'params': filter(lambda tup: not tup[0].startswith('embedding') and not tup[0].startswith('attention_encoder'), model.named_parameters()), 'lr': 0.001}
         ])
         if self.cfg["softmaxloss"]:
             self.loss = pair_softmax_loss
