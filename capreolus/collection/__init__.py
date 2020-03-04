@@ -181,6 +181,15 @@ class DummyCollection(Collection):
         return "dummy_trec_doc" in os.listdir(path)
 
 
+class MSMarco(Collection):
+    name = "msmarco"
+    config_keys_not_in_path = ["path"]
+
+    @staticmethod
+    def config():
+        path = "/GW/NeuralIR/nobackup/msmarco/trec_format"
+
+
 class ANTIQUE(Collection):
     name = "antique"
     _path = PACKAGE_PATH / "data" / "antique-collection"
