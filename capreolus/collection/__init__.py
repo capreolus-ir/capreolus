@@ -184,6 +184,8 @@ class DummyCollection(Collection):
 class MSMarco(Collection):
     name = "msmarco"
     config_keys_not_in_path = ["path"]
+    collection_type = "TrecCollection"
+    generator_type = "JsoupGenerator"
 
     @staticmethod
     def config():
