@@ -39,8 +39,10 @@ class KNRM_class(nn.Module):
         return self.embedding(toks)
 
     def forward(self, doctoks, querytoks, query_idf):
-        doc = self.get_embedding(doctoks)
-        query = self.get_embedding(querytoks)
+        doc = self.embedding(doctoks)
+        query = self.embedding(querytoks)
+
+        # query = torch.rand_like(query)  # debug
         simmat = self.simmat(query, doc, querytoks, doctoks)
         kernels = self.kernels(simmat)
         BATCH, KERNELS, VIEWS, QLEN, DLEN = kernels.shape

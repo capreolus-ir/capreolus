@@ -92,7 +92,7 @@ def evaluate(config, modules):
 
         test_preds = reranker["trainer"].predict(reranker, test_dataset, test_output_path)
 
-    metrics = evaluator.eval_runs(test_preds, benchmark.qrels, ["ndcg_cut_20", "map", "P_20", "P_10"])
+    metrics = evaluator.eval_runs(test_preds, benchmark.qrels, ["ndcg_cut_20", "ndcg_cut_10", "map", "P_20", "P_10"])
     print("test metrics for fold=%s:" % fold, metrics)
 
     print("\ncomputing metrics across all folds")
@@ -106,7 +106,7 @@ def evaluate(config, modules):
 
         found += 1
         preds = Searcher.load_trec_run(pred_path)
-        metrics = evaluator.eval_runs(preds, benchmark.qrels, ["ndcg_cut_20", "map", "P_20", "P_10"])
+        metrics = evaluator.eval_runs(preds, benchmark.qrels, ["ndcg_cut_20", "ndcg_cut_10", "map", "P_20", "P_10"])
         for metric, val in metrics.items():
             avg.setdefault(metric, []).append(val)
 
