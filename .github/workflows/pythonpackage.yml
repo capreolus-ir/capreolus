@@ -32,6 +32,7 @@ jobs:
       run: |
         pip install pytest
         export PYTHONPATH=${PYTHONPATH}:/home/runner/work/capreolus/capreolus/
+        git lfs pull
         pytest -vvv
 
     timeout-minutes: 50
