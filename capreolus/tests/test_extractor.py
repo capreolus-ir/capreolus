@@ -44,7 +44,18 @@ def test_embedtext_creation():
 
     extractor.create(qids, docids, benchmark.topics[benchmark.query_type])
 
-    expected_vocabs = ["lessdummy", "dummy", "doc", "hello", "greetings", "world", "from", "outer", "space", "<pad>"]
+    expected_vocabs = [
+        "lessdummy",
+        "dummy",
+        "doc",
+        "hello",
+        "greetings",
+        "world",
+        "from",
+        "outer",
+        "space",
+        "<pad>",
+    ]
     expected_stoi = {s: i for i, s in enumerate(expected_vocabs)}
 
     assert set(extractor.stoi.keys()) == set(expected_stoi.keys())
@@ -108,9 +119,15 @@ def test_embedtext_id2vec():
     assert len(d1) == MAXDOCLEN
     assert len(d2) == MAXDOCLEN
 
-    assert len([w for w in q if w.sum() != 0]) == len(topics[qid].strip().split()[:MAXQLEN])
-    assert len([w for w in d1 if w.sum() != 0]) == len(extractor["index"].get_doc(docid1).strip().split()[:MAXDOCLEN])
-    assert len([w for w in d2 if w.sum() != 0]) == len(extractor["index"].get_doc(docid2).strip().split()[:MAXDOCLEN])
+    assert len([w for w in q if w.sum() != 0]) == len(
+        topics[qid].strip().split()[:MAXQLEN]
+    )
+    assert len([w for w in d1 if w.sum() != 0]) == len(
+        extractor["index"].get_doc(docid1).strip().split()[:MAXDOCLEN]
+    )
+    assert len([w for w in d2 if w.sum() != 0]) == len(
+        extractor["index"].get_doc(docid2).strip().split()[:MAXDOCLEN]
+    )
 
     # check MissDocError
     error_thrown = False

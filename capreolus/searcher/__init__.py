@@ -5,7 +5,13 @@ from collections import defaultdict, OrderedDict
 import numpy as np
 
 from pyserini.search import pysearch
-from capreolus.registry import ModuleBase, RegisterableModule, Dependency, MAX_THREADS, PACKAGE_PATH
+from capreolus.registry import (
+    ModuleBase,
+    RegisterableModule,
+    Dependency,
+    MAX_THREADS,
+    PACKAGE_PATH,
+)
 from capreolus.utils.common import Anserini
 from capreolus.utils.loginit import get_logger
 
@@ -34,7 +40,9 @@ class Searcher(ModuleBase, metaclass=RegisterableModule):
         with open(outfn, "wt") as outf:
             for qid in sorted(preds):
                 rank = 1
-                for docid, score in sorted(preds[qid].items(), key=lambda x: x[1], reverse=True):
+                for docid, score in sorted(
+                    preds[qid].items(), key=lambda x: x[1], reverse=True
+                ):
                     print(f"{qid} Q0 {docid} {rank} {score} capreolus", file=outf)
                     rank += 1
                     count += 1
@@ -49,7 +57,9 @@ class AnseriniSearcherMixIn:
 
         donefn = os.path.join(output_base_path, "done")
         if os.path.exists(donefn):
-            logger.debug(f"skipping Anserini SearchCollection call because path already exists: {donefn}")
+            logger.debug(
+                f"skipping Anserini SearchCollection call because path already exists: {donefn}"
+            )
             return
 
         # create index if it does not exist. the call returns immediately if the index does exist.
@@ -69,7 +79,9 @@ class AnseriniSearcherMixIn:
         logger.info("Anserini writing runs to %s", output_path)
         logger.debug(cmd)
 
-        app = subprocess.Popen(cmd.split(), stdout=subprocess.PIPE, universal_newlines=True)
+        app = subprocess.Popen(
+            cmd.split(), stdout=subprocess.PIPE, universal_newlines=True
+        )
 
         # Anserini output is verbose, so ignore DEBUG log lines and send other output through our logger
         for line in app.stdout:
@@ -177,12 +189,18 @@ class BM25RM3(Searcher, AnseriniSearcherMixIn):
 
     def query_from_file(self, topicsfn, output_path):
         # paras = {k: self.list2str(self.cfg[k]) for k in ["k1", "b", "fbTerms", "fbDocs", "originalQueryWeight"]}
-        paras = {k: " ".join(self.cfg[k].split("-")) for k in ["k1", "b", "fbTerms", "fbDocs", "originalQueryWeight"]}
+        paras = {
+            k: " ".join(self.cfg[k].split("-"))
+            for k in ["k1", "b", "fbTerms", "fbDocs", "originalQueryWeight"]
+        }
         hits = str(self.cfg["hits"])
 
         anserini_param_str = (
             "-rm3 "
-            + " ".join(f"-rm3.{k} {paras[k]}" for k in ["fbTerms", "fbDocs", "originalQueryWeight"])
+            + " ".join(
+                f"-rm3.{k} {paras[k]}"
+                for k in ["fbTerms", "fbDocs", "originalQueryWeight"]
+            )
             + " -bm25 "
             + " ".join(f"-{k} {paras[k]}" for k in ["k1", "b"])
             + f" -hits {hits}"
@@ -195,7 +213,9 @@ class BM25RM3(Searcher, AnseriniSearcherMixIn):
         self["index"].create_index()
         searcher = pysearch.SimpleSearcher(self["index"].get_index_path().as_posix())
         searcher.set_bm25_similarity(k1, b)
-        searcher.set_rm3_reranker(fb_terms=fbterms, fb_docs=fbdocs, original_query_weight=ow)
+        searcher.set_rm3_reranker(
+            fb_terms=fbterms, fb_docs=fbdocs, original_query_weight=ow
+        )
 
         hits = searcher.search(query)
         return OrderedDict({hit.docid: hit.score for hit in hits})
@@ -219,7 +239,9 @@ class StaticBM25RM3Rob04Yang19(Searcher):
         return output_path
 
     def query(self, *args, **kwargs):
-        raise NotImplementedError("this searcher uses a static run file, so it cannot handle new queries")
+        raise NotImplementedError(
+            "this searcher uses a static run file, so it cannot handle new queries"
+        )
 
 
 class DirichletQL(Searcher, AnseriniSearcherMixIn):

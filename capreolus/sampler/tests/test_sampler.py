@@ -16,7 +16,11 @@ def test_train_sampler(monkeypatch, tmpdir):
     train_dataset = TrainDataset(training_judgments, training_judgments, extractor)
 
     def mock_id2vec(*args, **kwargs):
-        return {"query": np.array([1, 2, 3, 4]), "posdoc": np.array([1, 1, 1, 1]), "negdoc": np.array([2, 2, 2, 2])}
+        return {
+            "query": np.array([1, 2, 3, 4]),
+            "posdoc": np.array([1, 1, 1, 1]),
+            "negdoc": np.array([2, 2, 2, 2]),
+        }
 
     monkeypatch.setattr(EmbedText, "id2vec", mock_id2vec)
     dataloader = torch.utils.data.DataLoader(train_dataset, batch_size=32)

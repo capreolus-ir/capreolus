@@ -45,7 +45,9 @@ class RepeatFilter(logging.Filter):
             # if we haven't yet logged a notification that RepeatFilter was triggered, log one
             if not self.notified:
                 self.logger.log(
-                    record.levelno, "RepeatFilter suppressing additional variations of past %s messages", self.last_count
+                    record.levelno,
+                    "RepeatFilter suppressing additional variations of past %s messages",
+                    self.last_count,
                 )
                 self.notified = True
             return False

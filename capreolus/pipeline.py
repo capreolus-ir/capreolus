@@ -101,13 +101,19 @@ class Pipeline:
         for module in self.task.module_order:
             module_name = choices.get(module, self.task.module_defaults.get(module))
             if module_name is None:
-                raise Exception(f"a {module} module was not declared in the module choices or pipeline defaults")
+                raise Exception(
+                    f"a {module} module was not declared in the module choices or pipeline defaults"
+                )
 
             if module_name not in all_known_modules[module].plugins:
-                raise KeyError(f"could not find class for requested module {module}={module_name}")
+                raise KeyError(
+                    f"could not find class for requested module {module}={module_name}"
+                )
 
             module_cls = all_known_modules[module].plugins[module_name]
-            module_ingredient, command_list = module_cls.resolve_dependencies(module, all_known_modules, provided_modules)
+            module_ingredient, command_list = module_cls.resolve_dependencies(
+                module, all_known_modules, provided_modules
+            )
 
             ingredients.append(module_ingredient)
             ingredient_commands.extend(command_list)
@@ -129,7 +135,9 @@ class Pipeline:
         for module in self.task.module_order:
             choices[module] = self._extract_module_choice_from_args(module, args)
 
-        return {module: choice for module, choice in choices.items() if choice is not None}
+        return {
+            module: choice for module, choice in choices.items() if choice is not None
+        }
 
     def _extract_module_choice_from_args(self, module, args):
         key = f"{module}="
@@ -154,7 +162,9 @@ class Pipeline:
         for arg in config_args:
             if "=" not in arg:
                 # this is a filename
-                print("WARNING: arguments provided in files may not be parsed correctly; _name handling is not implemented")
+                print(
+                    "WARNING: arguments provided in files may not be parsed correctly; _name handling is not implemented"
+                )
                 rewritten_args.append(arg)
             else:
                 k, v = arg.split("=")
@@ -175,7 +185,9 @@ class Pipeline:
         # for ingredient in ingredients:
         #    print_ingredient(ingredient)
 
-        self.ex = sacred.Experiment(experiment_name, ingredients=ingredients, interactive=interactive)
+        self.ex = sacred.Experiment(
+            experiment_name, ingredients=ingredients, interactive=interactive
+        )
 
         self.ex.ingredient_lookup = {}
 
@@ -198,7 +210,9 @@ class Pipeline:
         # We capture the function using the experiment config (as before), however,
         # we add the command name to the ingredient rather than the experiment so that sacred parses it correctly.
         for command_name, command_func, path, ingredient in ingredient_commands:
-            partial_func = partial(self._ingredient_command_wrapper, command_func=command_func, path=path)
+            partial_func = partial(
+                self._ingredient_command_wrapper, command_func=command_func, path=path
+            )
             partial_func.__name__ = command_name
             captured_func = self.ex.capture(partial_func)
             captured_func.unobserved = False  # TODO check
@@ -216,7 +230,9 @@ class Pipeline:
         for m in self.task.module_order:
             module_name = _config[m]["_name"]
             module_cls = all_known_modules[m].plugins[module_name]
-            module_cls.add_missing_modules_to_config(_config[m], all_known_modules, provided)
+            module_cls.add_missing_modules_to_config(
+                _config[m], all_known_modules, provided
+            )
 
         # instantiate models from the expanded config
         for m in self.task.module_order:
@@ -263,13 +279,23 @@ class Notebook:
             self.config = config
             self.modules = modules
 
-            self.describe_pipeline = partial(Task.describe_pipeline, config=self.config, modules=self.modules)
-            self.module_graph = partial(Task.module_graph, config=self.config, modules=self.modules)
+            self.describe_pipeline = partial(
+                Task.describe_pipeline, config=self.config, modules=self.modules
+            )
+            self.module_graph = partial(
+                Task.module_graph, config=self.config, modules=self.modules
+            )
             for command, func in self.task.commands.items():
-                setattr(self, command, partial(func, config=self.config, modules=self.modules))
+                setattr(
+                    self,
+                    command,
+                    partial(func, config=self.config, modules=self.modules),
+                )
 
         if isinstance(pipeline_description, Task):
-            raise RuntimeError("Notebook requires a Task class, but you passed a Task object")
+            raise RuntimeError(
+                "Notebook requires a Task class, but you passed a Task object"
+            )
 
         if isclass(pipeline_description) and issubclass(pipeline_description, Task):
             task = pipeline_description()
@@ -281,7 +307,9 @@ class Notebook:
 
             if not module_order:
                 # move collection to the front, if present, then sort alphabetically.
-                module_order = sorted(module_defaults.keys(), key=lambda x: (x != "collection", x))
+                module_order = sorted(
+                    module_defaults.keys(), key=lambda x: (x != "collection", x)
+                )
 
             missing_modules = set(module_defaults.keys()) - set(module_order)
             if len(missing_modules) > 0:
@@ -314,5 +342,7 @@ class Notebook:
         rewritten_args = ["notebook", "interactive"] + config_args
 
         self.task = task
-        pipeline = Pipeline(self.task, rewritten_args=rewritten_args, task_obj_passed=True)
+        pipeline = Pipeline(
+            self.task, rewritten_args=rewritten_args, task_obj_passed=True
+        )
         pipeline.run()

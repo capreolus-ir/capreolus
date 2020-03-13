@@ -16,9 +16,13 @@ logger = get_logger(__name__)  # pylint: disable=invalid-name
 all_known_modules = {}
 
 PACKAGE_PATH = Path(os.path.dirname(__file__))
-RESULTS_BASE_PATH = Path(os.environ.get("CAPREOLUS_RESULTS", os.path.expanduser("~/.capreolus/results/")))
+RESULTS_BASE_PATH = Path(
+    os.environ.get("CAPREOLUS_RESULTS", os.path.expanduser("~/.capreolus/results/"))
+)
 MAX_THREADS = int(os.environ.get("CAPREOLUS_THREADS", multiprocessing.cpu_count()))
-CACHE_BASE_PATH = Path(os.environ.get("CAPREOLUS_CACHE", os.path.expanduser("~/.capreolus/cache/")))
+CACHE_BASE_PATH = Path(
+    os.environ.get("CAPREOLUS_CACHE", os.path.expanduser("~/.capreolus/cache/"))
+)
 
 
 class Dependency:
@@ -38,7 +42,9 @@ class Dependency:
         self.config_overrides = config_overrides
 
     def __str__(self):
-        return f"<Dependency {self.module}={self.name} overrides={self.config_overrides}>"
+        return (
+            f"<Dependency {self.module}={self.name} overrides={self.config_overrides}>"
+        )
 
 
 class RegisterableModule(type):
@@ -58,7 +64,9 @@ class RegisterableModule(type):
 
     def register_plugin(cls, plugin):
         if cls.plugins.get(plugin.name, plugin) != plugin:
-            logger.debug(f"WARNING: replacing entry {cls.plugins[plugin.name]} for {plugin.name} with {plugin}")
+            logger.debug(
+                f"WARNING: replacing entry {cls.plugins[plugin.name]} for {plugin.name} with {plugin}"
+            )
         cls.plugins[plugin.name] = plugin
 
 
@@ -81,7 +89,9 @@ class RegisterableMixIn:
             if k not in config:
                 config[k] = provided_modules[k]
             else:
-                module_lookup[module].plugins[name].add_missing_modules_to_config(config[k], module_lookup, provided_modules)
+                module_lookup[module].plugins[name].add_missing_modules_to_config(
+                    config[k], module_lookup, provided_modules
+                )
 
     @classmethod
     def instantiate_from_config(cls, config, module_lookup):
@@ -98,7 +108,9 @@ class RegisterableMixIn:
             dependency_config = config[k]
             name = dependency_config["_name"]
             dependency_cls = module_lookup[dependency.module].plugins[name]
-            self.modules[k] = dependency_cls.instantiate_from_config(dependency_config, module_lookup)
+            self.modules[k] = dependency_cls.instantiate_from_config(
+                dependency_config, module_lookup
+            )
 
         return self
 
@@ -124,7 +136,9 @@ class RegisterableMixIn:
         return ingredient
 
     @classmethod
-    def resolve_dependencies(cls, name, module_lookup, provided_modules, command_list=None, prefix=None):
+    def resolve_dependencies(
+        cls, name, module_lookup, provided_modules, command_list=None, prefix=None
+    ):
         """ Create an ingredient representing this module and its dependencies.
             Dependencies are resolved recursively with a depth-first search. 
             name: the config name of this ingredient (e.g. "collection", "searcher")
@@ -142,16 +156,22 @@ class RegisterableMixIn:
         prefix.append(name)
         path = ".".join(prefix)
 
-        needed = {k: v for k, v in cls.dependencies.items() if k not in provided_modules}
+        needed = {
+            k: v for k, v in cls.dependencies.items() if k not in provided_modules
+        }
         # do not include provided_modules modules because their configs will be added by add_missing_modules_to_config
         sub_ingredients = {
             k: module_lookup[dependency.module]
             .plugins[dependency.name]
-            .resolve_dependencies(k, module_lookup, provided_modules, command_list, prefix=prefix)[0]
+            .resolve_dependencies(
+                k, module_lookup, provided_modules, command_list, prefix=prefix
+            )[0]
             for k, dependency in needed.items()
         }
 
-        ingredient = cls._create_ingredient(path, sub_ingredients=sub_ingredients, command_list=command_list)
+        ingredient = cls._create_ingredient(
+            path, sub_ingredients=sub_ingredients, command_list=command_list
+        )
         return ingredient, command_list
 
 
@@ -186,11 +206,20 @@ class ModuleBase(RegisterableMixIn):
         if include_provided:
             included_dependencies = [depname for depname in self.modules]
         else:
-            included_dependencies = [depname for depname in self.modules if self.dependencies[depname].name is not None]
+            included_dependencies = [
+                depname
+                for depname in self.modules
+                if self.dependencies[depname].name is not None
+            ]
 
         if included_dependencies:
             prefix = os.path.join(
-                *[self.modules[depname].get_module_path(include_provided=include_provided) for depname in included_dependencies]
+                *[
+                    self.modules[depname].get_module_path(
+                        include_provided=include_provided
+                    )
+                    for depname in included_dependencies
+                ]
             )
             return os.path.join(prefix, self._this_module_path_only())
         else:
@@ -202,10 +231,16 @@ class ModuleBase(RegisterableMixIn):
         module_cfg = {
             k: v
             for k, v in self.cfg.items()
-            if k not in self.dependencies and (not self.config_keys_not_in_path or k not in self.config_keys_not_in_path)
+            if k not in self.dependencies
+            and (
+                not self.config_keys_not_in_path
+                or k not in self.config_keys_not_in_path
+            )
         }
         module_name_key = self.module_type + "-" + module_cfg.pop("_name")
-        return "_".join([module_name_key] + [f"{k}-{v}" for k, v in sorted(module_cfg.items())])
+        return "_".join(
+            [module_name_key] + [f"{k}-{v}" for k, v in sorted(module_cfg.items())]
+        )
 
     def __getitem__(self, key):
         return self.modules[key]
