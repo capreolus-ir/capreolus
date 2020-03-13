@@ -3,7 +3,12 @@ from collections import defaultdict
 import numpy as np
 from pymagnitude import Magnitude, MagnitudeUtils
 
-from capreolus.registry import ModuleBase, RegisterableModule, Dependency, CACHE_BASE_PATH
+from capreolus.registry import (
+    ModuleBase,
+    RegisterableModule,
+    Dependency,
+    CACHE_BASE_PATH,
+)
 from capreolus.utils.loginit import get_logger
 from capreolus.utils.common import padlist
 from capreolus.utils.exceptions import MissingDocError
@@ -25,7 +30,9 @@ class Extractor(ModuleBase, metaclass=RegisterableModule):
             logger.warning("extending idf while it's not yet instantiated")
             self.idf = {}
         if calc_idf and not self.modules.get("index", None):
-            logger.warning("requesting calculating idf yet index is not available, set calc_idf to False")
+            logger.warning(
+                "requesting calculating idf yet index is not available, set calc_idf to False"
+            )
             calc_idf = False
 
         n_words_before = len(self.stoi)
@@ -37,13 +44,19 @@ class Extractor(ModuleBase, metaclass=RegisterableModule):
                 if calc_idf and tok not in self.idf:
                     self.idf[tok] = self["index"].get_idf(tok)
 
-        logger.debug(f"added {len(self.stoi)-n_words_before} terms to the stoi of extractor {self.name}")
+        logger.debug(
+            f"added {len(self.stoi)-n_words_before} terms to the stoi of extractor {self.name}"
+        )
 
 
 class EmbedText(Extractor):
     name = "embedtext"
     dependencies = {
-        "index": Dependency(module="index", name="anserini", config_overrides={"indexstops": True, "stemmer": "none"}),
+        "index": Dependency(
+            module="index",
+            name="anserini",
+            config_overrides={"indexstops": True, "stemmer": "none"},
+        ),
         "tokenizer": Dependency(module="tokenizer", name="anserini"),
     }
 
@@ -66,12 +79,18 @@ class EmbedText(Extractor):
 
     def _get_pretrained_emb(self):
         magnitude_cache = CACHE_BASE_PATH / "magnitude/"
-        return Magnitude(MagnitudeUtils.download_model(self.embed_paths[self.cfg["embeddings"]], download_dir=magnitude_cache))
+        return Magnitude(
+            MagnitudeUtils.download_model(
+                self.embed_paths[self.cfg["embeddings"]], download_dir=magnitude_cache
+            )
+        )
 
     def _build_vocab(self, qids, docids, topics):
         tokenize = self["tokenizer"].tokenize
         self.qid2toks = {qid: tokenize(topics[qid]) for qid in qids}
-        self.docid2toks = {docid: tokenize(self["index"].get_doc(docid)) for docid in docids}
+        self.docid2toks = {
+            docid: tokenize(self["index"].get_doc(docid)) for docid in docids
+        }
         self._extend_stoi(self.qid2toks.values(), calc_idf=self.cfg["calcidf"])
         self._extend_stoi(self.docid2toks.values(), calc_idf=self.cfg["calcidf"])
         self.itos = {i: s for s, i in self.stoi.items()}
@@ -96,11 +115,20 @@ class EmbedText(Extractor):
                 embed_matrix[idx] = np.zeros(emb_dim)
             else:
                 n_missed += 1
-                embed_matrix[idx] = np.zeros(emb_dim) if self.cfg["zerounk"] else np.random.normal(scale=0.5, size=emb_dim)
+                embed_matrix[idx] = (
+                    np.zeros(emb_dim)
+                    if self.cfg["zerounk"]
+                    else np.random.normal(scale=0.5, size=emb_dim)
+                )
 
-        logger.info(f"embedding matrix {self.cfg['embeddings']} constructed, with shape {embed_matrix.shape}")
+        logger.info(
+            f"embedding matrix {self.cfg['embeddings']} constructed, with shape {embed_matrix.shape}"
+        )
         if n_missed > 0:
-            logger.warning(f"{n_missed}/{len(self.stoi)} (%.3f) term missed" % (n_missed / len(self.stoi)))
+            logger.warning(
+                f"{n_missed}/{len(self.stoi)} (%.3f) term missed"
+                % (n_missed / len(self.stoi))
+            )
 
         self.embeddings = embed_matrix
 
@@ -140,7 +168,9 @@ class EmbedText(Extractor):
                 query = self["tokenizer"].tokenize(query)
                 pass
             else:
-                raise RuntimeError("received both a qid and query, but only one can be passed")
+                raise RuntimeError(
+                    "received both a qid and query, but only one can be passed"
+                )
 
         else:
             query = self.qid2toks[qid]

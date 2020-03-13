@@ -26,7 +26,9 @@ class PytorchTrainer(Trainer):
     @staticmethod
     def config():
         # TODO move maxdoclen, maxqlen to extractor?
-        maxdoclen = 800  # maximum document length (in number of terms after tokenization)
+        maxdoclen = (
+            800
+        )  # maximum document length (in number of terms after tokenization)
         maxqlen = 4  # maximum query length (in number of terms after tokenization)
 
         batch = 32  # batch size
@@ -34,9 +36,13 @@ class PytorchTrainer(Trainer):
         itersize = 512  # number of training instances in one iteration (epoch)
         gradacc = 1  # number of batches to accumulate over before updating weights
         lr = 0.001  # learning rate
-        softmaxloss = False  # True to use softmax loss (over pairs) or False to use hinge loss
+        softmaxloss = (
+            False
+        )  # True to use softmax loss (over pairs) or False to use hinge loss
 
-        interactive = False  # True for training with Notebook or False for command line environment
+        interactive = (
+            False
+        )  # True for training with Notebook or False for command line environment
 
         # sanity checks
         if batch < 1:
@@ -73,7 +79,10 @@ class PytorchTrainer(Trainer):
 
         for bi, batch in enumerate(train_dataloader):
             # TODO make sure _prepare_batch_with_strings equivalent is happening inside the sampler
-            batch = {k: v.to(self.device) if not isinstance(v, list) else v for k, v in batch.items()}
+            batch = {
+                k: v.to(self.device) if not isinstance(v, list) else v
+                for k, v in batch.items()
+            }
             doc_scores = reranker.score(batch)
             loss = self.loss(doc_scores)
             iter_loss.append(loss)
@@ -111,7 +120,9 @@ class PytorchTrainer(Trainer):
                 iteridx, iterloss = line.rstrip().split()
 
                 if int(iteridx) != lineidx:
-                    raise IOError(f"malformed loss file {fn} ... did two processes write to it?")
+                    raise IOError(
+                        f"malformed loss file {fn} ... did two processes write to it?"
+                    )
 
                 loss.append(float(iterloss))
 
@@ -159,10 +170,22 @@ class PytorchTrainer(Trainer):
             reranker.load_weights(weights_fn, self.optimizer)
             return last_loss_iteration + 1
         except:
-            logger.info("attempted to load weights from %s but failed, starting at iteration 0", weights_fn)
+            logger.info(
+                "attempted to load weights from %s but failed, starting at iteration 0",
+                weights_fn,
+            )
             return 0
 
-    def train(self, reranker, train_dataset, train_output_path, dev_data, dev_output_path, qrels, metric):
+    def train(
+        self,
+        reranker,
+        train_dataset,
+        train_output_path,
+        dev_data,
+        dev_output_path,
+        qrels,
+        metric,
+    ):
         """Train a model following the trainer's config (specifying batch size, number of iterations, etc).
 
         Args:
@@ -175,7 +198,10 @@ class PytorchTrainer(Trainer):
 
         self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
         model = reranker.model.to(self.device)
-        self.optimizer = torch.optim.Adam(filter(lambda param: param.requires_grad, model.parameters()), lr=self.cfg["lr"])
+        self.optimizer = torch.optim.Adam(
+            filter(lambda param: param.requires_grad, model.parameters()),
+            lr=self.cfg["lr"],
+        )
 
         if self.cfg["softmaxloss"]:
             self.loss = pair_softmax_loss
@@ -193,7 +219,9 @@ class PytorchTrainer(Trainer):
         metrics_fn = dev_output_path / "metrics.json"
         metrics_history = {}
         initial_iter = self.fastforward_training(reranker, weights_output_path, loss_fn)
-        logger.info("starting training from iteration %s/%s", initial_iter, self.cfg["niters"])
+        logger.info(
+            "starting training from iteration %s/%s", initial_iter, self.cfg["niters"]
+        )
 
         train_dataloader = torch.utils.data.DataLoader(
             train_dataset, batch_size=self.cfg["batch"], pin_memory=True, num_workers=0
@@ -206,7 +234,9 @@ class PytorchTrainer(Trainer):
 
             # are we done training?
             if initial_iter < self.cfg["niters"]:
-                logger.debug("fastforwarding train_dataloader to iteration %s", initial_iter)
+                logger.debug(
+                    "fastforwarding train_dataloader to iteration %s", initial_iter
+                )
                 batches_per_epoch = self.cfg["itersize"] // self.cfg["batch"]
                 for niter in range(initial_iter):
                     for bi, batch in enumerate(train_dataloader):
@@ -232,7 +262,12 @@ class PytorchTrainer(Trainer):
 
             # log dev metrics
             metrics = evaluator.eval_runs(preds, qrels, ["ndcg_cut_20", "map", "P_20"])
-            logger.info("dev metrics: %s", " ".join([f"{metric}={v:0.3f}" for metric, v in sorted(metrics.items())]))
+            logger.info(
+                "dev metrics: %s",
+                " ".join(
+                    [f"{metric}={v:0.3f}" for metric, v in sorted(metrics.items())]
+                ),
+            )
 
             # write best dev weights to file
             if metrics[metric] > dev_best_metric:
@@ -241,16 +276,27 @@ class PytorchTrainer(Trainer):
                 metrics_history.setdefault(m, []).append(metrics[m])
 
             # write train_loss to file
-            loss_fn.write_text("\n".join(f"{idx} {loss}" for idx, loss in enumerate(train_loss)))
+            loss_fn.write_text(
+                "\n".join(f"{idx} {loss}" for idx, loss in enumerate(train_loss))
+            )
 
         json.dump(metrics_history, open(metrics_fn, "w", encoding="utf-8"))
-        plot_metrics(metrics_history, str(dev_output_path) + ".pdf", interactive=self.cfg["interactive"])
+        plot_metrics(
+            metrics_history,
+            str(dev_output_path) + ".pdf",
+            interactive=self.cfg["interactive"],
+        )
         print("training loss: ", train_loss)
-        plot_loss(train_loss, str(loss_fn).replace(".txt", ".pdf"), interactive=self.cfg["interactive"])
+        plot_loss(
+            train_loss,
+            str(loss_fn).replace(".txt", ".pdf"),
+            interactive=self.cfg["interactive"],
+        )
 
     def load_best_model(self, reranker, train_output_path):
         self.optimizer = torch.optim.Adam(
-            filter(lambda param: param.requires_grad, reranker.model.parameters()), lr=self.cfg["lr"]
+            filter(lambda param: param.requires_grad, reranker.model.parameters()),
+            lr=self.cfg["lr"],
         )
 
         dev_best_weight_fn = train_output_path / "dev.best"
@@ -275,10 +321,16 @@ class PytorchTrainer(Trainer):
         model.eval()
 
         preds = {}
-        pred_dataloader = torch.utils.data.DataLoader(pred_data, batch_size=self.cfg["batch"], pin_memory=True, num_workers=0)
+        pred_dataloader = torch.utils.data.DataLoader(
+            pred_data, batch_size=self.cfg["batch"], pin_memory=True, num_workers=0
+        )
+        logger.info("pred dataloader is {}".format(pred_dataloader))
         with torch.autograd.no_grad():
             for bi, batch in enumerate(pred_dataloader):
-                batch = {k: v.to(self.device) if not isinstance(v, list) else v for k, v in batch.items()}
+                batch = {
+                    k: v.to(self.device) if not isinstance(v, list) else v
+                    for k, v in batch.items()
+                }
                 scores = reranker.test(batch)
                 scores = scores.view(-1).cpu().numpy()
                 for qid, docid, score in zip(batch["qid"], batch["posdocid"], scores):

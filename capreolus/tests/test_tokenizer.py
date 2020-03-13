@@ -7,7 +7,9 @@ def test_anserini_tokenzier():
     cfg = {"_name": "anserini", "keepstops": True, "stemmer": "none"}
     tokenizer = AnseriniTokenizer(cfg)
 
-    index = AnseriniIndex({"_name": "anserini", "indexstops": False, "stemmer": "porter"})
+    index = AnseriniIndex(
+        {"_name": "anserini", "indexstops": False, "stemmer": "porter"}
+    )
     index.modules["collection"] = DummyCollection({"_name": "dummy"})
     index.create_index()
 

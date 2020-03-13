@@ -18,7 +18,9 @@ def test_extract_choices_from_argv():
     choices = pipeline._extract_choices_from_argv(arg_prefix)
     assert choices == {}
 
-    choices = pipeline._extract_choices_from_argv(arg_prefix + "m1=foo1 m2=foo2 m3=foo3".split())
+    choices = pipeline._extract_choices_from_argv(
+        arg_prefix + "m1=foo1 m2=foo2 m3=foo3".split()
+    )
     assert choices == {"m1": "foo1", "m2": "foo2"}
 
 
@@ -31,14 +33,20 @@ def test_rewrite_argv_for_ingredients():
     rewritten_args = pipeline._rewrite_argv_for_ingredients(arg_prefix)
     assert rewritten_args == arg_prefix
 
-    rewritten_args = pipeline._rewrite_argv_for_ingredients(arg_prefix + "m1=foo1 m2=foo2 m3=foo3".split())
+    rewritten_args = pipeline._rewrite_argv_for_ingredients(
+        arg_prefix + "m1=foo1 m2=foo2 m3=foo3".split()
+    )
     assert rewritten_args == arg_prefix + "m1._name=foo1 m2._name=foo2 m3=foo3".split()
 
 
 # we don't currently test other Pipeline functions, which are tightly coupled,
 # but we do test that Tasks are created as we expect
 def test_simple_task_construction():
-    module_defaults = {"searcher": "BM25", "collection": "robust04", "benchmark": "wsdm20demo"}
+    module_defaults = {
+        "searcher": "BM25",
+        "collection": "robust04",
+        "benchmark": "wsdm20demo",
+    }
     nb = Notebook(module_defaults)
 
     for module_type, module_class in module_defaults.items():
@@ -50,7 +58,11 @@ def test_simple_task_construction():
 
 
 def test_task_construction_with_config():
-    module_defaults = {"searcher": "BM25", "collection": "robust04", "benchmark": "wsdm20demo"}
+    module_defaults = {
+        "searcher": "BM25",
+        "collection": "robust04",
+        "benchmark": "wsdm20demo",
+    }
     config_string = "searcher=BM25Grid"
     nb = Notebook(module_defaults, config_string=config_string)
 
@@ -63,7 +75,11 @@ def test_task_construction_with_config():
 
 
 def test_task_construction_failure_on_bad_config():
-    module_defaults = {"searcher": "BM25", "collection": "robust04", "benchmark": "wsdm20demo"}
+    module_defaults = {
+        "searcher": "BM25",
+        "collection": "robust04",
+        "benchmark": "wsdm20demo",
+    }
 
     # sacred calls exit(1) when the config cannot be parsed correctly
     with pytest.raises(SystemExit):
