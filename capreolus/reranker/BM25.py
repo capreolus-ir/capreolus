@@ -33,7 +33,11 @@ class BM25Reranker(Reranker):
         return [self.score_document(query, docid, avg_doc_len) for docid in [d["posdocid"]]]
 
     def score_document(self, query, docid, avg_doc_len):
-        return sum(self.score_document_term(term, docid, avg_doc_len) for term in query)
+        # TODO is it correct to skip over terms that don't appear to be in the idf vocab?
+        return sum(
+            self.score_document_term(term, docid, avg_doc_len) for term in query if term in self["extractor"].background_idf
+        )
+        # return sum(self.score_document_term(term, docid, avg_doc_len) for term in query)
 
     def score_document_term(self, term, docid, avg_doc_len):
         tf = self["extractor"].doc_tf[docid].get(term, 0)
