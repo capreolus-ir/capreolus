@@ -12,7 +12,12 @@ MAXQLEN = 8
 MAXDOCLEN = 7
 
 
-def test_embedtext_creation():
+def test_embedtext_creation(monkeypatch):
+    def fake_magnitude_embedding(*args, **kwargs):
+        return Magnitude(None)
+
+    monkeypatch.setattr(EmbedText, "_get_pretrained_emb", fake_magnitude_embedding)
+
     extractor_cfg = {
         "_name": "embedtext",
         "index": "anserini",
@@ -34,16 +39,13 @@ def test_embedtext_creation():
 
     tok_cfg = {"_name": "anserini", "keepstops": True, "stemmer": "none"}
     tokenizer = AnseriniTokenizer(tok_cfg)
-
     extractor.modules["index"] = index
     extractor.modules["tokenizer"] = tokenizer
 
     qids = list(benchmark.qrels.keys())  # ["301"]
     qid = qids[0]
     docids = list(benchmark.qrels[qid].keys())
-
     extractor.create(qids, docids, benchmark.topics[benchmark.query_type])
-
     expected_vocabs = [
         "lessdummy",
         "dummy",
@@ -60,20 +62,21 @@ def test_embedtext_creation():
 
     assert set(extractor.stoi.keys()) == set(expected_stoi.keys())
 
-    emb_path = "glove/light/glove.6B.300d"
-    fullemb = Magnitude(MagnitudeUtils.download_model(emb_path))
-    assert extractor.embeddings.shape == (len(expected_vocabs), fullemb.dim)
-
+    assert extractor.embeddings.shape == (len(expected_vocabs), 8)
     for i in range(extractor.embeddings.shape[0]):
         if i == extractor.pad:
             assert extractor.embeddings[i].sum() < 1e-5
             continue
-        s = extractor.itos[i]
-        assert (extractor.embeddings[i] - fullemb.query(s)).sum() < 1e-5
+
     return extractor
 
 
-def test_embedtext_id2vec():
+def test_embedtext_id2vec(monkeypatch):
+    def fake_magnitude_embedding(*args, **kwargs):
+        return Magnitude(None)
+
+    monkeypatch.setattr(EmbedText, "_get_pretrained_emb", fake_magnitude_embedding)
+
     extractor_cfg = {
         "_name": "embedtext",
         "index": "anserini",

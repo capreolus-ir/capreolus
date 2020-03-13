@@ -2,6 +2,7 @@ from collections import defaultdict
 
 import numpy as np
 from pymagnitude import Magnitude, MagnitudeUtils
+from tqdm import tqdm
 
 from capreolus.registry import (
     ModuleBase,
@@ -108,7 +109,7 @@ class EmbedText(Extractor):
         embed_matrix = np.zeros((len(self.stoi), emb_dim), dtype=np.float32)
 
         n_missed = 0
-        for term, idx in self.stoi.items():
+        for term, idx in tqdm(self.stoi.items()):
             if term in embed_vocab:
                 embed_matrix[idx] = magnitude_emb.query(term)
             elif term == self.pad_tok:
