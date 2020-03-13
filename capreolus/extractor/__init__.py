@@ -216,7 +216,7 @@ class DocStats(Extractor):
         del dfs["total_docs"]
 
         # TODO unsure if log base is correct; unsure if the non-negative max(0, idf) formulation was used
-        get_idf = lambda x: np.log((total_docs - dfs[x] + 0.5) / (dfs[x] + 0.5))
+        get_idf = lambda x: np.log10((total_docs - dfs[x] + 0.5) / (dfs[x] + 0.5))
         self.background_idf = {term: get_idf(term) for term in dfs}
 
         # TODO fill in from freq_fn
