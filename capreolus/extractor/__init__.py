@@ -1,4 +1,4 @@
-from collections import defaultdict
+from collections import defaultdict, Counter
 
 import numpy as np
 from pymagnitude import Magnitude, MagnitudeUtils
@@ -178,3 +178,51 @@ class EmbedText(Extractor):
         data["negdoc"] = np.array(negdoc, dtype=np.long)
 
         return data
+
+
+class DocStats(Extractor):
+    name = "docstats"
+    dependencies = {
+        "index": Dependency(module="index", name="anserini", config_overrides={"indexstops": True, "stemmer": "none"}),
+        "tokenizer": Dependency(module="tokenizer", name="anserini"),
+    }
+
+    @staticmethod
+    def config():
+        pass
+
+    def exist(self):
+        return hasattr(self, "doc_tf")
+
+    def create(self, qids, docids, topics):
+        if self.exist():
+            return
+
+        self["index"].create_index()
+        self.qid2toks = {qid: self["tokenizer"].tokenize(topics[qid]) for qid in qids}
+
+        logger.debug("computing background probabilities")
+        self.background_idf = {}
+        self.background_termprob = {}
+
+        logger.debug("tokenizing documents")
+        self.doc_tf = {}
+        self.doc_len = {}
+        for docid in docids:
+            # TODO is anserini's tokenizer removing the same punctuation as spacy was?
+            doc = self["tokenizer"].tokenize(self["index"].get_doc(docid))
+
+            self.doc_tf[docid] = Counter(doc)
+            self.doc_len[docid] = len(doc)
+
+    def id2vec(self, qid, posid, negid=None, query=None):
+        if query is not None:
+            if qid is None:
+                query = self["tokenizer"].tokenize(query)
+                pass
+            else:
+                raise RuntimeError("received both a qid and query, but only one can be passed")
+        else:
+            query = self.qid2toks[qid]
+
+        return {"qid": qid, "posdocid": posid, "negdocid": negid}
