@@ -323,7 +323,8 @@ class UnsupervisedTrainer(Trainer):
         for idx, d in enumerate(pred_dataloader):
             qid = d["qid"]
             docid = d["posdocid"]
-            scores = reranker.query(qid, [docid])
+            query = reranker["extractor"].qid2toks[qid]
+            scores = reranker.query(query, [docid])
 
             assert len(scores) == 1
             score = scores[0]
