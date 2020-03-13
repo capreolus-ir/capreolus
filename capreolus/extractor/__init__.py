@@ -201,8 +201,25 @@ class DocStats(Extractor):
         self["index"].create_index()
         self.qid2toks = {qid: self["tokenizer"].tokenize(topics[qid]) for qid in qids}
 
+        # TODO hardcoded paths
+        df_fn, freq_fn = "/GW/NeuralIR/work/PES20/counts_IDF_stemmed.txt", "/GW/NeuralIR/work/PES20/counts_LM_stemmed.txt"
+        doclen_fn = "/GW/NeuralIR/work/PES20/counts_MUS_stemmed.txt"
+
         logger.debug("computing background probabilities")
-        self.background_idf = {}
+        dfs = {}
+        with open(df_fn, "rt") as f:
+            for line in f:
+                k, v = line.strip().split(",")
+                dfs[k] = int(v)
+
+        total_docs = dfs["total_docs"]
+        del dfs["total_docs"]
+
+        # TODO unsure if log base is correct; unsure if the non-negative max(0, idf) formulation was used
+        get_idf = lambda x: np.log((total_docs - dfs[x] + 0.5) / (dfs[x] + 0.5))
+        self.background_idf = {term: get_idf(term) for term in dfs}
+
+        # TODO fill in from freq_fn
         self.background_termprob = {}
 
         logger.debug("tokenizing documents")
@@ -215,11 +232,16 @@ class DocStats(Extractor):
             self.doc_tf[docid] = Counter(doc)
             self.doc_len[docid] = len(doc)
 
+        self.query_avg_doc_len = {}
+        with open(doclen_fn, "rt") as f:
+            for line in f:
+                qid, avglen = line.strip().split(",")
+                self.query_avg_doc_len[qid] = int(avglen)
+
     def id2vec(self, qid, posid, negid=None, query=None):
         if query is not None:
             if qid is None:
                 query = self["tokenizer"].tokenize(query)
-                pass
             else:
                 raise RuntimeError("received both a qid and query, but only one can be passed")
         else:

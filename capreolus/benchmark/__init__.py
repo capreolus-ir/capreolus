@@ -1,5 +1,6 @@
 import json
 import os
+from pathlib import Path
 
 from capreolus.registry import ModuleBase, RegisterableModule, PACKAGE_PATH
 from capreolus.utils.trec import load_qrels, load_trec_topics
@@ -31,6 +32,37 @@ class Benchmark(ModuleBase, metaclass=RegisterableModule):
         if not hasattr(self, "_folds"):
             self._folds = json.load(open(self.fold_file, "rt"))
         return self._folds
+
+
+class PES20(Benchmark):
+    name = "pes20"
+    PES20_DIR = Path("/GW/NeuralIR/work/PES20")  # TODO hardcoded path
+    qrel_file = PES20_DIR / "judgements"
+    fold_file = PES20_DIR / "splits.json"
+
+    @staticmethod
+    def config():
+        querytype = "query"  # one of: query, basicprofile, entityprofile
+
+        if querytype not in ["query", "basicprofile", "entityprofile"]:
+            raise ValueError(f"invalid querytype: {querytype}")
+
+    @property
+    def topics(self):
+        if not hasattr(self, "_topics"):
+            self._topics = load_trec_topics(self.topic_file)
+            assert self.query_type not in self._topics
+            self._topics[self.query_type] = self._topics["title"]
+        return self._topics
+
+    @property
+    def query_type(self):
+        return self.cfg["querytype"]
+
+    @property
+    def topic_file(self):
+        fn = f"topics.{self.query_type}.txt"
+        return self.PES20_DIR / fn
 
 
 class DummyBenchmark(Benchmark):

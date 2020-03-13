@@ -321,10 +321,8 @@ class UnsupervisedTrainer(Trainer):
         preds = {}
         pred_dataloader = torch.utils.data.DataLoader(pred_data, batch_size=None, pin_memory=False, num_workers=0)
         for idx, d in enumerate(pred_dataloader):
-            qid = d["qid"]
-            docid = d["posdocid"]
-            query = reranker["extractor"].qid2toks[qid]
-            scores = reranker.query(query, [docid])
+            qid, docid = d["qid"], d["posdocid"]
+            scores = reranker.test(d)
 
             assert len(scores) == 1
             score = scores[0]

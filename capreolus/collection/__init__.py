@@ -238,3 +238,16 @@ class MSMarco(Collection):
     @staticmethod
     def config():
         path = "/GW/NeuralIR/nobackup/msmarco/trec_format"
+
+
+class PES20(Collection):
+    """ Dataset from Personalized Entity Search by Sparse and Scrutable User Profiles. CHIIR'20. """
+
+    name = "pes20"
+    config_keys_not_in_path = ["path"]
+    collection_type = "TrecCollection"
+    generator_type = "JsoupGenerator"
+
+    @staticmethod
+    def config():
+        path = "/GW/NeuralIR/work/PES20/book_documents"
