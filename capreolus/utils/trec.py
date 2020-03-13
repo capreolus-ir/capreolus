@@ -19,6 +19,15 @@ def load_ntcir_topics(fn):
     return {"content": topics}
 
 
+def write_trec_title_topics(topics, outputfn):
+    with open(outputfn, "wt") as outf:
+        for qid, title in topics.items():
+            desc, narr = "None", "None"
+            print(
+                "<top>\n<num> Number: %s\n<title> %s\n\n<desc>\n%s\n\n<narr>\n%s\n</top>\n" % (qid, title, desc, narr), file=outf
+            )
+
+
 def load_trec_topics(queryfn):
     title, desc, narr = defaultdict(list), defaultdict(list), defaultdict(list)
 
