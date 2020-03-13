@@ -61,7 +61,7 @@ class RankTask(Task):
         optimize = "map"  # metric to maximize on the dev set
 
     name = "rank"
-    module_order = ["collection", "searcher", "benchmark"]
+    module_order = ["collection", "benchmark", "searcher"]
     module_defaults = {"searcher": "BM25", "collection": "robust04", "benchmark": "wsdm20demo"}
     config_functions = [pipeline_config]
     config_overrides = []

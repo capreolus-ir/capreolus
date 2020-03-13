@@ -142,7 +142,7 @@ class RerankTask(Task):
         # rundocsonly = True  # use only docs from the searcher as pos/neg training instances (i.e., not all qrels)
 
     name = "rerank"
-    module_order = ["collection", "searcher", "reranker", "benchmark"]
+    module_order = ["collection", "benchmark", "searcher", "reranker"]
     module_defaults = {"searcher": "BM25", "reranker": "KNRM", "collection": "robust04", "benchmark": "wsdm20demo"}
     config_functions = [pipeline_config]
     config_overrides = []

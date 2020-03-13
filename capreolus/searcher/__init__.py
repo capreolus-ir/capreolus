@@ -258,3 +258,35 @@ class DirichletQL(Searcher, AnseriniSearcherMixIn):
 
         hits = searcher.search(query)
         return OrderedDict({hit.docid: hit.score for hit in hits})
+
+
+class QRels(Searcher):
+    """ Searcher that returns all judged documents for a given query """
+
+    name = "qrels"
+    dependencies = {"benchmark": Dependency(module="benchmark")}
+
+    @staticmethod
+    def config():
+        pass
+
+    def query_from_file(self, topicsfn, output_path):
+        benchmark = self["benchmark"]
+        assert topicsfn == benchmark.topic_file
+
+        run = {}
+        for qid in benchmark.topics[benchmark.query_type]:
+            if qid not in benchmark.qrels:
+                continue
+
+            run[qid] = {}
+            for idx, docid in enumerate(sorted(benchmark.qrels[qid])):
+                rank = idx + 1
+                run[qid][docid] = 1.0 / rank
+
+        os.makedirs(output_path, exist_ok=True)
+        self.write_trec_run(run, os.path.join(output_path, "searcher"))
+        return output_path
+
+    def query(self, *args, **kwargs):
+        raise NotImplementedError("this searcher only supports queries in the qrels (via query_from_file)")
