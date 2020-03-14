@@ -3,7 +3,7 @@ from capreolus.extractor.bagofwords import BagOfWords
 import torch
 import torch.nn as nn
 
-from reranker import Reranker
+from capreolus.reranker import Reranker
 
 
 class DSSM_class(nn.Module):

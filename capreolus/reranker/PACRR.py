@@ -5,7 +5,7 @@ from torch.nn import functional as F
 
 # TODO add shuffle, cascade, disambig?
 from capreolus.reranker.common import create_emb_layer, SimilarityMatrix
-from reranker import Reranker
+from capreolus.reranker import Reranker
 
 
 class PACRR_class(nn.Module):
