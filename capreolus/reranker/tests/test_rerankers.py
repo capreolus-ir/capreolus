@@ -11,8 +11,8 @@ from capreolus.sampler import TrainDataset, PredDataset
 from capreolus.tests.common_fixtures import tmpdir_as_cache, dummy_index
 from capreolus.tokenizer import AnseriniTokenizer
 from capreolus.trainer import PytorchTrainer
-from extractor.bagofwords import BagOfWords
-from reranker.DSSM import DSSM
+from capreolus.extractor.bagofwords import BagOfWords
+from capreolus.reranker.DSSM import DSSM
 
 
 def test_pacrr(dummy_index, tmpdir, tmpdir_as_cache, monkeypatch):

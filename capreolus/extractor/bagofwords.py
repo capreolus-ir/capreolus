@@ -5,7 +5,7 @@ from tqdm import tqdm
 import numpy as np
 from collections import Counter, defaultdict
 
-from registry import Dependency
+from capreolus.registry import Dependency
 
 logger = get_logger(__name__)  # pylint: disable=invalid-name
 
