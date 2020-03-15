@@ -35,7 +35,8 @@ class BagOfWords(Extractor):
         keepstops = False  # include stopwords in the reranker's input
         maxqlen = 4
         maxdoclen = 800
-
+        usecache = False
+        
     def load_state(self, qids, docids):
         with open(self.get_state_cache_file_path(qids, docids), 'rb') as f:
             state_dict = pickle.load(f)
