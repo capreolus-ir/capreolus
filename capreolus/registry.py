@@ -203,6 +203,8 @@ class ModuleBase(RegisterableMixIn):
     def get_module_path(self, include_provided=True):
         """ Return a path encoding the module's config, including its dependenceis """
 
+        # TODO: Potential bug - self.moudles is an ordinary dict and hence keys are not ordered. Can result in different
+        # cache paths
         if include_provided:
             included_dependencies = [depname for depname in self.modules]
         else:
