@@ -5,7 +5,7 @@ import torch.nn as nn
 
 from capreolus.reranker import Reranker
 from capreolus.utils.loginit import get_logger
-
+from registry import Dependency
 
 logger = get_logger(__name__)
 
@@ -49,6 +49,11 @@ class DSSM(Reranker):
     description = """Po-Sen Huang, Xiaodong He, Jianfeng Gao, Li Deng, Alex Acero, and Larry Heck. 2013. Learning deep structured semantic models for web search using clickthrough data. In CIKM'13."""
     EXTRACTORS = [BagOfWords]
     name = "DSSM"
+
+    dependencies = {
+        "extractor": Dependency(module="extractor", name="bagofwords"),
+        "trainer": Dependency(module="trainer", name="pytorch"),
+    }
 
     @staticmethod
     def config():
