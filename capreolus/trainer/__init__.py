@@ -323,7 +323,6 @@ class PytorchTrainer(Trainer):
         pred_dataloader = torch.utils.data.DataLoader(
             pred_data, batch_size=self.cfg["batch"], pin_memory=True, num_workers=0
         )
-        logger.info("pred dataloader is {}".format(pred_dataloader))
         with torch.autograd.no_grad():
             for bi, batch in enumerate(pred_dataloader):
                 batch = {
