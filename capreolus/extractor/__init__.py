@@ -249,16 +249,14 @@ class EmbedText(Extractor):
             "query_idf": np.array(idfs, dtype=np.float32),
         }
 
-        if not negid:
-            logger.debug(f"missing negtive doc id for qid {qid}")
-            return data
 
-        negdoc = self.docid2toks.get(negid, None)
-        if not negdoc:
-            raise MissingDocError(qid, negid)
+        if negid:
+            negdoc = self.docid2toks.get(negid, None)
+            if not negdoc:
+                raise MissingDocError(qid, negid)
 
-        negdoc = self._tok2vec(padlist(negdoc, doclen, self.pad_tok))
-        data["negdocid"] = negid
-        data["negdoc"] = np.array(negdoc, dtype=np.long)
+            negdoc = self._tok2vec(padlist(negdoc, doclen, self.pad_tok))
+            data["negdocid"] = negid
+            data["negdoc"] = np.array(negdoc, dtype=np.long)
 
         return data
