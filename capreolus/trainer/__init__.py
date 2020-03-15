@@ -21,7 +21,6 @@ class Trainer(ModuleBase, metaclass=RegisterableModule):
 class PytorchTrainer(Trainer):
     name = "pytorch"
     dependencies = {}
-    config_keys_not_in_path = ["niters"]
 
     @staticmethod
     def config():
