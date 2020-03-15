@@ -4,6 +4,10 @@ import torch
 import torch.nn as nn
 
 from capreolus.reranker import Reranker
+from capreolus.utils.loginit import get_logger
+
+
+logger = get_logger(__name__)
 
 
 class DSSM_class(nn.Module):
@@ -12,7 +16,6 @@ class DSSM_class(nn.Module):
         p = config
         nvocab = len(extractor.stoi)
         nhiddens = [nvocab] + list(map(int, p["nhiddens"].split()))
-
         self.ffw = nn.Sequential()
         for i in range(len(nhiddens) - 1):
             self.ffw.add_module("linear%d" % i, nn.Linear(nhiddens[i], nhiddens[i + 1]))
@@ -22,6 +25,8 @@ class DSSM_class(nn.Module):
         self.output_layer = nn.Sigmoid()
 
     def forward(self, sentence, query, query_idf):
+        query = query.float()
+        sentence = sentence.float()
         query = self.ffw(query)
         sentence = self.ffw(sentence)
 

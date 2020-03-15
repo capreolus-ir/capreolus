@@ -26,13 +26,6 @@ class BagOfWords(Extractor):
     pad_tok = "<pad>"
     tokenizer_name = "anserini"
 
-    def __init__(self, *args, **kwargs):
-        super(BagOfWords, self).__init__(*args, **kwargs)
-        self.itos = {self.pad: self.pad_tok}
-        self.stoi = {self.pad_tok: self.pad}
-        self.embeddings = self.stoi
-        self.idf = defaultdict(lambda: 0)
-
     @staticmethod
     def config():
         datamode = "unigram"  # type of input: 'unigram' or 'trigram'
@@ -87,7 +80,8 @@ class BagOfWords(Extractor):
         if self.exist():
             return
         self["index"].create_index()
-
+        self.itos = {self.pad: self.pad_tok}
+        self.stoi = {self.pad_tok: self.pad}
         self.qid2toks = defaultdict(list)
         self.docid2toks = defaultdict(list)
         self.idf = defaultdict(lambda: 0)
