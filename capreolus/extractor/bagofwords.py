@@ -1,3 +1,6 @@
+import pickle
+import os
+
 from capreolus.extractor import Extractor
 from capreolus.tokenizer import Tokenizer
 from capreolus.utils.loginit import get_logger
@@ -33,6 +36,27 @@ class BagOfWords(Extractor):
         maxqlen = 4
         maxdoclen = 800
 
+    def load_state(self, qids, docids):
+        with open(self.get_state_cache_file_path(qids, docids), 'rb') as f:
+            state_dict = pickle.load(f)
+            self.qid2toks = state_dict['qid2toks']
+            self.docid2toks = state_dict['docid2toks']
+            self.stoi = state_dict['stoi']
+            self.itos = state_dict['itos']
+            self.idf = defaultdict(lambda: 0, state_dict['idf'])
+
+    def cache_state(self, qids, docids):
+        os.makedirs(self.get_cache_path())
+        with open(self.get_state_cache_file_path(qids, docids), 'wb') as f:
+            state_dict = {
+                'qid2toks': self.qid2toks,
+                'docid2toks': self.docid2toks,
+                'stoi': self.stoi,
+                'itos': self.itos,
+                'idf': dict(self.idf)
+            }
+            pickle.dump(state_dict, f, protocol=-1)
+
     def get_trigrams_for_toks(self, toks_list):
         return [("#%s#" % tok)[i : i + 3] for tok in toks_list for i in range(len(tok))]
 
@@ -62,12 +86,19 @@ class BagOfWords(Extractor):
         logger.info(f"vocabulary constructed, with {len(self.itos)} terms in total")
 
     def _build_vocab(self, qids, docids, topics):
-        if self.cfg["datamode"] == "unigram":
-            self._build_vocab_unigram(qids, docids, topics)
-        elif self.cfg["datamode"] == "trigram":
-            self._build_vocab_trigram(qids, docids, topics)
+        if self.is_state_cached(qids, docids) and self.cfg["usecache"]:
+            self.load_state(qids, docids)
+            logger.info("Vocabulary loaded from cache")
         else:
-            raise NotImplementedError
+            if self.cfg["datamode"] == "unigram":
+                self._build_vocab_unigram(qids, docids, topics)
+            elif self.cfg["datamode"] == "trigram":
+                self._build_vocab_trigram(qids, docids, topics)
+            else:
+                raise NotImplementedError
+            if self.cfg["usecache"]:
+                self.cache_state(qids, docids)
+
         self.embeddings = self.stoi
 
     def exist(self):
@@ -111,6 +142,8 @@ class BagOfWords(Extractor):
             return None
 
         transformed_query = self.transform_txt(query_toks, self.cfg["maxqlen"])
+
+        # TODO: Fix idf. Right now idf is hardcoded as 0
         idfs = [self.idf[self.itos[tok]] for tok, count in enumerate(transformed_query)]
         transformed = {
             "qid": q_id,

@@ -149,6 +149,57 @@ def test_embedtext_id2vec(monkeypatch):
     assert error_thrown
 
 
+def test_embedtext_caching(dummy_index, monkeypatch):
+    def fake_magnitude_embedding(*args, **kwargs):
+        return Magnitude(None)
+
+    monkeypatch.setattr(EmbedText, "_get_pretrained_emb", fake_magnitude_embedding)
+
+    extractor_cfg = {
+        "_name": "embedtext",
+        "index": "anserini",
+        "tokenizer": "anserini",
+        "embeddings": "glove6b",
+        "zerounk": True,
+        "calcidf": True,
+        "maxqlen": MAXQLEN,
+        "maxdoclen": MAXDOCLEN,
+        "usecache": True
+    }
+    extractor = EmbedText(extractor_cfg)
+
+    benchmark = DummyBenchmark({"_fold": "s1", "rundocsonly": False})
+    collection = DummyCollection({"_name": "dummy"})
+
+    index_cfg = {"_name": "anserini", "indexstops": False, "stemmer": "porter"}
+    index = AnseriniIndex(index_cfg)
+    index.modules["collection"] = collection
+
+    tok_cfg = {"_name": "anserini", "keepstops": True, "stemmer": "none"}
+    tokenizer = AnseriniTokenizer(tok_cfg)
+
+    extractor.modules["index"] = index
+    extractor.modules["tokenizer"] = tokenizer
+
+    qids = list(benchmark.qrels.keys())  # ["301"]
+    qid = qids[0]
+    docids = list(benchmark.qrels[qid].keys())
+
+    assert not extractor.is_state_cached(qids, docids)
+
+    extractor.create(qids, docids, benchmark.topics[benchmark.query_type])
+
+    assert extractor.is_state_cached(qids, docids)
+
+    new_extractor = EmbedText(extractor_cfg)
+
+    new_extractor.modules["index"] = index
+    new_extractor.modules["tokenizer"] = tokenizer
+
+    assert new_extractor.is_state_cached(qids, docids)
+    new_extractor._build_vocab(qids, docids, benchmark.topics[benchmark.query_type])
+
+
 def test_bagofwords_create(monkeypatch, tmpdir, dummy_index):
     benchmark = DummyBenchmark({})
     tok_cfg = {"_name": "anserini", "keepstops": True, "stemmer": "none"}
@@ -328,3 +379,44 @@ def test_bagofwords_id2vec_trigram(tmpdir,dummy_index):
     transformed = extractor.id2vec("301", "LA010189-0001")
     # The posdoc transformation changes to reflect the new word
     assert np.array_equal(transformed["posdoc"], [32, 3, 3, 3, 3, 3, 1])
+
+
+def test_bagofwords_caching(dummy_index, monkeypatch):
+    def fake_magnitude_embedding(*args, **kwargs):
+        return Magnitude(None)
+
+    monkeypatch.setattr(EmbedText, "_get_pretrained_emb", fake_magnitude_embedding)
+
+    extractor_cfg = {"_name": "bagofwords", "datamode": "trigram", "keepstops": True, "maxqlen": 4, "maxdoclen": 800, "usecache": True}
+    extractor = BagOfWords(extractor_cfg)
+
+    benchmark = DummyBenchmark({"_fold": "s1", "rundocsonly": False})
+    collection = DummyCollection({"_name": "dummy"})
+
+    index_cfg = {"_name": "anserini", "indexstops": False, "stemmer": "porter"}
+    index = AnseriniIndex(index_cfg)
+    index.modules["collection"] = collection
+
+    tok_cfg = {"_name": "anserini", "keepstops": True, "stemmer": "none"}
+    tokenizer = AnseriniTokenizer(tok_cfg)
+
+    extractor.modules["index"] = index
+    extractor.modules["tokenizer"] = tokenizer
+
+    qids = list(benchmark.qrels.keys())  # ["301"]
+    qid = qids[0]
+    docids = list(benchmark.qrels[qid].keys())
+
+    assert not extractor.is_state_cached(qids, docids)
+
+    extractor.create(qids, docids, benchmark.topics[benchmark.query_type])
+
+    assert extractor.is_state_cached(qids, docids)
+
+    new_extractor = EmbedText(extractor_cfg)
+
+    new_extractor.modules["index"] = index
+    new_extractor.modules["tokenizer"] = tokenizer
+
+    assert new_extractor.is_state_cached(qids, docids)
+    new_extractor._build_vocab(qids, docids, benchmark.topics[benchmark.query_type])
