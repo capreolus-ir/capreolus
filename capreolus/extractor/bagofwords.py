@@ -68,6 +68,7 @@ class BagOfWords(Extractor):
             self._build_vocab_trigram(qids, docids, topics)
         else:
             raise NotImplementedError
+        self.embeddings = self.stoi
 
     def exist(self):
         return (
