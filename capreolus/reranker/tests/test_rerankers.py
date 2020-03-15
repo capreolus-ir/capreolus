@@ -54,6 +54,7 @@ def test_pacrr(dummy_index, tmpdir, tmpdir_as_cache, monkeypatch):
             "calcidf": True,
             "maxqlen": 4,
             "maxdoclen": 800,
+            "usecache": False
         }
     )
     extractor = reranker.modules["extractor"]
@@ -111,7 +112,7 @@ def test_dssm_unigram(dummy_index, tmpdir, tmpdir_as_cache, monkeypatch):
     )
     reranker.modules["trainer"] = trainer
     reranker.modules["extractor"] = BagOfWords(
-        {"_name": "bagofwords", "datamode": "unigram", "keepstops": True, "maxqlen": 4, "maxdoclen": 800}
+        {"_name": "bagofwords", "datamode": "unigram", "keepstops": True, "maxqlen": 4, "maxdoclen": 800, "usecache": False}
     )
     extractor = reranker.modules["extractor"]
     extractor.modules["index"] = dummy_index
