@@ -54,9 +54,7 @@ class TK_class(KNRM_class):
         Overrides KNRM_Class's get_embedding to return contextualized word embeddings
         """
         embedding = self.embedding(toks)
-        embedding = self.position_encoder(embedding)
-        contextual_embedding = self.transformer_encoder(embedding)
-        return self.p["alpha"] * embedding + (1-self.p["alpha"]) * contextual_embedding
+        return self.p["alpha"] * embedding + (1-self.p["alpha"]) * self.transformer_encoder(self.position_encoder(embedding))
 
 
 class TK(KNRM):
