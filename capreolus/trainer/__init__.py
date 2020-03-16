@@ -42,7 +42,7 @@ class PytorchTrainer(Trainer):
         interactive = (
             False
         )  # True for training with Notebook or False for command line environment
-
+        fastforward = False
         # sanity checks
         if batch < 1:
             raise ValueError("batch must be >= 1")
@@ -217,7 +217,12 @@ class PytorchTrainer(Trainer):
         loss_fn = info_output_path / "loss.txt"
         metrics_fn = dev_output_path / "metrics.json"
         metrics_history = {}
-        initial_iter = self.fastforward_training(reranker, weights_output_path, loss_fn)
+
+        initial_iter = (
+            self.fastforward_training(reranker, weights_output_path, loss_fn)
+            if self.cfg["fastforward"]
+            else 0
+        )
         logger.info(
             "starting training from iteration %s/%s", initial_iter, self.cfg["niters"]
         )

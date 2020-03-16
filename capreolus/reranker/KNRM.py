@@ -43,9 +43,12 @@ class KNRM_class(nn.Module):
             combine_steps.append(nn.Tanh())
         self.combine = nn.Sequential(*combine_steps)
 
+    def get_embedding(self, toks):
+        return self.embedding(toks)
+
     def forward(self, doctoks, querytoks, query_idf):
-        doc = self.embedding(doctoks)
-        query = self.embedding(querytoks)
+        doc = self.get_embedding(doctoks)
+        query = self.get_embedding(querytoks)
 
         # query = torch.rand_like(query)  # debug
         simmat = self.simmat(query, doc, querytoks, doctoks)
@@ -75,7 +78,7 @@ class KNRM(Reranker):
         gradkernels = True  # backprop through mus and sigmas
         scoretanh = (
             False
-        )  # use a tanh on the prediction as in paper (True) or do not use a nonlinearity (False)
+        )  # use a tanh on the prediction as in paper (True) or do not use a    nonlinearity (False)
         singlefc = (
             True
         )  # use single fully connected layer as in paper (True) or 2 fully connected layers (False)

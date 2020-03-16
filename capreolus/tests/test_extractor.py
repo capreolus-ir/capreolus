@@ -164,7 +164,7 @@ def test_embedtext_caching(dummy_index, monkeypatch):
         "calcidf": True,
         "maxqlen": MAXQLEN,
         "maxdoclen": MAXDOCLEN,
-        "usecache": True
+        "usecache": True,
     }
     extractor = EmbedText(extractor_cfg)
 
@@ -205,11 +205,19 @@ def test_bagofwords_create(monkeypatch, tmpdir, dummy_index):
     tok_cfg = {"_name": "anserini", "keepstops": True, "stemmer": "none"}
     tokenizer = AnseriniTokenizer(tok_cfg)
     extractor = BagOfWords(
-        {"_name": "bagofwords", "datamode": "unigram", "keepstops": True, "maxqlen": 4, "maxdoclen": 800}
+        {
+            "_name": "bagofwords",
+            "datamode": "unigram",
+            "keepstops": True,
+            "maxqlen": 4,
+            "maxdoclen": 800,
+        }
     )
     extractor.modules["index"] = dummy_index
     extractor.modules["tokenizer"] = tokenizer
-    extractor.create(["301"], ["LA010189-0001", "LA010189-0002"], benchmark.topics["title"])
+    extractor.create(
+        ["301"], ["LA010189-0001", "LA010189-0002"], benchmark.topics["title"]
+    )
     assert extractor.stoi == {
         "<pad>": 0,
         "dummy": 1,
@@ -241,11 +249,19 @@ def test_bagofwords_create_trigrams(monkeypatch, tmpdir, dummy_index):
     tok_cfg = {"_name": "anserini", "keepstops": True, "stemmer": "none"}
     tokenizer = AnseriniTokenizer(tok_cfg)
     extractor = BagOfWords(
-        {"_name": "bagofwords", "datamode": "trigram", "keepstops": True, "maxqlen": 4, "maxdoclen": 800}
+        {
+            "_name": "bagofwords",
+            "datamode": "trigram",
+            "keepstops": True,
+            "maxqlen": 4,
+            "maxdoclen": 800,
+        }
     )
     extractor.modules["index"] = dummy_index
     extractor.modules["tokenizer"] = tokenizer
-    extractor.create(["301"], ["LA010189-0001", "LA010189-0002"], benchmark.topics["title"])
+    extractor.create(
+        ["301"], ["LA010189-0001", "LA010189-0002"], benchmark.topics["title"]
+    )
     assert extractor.stoi == {
         "<pad>": 0,
         "#du": 1,
@@ -299,7 +315,13 @@ def test_bagofwords_id2vec(tmpdir, dummy_index):
     tok_cfg = {"_name": "anserini", "keepstops": True, "stemmer": "none"}
     tokenizer = AnseriniTokenizer(tok_cfg)
     extractor = BagOfWords(
-        {"_name": "bagofwords", "datamode": "unigram", "keepstops": True, "maxqlen": 4, "maxdoclen": 800}
+        {
+            "_name": "bagofwords",
+            "datamode": "unigram",
+            "keepstops": True,
+            "maxqlen": 4,
+            "maxdoclen": 800,
+        }
     )
     extractor.modules["index"] = dummy_index
     extractor.modules["tokenizer"] = tokenizer
@@ -314,8 +336,28 @@ def test_bagofwords_id2vec(tmpdir, dummy_index):
     extractor.itos[1] = "dummy"
     extractor.itos[2] = "doc"
     extractor.docid2toks = {
-        "LA010189-0001": ["dummy", "dummy", "dummy", "hello", "world", "greetings", "from", "outer", "space"],
-        "LA010189-0002": ["dummy", "dummy", "dummy", "hello", "world", "greetings", "from", "outer", "space"],
+        "LA010189-0001": [
+            "dummy",
+            "dummy",
+            "dummy",
+            "hello",
+            "world",
+            "greetings",
+            "from",
+            "outer",
+            "space",
+        ],
+        "LA010189-0002": [
+            "dummy",
+            "dummy",
+            "dummy",
+            "hello",
+            "world",
+            "greetings",
+            "from",
+            "outer",
+            "space",
+        ],
     }
     transformed = extractor.id2vec("301", "LA010189-0001", "LA010189-0001")
     # stoi only knows about the word 'dummy' and 'doc'. So the transformation of every other word is set as 0
@@ -329,12 +371,18 @@ def test_bagofwords_id2vec(tmpdir, dummy_index):
     assert np.array_equal(transformed["query_idf"], [0, 0, 0])
 
 
-def test_bagofwords_id2vec_trigram(tmpdir,dummy_index):
+def test_bagofwords_id2vec_trigram(tmpdir, dummy_index):
     benchmark = DummyBenchmark({})
     tok_cfg = {"_name": "anserini", "keepstops": True, "stemmer": "none"}
     tokenizer = AnseriniTokenizer(tok_cfg)
     extractor = BagOfWords(
-        {"_name": "bagofwords", "datamode": "trigram", "keepstops": True, "maxqlen": 4, "maxdoclen": 800}
+        {
+            "_name": "bagofwords",
+            "datamode": "trigram",
+            "keepstops": True,
+            "maxqlen": 4,
+            "maxdoclen": 800,
+        }
     )
     extractor.modules["index"] = dummy_index
     extractor.modules["tokenizer"] = tokenizer
@@ -345,8 +393,28 @@ def test_bagofwords_id2vec_trigram(tmpdir,dummy_index):
 
     extractor.qid2toks = {"301": ["dummy", "doc"]}
     extractor.docid2toks = {
-        "LA010189-0001": ["dummy", "dummy", "dummy", "hello", "world", "greetings", "from", "outer", "space"],
-        "LA010189-0002": ["dummy", "dummy", "dummy", "hello", "world", "greetings", "from", "outer", "space"],
+        "LA010189-0001": [
+            "dummy",
+            "dummy",
+            "dummy",
+            "hello",
+            "world",
+            "greetings",
+            "from",
+            "outer",
+            "space",
+        ],
+        "LA010189-0002": [
+            "dummy",
+            "dummy",
+            "dummy",
+            "hello",
+            "world",
+            "greetings",
+            "from",
+            "outer",
+            "space",
+        ],
     }
     extractor.stoi["#du"] = 1
     extractor.stoi["dum"] = 2
@@ -387,7 +455,14 @@ def test_bagofwords_caching(dummy_index, monkeypatch):
 
     monkeypatch.setattr(EmbedText, "_get_pretrained_emb", fake_magnitude_embedding)
 
-    extractor_cfg = {"_name": "bagofwords", "datamode": "trigram", "keepstops": True, "maxqlen": 4, "maxdoclen": 800, "usecache": True}
+    extractor_cfg = {
+        "_name": "bagofwords",
+        "datamode": "trigram",
+        "keepstops": True,
+        "maxqlen": 4,
+        "maxdoclen": 800,
+        "usecache": True,
+    }
     extractor = BagOfWords(extractor_cfg)
 
     benchmark = DummyBenchmark({"_fold": "s1", "rundocsonly": False})
