@@ -56,7 +56,7 @@ class TK_class(KNRM_class):
         embedding = self.embedding(toks)
         embedding = self.position_encoder(embedding)
         contextual_embedding = self.transformer_encoder(embedding)
-        return 0.5 * embedding + 0.5 * contextual_embedding
+        return self.p["alpha"] * embedding + (1-self.p["alpha"]) * contextual_embedding
 
 
 class TK(KNRM):
