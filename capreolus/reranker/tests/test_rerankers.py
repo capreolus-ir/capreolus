@@ -55,7 +55,7 @@ def test_pacrr(dummy_index, tmpdir, tmpdir_as_cache, monkeypatch):
             "calcidf": True,
             "maxqlen": 4,
             "maxdoclen": 800,
-            "usecache": False
+            "usecache": False,
         }
     )
     extractor = reranker.modules["extractor"]
@@ -113,7 +113,14 @@ def test_dssm_unigram(dummy_index, tmpdir, tmpdir_as_cache, monkeypatch):
     )
     reranker.modules["trainer"] = trainer
     reranker.modules["extractor"] = BagOfWords(
-        {"_name": "bagofwords", "datamode": "unigram", "keepstops": True, "maxqlen": 4, "maxdoclen": 800, "usecache": False}
+        {
+            "_name": "bagofwords",
+            "datamode": "unigram",
+            "keepstops": True,
+            "maxqlen": 4,
+            "maxdoclen": 800,
+            "usecache": False,
+        }
     )
     extractor = reranker.modules["extractor"]
     extractor.modules["index"] = dummy_index
@@ -154,7 +161,17 @@ def test_tk(dummy_index, tmpdir, tmpdir_as_cache, monkeypatch):
 
     monkeypatch.setattr(EmbedText, "_get_pretrained_emb", fake_magnitude_embedding)
 
-    reranker = TK({"gradkernels": True, "scoretanh": False, "singlefc": True, "projdim": 32, "ffdim": 100, "numlayers": 2, "numattheads": 4})
+    reranker = TK(
+        {
+            "gradkernels": True,
+            "scoretanh": False,
+            "singlefc": True,
+            "projdim": 32,
+            "ffdim": 100,
+            "numlayers": 2,
+            "numattheads": 4,
+        }
+    )
     trainer = PytorchTrainer(
         {
             "maxdoclen": 800,
@@ -166,6 +183,7 @@ def test_tk(dummy_index, tmpdir, tmpdir_as_cache, monkeypatch):
             "lr": 0.001,
             "softmaxloss": True,
             "interactive": False,
+            "fastforward": False,
         }
     )
     reranker.modules["trainer"] = trainer
@@ -177,7 +195,7 @@ def test_tk(dummy_index, tmpdir, tmpdir_as_cache, monkeypatch):
             "calcidf": True,
             "maxqlen": 4,
             "maxdoclen": 800,
-            "usecache": False
+            "usecache": False,
         }
     )
     extractor = reranker.modules["extractor"]

@@ -64,7 +64,10 @@ class Extractor(ModuleBase, metaclass=RegisterableModule):
         """
         sorted_qids = sorted(qids)
         sorted_docids = sorted(docids)
-        return self.get_cache_path() / hashlib.md5(str(sorted_qids + sorted_docids).encode('utf-8')).hexdigest()
+        return (
+            self.get_cache_path()
+            / hashlib.md5(str(sorted_qids + sorted_docids).encode("utf-8")).hexdigest()
+        )
 
     def is_state_cached(self, qids, docids):
         """
@@ -115,21 +118,21 @@ class EmbedText(Extractor):
         )
 
     def load_state(self, qids, docids):
-        with open(self.get_state_cache_file_path(qids, docids), 'rb') as f:
+        with open(self.get_state_cache_file_path(qids, docids), "rb") as f:
             state_dict = pickle.load(f)
-            self.qid2toks = state_dict['qid2toks']
-            self.docid2toks = state_dict['docid2toks']
-            self.stoi = state_dict['stoi']
-            self.itos = state_dict['itos']
+            self.qid2toks = state_dict["qid2toks"]
+            self.docid2toks = state_dict["docid2toks"]
+            self.stoi = state_dict["stoi"]
+            self.itos = state_dict["itos"]
 
     def cache_state(self, qids, docids):
         os.makedirs(self.get_cache_path())
-        with open(self.get_state_cache_file_path(qids, docids), 'wb') as f:
+        with open(self.get_state_cache_file_path(qids, docids), "wb") as f:
             state_dict = {
-                'qid2toks': self.qid2toks,
-                'docid2toks': self.docid2toks,
-                'stoi': self.stoi,
-                'itos': self.itos
+                "qid2toks": self.qid2toks,
+                "docid2toks": self.docid2toks,
+                "stoi": self.stoi,
+                "itos": self.itos,
             }
             pickle.dump(state_dict, f, protocol=-1)
 
@@ -248,7 +251,6 @@ class EmbedText(Extractor):
             "posdoc": np.array(posdoc, dtype=np.long),
             "query_idf": np.array(idfs, dtype=np.float32),
         }
-
 
         if negid:
             negdoc = self.docid2toks.get(negid, None)
