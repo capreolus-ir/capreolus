@@ -126,7 +126,7 @@ class EmbedText(Extractor):
             self.itos = state_dict["itos"]
 
     def cache_state(self, qids, docids):
-        os.makedirs(self.get_cache_path())
+        os.makedirs(self.get_cache_path(), exist_ok=True)
         with open(self.get_state_cache_file_path(qids, docids), "wb") as f:
             state_dict = {
                 "qid2toks": self.qid2toks,

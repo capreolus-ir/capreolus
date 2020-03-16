@@ -36,25 +36,25 @@ class BagOfWords(Extractor):
         maxqlen = 4
         maxdoclen = 800
         usecache = False
-        
+
     def load_state(self, qids, docids):
-        with open(self.get_state_cache_file_path(qids, docids), 'rb') as f:
+        with open(self.get_state_cache_file_path(qids, docids), "rb") as f:
             state_dict = pickle.load(f)
-            self.qid2toks = state_dict['qid2toks']
-            self.docid2toks = state_dict['docid2toks']
-            self.stoi = state_dict['stoi']
-            self.itos = state_dict['itos']
-            self.idf = defaultdict(lambda: 0, state_dict['idf'])
+            self.qid2toks = state_dict["qid2toks"]
+            self.docid2toks = state_dict["docid2toks"]
+            self.stoi = state_dict["stoi"]
+            self.itos = state_dict["itos"]
+            self.idf = defaultdict(lambda: 0, state_dict["idf"])
 
     def cache_state(self, qids, docids):
-        os.makedirs(self.get_cache_path())
-        with open(self.get_state_cache_file_path(qids, docids), 'wb') as f:
+        os.makedirs(self.get_cache_path(), exist_ok=True)
+        with open(self.get_state_cache_file_path(qids, docids), "wb") as f:
             state_dict = {
-                'qid2toks': self.qid2toks,
-                'docid2toks': self.docid2toks,
-                'stoi': self.stoi,
-                'itos': self.itos,
-                'idf': dict(self.idf)
+                "qid2toks": self.qid2toks,
+                "docid2toks": self.docid2toks,
+                "stoi": self.stoi,
+                "itos": self.itos,
+                "idf": dict(self.idf),
             }
             pickle.dump(state_dict, f, protocol=-1)
 
