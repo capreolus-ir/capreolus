@@ -67,7 +67,7 @@ class TK_class(KNRM_class):
         col_mask = mask.reshape(batch_size, 1, seq_len).expand(batch_size, seq_len, seq_len)
         encoder_mask[col_mask == 0] = float('-inf')
 
-        return encoder_mask
+        return torch.cat([encoder_mask] * self.p["numattheads"])
 
     def get_embedding(self, toks):
         """
