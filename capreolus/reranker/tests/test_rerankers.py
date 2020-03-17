@@ -170,6 +170,7 @@ def test_tk(dummy_index, tmpdir, tmpdir_as_cache, monkeypatch):
             "ffdim": 100,
             "numlayers": 2,
             "numattheads": 4,
+            "alpha": 0.5
         }
     )
     trainer = PytorchTrainer(

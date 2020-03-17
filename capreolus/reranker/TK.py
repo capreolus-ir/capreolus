@@ -39,11 +39,11 @@ class TK_class(KNRM_class):
 
     def __init__(self, extractor, config):
         super(TK_class, self).__init__(extractor, config)
-        input_dim = extractor.embeddings.shape[1]
+        self.embeddim = extractor.embeddings.shape[1]
         dropout = 0.1
-        self.position_encoder = PositionalEncoding(input_dim)
+        self.position_encoder = PositionalEncoding(self.embeddim)
         encoder_layers = TransformerEncoderLayer(
-            input_dim, config["numattheads"], config["ffdim"], dropout
+            self.embeddim, config["numattheads"], config["ffdim"], dropout
         )
         self.transformer_encoder = TransformerEncoder(
             encoder_layers, config["numlayers"]
@@ -54,7 +54,14 @@ class TK_class(KNRM_class):
         Overrides KNRM_Class's get_embedding to return contextualized word embeddings
         """
         embedding = self.embedding(toks)
-        return self.p["alpha"] * embedding + (1-self.p["alpha"]) * self.transformer_encoder(self.position_encoder(embedding))
+
+        # Transformer layers expect input in shape (L, N, E), where L is sequence len, N is batch, E is embed dims
+        reshaped_embedding = embedding.permute(1, 0, 2)
+        position_encoded_embedding = self.position_encoder(reshaped_embedding)
+        # TODO: Mask should be additive
+        # mask = ((embedding != torch.zeros(self.embeddim).to(embedding.device)).to(dtype=embedding.dtype).sum(-1) != 0).to(dtype=embedding.dtype)
+        contextual_embedding = self.transformer_encoder(position_encoded_embedding).permute(1, 0, 2)
+        return self.p["alpha"] * embedding + (1-self.p["alpha"]) * contextual_embedding
 
 
 class TK(KNRM):
