@@ -42,6 +42,7 @@ class TK_class(KNRM_class):
         self.embeddim = extractor.embeddings.shape[1]
         dropout = 0.1
         self.position_encoder = PositionalEncoding(self.embeddim)
+        self.mixer = nn.Parameter(torch.full([1, 1, 1], 0.5, dtype=torch.float32, requires_grad=True))
         encoder_layers = TransformerEncoderLayer(
             self.embeddim, config["numattheads"], config["ffdim"], dropout
         )
@@ -81,7 +82,10 @@ class TK_class(KNRM_class):
         # TODO: Mask should be additive
         mask = self.get_mask(embedding) if self.p["usemask"] else None
         contextual_embedding = self.transformer_encoder(position_encoded_embedding, mask).permute(1, 0, 2)
-        return self.p["alpha"] * embedding + (1-self.p["alpha"]) * contextual_embedding
+        if self.p["usemixer"]:
+            return self.mixer * embedding + (1 - self.mixer) * contextual_embedding
+        else:
+            return self.p["alpha"] * embedding + (1-self.p["alpha"]) * contextual_embedding
 
 
 class TK(KNRM):
@@ -104,6 +108,7 @@ class TK(KNRM):
         numattheads = 8
         alpha = 0.5
         usemask = False
+        usemixer = False
 
     def build(self):
         if not hasattr(self, "model"):

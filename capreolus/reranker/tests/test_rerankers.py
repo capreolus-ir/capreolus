@@ -172,7 +172,8 @@ def test_tk(dummy_index, tmpdir, tmpdir_as_cache, monkeypatch):
             "numlayers": 2,
             "numattheads": 4,
             "alpha": 0.5,
-            "usemask": False
+            "usemask": False,
+            "usemixer": True
         }
     )
     trainer = PytorchTrainer(
@@ -250,7 +251,8 @@ def test_tk_get_mask(tmpdir, dummy_index, monkeypatch):
             "numlayers": 2,
             "numattheads": 4,
             "alpha": 0.5,
-            "usemask": True
+            "usemask": True,
+            "usemixer": True
         }
     )
     reranker.modules["extractor"] = EmbedText(
