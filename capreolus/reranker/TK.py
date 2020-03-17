@@ -60,7 +60,7 @@ class TK_class(KNRM_class):
             -1) != 0).to(dtype=embedding.dtype)
 
         # The square attention mask
-        encoder_mask = torch.zeros(batch_size, seq_len, seq_len)
+        encoder_mask = torch.zeros(batch_size, seq_len, seq_len).to(embedding.device)
         # Set -inf on all rows corresponding to a pad token
         encoder_mask[mask == 0] = float('-inf')
         # Set -inf on all columns corresponding to a pad token (the tricky bit)
