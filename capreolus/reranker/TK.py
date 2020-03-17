@@ -42,7 +42,7 @@ class TK_class(KNRM_class):
         self.embeddim = extractor.embeddings.shape[1]
         dropout = 0.1
         self.position_encoder = PositionalEncoding(self.embeddim)
-        self.mixer = nn.Parameter(torch.full([1, 1, 1], 0.5, dtype=torch.float32, requires_grad=True))
+        self.mixer = nn.Parameter(torch.full([1, 1, 1], 0.9, dtype=torch.float32, requires_grad=True))
         encoder_layers = TransformerEncoderLayer(
             self.embeddim, config["numattheads"], config["ffdim"], dropout
         )
