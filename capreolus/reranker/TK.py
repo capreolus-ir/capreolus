@@ -49,6 +49,26 @@ class TK_class(KNRM_class):
             encoder_layers, config["numlayers"]
         )
 
+    def get_mask(self, embedding):
+        """
+        Gets a mask of shape (seq_len, seq_len). This is an additive mask, hence masked elements should be -inf
+        """
+        batch_size = embedding.shape[0]
+        seq_len = embedding.shape[1]
+        # Get a normal mask of shape (batch_size, seq_len). Entry would be 0 if a seq element should be masked
+        mask = ((embedding != torch.zeros(self.embeddim).to(embedding.device)).to(dtype=embedding.dtype).sum(
+            -1) != 0).to(dtype=embedding.dtype)
+
+        # The square attention mask
+        encoder_mask = torch.zeros(batch_size, seq_len, seq_len)
+        # Set -inf on all rows corresponding to a pad token
+        encoder_mask[mask == 0] = float('-inf')
+        # Set -inf on all columns corresponding to a pad token (the tricky bit)
+        col_mask = mask.reshape(batch_size, 1, seq_len).expand(batch_size, seq_len, seq_len)
+        encoder_mask[col_mask == 0] = float('-inf')
+
+        return encoder_mask
+
     def get_embedding(self, toks):
         """
         Overrides KNRM_Class's get_embedding to return contextualized word embeddings
@@ -59,8 +79,8 @@ class TK_class(KNRM_class):
         reshaped_embedding = embedding.permute(1, 0, 2)
         position_encoded_embedding = self.position_encoder(reshaped_embedding)
         # TODO: Mask should be additive
-        # mask = ((embedding != torch.zeros(self.embeddim).to(embedding.device)).to(dtype=embedding.dtype).sum(-1) != 0).to(dtype=embedding.dtype)
-        contextual_embedding = self.transformer_encoder(position_encoded_embedding).permute(1, 0, 2)
+        mask = self.get_mask(embedding) if self.p["usemask"] else None
+        contextual_embedding = self.transformer_encoder(position_encoded_embedding, mask).permute(1, 0, 2)
         return self.p["alpha"] * embedding + (1-self.p["alpha"]) * contextual_embedding
 
 
@@ -83,6 +103,7 @@ class TK(KNRM):
         numlayers = 2
         numattheads = 8
         alpha = 0.5
+        usemask = False
 
     def build(self):
         if not hasattr(self, "model"):
