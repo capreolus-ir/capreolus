@@ -9,7 +9,7 @@ from capreolus.searcher import Searcher
 logger = get_logger(__name__)
 
 VALID_METRICS = {"P", "map", "map_cut", "ndcg_cut", "Rprec", "recip_rank", "set_recall"}
-CUT_POINTS = [5, 10, 15, 20, 30, 100, 200, 500, 1000]
+CUT_POINTS = [1, 5, 10, 15, 20, 30, 100, 200, 500, 1000]
 
 
 def _verify_metric(metrics):
@@ -45,10 +45,18 @@ def _transform_metric(metrics):
 
 def _eval_runs(runs, qrels, metrics, dev_qids):
     assert isinstance(metrics, list)
-    dev_qrels = {qid: labels for qid, labels in qrels.items() if qid in dev_qids}
-    evaluator = pytrec_eval.RelevanceEvaluator(dev_qrels, _transform_metric(metrics))
+    ### TODO double check: where the grades are mapped to binary for calculating precision? (1,2 -> 1, 0->0)
+    # I tried hacking it for test, however, figured out that the result do not change. Therefore, it is taken into account some.
+    # remove this after double checking everything:
+    # for q, ranking in qrels.items():
+    #     for d,v in ranking.items():
+    #         if v == 2:
+    #             ranking[d] = 1
 
-    scores = [[metrics_dict.get(m, -1) for m in metrics] for metrics_dict in evaluator.evaluate(runs).values()]
+    dev_qrels = {qid: labels for qid, labels in qrels.items() if qid in dev_qids}
+    evaluator = pytrec_eval.RelevanceEvaluator(dev_qrels, metrics)# TODO Is _transform_metric required? new version of pytrec_eval accepts custom cutoffs (example P_1)
+
+    scores = [[metrics_dict.get(m, -100) for m in metrics] for metrics_dict in evaluator.evaluate(runs).values()]
     scores = np.array(scores).mean(axis=0).tolist()
     scores = dict(zip(metrics, scores))
     return scores

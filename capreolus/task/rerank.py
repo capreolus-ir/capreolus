@@ -1,7 +1,6 @@
 import random
 import os
 
-
 import numpy as np
 import torch
 
@@ -92,10 +91,12 @@ def evaluate(config, modules):
 
         test_preds = reranker["trainer"].predict(reranker, test_dataset, test_output_path)
 
-    metrics = evaluator.eval_runs(test_preds, benchmark.qrels, ["ndcg_cut_20", "ndcg_cut_10", "map", "P_20", "P_10", "ndcg_cut_5"])
+    metrics = evaluator.eval_runs(test_preds, benchmark.qrels, ["ndcg_cut_20", "ndcg_cut_10", "map", "P_20", "P_10", "ndcg_cut_5", "P_1"])
     print("test metrics for fold=%s:" % fold, metrics)
 
     print("\ncomputing metrics across all folds")
+
+    all_preds = {}
     avg = {}
     found = 0
     for fold in benchmark.folds:
@@ -106,12 +107,18 @@ def evaluate(config, modules):
 
         found += 1
         preds = Searcher.load_trec_run(pred_path)
-        metrics = evaluator.eval_runs(preds, benchmark.qrels, ["ndcg_cut_20", "ndcg_cut_10", "map", "P_20", "P_10", "ndcg_cut_5"])
+        all_preds.update(preds)
+        metrics = evaluator.eval_runs(preds, benchmark.qrels, ["ndcg_cut_20", "ndcg_cut_10", "map", "P_20", "P_10", "ndcg_cut_5", "P_1"])
         for metric, val in metrics.items():
             avg.setdefault(metric, []).append(val)
 
+    print("len(avg)={}".format(len(avg["P_1"])))
+    print(avg["P_1"])
     avg = {k: np.mean(v) for k, v in avg.items()}
     print(f"average metrics across {found}/{len(benchmark.folds)} folds:", avg)
+
+    metrics = evaluator.eval_runs(all_preds, benchmark.qrels, ["ndcg_cut_20", "ndcg_cut_10", "map", "P_20", "P_10", "ndcg_cut_5", "P_1"])
+    print(f"micro average metrics over {len(all_preds.keys())} user-query pairs:", metrics)
 
 
 def _pipeline_path(config, modules, fold=None):
