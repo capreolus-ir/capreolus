@@ -109,6 +109,7 @@ class TK(KNRM):
         alpha = 0.5
         usemask = False
         usemixer = False
+        finetune = False
 
     def build(self):
         if not hasattr(self, "model"):

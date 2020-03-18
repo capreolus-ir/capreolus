@@ -173,7 +173,8 @@ def test_tk(dummy_index, tmpdir, tmpdir_as_cache, monkeypatch):
             "numattheads": 4,
             "alpha": 0.5,
             "usemask": False,
-            "usemixer": True
+            "usemixer": True,
+            "finetune": True
         }
     )
     trainer = PytorchTrainer(
@@ -199,7 +200,7 @@ def test_tk(dummy_index, tmpdir, tmpdir_as_cache, monkeypatch):
             "calcidf": True,
             "maxqlen": 4,
             "maxdoclen": 800,
-            "usecache": False,
+            "usecache": False
         }
     )
     extractor = reranker.modules["extractor"]
