@@ -130,12 +130,13 @@ class TK_class(nn.Module):
         qlen = querytoks.shape[1]
         doclen = doctoks.shape[1]
         doc = self.get_embedding(doctoks)
+        device = doc.device
         query = self.get_embedding(querytoks)
         # cosine_matrix = self.cosine_module.forward(query, doc)
         cosine_matrix = self.cosine_module.forward(query, doc, querytoks, doctoks)
         # cosine_matrix = cosine_matrix.reshape(batches, 1, qlen, doclen)
         cosine_matrix = cosine_matrix.expand(batches, len(self.mus), qlen, doclen)
-        kernel_matrix = torch.exp(-torch.pow(cosine_matrix - self.mu_matrix, 2)) / (2 * torch.pow(self.sigma, 2))
+        kernel_matrix = torch.exp(-torch.pow(cosine_matrix - self.mu_matrix.to(device), 2)) / (2 * torch.pow(self.sigma, 2))
         condensed_kernel_matrix = kernel_matrix.sum(3)
         s_log_k = torch.log2(condensed_kernel_matrix).sum(2)
         s_len_k = condensed_kernel_matrix.sum(2) / doclen
