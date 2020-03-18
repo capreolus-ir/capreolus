@@ -26,8 +26,8 @@ class KNRM_class(nn.Module):
         self.kernels = RbfKernelBank(
             mus, sigmas, dim=1, requires_grad=config["gradkernels"]
         )
-
-        self.embedding = create_emb_layer(extractor.embeddings, non_trainable=True)
+        non_trainable = not self.p["finetune"]
+        self.embedding = create_emb_layer(extractor.embeddings, non_trainable=non_trainable)
         self.simmat = SimilarityMatrix(padding=extractor.pad)
 
         channels = 1
@@ -82,6 +82,7 @@ class KNRM(Reranker):
         singlefc = (
             True
         )  # use single fully connected layer as in paper (True) or 2 fully connected layers (False)
+        finetune = False  # Fine tune the embedding
 
     def build(self):
         if not hasattr(self, "model"):
