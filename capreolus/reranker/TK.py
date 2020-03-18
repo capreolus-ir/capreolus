@@ -6,7 +6,7 @@ from torch.nn import TransformerEncoder, TransformerEncoderLayer
 from torch import nn
 import math
 from capreolus.utils.loginit import get_logger
-from reranker.common import create_emb_layer, SimilarityMatrix
+from capreolus.reranker.common import create_emb_layer, SimilarityMatrix
 
 logger = get_logger(__name__)  # pylint: disable=invalid-name
 
