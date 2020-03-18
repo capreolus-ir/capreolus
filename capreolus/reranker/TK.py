@@ -1,10 +1,12 @@
-from capreolus.reranker.KNRM import KNRM, KNRM_class
+from allennlp.modules.matrix_attention import CosineMatrixAttention
+
+from capreolus.reranker import Reranker
 import torch
 from torch.nn import TransformerEncoder, TransformerEncoderLayer
 from torch import nn
 import math
 from capreolus.utils.loginit import get_logger
-
+from reranker.common import create_emb_layer, SimilarityMatrix
 
 logger = get_logger(__name__)  # pylint: disable=invalid-name
 
@@ -29,7 +31,7 @@ class PositionalEncoding(nn.Module):
         return self.dropout(x)
 
 
-class TK_class(KNRM_class):
+class TK_class(nn.Module):
     """
     Adapted from https://github.com/sebastian-hofstaetter/transformer-kernel-ranking/blob/master/matchmaker/models/tk.py
     TK is a neural IR model - a fusion between transformer contextualization & kernel-based scoring
@@ -38,9 +40,19 @@ class TK_class(KNRM_class):
     """
 
     def __init__(self, extractor, config):
-        super(TK_class, self).__init__(extractor, config)
+        super(TK_class, self).__init__()
+
         self.embeddim = extractor.embeddings.shape[1]
-        dropout = 0.1
+        self.p = config
+        self.mus = torch.tensor([-0.9, -0.7, -0.5, -0.3, -0.1, 0.1, 0.3, 0.5, 0.7, 0.9, 1.0], dtype=torch.float)
+        self.mu_matrix = self.get_mu_matrix(extractor)
+        self.sigma = torch.tensor(0.1, requires_grad=False)
+
+        dropout = 0
+        non_trainable = not self.p["finetune"]
+        self.embedding = create_emb_layer(extractor.embeddings, non_trainable=non_trainable)
+        self.cosine_module = SimilarityMatrix(padding=extractor.pad)
+
         self.position_encoder = PositionalEncoding(self.embeddim)
         self.mixer = nn.Parameter(torch.full([1, 1, 1], 0.9, dtype=torch.float32, requires_grad=True))
         encoder_layers = TransformerEncoderLayer(
@@ -49,6 +61,32 @@ class TK_class(KNRM_class):
         self.transformer_encoder = TransformerEncoder(
             encoder_layers, config["numlayers"]
         )
+
+        self.s_log_fcc = nn.Linear(len(self.mus), 1, bias=False)
+        self.s_len_fcc = nn.Linear(len(self.mus), 1, bias=False)
+        self.comb_fcc = nn.Linear(2, 1, bias=False)
+
+        # init with small weights, otherwise the dense output is way to high for the tanh -> resulting in loss == 1 all the time
+        torch.nn.init.uniform_(self.s_log_fcc.weight, -0.014, 0.014)  # inits taken from matchzoo
+        torch.nn.init.uniform_(self.s_len_fcc.weight, -0.014, 0.014)  # inits taken from matchzoo
+
+        # init with small weights, otherwise the dense output is way to high for the tanh -> resulting in loss == 1 all the time
+        torch.nn.init.uniform_(self.comb_fcc.weight, -0.014, 0.014)  # inits taken from matchzoo
+
+    def get_mu_matrix(self, extractor):
+        """
+        Returns a matrix of mu values that can be directly subtracted from the cosine matrix.
+        This is the matrix mu in equation 5 in the paper (https://arxiv.org/pdf/2002.01854.pdf)
+        """
+        qlen = extractor.cfg["maxqlen"]
+        doclen = extractor.cfg["maxdoclen"]
+
+        mu_matrix = torch.zeros(len(self.mus), qlen, doclen, requires_grad=False)
+
+        for i, mu in enumerate(self.mus):
+            mu_matrix[i] = torch.full((qlen, doclen), mu)
+
+        return mu_matrix
 
     def get_mask(self, embedding):
         """
@@ -87,8 +125,28 @@ class TK_class(KNRM_class):
         else:
             return self.p["alpha"] * embedding + (1-self.p["alpha"]) * contextual_embedding
 
+    def forward(self, doctoks, querytoks, query_idf):
+        batches = doctoks.shape[0]
+        qlen = querytoks.shape[1]
+        doclen = doctoks.shape[1]
+        doc = self.get_embedding(doctoks)
+        query = self.get_embedding(querytoks)
+        # cosine_matrix = self.cosine_module.forward(query, doc)
+        cosine_matrix = self.cosine_module.forward(query, doc, querytoks, doctoks)
+        # cosine_matrix = cosine_matrix.reshape(batches, 1, qlen, doclen)
+        cosine_matrix = cosine_matrix.expand(batches, len(self.mus), qlen, doclen)
+        kernel_matrix = torch.exp(-torch.pow(cosine_matrix - self.mu_matrix, 2)) / (2 * torch.pow(self.sigma, 2))
+        condensed_kernel_matrix = kernel_matrix.sum(3)
+        s_log_k = torch.log2(condensed_kernel_matrix).sum(2)
+        s_len_k = condensed_kernel_matrix.sum(2) / doclen
 
-class TK(KNRM):
+        s_log = self.s_log_fcc(s_log_k)
+        s_len = self.s_len_fcc(s_len_k)
+        score = self.comb_fcc(torch.cat([s_log, s_len], dim=1))
+        return score
+
+
+class TK(Reranker):
     name = "TK"
     citation = """Add citation"""
     # TODO: Declare the dependency on EmbedText
