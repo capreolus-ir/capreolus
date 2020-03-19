@@ -25,7 +25,7 @@ from capreolus.utils.loginit import get_logger
 from capreolus.pipeline import Pipeline, cli_module_choice, modules
 from capreolus.searcher import Searcher
 
-logger = get_logger(__name__)  # pylint: disable=invalid-name
+logger = get_logger("capreolus.__main__")  # pylint: disable=invalid-name
 plt.switch_backend("agg")
 
 pipeline = Pipeline({module: cli_module_choice(sys.argv, module) for module in modules})
