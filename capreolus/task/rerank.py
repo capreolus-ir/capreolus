@@ -46,7 +46,8 @@ def train(config, modules):
     best_search_run = searcher.load_trec_run(best_search_run_path)
 
     docids = set(docid for querydocs in best_search_run.values() for docid in querydocs)
-    reranker["extractor"].create(qids=best_search_run.keys(), docids=docids, topics=benchmark.topics[benchmark.query_type])
+    qdocs = {k: v.keys() for k, v in best_search_run.items()}  # todo: to calc avgdoclen
+    reranker["extractor"].create(qids=best_search_run.keys(), docids=docids, topics=benchmark.topics[benchmark.query_type], qdocs=qdocs)
     reranker.build()
 
     train_run = {qid: docs for qid, docs in best_search_run.items() if qid in benchmark.folds[fold]["train_qids"]}
@@ -81,7 +82,8 @@ def evaluate(config, modules):
         best_search_run = searcher.load_trec_run(best_search_run_path)
 
         docids = set(docid for querydocs in best_search_run.values() for docid in querydocs)
-        reranker["extractor"].create(qids=best_search_run.keys(), docids=docids, topics=benchmark.topics[benchmark.query_type])
+        qdocs = {k:v.keys() for k,v in best_search_run.items()} #todo: to calc avgdoclen
+        reranker["extractor"].create(qids=best_search_run.keys(), docids=docids, topics=benchmark.topics[benchmark.query_type], qdocs=qdocs)
         reranker.build()
 
         reranker["trainer"].load_best_model(reranker, train_output_path)
@@ -112,8 +114,6 @@ def evaluate(config, modules):
         for metric, val in metrics.items():
             avg.setdefault(metric, []).append(val)
 
-    print("len(avg)={}".format(len(avg["P_1"])))
-    print(avg["P_1"])
     avg = {k: np.mean(v) for k, v in avg.items()}
     print(f"average metrics across {found}/{len(benchmark.folds)} folds:", avg)
 
