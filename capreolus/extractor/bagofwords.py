@@ -1,5 +1,6 @@
 import pickle
 import os
+import time
 
 from capreolus.extractor import Extractor
 from capreolus.tokenizer import Tokenizer
@@ -36,6 +37,10 @@ class BagOfWords(Extractor):
         maxqlen = 4
         maxdoclen = 800
         usecache = False
+
+    def _tok2vec(self, toks):
+        # return [self.embeddings[self.stoi[tok]] for tok in toks]
+        return [self.stoi[tok] for tok in toks]
 
     def load_state(self, qids, docids):
         with open(self.get_state_cache_file_path(qids, docids), "rb") as f:
@@ -124,6 +129,7 @@ class BagOfWords(Extractor):
         self._build_vocab(qids, docids, topics)
 
     def id2vec(self, q_id, posdoc_id, negdoc_id=None, query=None):
+        id2vec_start_time = time.time()
         # TODO: Get rid of this if check. Standardize the interface
         if query is not None:
             if q_id is None:
@@ -142,9 +148,13 @@ class BagOfWords(Extractor):
             logger.debug("missing docid %s", posdoc_id)
             return None
 
+        start_time = time.time()
         transformed_query = self.transform_txt(query_toks, self.cfg["maxqlen"])
+        logger.info("Transforming query took {}".format(time.time() - start_time))
 
         idfs = [self.idf[self.itos[tok]] for tok, count in enumerate(transformed_query)]
+
+        start_time = time.time()
         transformed = {
             "qid": q_id,
             "posdocid": posdoc_id,
@@ -152,8 +162,9 @@ class BagOfWords(Extractor):
             "posdoc": self.transform_txt(posdoc_toks, self.cfg["maxdoclen"]),
             "query_idf": np.array(idfs, dtype=np.float32),
         }
-
+        logger.info("Creating posdoc took {}".format(time.time() - start_time))
         if negdoc_id is not None:
+            start_time = time.time()
             negdoc_toks = self.docid2toks.get(negdoc_id)
             if not negdoc_toks:
                 logger.debug("missing docid %s", negdoc_id)
@@ -162,17 +173,24 @@ class BagOfWords(Extractor):
             transformed["negdoc"] = self.transform_txt(
                 negdoc_toks, self.cfg["maxdoclen"]
             )
+            logger.info("Creating negdoc took {}".format(time.time() - start_time))
 
+        logger.info("id2vec took {}".format(time.time() - id2vec_start_time))
         return transformed
 
     def transform_txt(self, term_list, maxlen):
+        logger.info("transform_txt breakdown:")
+        start_time = time.time()
+        term_vec = self._tok2vec(term_list)
+        logger.info("_tok2vec took {}".format(time.time() - start_time))
         nvocab = len(self.stoi)
         bog_txt = np.zeros(nvocab, dtype=np.float32)
 
         if self.cfg["datamode"] == "unigram":
-            for term in term_list:
-                tok = self.stoi.get(term, 0)
-                bog_txt[tok] += 1
+            start_time = time.time()
+            for term in term_vec:
+                bog_txt[term] += 1
+            logger.info("bog_txt construction took {}".format(time.time() - start_time))
         elif self.cfg["datamode"] == "trigram":
             trigrams = self.get_trigrams_for_toks(term_list)
             toks = [self.stoi.get(trigram, 0) for trigram in trigrams]

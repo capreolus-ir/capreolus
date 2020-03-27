@@ -3,7 +3,7 @@ import json
 
 import numpy as np
 import torch
-
+from tqdm import tqdm
 from capreolus.registry import ModuleBase, RegisterableModule, Dependency, MAX_THREADS
 from capreolus.reranker.common import pair_hinge_loss, pair_softmax_loss
 from capreolus.searcher import Searcher
@@ -334,7 +334,7 @@ class PytorchTrainer(Trainer):
             pred_data, batch_size=self.cfg["batch"], pin_memory=True, num_workers=0
         )
         with torch.autograd.no_grad():
-            for bi, batch in enumerate(pred_dataloader):
+            for batch in tqdm(pred_dataloader, desc="Predicting on dev"):
                 batch = {
                     k: v.to(self.device) if not isinstance(v, list) else v
                     for k, v in batch.items()
