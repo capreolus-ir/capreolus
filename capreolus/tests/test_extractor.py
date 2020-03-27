@@ -11,7 +11,7 @@ from capreolus.extractor import EmbedText
 from capreolus.tests.common_fixtures import tmpdir_as_cache, dummy_index
 
 from capreolus.utils.exceptions import MissingDocError
-from extractor.bagofwords import BagOfWords
+from capreolus.extractor.bagofwords import BagOfWords
 
 MAXQLEN = 8
 MAXDOCLEN = 7
