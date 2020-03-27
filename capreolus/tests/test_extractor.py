@@ -32,6 +32,7 @@ def test_embedtext_creation(monkeypatch):
         "calcidf": True,
         "maxqlen": MAXQLEN,
         "maxdoclen": MAXDOCLEN,
+        "usecache": False
     }
     extractor = EmbedText(extractor_cfg)
 
@@ -91,6 +92,7 @@ def test_embedtext_id2vec(monkeypatch):
         "calcidf": True,
         "maxqlen": MAXQLEN,
         "maxdoclen": MAXDOCLEN,
+        "usecache": False
     }
     extractor = EmbedText(extractor_cfg)
 
@@ -211,6 +213,7 @@ def test_bagofwords_create(monkeypatch, tmpdir, dummy_index):
             "keepstops": True,
             "maxqlen": 4,
             "maxdoclen": 800,
+            "usecache": False
         }
     )
     extractor.modules["index"] = dummy_index
@@ -228,6 +231,7 @@ def test_bagofwords_create(monkeypatch, tmpdir, dummy_index):
         "from": 6,
         "outer": 7,
         "space": 8,
+        "lessdummy": 9
     }
 
     assert extractor.itos == {v: k for k, v in extractor.stoi.items()}
@@ -241,6 +245,7 @@ def test_bagofwords_create(monkeypatch, tmpdir, dummy_index):
         "from": 6,
         "outer": 7,
         "space": 8,
+        "lessdummy": 9
     }
 
 
@@ -255,6 +260,7 @@ def test_bagofwords_create_trigrams(monkeypatch, tmpdir, dummy_index):
             "keepstops": True,
             "maxqlen": 4,
             "maxdoclen": 800,
+            "usecache": False
         }
     )
     extractor.modules["index"] = dummy_index
@@ -305,6 +311,11 @@ def test_bagofwords_create_trigrams(monkeypatch, tmpdir, dummy_index):
         "pac": 39,
         "ace": 40,
         "ce#": 41,
+        "#le": 42,
+        "les": 43,
+        "ess": 44,
+        "ssd": 45,
+        "sdu": 46
     }
 
     assert extractor.itos == {v: k for k, v in extractor.stoi.items()}
@@ -321,6 +332,7 @@ def test_bagofwords_id2vec(tmpdir, dummy_index):
             "keepstops": True,
             "maxqlen": 4,
             "maxdoclen": 800,
+            "usecache": False
         }
     )
     extractor.modules["index"] = dummy_index
@@ -382,6 +394,7 @@ def test_bagofwords_id2vec_trigram(tmpdir, dummy_index):
             "keepstops": True,
             "maxqlen": 4,
             "maxdoclen": 800,
+            "usecache": False
         }
     )
     extractor.modules["index"] = dummy_index

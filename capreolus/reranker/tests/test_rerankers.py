@@ -45,6 +45,7 @@ def test_pacrr(dummy_index, tmpdir, tmpdir_as_cache, monkeypatch):
             "lr": 0.001,
             "softmaxloss": True,
             "interactive": False,
+            "fastforward": True
         }
     )
     reranker.modules["trainer"] = trainer
@@ -110,6 +111,7 @@ def test_dssm_unigram(dummy_index, tmpdir, tmpdir_as_cache, monkeypatch):
             "lr": 0.001,
             "softmaxloss": True,
             "interactive": False,
+            "fastforward": True
         }
     )
     reranker.modules["trainer"] = trainer
@@ -188,7 +190,7 @@ def test_tk(dummy_index, tmpdir, tmpdir_as_cache, monkeypatch):
             "lr": 0.001,
             "softmaxloss": True,
             "interactive": False,
-            "fastforward": False,
+            "fastforward": False
         }
     )
     reranker.modules["trainer"] = trainer
@@ -247,13 +249,14 @@ def test_tk_get_mask(tmpdir, dummy_index, monkeypatch):
             "gradkernels": True,
             "scoretanh": False,
             "singlefc": True,
-            "projdim": 32,
+            "projdim": 16,
             "ffdim": 100,
-            "numlayers": 2,
-            "numattheads": 4,
+            "numlayers": 1,
+            "numattheads": 2,
             "alpha": 0.5,
             "usemask": True,
-            "usemixer": True
+            "usemixer": True,
+            "finetune": True
         }
     )
     reranker.modules["extractor"] = EmbedText(
@@ -265,6 +268,7 @@ def test_tk_get_mask(tmpdir, dummy_index, monkeypatch):
             "maxqlen": 4,
             "maxdoclen": 800,
             "usecache": False,
+            "fastforward": True
         }
     )
     extractor = reranker.modules["extractor"]
