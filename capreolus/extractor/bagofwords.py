@@ -142,31 +142,25 @@ class BagOfWords(Extractor):
 
         else:
             query_toks = self.qid2toks[q_id]
-        start_time = time.time()
         posdoc_toks = self.docid2toks.get(posdoc_id)
-        logger.info("getting posdoc_toks took: {}".format(time.time() - start_time))
         if not posdoc_toks:
             logger.debug("missing docid %s", posdoc_id)
             return None
 
-        start_time = time.time()
         transformed_query = self.transform_txt(query_toks, self.cfg["maxqlen"])
-        logger.info("Transforming query took {}".format(time.time() - start_time))
 
-        start_time = time.time()
-        idfs = [self.idf[self.itos[tok]] for tok, count in enumerate(transformed_query)]
-        logger.info("Getting query idf took {}".format(time.time() - start_time))
-        start_time = time.time()
+        query_idf_vector = np.zeros(len(self.stoi), dtype=np.float32)
+        for tok in query_toks:
+            query_idf_vector[self.stoi[tok]] = self.idf[tok]
+
         transformed = {
             "qid": q_id,
             "posdocid": posdoc_id,
             "query": transformed_query,
             "posdoc": self.transform_txt(posdoc_toks, self.cfg["maxdoclen"]),
-            "query_idf": np.array(idfs, dtype=np.float32),
+            "query_idf": query_idf_vector
         }
-        logger.info("Creating posdoc took {}".format(time.time() - start_time))
         if negdoc_id is not None:
-            start_time = time.time()
             negdoc_toks = self.docid2toks.get(negdoc_id)
             if not negdoc_toks:
                 logger.debug("missing docid %s", negdoc_id)
@@ -175,24 +169,18 @@ class BagOfWords(Extractor):
             transformed["negdoc"] = self.transform_txt(
                 negdoc_toks, self.cfg["maxdoclen"]
             )
-            logger.info("Creating negdoc took {}".format(time.time() - start_time))
 
         logger.info("id2vec took {}".format(time.time() - id2vec_start_time))
         return transformed
 
     def transform_txt(self, term_list, maxlen):
-        logger.info("transform_txt breakdown:")
-        start_time = time.time()
         term_vec = self._tok2vec(term_list)
-        logger.info("_tok2vec took {}".format(time.time() - start_time))
         nvocab = len(self.stoi)
         bog_txt = np.zeros(nvocab, dtype=np.float32)
 
         if self.cfg["datamode"] == "unigram":
-            start_time = time.time()
             for term in term_vec:
                 bog_txt[term] += 1
-            logger.info("bog_txt construction took {}".format(time.time() - start_time))
         elif self.cfg["datamode"] == "trigram":
             trigrams = self.get_trigrams_for_toks(term_list)
             toks = [self.stoi.get(trigram, 0) for trigram in trigrams]
