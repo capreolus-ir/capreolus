@@ -129,7 +129,6 @@ class BagOfWords(Extractor):
         self._build_vocab(qids, docids, topics)
 
     def id2vec(self, q_id, posdoc_id, negdoc_id=None, query=None):
-        id2vec_start_time = time.time()
         # TODO: Get rid of this if check. Standardize the interface
         if query is not None:
             if q_id is None:
@@ -170,7 +169,6 @@ class BagOfWords(Extractor):
                 negdoc_toks, self.cfg["maxdoclen"]
             )
 
-        logger.info("id2vec took {}".format(time.time() - id2vec_start_time))
         return transformed
 
     def transform_txt(self, term_list, maxlen):
