@@ -1,3 +1,4 @@
+import os
 from collections import defaultdict, Counter
 
 import numpy as np
@@ -7,8 +8,6 @@ from capreolus.registry import ModuleBase, RegisterableModule, Dependency, CACHE
 from capreolus.utils.loginit import get_logger
 from capreolus.utils.common import padlist
 from capreolus.utils.exceptions import MissingDocError
-
-import gensim
 
 logger = get_logger(__name__)
 
@@ -294,8 +293,12 @@ class DocStatsEmbedding(DocStats):
         "tokenizer": Dependency(module="tokenizer", name="spacy", config_overrides={"keepstops": False}),
     }
 
-    embed_paths = {
-       "w2vnews" : "/home/ghazaleh/workspace/wv_google/GoogleNews-vectors-negative300.bin"#TODO hardcoded path, todo auto download the model(s) and then set the path here
+    embed_names = {
+        "glove6b": "glove-wiki-gigaword-300",
+        "glove6b.50d": "glove-wiki-gigaword-50",
+        "w2vnews" : "word2vec-google-news-300",
+        "fasttext": "fasttext-wiki-news-subwords-300", #TODO: "Wikipedia 2017, UMBC webbase corpus and statmt.org news dataset (16B tokens)" is this model the same as one used with Magnitude?
+
     }
 
     def exist(self):
@@ -306,7 +309,14 @@ class DocStatsEmbedding(DocStats):
         embeddings = "w2vnews"
 
     def _get_pretrained_emb(self):
-        return gensim.models.KeyedVectors.load_word2vec_format(self.embed_paths[self.cfg["embeddings"]], binary=True)
+        gensim_cache = CACHE_BASE_PATH / "gensim/"
+        os.environ['GENSIM_DATA_DIR'] = str(gensim_cache.absolute())
+
+        import gensim
+        import gensim.downloader as api
+
+        model_path = api.load(self.embed_names[self.cfg["embeddings"]], return_path=True)
+        return gensim.models.KeyedVectors.load_word2vec_format(model_path, binary=True)
 
     def create(self, qids, docids, topics, qdocs=None):
         if self.exist():
@@ -317,13 +327,14 @@ class DocStatsEmbedding(DocStats):
         logger.debug("loading embedding")
         self.emb_model = self._get_pretrained_emb()
 
+
     def get_term_occurrence_probability(self, qterm, docterm, docid, threshold):
         nu = self.emb_model.similarity(qterm, docterm) if (self.emb_model.__contains__(qterm) and self.emb_model.__contains__(docterm)) else 0
         if nu < threshold:
             return 0
 
         de = 0
-        for term in self.doc_tf[docid].keys():#TODO could I precalc this? or is it too big? for each doc it needs |d| to store which is okay. LATER
+        for term in self.doc_tf[docid].keys():#TODO could I precalc this? There is the threshold which is the reranker parameter... Should I make it the extractor parameter??
             temp_sim = self.emb_model.similarity(term, docterm) if (self.emb_model.__contains__(term) and self.emb_model.__contains__(docterm)) else 0
             de += temp_sim if temp_sim >= threshold else 0
 
