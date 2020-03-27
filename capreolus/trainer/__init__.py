@@ -43,6 +43,7 @@ class PytorchTrainer(Trainer):
             False
         )  # True for training with Notebook or False for command line environment
         fastforward = False
+        validatefreq = 1
         # sanity checks
         if batch < 1:
             raise ValueError("batch must be >= 1")
@@ -248,6 +249,8 @@ class PytorchTrainer(Trainer):
                             break
 
         dev_best_metric = -np.inf
+        iters_so_far = 0
+        validation_frequency = self.cfg["validatefreq"]
         for niter in range(initial_iter, self.cfg["niters"]):
             model.train()
 
@@ -259,25 +262,27 @@ class PytorchTrainer(Trainer):
             # write model weights to file
             weights_fn = weights_output_path / f"{niter}.p"
             reranker.save_weights(weights_fn, self.optimizer)
-
+            iters_so_far += 1
             # predict performance on dev set
-            pred_fn = dev_output_path / f"{niter}.run"
-            preds = self.predict(reranker, dev_data, pred_fn)
 
-            # log dev metrics
-            metrics = evaluator.eval_runs(preds, qrels, ["ndcg_cut_20", "map", "P_20"])
-            logger.info(
-                "dev metrics: %s",
-                " ".join(
-                    [f"{metric}={v:0.3f}" for metric, v in sorted(metrics.items())]
-                ),
-            )
+            if iters_so_far % validation_frequency == 0:
+                pred_fn = dev_output_path / f"{niter}.run"
+                preds = self.predict(reranker, dev_data, pred_fn)
 
-            # write best dev weights to file
-            if metrics[metric] > dev_best_metric:
-                reranker.save_weights(dev_best_weight_fn, self.optimizer)
-            for m in metrics:
-                metrics_history.setdefault(m, []).append(metrics[m])
+                # log dev metrics
+                metrics = evaluator.eval_runs(preds, qrels, ["ndcg_cut_20", "map", "P_20"])
+                logger.info(
+                    "dev metrics: %s",
+                    " ".join(
+                        [f"{metric}={v:0.3f}" for metric, v in sorted(metrics.items())]
+                    ),
+                )
+
+                # write best dev weights to file
+                if metrics[metric] > dev_best_metric:
+                    reranker.save_weights(dev_best_weight_fn, self.optimizer)
+                for m in metrics:
+                    metrics_history.setdefault(m, []).append(metrics[m])
 
             # write train_loss to file
             loss_fn.write_text(
