@@ -142,8 +142,9 @@ class BagOfWords(Extractor):
 
         else:
             query_toks = self.qid2toks[q_id]
+        start_time = time.time()
         posdoc_toks = self.docid2toks.get(posdoc_id)
-
+        logger.info("getting posdoc_toks took: {}".format(time.time() - start_time))
         if not posdoc_toks:
             logger.debug("missing docid %s", posdoc_id)
             return None
@@ -152,8 +153,9 @@ class BagOfWords(Extractor):
         transformed_query = self.transform_txt(query_toks, self.cfg["maxqlen"])
         logger.info("Transforming query took {}".format(time.time() - start_time))
 
+        start_time = time.time()
         idfs = [self.idf[self.itos[tok]] for tok, count in enumerate(transformed_query)]
-
+        logger.info("Getting query idf took {}".format(time.time() - start_time))
         start_time = time.time()
         transformed = {
             "qid": q_id,
