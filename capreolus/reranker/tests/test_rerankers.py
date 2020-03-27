@@ -14,7 +14,7 @@ from capreolus.tokenizer import AnseriniTokenizer
 from capreolus.trainer import PytorchTrainer
 from capreolus.extractor.bagofwords import BagOfWords
 from capreolus.reranker.DSSM import DSSM
-from reranker.TK import TK
+from capreolus.reranker.TK import TK
 
 
 def test_pacrr(dummy_index, tmpdir, tmpdir_as_cache, monkeypatch):
@@ -45,7 +45,8 @@ def test_pacrr(dummy_index, tmpdir, tmpdir_as_cache, monkeypatch):
             "lr": 0.001,
             "softmaxloss": True,
             "interactive": False,
-            "fastforward": True
+            "fastforward": True,
+            "validatefreq": 1
         }
     )
     reranker.modules["trainer"] = trainer
@@ -111,7 +112,8 @@ def test_dssm_unigram(dummy_index, tmpdir, tmpdir_as_cache, monkeypatch):
             "lr": 0.001,
             "softmaxloss": True,
             "interactive": False,
-            "fastforward": True
+            "fastforward": True,
+            "validatefreq": 1
         }
     )
     reranker.modules["trainer"] = trainer
@@ -190,7 +192,8 @@ def test_tk(dummy_index, tmpdir, tmpdir_as_cache, monkeypatch):
             "lr": 0.001,
             "softmaxloss": True,
             "interactive": False,
-            "fastforward": False
+            "fastforward": False,
+            "validatefreq": 1
         }
     )
     reranker.modules["trainer"] = trainer
@@ -268,7 +271,8 @@ def test_tk_get_mask(tmpdir, dummy_index, monkeypatch):
             "maxqlen": 4,
             "maxdoclen": 800,
             "usecache": False,
-            "fastforward": True
+            "fastforward": True,
+            "validatefreq": 1
         }
     )
     extractor = reranker.modules["extractor"]
