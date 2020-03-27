@@ -40,7 +40,7 @@ class BagOfWords(Extractor):
 
     def _tok2vec(self, toks):
         # return [self.embeddings[self.stoi[tok]] for tok in toks]
-        return [self.stoi[tok] for tok in toks]
+        return [self.stoi.get(tok, 0) for tok in toks]
 
     def load_state(self, qids, docids):
         with open(self.get_state_cache_file_path(qids, docids), "rb") as f:
