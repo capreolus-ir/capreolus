@@ -67,7 +67,7 @@ class BagOfWords(Extractor):
         self.docid2toks = {
             docid: tokenize(self["index"].get_doc(docid)) for docid in docids
         }
-        self._extend_stoi(self.qid2toks.values())
+        self._extend_stoi(self.qid2toks.values(), calc_idf=True)
         self._extend_stoi(self.docid2toks.values())
         self.itos = {i: s for s, i in self.stoi.items()}
         logger.info(f"vocabulary constructed, with {len(self.itos)} terms in total")
@@ -81,7 +81,7 @@ class BagOfWords(Extractor):
             docid: self.get_trigrams_for_toks(tokenize(self["index"].get_doc(docid)))
             for docid in docids
         }
-        self._extend_stoi(self.qid2toks.values())
+        self._extend_stoi(self.qid2toks.values(), calc_idf=True)
         self._extend_stoi(self.docid2toks.values())
         self.itos = {i: s for s, i in self.stoi.items()}
         logger.info(f"vocabulary constructed, with {len(self.itos)} terms in total")
@@ -144,7 +144,6 @@ class BagOfWords(Extractor):
 
         transformed_query = self.transform_txt(query_toks, self.cfg["maxqlen"])
 
-        # TODO: Fix idf. Right now idf is hardcoded as 0
         idfs = [self.idf[self.itos[tok]] for tok, count in enumerate(transformed_query)]
         transformed = {
             "qid": q_id,
@@ -171,16 +170,16 @@ class BagOfWords(Extractor):
         bog_txt = np.zeros(nvocab, dtype=np.float32)
 
         if self.cfg["datamode"] == "unigram":
-            toks = [self.stoi.get(term, 0) for term in term_list]
-            tok_counts = Counter(toks)
+            for term in term_list:
+                tok = self.stoi.get(term, 0)
+                bog_txt[tok] += 1
         elif self.cfg["datamode"] == "trigram":
             trigrams = self.get_trigrams_for_toks(term_list)
             toks = [self.stoi.get(trigram, 0) for trigram in trigrams]
             tok_counts = Counter(toks)
+            for tok, count in tok_counts.items():
+                bog_txt[tok] = count
         else:
             raise Exception("Unknown datamode")
-
-        for tok, count in tok_counts.items():
-            bog_txt[tok] = count
 
         return bog_txt
