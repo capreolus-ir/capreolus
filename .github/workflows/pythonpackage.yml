@@ -28,11 +28,18 @@ jobs:
         pip install cython
         pip install -r requirements.txt
         pip install torch==1.2.0+cpu torchvision==0.4.0+cpu -f https://download.pytorch.org/whl/torch_stable.html
+    - name: pull .txt files
+      run: |
+        cd capreolus/data
+        rm -rf dummy
+        rm .
+        wget data.tgz?dl=1
+        tar -zxvf data.tgz?dl=1
+        cd ../../
     - name: Test with pytest
       run: |
         pip install pytest
         export PYTHONPATH=${PYTHONPATH}:/home/runner/work/capreolus/capreolus/
-        git lfs pull
         pytest -vvv
 
     timeout-minutes: 50
