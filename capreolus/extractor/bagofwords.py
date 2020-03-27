@@ -150,7 +150,7 @@ class BagOfWords(Extractor):
 
         query_idf_vector = np.zeros(len(self.stoi), dtype=np.float32)
         for tok in query_toks:
-            query_idf_vector[self.stoi[tok]] = self.idf[tok]
+            query_idf_vector[self.stoi.get(tok, 0)] = self.idf[tok]
 
         transformed = {
             "qid": q_id,
