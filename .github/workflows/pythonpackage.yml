@@ -26,7 +26,7 @@ jobs:
         cd capreolus/data
         rm -rf dummy
         rm ./*
-        wget data.tgz?dl=1
+        wget https://www.dropbox.com/s/h6iovqwsyyv7660/data.tgz?dl=1
         tar -zxvf data.tgz?dl=1
         cd ../../
     - name: Install dependencies
