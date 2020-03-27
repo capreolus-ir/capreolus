@@ -8,6 +8,8 @@ from capreolus.utils.loginit import get_logger
 from capreolus.utils.common import padlist
 from capreolus.utils.exceptions import MissingDocError
 
+import gensim
+
 logger = get_logger(__name__)
 
 
@@ -271,7 +273,63 @@ class DocStats(Extractor):
         # print(len(shared_items), shared_items)
         # print(len(diff_items), diff_items) ## there are very different
 
-    def id2vec(self, qid, posid, negid=None, query=None):
+    def id2vec(self, qid, posid, negid=None, query=None):#todo (ask) where is it used?
+        if query is not None:
+            if qid is None:
+                query = self["tokenizer"].tokenize(query)
+            else:
+                raise RuntimeError("received both a qid and query, but only one can be passed")
+        else:
+            query = self.qid2toks[qid]
+
+        return {"qid": qid, "posdocid": posid, "negdocid": negid}
+
+
+class DocStatsEmbedding(DocStats):
+    name = "docstatsembedding"
+    dependencies = {# TODO is this okay like this? if this is changed here, would the parent functions also use differently??
+        "index": Dependency(module="index", name="anserini", config_overrides={"indexstops": True, "stemmer": "none"}),
+        # "tokenizer": Dependency(module="tokenizer", name="anserini", config_overrides={"keepstops": False}),
+        "tokenizerquery": Dependency(module="tokenizer", name="spacy", config_overrides={"keepstops": False, 'removesmallerlen': 2}), #removesmallerlen is actually only used for user profile (not the short queries) but I cannot separate them
+        "tokenizer": Dependency(module="tokenizer", name="spacy", config_overrides={"keepstops": False}),
+    }
+
+    embed_paths = {
+       "w2vnews" : "/home/ghazaleh/workspace/wv_google/GoogleNews-vectors-negative300.bin"#TODO hardcoded path, todo auto download the model(s) and then set the path here
+    }
+
+    def exist(self):
+        return hasattr(self, "similarity_matrix")
+
+    @staticmethod
+    def config():
+        embeddings = "w2vnews"
+
+    def _get_pretrained_emb(self):
+        return gensim.models.KeyedVectors.load_word2vec_format(self.embed_paths[self.cfg["embeddings"]], binary=True)
+
+    def create(self, qids, docids, topics, qdocs=None):
+        if self.exist():
+            return
+
+        super().create(qids, docids, topics, qdocs)
+
+        logger.debug("loading embedding")
+        self.emb_model = self._get_pretrained_emb()
+
+    def get_term_occurrence_probability(self, qterm, docterm, docid, threshold):
+        nu = self.emb_model.similarity(qterm, docterm) if (self.emb_model.__contains__(qterm) and self.emb_model.__contains__(docterm)) else 0
+        if nu < threshold:
+            return 0
+
+        de = 0
+        for term in self.doc_tf[docid].keys():#TODO could I precalc this? or is it too big? for each doc it needs |d| to store which is okay. LATER
+            temp_sim = self.emb_model.similarity(term, docterm) if (self.emb_model.__contains__(term) and self.emb_model.__contains__(docterm)) else 0
+            de += temp_sim if temp_sim >= threshold else 0
+
+        return nu/de
+
+    def id2vec(self, qid, posid, negid=None, query=None):#todo change this later ...
         if query is not None:
             if qid is None:
                 query = self["tokenizer"].tokenize(query)
