@@ -21,6 +21,10 @@ jobs:
       uses: actions/setup-java@v1
       with:
               java-version: '11'
+    - name: black
+      uses: lgeiger/black-action@master
+      with:
+        args: ". --config capreolus/pyproject.toml"
     - name: pull .txt files
       run: |
         cd capreolus/data
