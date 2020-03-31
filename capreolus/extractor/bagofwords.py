@@ -19,11 +19,7 @@ class BagOfWords(Extractor):
 
     name = "bagofwords"
     dependencies = {
-        "index": Dependency(
-            module="index",
-            name="anserini",
-            config_overrides={"indexstops": True, "stemmer": "none"},
-        ),
+        "index": Dependency(module="index", name="anserini", config_overrides={"indexstops": True, "stemmer": "none"}),
         "tokenizer": Dependency(module="tokenizer", name="anserini"),
     }
     pad = 0
@@ -69,9 +65,7 @@ class BagOfWords(Extractor):
     def _build_vocab_unigram(self, qids, docids, topics):
         tokenize = self["tokenizer"].tokenize
         self.qid2toks = {qid: tokenize(topics[qid]) for qid in qids}
-        self.docid2toks = {
-            docid: tokenize(self["index"].get_doc(docid)) for docid in docids
-        }
+        self.docid2toks = {docid: tokenize(self["index"].get_doc(docid)) for docid in docids}
         self._extend_stoi(self.qid2toks.values(), calc_idf=True)
         self._extend_stoi(self.docid2toks.values())
         self.itos = {i: s for s, i in self.stoi.items()}
@@ -79,13 +73,8 @@ class BagOfWords(Extractor):
 
     def _build_vocab_trigram(self, qids, docids, topics):
         tokenize = self["tokenizer"].tokenize
-        self.qid2toks = {
-            qid: self.get_trigrams_for_toks(tokenize(topics[qid])) for qid in qids
-        }
-        self.docid2toks = {
-            docid: self.get_trigrams_for_toks(tokenize(self["index"].get_doc(docid)))
-            for docid in docids
-        }
+        self.qid2toks = {qid: self.get_trigrams_for_toks(tokenize(topics[qid])) for qid in qids}
+        self.docid2toks = {docid: self.get_trigrams_for_toks(tokenize(self["index"].get_doc(docid))) for docid in docids}
         self._extend_stoi(self.qid2toks.values(), calc_idf=True)
         self._extend_stoi(self.docid2toks.values())
         self.itos = {i: s for s, i in self.stoi.items()}
@@ -108,11 +97,7 @@ class BagOfWords(Extractor):
         self.embeddings = self.stoi
 
     def exist(self):
-        return (
-            hasattr(self, "qid2toks")
-            and hasattr(self, "docid2toks")
-            and len(self.stoi) > 1
-        )
+        return hasattr(self, "qid2toks") and hasattr(self, "docid2toks") and len(self.stoi) > 1
 
     def create(self, qids, docids, topics):
         if self.exist():
@@ -135,9 +120,7 @@ class BagOfWords(Extractor):
                 query_toks = self["tokenizer"].tokenize(query)
                 pass
             else:
-                raise RuntimeError(
-                    "received both a qid and query, but only one can be passed"
-                )
+                raise RuntimeError("received both a qid and query, but only one can be passed")
 
         else:
             query_toks = self.qid2toks[q_id]
@@ -157,7 +140,7 @@ class BagOfWords(Extractor):
             "posdocid": posdoc_id,
             "query": transformed_query,
             "posdoc": self.transform_txt(posdoc_toks, self.cfg["maxdoclen"]),
-            "query_idf": query_idf_vector
+            "query_idf": query_idf_vector,
         }
         if negdoc_id is not None:
             negdoc_toks = self.docid2toks.get(negdoc_id)
@@ -165,9 +148,7 @@ class BagOfWords(Extractor):
                 logger.debug("missing docid %s", negdoc_id)
                 return None
             transformed["negdocid"] = negdoc_id
-            transformed["negdoc"] = self.transform_txt(
-                negdoc_toks, self.cfg["maxdoclen"]
-            )
+            transformed["negdoc"] = self.transform_txt(negdoc_toks, self.cfg["maxdoclen"])
 
         return transformed
 

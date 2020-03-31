@@ -59,9 +59,7 @@ class AnseriniIndex(Index):
         outdir = self.get_index_path()
         stops = "-keepStopwords" if self.cfg["indexstops"] else ""
 
-        collection_path, document_type, generator_type = self[
-            "collection"
-        ].get_path_and_types()
+        collection_path, document_type, generator_type = self["collection"].get_path_and_types()
 
         anserini_fat_jar = Anserini.get_fat_jar()
         if self["collection"].is_large_collection:
@@ -73,9 +71,7 @@ class AnseriniIndex(Index):
         logger.debug(cmd)
         os.makedirs(os.path.basename(outdir), exist_ok=True)
 
-        app = subprocess.Popen(
-            cmd.split(), stdout=subprocess.PIPE, universal_newlines=True
-        )
+        app = subprocess.Popen(cmd.split(), stdout=subprocess.PIPE, universal_newlines=True)
 
         # Anserini output is verbose, so ignore DEBUG log lines and send other output through our logger
         for line in app.stdout:

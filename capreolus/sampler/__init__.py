@@ -25,13 +25,11 @@ class TrainDataset(torch.utils.data.IterableDataset):
                 del qid_docid_to_rank[qid]
 
         self.qid_to_reldocs = {
-            qid: [docid for docid in docids if qrels[qid].get(docid, 0) > 0]
-            for qid, docids in qid_docid_to_rank.items()
+            qid: [docid for docid in docids if qrels[qid].get(docid, 0) > 0] for qid, docids in qid_docid_to_rank.items()
         }
 
         self.qid_to_negdocs = {
-            qid: [docid for docid in docids if qrels[qid].get(docid, 0) <= 0]
-            for qid, docids in qid_docid_to_rank.items()
+            qid: [docid for docid in docids if qrels[qid].get(docid, 0) <= 0] for qid, docids in qid_docid_to_rank.items()
         }
 
         # remove any qids that do not have both relevant and non-relevant documents for training
@@ -40,12 +38,7 @@ class TrainDataset(torch.utils.data.IterableDataset):
             negdocs = len(self.qid_to_negdocs[qid])
 
             if posdocs == 0 or negdocs == 0:
-                logger.warning(
-                    "removing training qid=%s with %s positive docs and %s negative docs",
-                    qid,
-                    posdocs,
-                    negdocs,
-                )
+                logger.warning("removing training qid=%s with %s positive docs and %s negative docs", qid, posdocs, negdocs)
                 del self.qid_to_reldocs[qid]
                 del self.qid_to_negdocs[qid]
 
@@ -67,10 +60,7 @@ class TrainDataset(torch.utils.data.IterableDataset):
                 except MissingDocError:
                     # at training time we warn but ignore on missing docs
                     logger.warning(
-                        "skipping training pair with missing features: qid=%s posid=%s negid=%s",
-                        qid,
-                        posdocid,
-                        negdocid,
+                        "skipping training pair with missing features: qid=%s posid=%s negid=%s", qid, posdocid, negdocid
                     )
 
     def __iter__(self):
@@ -94,11 +84,7 @@ class PredDataset(torch.utils.data.IterableDataset):
                         yield extractor.id2vec(qid, docid)
                     except MissingDocError:
                         # when predictiong we raise an exception on missing docs, as this may invalidate results
-                        logger.error(
-                            "got none features for prediction: qid=%s posid=%s",
-                            qid,
-                            docid,
-                        )
+                        logger.error("got none features for prediction: qid=%s posid=%s", qid, docid)
                         raise
 
         self.generator_func = genf

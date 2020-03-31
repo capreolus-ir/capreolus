@@ -65,10 +65,7 @@ setuptools.setup(
         "pyserini==0.7.0.0",
         "scipy==1.3.0",
     ],
-    classifiers=[
-        "Programming Language :: Python :: 3",
-        "Operating System :: OS Independent",
-    ],
+    classifiers=["Programming Language :: Python :: 3", "Operating System :: OS Independent"],
     python_requires=">=3.6",
     cmdclass={"develop": PostDevelopCommand, "install": PostInstallCommand},
     include_package_data=True,

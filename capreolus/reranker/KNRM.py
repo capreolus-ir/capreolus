@@ -3,12 +3,7 @@ import torch
 from torch import nn
 
 from capreolus.reranker import Reranker
-from capreolus.reranker.common import (
-    create_emb_layer,
-    SimilarityMatrix,
-    RbfKernel,
-    RbfKernelBank,
-)
+from capreolus.reranker.common import create_emb_layer, SimilarityMatrix, RbfKernel, RbfKernelBank
 from capreolus.utils.loginit import get_logger
 
 logger = get_logger(__name__)  # pylint: disable=invalid-name
@@ -23,9 +18,7 @@ class KNRM_class(nn.Module):
 
         mus = [-0.9, -0.7, -0.5, -0.3, -0.1, 0.1, 0.3, 0.5, 0.7, 0.9, 1.0]
         sigmas = [0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.001]
-        self.kernels = RbfKernelBank(
-            mus, sigmas, dim=1, requires_grad=config["gradkernels"]
-        )
+        self.kernels = RbfKernelBank(mus, sigmas, dim=1, requires_grad=config["gradkernels"])
         non_trainable = not self.p["finetune"]
         self.embedding = create_emb_layer(extractor.embeddings, non_trainable=non_trainable)
         self.simmat = SimilarityMatrix(padding=extractor.pad)
@@ -34,11 +27,7 @@ class KNRM_class(nn.Module):
         if config["singlefc"]:
             combine_steps = [nn.Linear(self.kernels.count() * channels, 1)]
         else:
-            combine_steps = [
-                nn.Linear(self.kernels.count() * channels, 30),
-                nn.Tanh(),
-                nn.Linear(30, 1),
-            ]
+            combine_steps = [nn.Linear(self.kernels.count() * channels, 30), nn.Tanh(), nn.Linear(30, 1)]
         if config["scoretanh"]:
             combine_steps.append(nn.Tanh())
         self.combine = nn.Sequential(*combine_steps)
@@ -76,12 +65,8 @@ class KNRM(Reranker):
     @staticmethod
     def config():
         gradkernels = True  # backprop through mus and sigmas
-        scoretanh = (
-            False
-        )  # use a tanh on the prediction as in paper (True) or do not use a    nonlinearity (False)
-        singlefc = (
-            True
-        )  # use single fully connected layer as in paper (True) or 2 fully connected layers (False)
+        scoretanh = False  # use a tanh on the prediction as in paper (True) or do not use a    nonlinearity (False)
+        singlefc = True  # use single fully connected layer as in paper (True) or 2 fully connected layers (False)
         finetune = False  # Fine tune the embedding
 
     def build(self):
