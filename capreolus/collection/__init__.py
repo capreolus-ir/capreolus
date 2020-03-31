@@ -117,15 +117,29 @@ class Robust04(Collection):
 
         contents = {fn.lower(): fn for fn in os.listdir(path)}
         if "news_data" in contents:
-            contents = {fn.lower(): fn for fn in os.listdir(os.path.join(path, contents["news_data"]))}
+            contents = {
+                fn.lower(): fn
+                for fn in os.listdir(os.path.join(path, contents["news_data"]))
+            }
 
-        if "fbis" in contents and "fr94" in contents and "ft" in contents and "latimes" in contents:
+        if (
+            "fbis" in contents
+            and "fr94" in contents
+            and "ft" in contents
+            and "latimes" in contents
+        ):
             return True
 
         return False
 
     def download_index(
-        self, cachedir, url, sha256, index_directory_inside, index_cache_path_string, index_expected_document_count
+        self,
+        cachedir,
+        url,
+        sha256,
+        index_directory_inside,
+        index_cache_path_string,
+        index_expected_document_count,
     ):
         # Download the collection from URL and extract into a path in the cache directory.
         # To avoid re-downloading every call, we create an empty '/done' file in this directory on success.
@@ -141,16 +155,24 @@ class Robust04(Collection):
         archive_file = os.path.join(tmp_dir, "archive_file")
         os.makedirs(document_dir, exist_ok=True)
         os.makedirs(tmp_dir, exist_ok=True)
-        logger.info("downloading index for missing collection %s to temporary file %s", self.name, archive_file)
+        logger.info(
+            "downloading index for missing collection %s to temporary file %s",
+            self.name,
+            archive_file,
+        )
         download_file(url, archive_file, expected_hash=sha256)
 
-        logger.info("extracting index to %s (before moving to correct cache path)", tmp_dir)
+        logger.info(
+            "extracting index to %s (before moving to correct cache path)", tmp_dir
+        )
         with tarfile.open(archive_file) as tar:
             tar.extractall(path=tmp_dir)
 
         extracted_dir = os.path.join(tmp_dir, index_directory_inside)
         if not (os.path.exists(extracted_dir) and os.path.isdir(extracted_dir)):
-            raise ValueError(f"could not find expected index directory {extracted_dir} in {tmp_dir}")
+            raise ValueError(
+                f"could not find expected index directory {extracted_dir} in {tmp_dir}"
+            )
 
         # 2. Move index to its correct location in the cache
         index_dir = os.path.join(cachedir, index_cache_path_string, "index")
@@ -160,7 +182,9 @@ class Robust04(Collection):
             shutil.move(extracted_dir, index_dir)
 
         # 3. Extract raw documents from the Anserini index to document_dir
-        anserini_index_to_trec_docs(index_dir, document_dir, index_expected_document_count)
+        anserini_index_to_trec_docs(
+            index_dir, document_dir, index_expected_document_count
+        )
 
         # remove temporary files and create a /done we can use to verify extraction was successful
         shutil.rmtree(tmp_dir)
@@ -203,7 +227,11 @@ class ANTIQUE(Collection):
         os.makedirs(tmp_dir, exist_ok=True)
         os.makedirs(document_dir, exist_ok=True)
 
-        download_file(url, tmp_filename, expected_hash="68b6688f5f2668c93f0e8e43384f66def768c4da46da4e9f7e2629c1c47a0c36")
+        download_file(
+            url,
+            tmp_filename,
+            expected_hash="68b6688f5f2668c93f0e8e43384f66def768c4da46da4e9f7e2629c1c47a0c36",
+        )
         self._convert_to_trec(inp_path=tmp_filename, outp_path=coll_filename)
         logger.info(f"antique collection file prepared, stored at {coll_filename}")
 
@@ -220,13 +248,20 @@ class ANTIQUE(Collection):
         with open(inp_path, "rt", encoding="utf-8") as f:
             for line in f:
                 docid, doc = line.strip().split("\t")
-                fout.write(f"<DOC>\n<DOCNO>{docid}</DOCNO>\n<TEXT>\n{doc}\n</TEXT>\n</DOC>\n")
+                fout.write(
+                    f"<DOC>\n<DOCNO>{docid}</DOCNO>\n<TEXT>\n{doc}\n</TEXT>\n</DOC>\n"
+                )
         fout.close()
-        logger.debug(f"Converted file {os.path.basename(inp_path)} to TREC format, output to: {outp_path}")
+        logger.debug(
+            f"Converted file {os.path.basename(inp_path)} to TREC format, output to: {outp_path}"
+        )
 
     def _validate_document_path(self, path):
         """ Checks that the sha256sum is correct """
-        return hash_file(path) == "409e0960f918970977ceab9e5b1d372f45395af25d53b95644bdc9ccbbf973da"
+        return (
+            hash_file(path)
+            == "409e0960f918970977ceab9e5b1d372f45395af25d53b95644bdc9ccbbf973da"
+        )
 
 
 class MSMarco(Collection):
