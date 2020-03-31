@@ -24,12 +24,10 @@ class BagOfWords(Extractor):
     }
     pad = 0
     pad_tok = "<pad>"
-    tokenizer_name = "anserini"
 
     @staticmethod
     def config():
         datamode = "unigram"  # type of input: 'unigram' or 'trigram'
-        keepstops = False  # include stopwords in the reranker's input
         maxqlen = 4
         maxdoclen = 800
         usecache = False

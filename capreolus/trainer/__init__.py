@@ -215,7 +215,6 @@ class PytorchTrainer(Trainer):
                             break
 
         dev_best_metric = -np.inf
-        iters_so_far = 0
         validation_frequency = self.cfg["validatefreq"]
         for niter in range(initial_iter, self.cfg["niters"]):
             model.train()
@@ -228,10 +227,9 @@ class PytorchTrainer(Trainer):
             # write model weights to file
             weights_fn = weights_output_path / f"{niter}.p"
             reranker.save_weights(weights_fn, self.optimizer)
-            iters_so_far += 1
             # predict performance on dev set
 
-            if iters_so_far % validation_frequency == 0:
+            if niter % validation_frequency == 0:
                 pred_fn = dev_output_path / f"{niter}.run"
                 preds = self.predict(reranker, dev_data, pred_fn)
 
