@@ -18,9 +18,7 @@ class PositionalEncoding(nn.Module):
 
         pe = torch.zeros(max_len, d_model)
         position = torch.arange(0, max_len, dtype=torch.float).unsqueeze(1)
-        div_term = torch.exp(
-            torch.arange(0, d_model, 2).float() * (-math.log(10000.0) / d_model)
-        )
+        div_term = torch.exp(torch.arange(0, d_model, 2).float() * (-math.log(10000.0) / d_model))
         pe[:, 0::2] = torch.sin(position * div_term)
         pe[:, 1::2] = torch.cos(position * div_term)
         pe = pe.unsqueeze(0).transpose(0, 1)
@@ -55,12 +53,8 @@ class TK_class(nn.Module):
 
         self.position_encoder = PositionalEncoding(self.embeddim)
         self.mixer = nn.Parameter(torch.full([1, 1, 1], 0.9, dtype=torch.float32, requires_grad=True))
-        encoder_layers = TransformerEncoderLayer(
-            self.embeddim, config["numattheads"], config["ffdim"], dropout
-        )
-        self.transformer_encoder = TransformerEncoder(
-            encoder_layers, config["numlayers"]
-        )
+        encoder_layers = TransformerEncoderLayer(self.embeddim, config["numattheads"], config["ffdim"], dropout)
+        self.transformer_encoder = TransformerEncoder(encoder_layers, config["numlayers"])
 
         self.s_log_fcc = nn.Linear(len(self.mus), 1, bias=False)
         self.s_len_fcc = nn.Linear(len(self.mus), 1, bias=False)
@@ -95,16 +89,17 @@ class TK_class(nn.Module):
         batch_size = embedding.shape[0]
         seq_len = embedding.shape[1]
         # Get a normal mask of shape (batch_size, seq_len). Entry would be 0 if a seq element should be masked
-        mask = ((embedding != torch.zeros(self.embeddim).to(embedding.device)).to(dtype=embedding.dtype).sum(
-            -1) != 0).to(dtype=embedding.dtype)
+        mask = ((embedding != torch.zeros(self.embeddim).to(embedding.device)).to(dtype=embedding.dtype).sum(-1) != 0).to(
+            dtype=embedding.dtype
+        )
 
         # The square attention mask
         encoder_mask = torch.zeros(batch_size, seq_len, seq_len).to(embedding.device)
         # Set -inf on all rows corresponding to a pad token
-        encoder_mask[mask == 0] = float('-inf')
+        encoder_mask[mask == 0] = float("-inf")
         # Set -inf on all columns corresponding to a pad token (the tricky bit)
         col_mask = mask.reshape(batch_size, 1, seq_len).expand(batch_size, seq_len, seq_len)
-        encoder_mask[col_mask == 0] = float('-inf')
+        encoder_mask[col_mask == 0] = float("-inf")
 
         return torch.cat([encoder_mask] * self.p["numattheads"])
 
@@ -123,7 +118,7 @@ class TK_class(nn.Module):
         if self.p["usemixer"]:
             return self.mixer * embedding + (1 - self.mixer) * contextual_embedding
         else:
-            return self.p["alpha"] * embedding + (1-self.p["alpha"]) * contextual_embedding
+            return self.p["alpha"] * embedding + (1 - self.p["alpha"]) * contextual_embedding
 
     def forward(self, doctoks, querytoks, query_idf):
         batches = doctoks.shape[0]
@@ -155,12 +150,8 @@ class TK(Reranker):
     @staticmethod
     def config():
         gradkernels = True  # backprop through mus and sigmas
-        scoretanh = (
-            False
-        )  # use a tanh on the prediction as in paper (True) or do not use a nonlinearity (False)
-        singlefc = (
-            True
-        )  # use single fully connected layer as in paper (True) or 2 fully connected layers (False)
+        scoretanh = False  # use a tanh on the prediction as in paper (True) or do not use a nonlinearity (False)
+        singlefc = True  # use single fully connected layer as in paper (True) or 2 fully connected layers (False)
         projdim = 32
         ffdim = 100
         numlayers = 2

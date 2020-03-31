@@ -139,9 +139,7 @@ latex_elements = {
 # Grouping the document tree into LaTeX files. List of tuples
 # (source start file, target name, title,
 #  author, documentclass [howto, manual, or own class]).
-latex_documents = [
-    (master_doc, "Capreolus.tex", "Capreolus Documentation", "", "manual")
-]
+latex_documents = [(master_doc, "Capreolus.tex", "Capreolus Documentation", "", "manual")]
 
 
 # -- Options for manual page output ------------------------------------------
@@ -157,15 +155,7 @@ man_pages = [(master_doc, "capreolus", "Capreolus Documentation", [author], 1)]
 # (source start file, target name, title, author,
 #  dir menu entry, description, category)
 texinfo_documents = [
-    (
-        master_doc,
-        "Capreolus",
-        "Capreolus Documentation",
-        author,
-        "",
-        "One line description of project.",
-        "Miscellaneous",
-    )
+    (master_doc, "Capreolus", "Capreolus Documentation", author, "", "One line description of project.", "Miscellaneous")
 ]
 
 
@@ -181,12 +171,7 @@ napoleon_google_docstring = True
 autoapi_type = "python"
 autoapi_dirs = ["../capreolus"]
 autoapi_ignore = ["*tests/*", "flycheck_*"]
-autoapi_options = [
-    "members",
-    "undoc-members",
-    "show-inheritance",
-    "show-module-summary",
-]
+autoapi_options = ["members", "undoc-members", "show-inheritance", "show-module-summary"]
 # do not show _private and __special__ members
 # autoapi_options = ['members', 'undoc-members', 'private-members', 'show-inheritance', 'special-members', 'show-module-summary']
 

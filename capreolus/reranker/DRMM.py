@@ -20,12 +20,7 @@ class DRMM_class(nn.Module):
 
         self.embedding = create_emb_layer(extractor.embeddings, non_trainable=True)
 
-        self.ffw = nn.Sequential(
-            nn.Linear(self.nbins + 1, self.nodes),
-            nn.Tanh(),
-            nn.Linear(self.nodes, 1),
-            nn.Tanh(),
-        )
+        self.ffw = nn.Sequential(nn.Linear(self.nbins + 1, self.nodes), nn.Tanh(), nn.Linear(self.nodes, 1), nn.Tanh())
 
         emb_dim = self.embedding.weight.size(-1)
         if self.gate_type == "IDF":
@@ -33,9 +28,7 @@ class DRMM_class(nn.Module):
         elif self.gate_type == "TV":
             self.gates = nn.Linear(emb_dim, 1, bias=False)
         else:
-            raise ValueError(
-                "Invalid value for gateType: gateType should be either IDF or TV"
-            )
+            raise ValueError("Invalid value for gateType: gateType should be either IDF or TV")
         self.output_layer = nn.Linear(1, 1)
 
         # initialize FC and gate weight in the same way as MatchZoo
@@ -55,20 +48,14 @@ class DRMM_class(nn.Module):
 
         # compute cos similarity
         q_norm = torch.sqrt((queries * queries).sum(dim=-1) + 1e-7)[:, :, None] + 1e-7
-        d_norm = (
-            torch.sqrt((documents * documents).sum(dim=-1) + 1e-7)[:, None, :] + 1e-7
-        )
+        d_norm = torch.sqrt((documents * documents).sum(dim=-1) + 1e-7)[:, None, :] + 1e-7
 
         sim_matrix = torch.bmm(queries, documents.transpose(2, 1))  # (B, Tq, Td)
         sim_matrix = sim_matrix / q_norm
         sim_matrix = sim_matrix / d_norm  # (B, Tq, Td)
 
-        sim_matrix += (
-            1 - d_masks[:, None, :]
-        ) * 1e7  # assign large number on <PAD> pos
-        hist = torch.zeros(
-            [sim_matrix.size(0), sim_matrix.size(1), self.nbins + 1], dtype=torch.float
-        )
+        sim_matrix += (1 - d_masks[:, None, :]) * 1e7  # assign large number on <PAD> pos
+        hist = torch.zeros([sim_matrix.size(0), sim_matrix.size(1), self.nbins + 1], dtype=torch.float)
 
         idxs = list(range(self.nbins))
         bin_upperbounds = torch.linspace(-1, 1, self.nbins + 1)[1:].to(queries.device)
@@ -76,9 +63,7 @@ class DRMM_class(nn.Module):
             hist[:, :, i] = (sim_matrix < bin_upperbound).sum(dim=-1)
         hist[:, :, -1] = ((sim_matrix > 0.999) * (sim_matrix < 1.001)).sum(dim=-1)
 
-        for i in list(
-            range(self.nbins - 1, 0, -1)
-        ):  # exclude idx=config['nbins'] and idx=0
+        for i in list(range(self.nbins - 1, 0, -1)):  # exclude idx=config['nbins'] and idx=0
             hist[:, :, i] -= hist[:, :, i - 1]
 
         hist += 1
@@ -89,9 +74,7 @@ class DRMM_class(nn.Module):
         elif self.hist_type == "LCH":
             hist = torch.log(hist)
         elif self.hist_type != "CH":
-            raise ValueError(
-                "Invalid value for gateType: gateType should be either IDF or TV"
-            )
+            raise ValueError("Invalid value for gateType: gateType should be either IDF or TV")
 
         return hist
 
@@ -104,15 +87,11 @@ class DRMM_class(nn.Module):
         atten_mask = (1 - q_masks) * -1e7
 
         if self.gate_type == "IDF":
-            gate_prob = (
-                self.gates(query_idf[:, :, None]).squeeze() + atten_mask
-            )  # (B, 1)
+            gate_prob = self.gates(query_idf[:, :, None]).squeeze() + atten_mask  # (B, 1)
         elif self.gate_type == "TV":
             gate_prob = self.gates(queries).squeeze() + atten_mask  # (B, Tq)
         else:
-            raise ValueError(
-                "Invalid value for histType: histType should be 'CH', 'NH', or 'LCH'"
-            )
+            raise ValueError("Invalid value for histType: histType should be 'CH', 'NH', or 'LCH'")
 
         gate_prob = F.softmax(gate_prob, dim=1)  # (B, Tq)
         return gate_prob

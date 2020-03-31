@@ -125,10 +125,7 @@ def anserini_index_to_trec_docs(index_dir, output_dir, expected_doc_count):
             f"we expected to retrieve {expected_doc_count} documents from the index, but actually found {len(docids)}"
         )
 
-    output_handles = [
-        gzip.open(os.path.join(output_dir, f"{i}.gz"), "wt", encoding="utf-8")
-        for i in range(100, 200)
-    ]
+    output_handles = [gzip.open(os.path.join(output_dir, f"{i}.gz"), "wt", encoding="utf-8") for i in range(100, 200)]
 
     for docidx, docid in enumerate(sorted(docids)):
         txt = document_to_trectxt(docid, index_utils.getRawDocument(docid))

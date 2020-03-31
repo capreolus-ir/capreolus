@@ -23,17 +23,7 @@ def test_pacrr(dummy_index, tmpdir, tmpdir_as_cache, monkeypatch):
 
     monkeypatch.setattr(EmbedText, "_get_pretrained_emb", fake_magnitude_embedding)
 
-    reranker = PACRR(
-        {
-            "mingram": 1,
-            "maxgram": 3,
-            "nfilters": 32,
-            "idf": True,
-            "kmax": 2,
-            "combine": 32,
-            "nonlinearity": "relu",
-        }
-    )
+    reranker = PACRR({"mingram": 1, "maxgram": 3, "nfilters": 32, "idf": True, "kmax": 2, "combine": 32, "nonlinearity": "relu"})
     trainer = PytorchTrainer(
         {
             "maxdoclen": 800,
@@ -46,7 +36,7 @@ def test_pacrr(dummy_index, tmpdir, tmpdir_as_cache, monkeypatch):
             "softmaxloss": True,
             "interactive": False,
             "fastforward": True,
-            "validatefreq": 1
+            "validatefreq": 1,
         }
     )
     reranker.modules["trainer"] = trainer
@@ -69,26 +59,14 @@ def test_pacrr(dummy_index, tmpdir, tmpdir_as_cache, monkeypatch):
     metric = "map"
     benchmark = DummyBenchmark({"fold": "s1", "rundocsonly": True})
 
-    extractor.create(
-        ["301"],
-        ["LA010189-0001", "LA010189-0002"],
-        benchmark.topics[benchmark.query_type],
-    )
+    extractor.create(["301"], ["LA010189-0001", "LA010189-0002"], benchmark.topics[benchmark.query_type])
     reranker.build()
 
     train_run = {"301": ["LA010189-0001", "LA010189-0002"]}
-    train_dataset = TrainDataset(
-        qid_docid_to_rank=train_run, qrels=benchmark.qrels, extractor=extractor
-    )
+    train_dataset = TrainDataset(qid_docid_to_rank=train_run, qrels=benchmark.qrels, extractor=extractor)
     dev_dataset = PredDataset(qid_docid_to_rank=train_run, extractor=extractor)
     reranker["trainer"].train(
-        reranker,
-        train_dataset,
-        Path(tmpdir) / "train",
-        dev_dataset,
-        Path(tmpdir) / "dev",
-        benchmark.qrels,
-        metric,
+        reranker, train_dataset, Path(tmpdir) / "train", dev_dataset, Path(tmpdir) / "dev", benchmark.qrels, metric
     )
 
     assert os.path.exists(Path(tmpdir) / "train" / "dev.best")
@@ -113,19 +91,12 @@ def test_dssm_unigram(dummy_index, tmpdir, tmpdir_as_cache, monkeypatch):
             "softmaxloss": True,
             "interactive": False,
             "fastforward": True,
-            "validatefreq": 1
+            "validatefreq": 1,
         }
     )
     reranker.modules["trainer"] = trainer
     reranker.modules["extractor"] = BagOfWords(
-        {
-            "_name": "bagofwords",
-            "datamode": "unigram",
-            "keepstops": True,
-            "maxqlen": 4,
-            "maxdoclen": 800,
-            "usecache": False,
-        }
+        {"_name": "bagofwords", "datamode": "unigram", "keepstops": True, "maxqlen": 4, "maxdoclen": 800, "usecache": False}
     )
     extractor = reranker.modules["extractor"]
     extractor.modules["index"] = dummy_index
@@ -135,26 +106,14 @@ def test_dssm_unigram(dummy_index, tmpdir, tmpdir_as_cache, monkeypatch):
     metric = "map"
     benchmark = DummyBenchmark({"fold": "s1", "rundocsonly": True})
 
-    extractor.create(
-        ["301"],
-        ["LA010189-0001", "LA010189-0002"],
-        benchmark.topics[benchmark.query_type],
-    )
+    extractor.create(["301"], ["LA010189-0001", "LA010189-0002"], benchmark.topics[benchmark.query_type])
     reranker.build()
 
     train_run = {"301": ["LA010189-0001", "LA010189-0002"]}
-    train_dataset = TrainDataset(
-        qid_docid_to_rank=train_run, qrels=benchmark.qrels, extractor=extractor
-    )
+    train_dataset = TrainDataset(qid_docid_to_rank=train_run, qrels=benchmark.qrels, extractor=extractor)
     dev_dataset = PredDataset(qid_docid_to_rank=train_run, extractor=extractor)
     reranker["trainer"].train(
-        reranker,
-        train_dataset,
-        Path(tmpdir) / "train",
-        dev_dataset,
-        Path(tmpdir) / "dev",
-        benchmark.qrels,
-        metric,
+        reranker, train_dataset, Path(tmpdir) / "train", dev_dataset, Path(tmpdir) / "dev", benchmark.qrels, metric
     )
 
     assert os.path.exists(Path(tmpdir) / "train" / "dev.best")
@@ -178,7 +137,7 @@ def test_tk(dummy_index, tmpdir, tmpdir_as_cache, monkeypatch):
             "alpha": 0.5,
             "usemask": False,
             "usemixer": True,
-            "finetune": True
+            "finetune": True,
         }
     )
     trainer = PytorchTrainer(
@@ -193,7 +152,7 @@ def test_tk(dummy_index, tmpdir, tmpdir_as_cache, monkeypatch):
             "softmaxloss": True,
             "interactive": False,
             "fastforward": False,
-            "validatefreq": 1
+            "validatefreq": 1,
         }
     )
     reranker.modules["trainer"] = trainer
@@ -205,7 +164,7 @@ def test_tk(dummy_index, tmpdir, tmpdir_as_cache, monkeypatch):
             "calcidf": True,
             "maxqlen": 4,
             "maxdoclen": 800,
-            "usecache": False
+            "usecache": False,
         }
     )
     extractor = reranker.modules["extractor"]
@@ -216,26 +175,14 @@ def test_tk(dummy_index, tmpdir, tmpdir_as_cache, monkeypatch):
     metric = "map"
     benchmark = DummyBenchmark({"fold": "s1", "rundocsonly": True})
 
-    extractor.create(
-        ["301"],
-        ["LA010189-0001", "LA010189-0002"],
-        benchmark.topics[benchmark.query_type],
-    )
+    extractor.create(["301"], ["LA010189-0001", "LA010189-0002"], benchmark.topics[benchmark.query_type])
     reranker.build()
 
     train_run = {"301": ["LA010189-0001", "LA010189-0002"]}
-    train_dataset = TrainDataset(
-        qid_docid_to_rank=train_run, qrels=benchmark.qrels, extractor=extractor
-    )
+    train_dataset = TrainDataset(qid_docid_to_rank=train_run, qrels=benchmark.qrels, extractor=extractor)
     dev_dataset = PredDataset(qid_docid_to_rank=train_run, extractor=extractor)
     reranker["trainer"].train(
-        reranker,
-        train_dataset,
-        Path(tmpdir) / "train",
-        dev_dataset,
-        Path(tmpdir) / "dev",
-        benchmark.qrels,
-        metric,
+        reranker, train_dataset, Path(tmpdir) / "train", dev_dataset, Path(tmpdir) / "dev", benchmark.qrels, metric
     )
 
     assert os.path.exists(Path(tmpdir) / "train" / "dev.best")
@@ -259,7 +206,7 @@ def test_tk_get_mask(tmpdir, dummy_index, monkeypatch):
             "alpha": 0.5,
             "usemask": True,
             "usemixer": True,
-            "finetune": True
+            "finetune": True,
         }
     )
     reranker.modules["extractor"] = EmbedText(
@@ -272,7 +219,7 @@ def test_tk_get_mask(tmpdir, dummy_index, monkeypatch):
             "maxdoclen": 800,
             "usecache": False,
             "fastforward": True,
-            "validatefreq": 1
+            "validatefreq": 1,
         }
     )
     extractor = reranker.modules["extractor"]
@@ -282,11 +229,7 @@ def test_tk_get_mask(tmpdir, dummy_index, monkeypatch):
     extractor.modules["tokenizer"] = tokenizer
     benchmark = DummyBenchmark({"fold": "s1", "rundocsonly": True})
 
-    extractor.create(
-        ["301"],
-        ["LA010189-0001", "LA010189-0002"],
-        benchmark.topics[benchmark.query_type],
-    )
+    extractor.create(["301"], ["LA010189-0001", "LA010189-0002"], benchmark.topics[benchmark.query_type])
     reranker.build()
 
     # 3 batches, each of seq len 4, and embedding dim 8
@@ -301,19 +244,30 @@ def test_tk_get_mask(tmpdir, dummy_index, monkeypatch):
 
     mask = reranker.model.get_mask(embedding)
 
-    assert torch.equal(mask[0], torch.tensor([
-        [0, float('-inf'), 0, float('-inf')],
-        [float('-inf'), float('-inf'), float('-inf'), float('-inf')],
-        [0, float('-inf'), 0, float('-inf')],
-        [float('-inf'), float('-inf'), float('-inf'), float('-inf')]
-        ], dtype=torch.float))
+    assert torch.equal(
+        mask[0],
+        torch.tensor(
+            [
+                [0, float("-inf"), 0, float("-inf")],
+                [float("-inf"), float("-inf"), float("-inf"), float("-inf")],
+                [0, float("-inf"), 0, float("-inf")],
+                [float("-inf"), float("-inf"), float("-inf"), float("-inf")],
+            ],
+            dtype=torch.float,
+        ),
+    )
 
-    assert torch.equal(mask[1], torch.tensor([
-        [float('-inf'), float('-inf'), float('-inf'), float('-inf')],
-        [float('-inf'), 0, float('-inf'), 0],
-        [float('-inf'), float('-inf'), float('-inf'), float('-inf')],
-        [float('-inf'), 0, float('-inf'), 0]
-
-    ], dtype=torch.float))
+    assert torch.equal(
+        mask[1],
+        torch.tensor(
+            [
+                [float("-inf"), float("-inf"), float("-inf"), float("-inf")],
+                [float("-inf"), 0, float("-inf"), 0],
+                [float("-inf"), float("-inf"), float("-inf"), float("-inf")],
+                [float("-inf"), 0, float("-inf"), 0],
+            ],
+            dtype=torch.float,
+        ),
+    )
 
     assert torch.equal(mask[2], torch.zeros(4, 4, dtype=torch.float))

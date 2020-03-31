@@ -67,14 +67,7 @@ def download_file(url, outfn, expected_hash=None):
 
     with open(outfn, "wb") as outf:
         r = requests.get(url, stream=True)
-        with tqdm(
-            total=size,
-            unit="B",
-            unit_scale=True,
-            unit_divisor=1024,
-            desc=f"downloading {url}",
-            miniters=1,
-        ) as pbar:
+        with tqdm(total=size, unit="B", unit_scale=True, unit_divisor=1024, desc=f"downloading {url}", miniters=1) as pbar:
             for chunk in r.iter_content(32 * 1024):
                 outf.write(chunk)
                 pbar.update(len(chunk))
@@ -84,9 +77,7 @@ def download_file(url, outfn, expected_hash=None):
 
     found_hash = hash_file(outfn)
     if found_hash != expected_hash:
-        raise IOError(
-            f"expected file {outfn} downloaded from {url} to have SHA256 hash {expected_hash} but got {found_hash}"
-        )
+        raise IOError(f"expected file {outfn} downloaded from {url} to have SHA256 hash {expected_hash} but got {found_hash}")
 
 
 def hash_file(fn):
@@ -135,9 +126,7 @@ def plot_loss(history, outfn, interactive=False):
     plt.close()
 
 
-def plot_metrics(
-    metrics, outfn, interactive=False, show={"map", "P_20", "ndcg_cut_20"}
-):
+def plot_metrics(metrics, outfn, interactive=False, show={"map", "P_20", "ndcg_cut_20"}):
     title = "maxs: "
     fig = plt.figure()
     for metric, xys in metrics.items():

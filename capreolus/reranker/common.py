@@ -34,29 +34,18 @@ class SimilarityMatrix(torch.nn.Module):
 
             if a_emb is None and b_emb is None:
                 # exact match matrix
-                sim = (
-                    query_tok.reshape(BAT, A, 1).expand(BAT, A, B)
-                    == doc_tok.reshape(BAT, 1, B).expand(BAT, A, B).float()
-                )
+                sim = query_tok.reshape(BAT, A, 1).expand(BAT, A, B) == doc_tok.reshape(BAT, 1, B).expand(BAT, A, B).float()
             else:
                 # cosine similarity matrix
-                a_denom = (
-                    a_emb.norm(p=2, dim=2).reshape(BAT, A, 1).expand(BAT, A, B) + 1e-9
-                )  # avoid 0div
-                b_denom = (
-                    b_emb.norm(p=2, dim=2).reshape(BAT, 1, B).expand(BAT, A, B) + 1e-9
-                )  # avoid 0div
+                a_denom = a_emb.norm(p=2, dim=2).reshape(BAT, A, 1).expand(BAT, A, B) + 1e-9  # avoid 0div
+                b_denom = b_emb.norm(p=2, dim=2).reshape(BAT, 1, B).expand(BAT, A, B) + 1e-9  # avoid 0div
                 perm = b_emb.permute(0, 2, 1)
                 sim = a_emb.bmm(perm) / (a_denom * b_denom)
 
             # set similarity values to 0 for <pad> tokens in query and doc (indicated by self.padding)
             nul = torch.zeros_like(sim)
-            sim = torch.where(
-                query_tok.reshape(BAT, A, 1).expand(BAT, A, B) == self.padding, nul, sim
-            )
-            sim = torch.where(
-                doc_tok.reshape(BAT, 1, B).expand(BAT, A, B) == self.padding, nul, sim
-            )
+            sim = torch.where(query_tok.reshape(BAT, A, 1).expand(BAT, A, B) == self.padding, nul, sim)
+            sim = torch.where(doc_tok.reshape(BAT, 1, B).expand(BAT, A, B) == self.padding, nul, sim)
 
             simmat.append(sim)
         return torch.stack(simmat, dim=1)
@@ -67,12 +56,8 @@ class RbfKernel(torch.nn.Module):
     # which is copyright (c) 2019 Georgetown Information Retrieval Lab, MIT license
     def __init__(self, initial_mu, initial_sigma, requires_grad=True):
         super().__init__()
-        self.mu = torch.nn.Parameter(
-            torch.tensor(initial_mu), requires_grad=requires_grad
-        )
-        self.sigma = torch.nn.Parameter(
-            torch.tensor(initial_sigma), requires_grad=requires_grad
-        )
+        self.mu = torch.nn.Parameter(torch.tensor(initial_mu), requires_grad=requires_grad)
+        self.sigma = torch.nn.Parameter(torch.tensor(initial_sigma), requires_grad=requires_grad)
 
     def forward(self, data):
         adj = data - self.mu
@@ -85,9 +70,7 @@ class RbfKernelBank(torch.nn.Module):
     def __init__(self, mus=None, sigmas=None, dim=1, requires_grad=True):
         super().__init__()
         self.dim = dim
-        kernels = [
-            RbfKernel(m, s, requires_grad=requires_grad) for m, s in zip(mus, sigmas)
-        ]
+        kernels = [RbfKernel(m, s, requires_grad=requires_grad) for m, s in zip(mus, sigmas)]
         self.kernels = torch.nn.ModuleList(kernels)
 
     def count(self):
