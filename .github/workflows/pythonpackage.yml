@@ -24,7 +24,7 @@ jobs:
     - name: black
       uses: lgeiger/black-action@master
       with:
-        args: ". --config capreolus/pyproject.toml"
+        args: ". --check --config capreolus/pyproject.toml"
     - name: pull .txt files
       run: |
         cd capreolus/data
