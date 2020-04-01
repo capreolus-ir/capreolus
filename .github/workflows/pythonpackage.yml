@@ -21,6 +21,18 @@ jobs:
       uses: actions/setup-java@v1
       with:
               java-version: '11'
+    - name: black
+      uses: lgeiger/black-action@master
+      with:
+        args: ". --check --config capreolus/pyproject.toml"
+    - name: pull .txt files
+      run: |
+        cd capreolus/data
+        rm -rf dummy
+        rm ./*
+        wget https://www.dropbox.com/s/h6iovqwsyyv7660/data.tgz?dl=1
+        tar -zxvf data.tgz?dl=1
+        cd ../../
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip

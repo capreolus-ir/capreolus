@@ -133,7 +133,7 @@ def plot_metrics(metrics, outfn, interactive=False, show={"map", "P_20", "ndcg_c
         if metric not in show:
             continue
         # plt.plot(*zip(*xys), label=metric)
-        epochs = list(range(1, len(xys)+1))
+        epochs = list(range(1, len(xys) + 1))
         plt.plot(epochs, xys, label=metric)
         # max_iter, max_metric = max(xys, key=lambda x: x[1])
         max_metric = max(xys)

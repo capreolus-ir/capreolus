@@ -227,3 +227,14 @@ class ANTIQUE(Collection):
     def _validate_document_path(self, path):
         """ Checks that the sha256sum is correct """
         return hash_file(path) == "409e0960f918970977ceab9e5b1d372f45395af25d53b95644bdc9ccbbf973da"
+
+
+class MSMarco(Collection):
+    name = "msmarco"
+    config_keys_not_in_path = ["path"]
+    collection_type = "TrecCollection"
+    generator_type = "JsoupGenerator"
+
+    @staticmethod
+    def config():
+        path = "/GW/NeuralIR/nobackup/msmarco/trec_format"

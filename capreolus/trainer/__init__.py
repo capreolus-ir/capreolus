@@ -3,7 +3,7 @@ import json
 
 import numpy as np
 import torch
-
+from tqdm import tqdm
 from capreolus.registry import ModuleBase, RegisterableModule, Dependency, MAX_THREADS
 from capreolus.reranker.common import pair_hinge_loss, pair_softmax_loss
 from capreolus.searcher import Searcher
@@ -21,7 +21,6 @@ class Trainer(ModuleBase, metaclass=RegisterableModule):
 class PytorchTrainer(Trainer):
     name = "pytorch"
     dependencies = {}
-    config_keys_not_in_path = ["niters"]
 
     @staticmethod
     def config():
@@ -37,7 +36,8 @@ class PytorchTrainer(Trainer):
         softmaxloss = False  # True to use softmax loss (over pairs) or False to use hinge loss
 
         interactive = False  # True for training with Notebook or False for command line environment
-
+        fastforward = False
+        validatefreq = 1
         # sanity checks
         if batch < 1:
             raise ValueError("batch must be >= 1")
@@ -192,7 +192,8 @@ class PytorchTrainer(Trainer):
         loss_fn = info_output_path / "loss.txt"
         metrics_fn = dev_output_path / "metrics.json"
         metrics_history = {}
-        initial_iter = self.fastforward_training(reranker, weights_output_path, loss_fn)
+
+        initial_iter = self.fastforward_training(reranker, weights_output_path, loss_fn) if self.cfg["fastforward"] else 0
         logger.info("starting training from iteration %s/%s", initial_iter, self.cfg["niters"])
 
         train_dataloader = torch.utils.data.DataLoader(
@@ -214,6 +215,7 @@ class PytorchTrainer(Trainer):
                             break
 
         dev_best_metric = -np.inf
+        validation_frequency = self.cfg["validatefreq"]
         for niter in range(initial_iter, self.cfg["niters"]):
             model.train()
 
@@ -225,20 +227,21 @@ class PytorchTrainer(Trainer):
             # write model weights to file
             weights_fn = weights_output_path / f"{niter}.p"
             reranker.save_weights(weights_fn, self.optimizer)
-
             # predict performance on dev set
-            pred_fn = dev_output_path / f"{niter}.run"
-            preds = self.predict(reranker, dev_data, pred_fn)
 
-            # log dev metrics
-            metrics = evaluator.eval_runs(preds, qrels, ["ndcg_cut_20", "map", "P_20"])
-            logger.info("dev metrics: %s", " ".join([f"{metric}={v:0.3f}" for metric, v in sorted(metrics.items())]))
+            if niter % validation_frequency == 0:
+                pred_fn = dev_output_path / f"{niter}.run"
+                preds = self.predict(reranker, dev_data, pred_fn)
 
-            # write best dev weights to file
-            if metrics[metric] > dev_best_metric:
-                reranker.save_weights(dev_best_weight_fn, self.optimizer)
-            for m in metrics:
-                metrics_history.setdefault(m, []).append(metrics[m])
+                # log dev metrics
+                metrics = evaluator.eval_runs(preds, qrels, ["ndcg_cut_20", "map", "P_20"])
+                logger.info("dev metrics: %s", " ".join([f"{metric}={v:0.3f}" for metric, v in sorted(metrics.items())]))
+
+                # write best dev weights to file
+                if metrics[metric] > dev_best_metric:
+                    reranker.save_weights(dev_best_weight_fn, self.optimizer)
+                for m in metrics:
+                    metrics_history.setdefault(m, []).append(metrics[m])
 
             # write train_loss to file
             loss_fn.write_text("\n".join(f"{idx} {loss}" for idx, loss in enumerate(train_loss)))
@@ -277,7 +280,7 @@ class PytorchTrainer(Trainer):
         preds = {}
         pred_dataloader = torch.utils.data.DataLoader(pred_data, batch_size=self.cfg["batch"], pin_memory=True, num_workers=0)
         with torch.autograd.no_grad():
-            for bi, batch in enumerate(pred_dataloader):
+            for batch in tqdm(pred_dataloader, desc="Predicting on dev"):
                 batch = {k: v.to(self.device) if not isinstance(v, list) else v for k, v in batch.items()}
                 scores = reranker.test(batch)
                 scores = scores.view(-1).cpu().numpy()

@@ -19,8 +19,8 @@ class KNRM_class(nn.Module):
         mus = [-0.9, -0.7, -0.5, -0.3, -0.1, 0.1, 0.3, 0.5, 0.7, 0.9, 1.0]
         sigmas = [0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.001]
         self.kernels = RbfKernelBank(mus, sigmas, dim=1, requires_grad=config["gradkernels"])
-
-        self.embedding = create_emb_layer(extractor.embeddings, non_trainable=True)
+        non_trainable = not self.p["finetune"]
+        self.embedding = create_emb_layer(extractor.embeddings, non_trainable=non_trainable)
         self.simmat = SimilarityMatrix(padding=extractor.pad)
 
         channels = 1
@@ -32,9 +32,12 @@ class KNRM_class(nn.Module):
             combine_steps.append(nn.Tanh())
         self.combine = nn.Sequential(*combine_steps)
 
+    def get_embedding(self, toks):
+        return self.embedding(toks)
+
     def forward(self, doctoks, querytoks, query_idf):
-        doc = self.embedding(doctoks)
-        query = self.embedding(querytoks)
+        doc = self.get_embedding(doctoks)
+        query = self.get_embedding(querytoks)
 
         # query = torch.rand_like(query)  # debug
         simmat = self.simmat(query, doc, querytoks, doctoks)
@@ -62,8 +65,9 @@ class KNRM(Reranker):
     @staticmethod
     def config():
         gradkernels = True  # backprop through mus and sigmas
-        scoretanh = False  # use a tanh on the prediction as in paper (True) or do not use a nonlinearity (False)
+        scoretanh = False  # use a tanh on the prediction as in paper (True) or do not use a    nonlinearity (False)
         singlefc = True  # use single fully connected layer as in paper (True) or 2 fully connected layers (False)
+        finetune = False  # Fine tune the embedding
 
     def build(self):
         if not hasattr(self, "model"):
@@ -78,23 +82,9 @@ class KNRM(Reranker):
             self.model(pos_sentence, query_sentence, query_idf).view(-1),
             self.model(neg_sentence, query_sentence, query_idf).view(-1),
         ]
-        # return [
-        #     self.model(neg_sentence, query_sentence, query_idf).view(-1),
-        #     self.model(pos_sentence, query_sentence, query_idf).view(-1),
-        # ]
 
     def test(self, d):
         query_idf = d["query_idf"]
         query_sentence = d["query"]
         pos_sentence = d["posdoc"]
         return self.model(pos_sentence, query_sentence, query_idf).view(-1)
-
-    def query(self, query, docids):
-        if not hasattr(self["extractor"], "docid2toks"):
-            raise RuntimeError("reranker's extractor has not been created yet. try running the task's train() method first.")
-
-        results = []
-        for docid in docids:
-            d = self["extractor"].id2vec(qid=None, query=query, posid=docid)
-            results.append(self.test(d))
-        return results

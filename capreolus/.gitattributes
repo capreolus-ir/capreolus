@@ -1,0 +1,13 @@
+data/qrels.msmarcopassage.txt filter=lfs diff=lfs merge=lfs -text
+data/qrels.robust2004.txt filter=lfs diff=lfs merge=lfs -text
+data/topics.antique.txt filter=lfs diff=lfs merge=lfs -text
+data/topics.dummy.txt filter=lfs diff=lfs merge=lfs -text
+data/topics.msmarcopassage.txt filter=lfs diff=lfs merge=lfs -text
+data/topics.robust04.301-450.601-700.txt filter=lfs diff=lfs merge=lfs -text
+data/qrels.antique.txt filter=lfs diff=lfs merge=lfs -text
+data/qrels.dummy.txt filter=lfs diff=lfs merge=lfs -text
+data/antique.json filter=lfs diff=lfs merge=lfs -text
+data/dummy_folds.json filter=lfs diff=lfs merge=lfs -text
+data/msmarcopassage.folds.json filter=lfs diff=lfs merge=lfs -text
+data/rob04_cedr_folds.json filter=lfs diff=lfs merge=lfs -text
+data/rob04_yang19_folds.json filter=lfs diff=lfs merge=lfs -text

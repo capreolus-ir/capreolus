@@ -1,7 +1,11 @@
+import pickle
 from collections import defaultdict
 
+import os
 import numpy as np
+import hashlib
 from pymagnitude import Magnitude, MagnitudeUtils
+from tqdm import tqdm
 
 from capreolus.registry import ModuleBase, RegisterableModule, Dependency, CACHE_BASE_PATH
 from capreolus.utils.loginit import get_logger
@@ -39,6 +43,30 @@ class Extractor(ModuleBase, metaclass=RegisterableModule):
 
         logger.debug(f"added {len(self.stoi)-n_words_before} terms to the stoi of extractor {self.name}")
 
+    def cache_state(self, qids, docids):
+        raise NotImplementedError
+
+    def load_state(self, qids, docids):
+        raise NotImplementedError
+
+    def get_state_cache_file_path(self, qids, docids):
+        """
+        Returns the path to the cache file used to store the extractor state, regardless of whether it exists or not
+        """
+        sorted_qids = sorted(qids)
+        sorted_docids = sorted(docids)
+        return self.get_cache_path() / hashlib.md5(str(sorted_qids + sorted_docids).encode("utf-8")).hexdigest()
+
+    def is_state_cached(self, qids, docids):
+        """
+        Returns a boolean indicating whether the state corresponding to the qids and docids passed has already
+        been cached
+        """
+        return os.path.exists(self.get_state_cache_file_path(qids, docids))
+
+    def _build_vocab(self, qids, docids, topics):
+        raise NotImplementedError
+
 
 class EmbedText(Extractor):
     name = "embedtext"
@@ -63,19 +91,40 @@ class EmbedText(Extractor):
         calcidf = True
         maxqlen = 4
         maxdoclen = 800
+        usecache = False
 
     def _get_pretrained_emb(self):
         magnitude_cache = CACHE_BASE_PATH / "magnitude/"
         return Magnitude(MagnitudeUtils.download_model(self.embed_paths[self.cfg["embeddings"]], download_dir=magnitude_cache))
 
+    def load_state(self, qids, docids):
+        with open(self.get_state_cache_file_path(qids, docids), "rb") as f:
+            state_dict = pickle.load(f)
+            self.qid2toks = state_dict["qid2toks"]
+            self.docid2toks = state_dict["docid2toks"]
+            self.stoi = state_dict["stoi"]
+            self.itos = state_dict["itos"]
+
+    def cache_state(self, qids, docids):
+        os.makedirs(self.get_cache_path(), exist_ok=True)
+        with open(self.get_state_cache_file_path(qids, docids), "wb") as f:
+            state_dict = {"qid2toks": self.qid2toks, "docid2toks": self.docid2toks, "stoi": self.stoi, "itos": self.itos}
+            pickle.dump(state_dict, f, protocol=-1)
+
     def _build_vocab(self, qids, docids, topics):
-        tokenize = self["tokenizer"].tokenize
-        self.qid2toks = {qid: tokenize(topics[qid]) for qid in qids}
-        self.docid2toks = {docid: tokenize(self["index"].get_doc(docid)) for docid in docids}
-        self._extend_stoi(self.qid2toks.values(), calc_idf=self.cfg["calcidf"])
-        self._extend_stoi(self.docid2toks.values(), calc_idf=self.cfg["calcidf"])
-        self.itos = {i: s for s, i in self.stoi.items()}
-        logger.info(f"vocabulary constructed, with {len(self.itos)} terms in total")
+        if self.is_state_cached(qids, docids) and self.cfg["usecache"]:
+            self.load_state(qids, docids)
+            logger.info("Vocabulary loaded from cache")
+        else:
+            tokenize = self["tokenizer"].tokenize
+            self.qid2toks = {qid: tokenize(topics[qid]) for qid in qids}
+            self.docid2toks = {docid: tokenize(self["index"].get_doc(docid)) for docid in docids}
+            self._extend_stoi(self.qid2toks.values(), calc_idf=self.cfg["calcidf"])
+            self._extend_stoi(self.docid2toks.values(), calc_idf=self.cfg["calcidf"])
+            self.itos = {i: s for s, i in self.stoi.items()}
+            logger.info(f"vocabulary constructed, with {len(self.itos)} terms in total")
+            if self.cfg["usecache"]:
+                self.cache_state(qids, docids)
 
     def _get_idf(self, toks):
         return [self.idf.get(tok, 0) for tok in toks]
@@ -89,7 +138,7 @@ class EmbedText(Extractor):
         embed_matrix = np.zeros((len(self.stoi), emb_dim), dtype=np.float32)
 
         n_missed = 0
-        for term, idx in self.stoi.items():
+        for term, idx in tqdm(self.stoi.items()):
             if term in embed_vocab:
                 embed_matrix[idx] = magnitude_emb.query(term)
             elif term == self.pad_tok:
@@ -165,16 +214,13 @@ class EmbedText(Extractor):
             "query_idf": np.array(idfs, dtype=np.float32),
         }
 
-        if not negid:
-            logger.debug(f"missing negtive doc id for qid {qid}")
-            return data
+        if negid:
+            negdoc = self.docid2toks.get(negid, None)
+            if not negdoc:
+                raise MissingDocError(qid, negid)
 
-        negdoc = self.docid2toks.get(negid, None)
-        if not negdoc:
-            raise MissingDocError(qid, negid)
-
-        negdoc = self._tok2vec(padlist(negdoc, doclen, self.pad_tok))
-        data["negdocid"] = negid
-        data["negdoc"] = np.array(negdoc, dtype=np.long)
+            negdoc = self._tok2vec(padlist(negdoc, doclen, self.pad_tok))
+            data["negdocid"] = negid
+            data["negdoc"] = np.array(negdoc, dtype=np.long)
 
         return data
