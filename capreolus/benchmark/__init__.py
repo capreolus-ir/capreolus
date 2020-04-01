@@ -63,3 +63,11 @@ class ANTIQUE(Benchmark):
     topic_file = PACKAGE_PATH / "data" / "topics.antique.txt"
     fold_file = PACKAGE_PATH / "data" / "antique.json"
     query_type = "title"
+
+
+class MSMarcoPassage(Benchmark):
+    name = "msmarcopassage"
+    qrel_file = PACKAGE_PATH / "data" / "qrels.msmarcopassage.txt"
+    topic_file = PACKAGE_PATH / "data" / "topics.msmarcopassage.txt"
+    fold_file = PACKAGE_PATH / "data" / "msmarcopassage.folds.json"
+    query_type = "title"
