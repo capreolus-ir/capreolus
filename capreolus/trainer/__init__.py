@@ -180,7 +180,7 @@ class PytorchTrainer(Trainer):
         hyperparams = dict(self.cfg)
         hyperparams.update(dict(reranker.cfg))
         hyperparams.update(dict(reranker["extractor"].cfg))
-        summary_writer.add_hparams(hyperparams)
+        summary_writer.add_hparams(hyperparams, {'hparams/fake': 0})
 
         self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
         model = reranker.model.to(self.device)
