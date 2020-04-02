@@ -74,7 +74,7 @@ class KNRM(Reranker):
         super(KNRM, self).add_summary(summary_writer, niter)
         if self.cfg["singlefc"]:
             fig = plt.figure()
-            ax = fig.add_subplot(1, 1 ,1)
+            ax = fig.add_subplot(1, 1, 1)
             ax.matshow(self.model.combine[0].weight.data.cpu())
             summary_writer.add_figure("combine_steps weight", fig, niter)
         else:

@@ -176,7 +176,7 @@ class PytorchTrainer(Trainer):
 
         """
         # Set up logging
-        summary_writer = SummaryWriter(RESULTS_BASE_PATH / 'runs/', comment=train_output_path)
+        summary_writer = SummaryWriter(RESULTS_BASE_PATH / "runs/", comment=train_output_path)
         # hyperparams = dict(self.cfg)
         # hyperparams.update(dict(reranker.cfg))
         # hyperparams.update(dict(reranker["extractor"].cfg))
@@ -210,7 +210,14 @@ class PytorchTrainer(Trainer):
         )
         dataiter = iter(train_dataloader)
         sample_input = dataiter.next()
-        summary_writer.add_graph(reranker.model, [sample_input["query"].to(self.device), sample_input["posdoc"].to(self.device), sample_input["negdoc"].to(self.device)])
+        summary_writer.add_graph(
+            reranker.model,
+            [
+                sample_input["query"].to(self.device),
+                sample_input["posdoc"].to(self.device),
+                sample_input["negdoc"].to(self.device),
+            ],
+        )
 
         train_loss = []
         # are we resuming training?
