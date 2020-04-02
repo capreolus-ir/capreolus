@@ -177,7 +177,7 @@ class PytorchTrainer(Trainer):
         """
         # Set up logging
         summary_writer = SummaryWriter(RESULTS_BASE_PATH / 'runs/', comment=train_output_path)
-        hyperparams = copy(self.cfg)
+        hyperparams = copy(dict(self.cfg))
         hyperparams.update(copy(reranker.cfg))
         hyperparams.update(copy(reranker["extractor"].cfg))
         summary_writer.add_hparams(hyperparams)
