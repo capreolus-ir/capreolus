@@ -1,15 +1,18 @@
 import os
 import json
+from copy import copy
 
 import numpy as np
 import torch
 from tqdm import tqdm
+from torch.utils.tensorboard import SummaryWriter
 from capreolus.registry import ModuleBase, RegisterableModule, Dependency, MAX_THREADS
 from capreolus.reranker.common import pair_hinge_loss, pair_softmax_loss
 from capreolus.searcher import Searcher
 from capreolus.utils.loginit import get_logger
 from capreolus.utils.common import plot_metrics, plot_loss
 from capreolus import evaluator
+from registry import RESULTS_BASE_PATH
 
 logger = get_logger(__name__)  # pylint: disable=invalid-name
 
@@ -172,6 +175,13 @@ class PytorchTrainer(Trainer):
            dev_output_path (Path): directory where dev_data runs and metrics will be saved
 
         """
+        # Set up logging
+        summary_writer = SummaryWriter(RESULTS_BASE_PATH / 'runs/', comment=train_output_path)
+        summary_writer.add_graph(reranker.model)
+        hyperparams = copy(self.cfg)
+        hyperparams.update(copy(reranker.cfg))
+        hyperparams.update(copy(reranker["extractor"].cfg))
+        summary_writer.add_hparams(hyperparams)
 
         self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
         model = reranker.model.to(self.device)
@@ -236,7 +246,9 @@ class PytorchTrainer(Trainer):
                 # log dev metrics
                 metrics = evaluator.eval_runs(preds, qrels, ["ndcg_cut_20", "map", "P_20"])
                 logger.info("dev metrics: %s", " ".join([f"{metric}={v:0.3f}" for metric, v in sorted(metrics.items())]))
-
+                summary_writer.add_scalar("ndcg_cut_20", metrics["ndcg_cut_20"], niter)
+                summary_writer.add_scalar("map", metrics["map"], niter)
+                summary_writer.add_scalar("P_20", metrics["P_20"], niter)
                 # write best dev weights to file
                 if metrics[metric] > dev_best_metric:
                     reranker.save_weights(dev_best_weight_fn, self.optimizer)
@@ -245,7 +257,8 @@ class PytorchTrainer(Trainer):
 
             # write train_loss to file
             loss_fn.write_text("\n".join(f"{idx} {loss}" for idx, loss in enumerate(train_loss)))
-
+            summary_writer.add_scalar("training_loss", train_loss, niter)
+            reranker.add_summary(summary_writer, niter)
         json.dump(metrics_history, open(metrics_fn, "w", encoding="utf-8"))
         plot_metrics(metrics_history, str(dev_output_path) + ".pdf", interactive=self.cfg["interactive"])
         print("training loss: ", train_loss)
