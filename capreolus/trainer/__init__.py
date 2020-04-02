@@ -177,9 +177,9 @@ class PytorchTrainer(Trainer):
         """
         # Set up logging
         summary_writer = SummaryWriter(RESULTS_BASE_PATH / 'runs/', comment=train_output_path)
-        hyperparams = copy(dict(self.cfg))
-        hyperparams.update(copy(reranker.cfg))
-        hyperparams.update(copy(reranker["extractor"].cfg))
+        hyperparams = dict(self.cfg)
+        hyperparams.update(dict(reranker.cfg))
+        hyperparams.update(dict(reranker["extractor"].cfg))
         summary_writer.add_hparams(hyperparams)
 
         self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
