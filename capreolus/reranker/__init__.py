@@ -18,7 +18,7 @@ class Reranker(ModuleBase, metaclass=RegisterableModule):
         Write to the summay_writer custom visualizations/data specific to this reranker
         """
         for name, weight in self.model.named_parameters():
-            summary_writer.add_histogram(name, weight.data, niter)
+            summary_writer.add_histogram(name, weight.data.cpu(), niter)
             # summary_writer.add_histogram(f'{name}.grad', weight.grad, niter)
 
     def save_weights(self, weights_fn, optimizer):
