@@ -210,7 +210,7 @@ class PytorchTrainer(Trainer):
         )
         dataiter = iter(train_dataloader)
         sample_input = dataiter.next()
-        summary_writer.add_graph(reranker.model, [sample_input["query"], sample_input["posdoc"], sample_input["negdoc"]])
+        summary_writer.add_graph(reranker.model, [sample_input["query"].to(self.device), sample_input["posdoc"].to(self.device), sample_input["negdoc"].to(self.device)])
 
         train_loss = []
         # are we resuming training?
