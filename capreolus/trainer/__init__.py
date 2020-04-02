@@ -177,7 +177,6 @@ class PytorchTrainer(Trainer):
         """
         # Set up logging
         summary_writer = SummaryWriter(RESULTS_BASE_PATH / 'runs/', comment=train_output_path)
-        summary_writer.add_graph(reranker.model)
         hyperparams = copy(self.cfg)
         hyperparams.update(copy(reranker.cfg))
         hyperparams.update(copy(reranker["extractor"].cfg))
@@ -209,6 +208,8 @@ class PytorchTrainer(Trainer):
         train_dataloader = torch.utils.data.DataLoader(
             train_dataset, batch_size=self.cfg["batch"], pin_memory=True, num_workers=0
         )
+        dataiter = iter(train_dataloader)
+        summary_writer.add_graph(reranker.model, dataiter.next())
 
         train_loss = []
         # are we resuming training?
