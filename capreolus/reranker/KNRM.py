@@ -1,6 +1,7 @@
 import torch
 
 from torch import nn
+import matplotlib.pyplot as plt
 
 from capreolus.reranker import Reranker
 from capreolus.reranker.common import create_emb_layer, SimilarityMatrix, RbfKernel, RbfKernelBank
@@ -61,6 +62,16 @@ class KNRM(Reranker):
     name = "KNRM"
     citation = """Chenyan Xiong, Zhuyun Dai, Jamie Callan, Zhiyuan Liu, and Russell Power. 2017.
                   End-to-End Neural Ad-hoc Ranking with Kernel Pooling. In SIGIR'17."""
+
+    def add_summary(self, summary_writer, niter):
+        super(KNRM, self).add_summary(summary_writer)
+        if self.cfg["singlefc"]:
+            fig = plt.figure()
+            ax = fig.add_subplot(1, 1 ,1)
+            ax.matshow(self.model.combine_steps[0].weight.data)
+            summary_writer.add_figure("combine_steps weight", fig, niter)
+        else:
+            pass
 
     @staticmethod
     def config():

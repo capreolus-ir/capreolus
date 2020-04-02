@@ -13,6 +13,14 @@ class Reranker(ModuleBase, metaclass=RegisterableModule):
         "trainer": Dependency(module="trainer", name="pytorch"),
     }
 
+    def add_summary(self, summary_writer, niter):
+        """
+        Write to the summay_writer custom visualizations/data specific to this reranker
+        """
+        for name, weight in self.model.named_parameters():
+            summary_writer.add_histogram(name, weight.data, niter)
+            summary_writer.add_histogram(f'{name}.grad', weight.grad, niter)
+
     def save_weights(self, weights_fn, optimizer):
         if not os.path.exists(os.path.dirname(weights_fn)):
             os.makedirs(os.path.dirname(weights_fn))
