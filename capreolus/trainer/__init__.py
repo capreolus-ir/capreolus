@@ -209,7 +209,8 @@ class PytorchTrainer(Trainer):
             train_dataset, batch_size=self.cfg["batch"], pin_memory=True, num_workers=0
         )
         dataiter = iter(train_dataloader)
-        summary_writer.add_graph(reranker.model, dataiter.next())
+        sample_input = dataiter.next()
+        summary_writer.add_graph(reranker.model, [sample_input["query"], sample_input["posdoc"], sample_input["negdoc"]])
 
         train_loss = []
         # are we resuming training?
@@ -258,7 +259,7 @@ class PytorchTrainer(Trainer):
 
             # write train_loss to file
             loss_fn.write_text("\n".join(f"{idx} {loss}" for idx, loss in enumerate(train_loss)))
-            summary_writer.add_scalar("training_loss", train_loss, niter)
+            summary_writer.add_scalar("training_loss", iter_loss_tensor.item(), niter)
             reranker.add_summary(summary_writer, niter)
         json.dump(metrics_history, open(metrics_fn, "w", encoding="utf-8"))
         plot_metrics(metrics_history, str(dev_output_path) + ".pdf", interactive=self.cfg["interactive"])

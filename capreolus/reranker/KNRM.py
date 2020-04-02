@@ -63,22 +63,22 @@ class KNRM(Reranker):
     citation = """Chenyan Xiong, Zhuyun Dai, Jamie Callan, Zhiyuan Liu, and Russell Power. 2017.
                   End-to-End Neural Ad-hoc Ranking with Kernel Pooling. In SIGIR'17."""
 
-    def add_summary(self, summary_writer, niter):
-        super(KNRM, self).add_summary(summary_writer)
-        if self.cfg["singlefc"]:
-            fig = plt.figure()
-            ax = fig.add_subplot(1, 1 ,1)
-            ax.matshow(self.model.combine_steps[0].weight.data)
-            summary_writer.add_figure("combine_steps weight", fig, niter)
-        else:
-            pass
-
     @staticmethod
     def config():
         gradkernels = True  # backprop through mus and sigmas
         scoretanh = False  # use a tanh on the prediction as in paper (True) or do not use a    nonlinearity (False)
         singlefc = True  # use single fully connected layer as in paper (True) or 2 fully connected layers (False)
         finetune = False  # Fine tune the embedding
+
+    def add_summary(self, summary_writer, niter):
+        super(KNRM, self).add_summary(summary_writer, niter)
+        if self.cfg["singlefc"]:
+            fig = plt.figure()
+            ax = fig.add_subplot(1, 1 ,1)
+            ax.matshow(self.model.combine[0].weight.data)
+            summary_writer.add_figure("combine_steps weight", fig, niter)
+        else:
+            pass
 
     def build(self):
         if not hasattr(self, "model"):

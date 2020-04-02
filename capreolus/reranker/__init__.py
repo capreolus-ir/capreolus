@@ -19,7 +19,7 @@ class Reranker(ModuleBase, metaclass=RegisterableModule):
         """
         for name, weight in self.model.named_parameters():
             summary_writer.add_histogram(name, weight.data, niter)
-            summary_writer.add_histogram(f'{name}.grad', weight.grad, niter)
+            # summary_writer.add_histogram(f'{name}.grad', weight.grad, niter)
 
     def save_weights(self, weights_fn, optimizer):
         if not os.path.exists(os.path.dirname(weights_fn)):
