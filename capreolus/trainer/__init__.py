@@ -265,7 +265,8 @@ class PytorchTrainer(Trainer):
         plot_metrics(metrics_history, str(dev_output_path) + ".pdf", interactive=self.cfg["interactive"])
         print("training loss: ", train_loss)
         plot_loss(train_loss, str(loss_fn).replace(".txt", ".pdf"), interactive=self.cfg["interactive"])
-
+        summary_writer.close()
+        
     def load_best_model(self, reranker, train_output_path):
         self.optimizer = torch.optim.Adam(
             filter(lambda param: param.requires_grad, reranker.model.parameters()), lr=self.cfg["lr"]
