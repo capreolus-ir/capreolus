@@ -64,6 +64,46 @@ class PES20(Benchmark):
         fn = f"topics.{self.query_type}.txt"
         return self.PES20_DIR / fn
 
+class KITT(PES20):
+    name = "kitt"
+    DATA_DIR = Path("/GW/PKB/work/data_personalization/TREC_format/")
+    qrel_file = DATA_DIR / "judgements"
+    fold_file = DATA_DIR / "splits.json"
+
+    @staticmethod
+    def config():
+        querytype = "query"  # one of: query, basicprofile, entityprofile, chatprofile #TODO: probably will change how the entities are incorporated into the system.
+        domain = "book"
+
+        if querytype not in ["query", "basicprofile", "entityprofile", "chatprofile"]:
+            raise ValueError(f"invalid querytype: {querytype}")
+
+        if domain not in ["book", "travel_wikivoyage", "movie", "food"]:
+            raise ValueError(f"invalid domain: {domain}")
+
+        KITT.qrel_file = KITT.DATA_DIR / "{}_judgements".format(domain)
+        KITT.fold_file = KITT.DATA_DIR / "{}_splits.json".format(domain)
+
+    @property
+    def topics(self):
+        if not hasattr(self, "_topics"):
+            self._topics = load_trec_topics(self.topic_file)
+            assert self.query_type not in self._topics
+            self._topics[self.query_type] = self._topics["title"]
+        return self._topics
+
+    @property
+    def query_type(self):
+        return self.cfg["querytype"]
+
+    @property
+    def domain(self):
+        return self.cfg["domain"]
+
+    @property
+    def topic_file(self):
+        fn = f"{self.domain}_topics.{self.query_type}.txt"
+        return self.DATA_DIR / fn
 
 class DummyBenchmark(Benchmark):
     name = "dummy"

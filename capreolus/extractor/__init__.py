@@ -185,9 +185,9 @@ class DocStats(Extractor):
     name = "docstats"
     dependencies = {
         "index": Dependency(module="index", name="anserini", config_overrides={"indexstops": True, "stemmer": "none"}),
-        # "tokenizer": Dependency(module="tokenizer", name="anserini", config_overrides={"keepstops": False}),
-        "tokenizerquery": Dependency(module="tokenizer", name="spacy", config_overrides={"keepstops": False, 'removesmallerlen': 2}), #removesmallerlen is actually only used for user profile (not the short queries) but I cannot separate them
-        "tokenizer": Dependency(module="tokenizer", name="spacy", config_overrides={"keepstops": False}),
+        "tokenizer": Dependency(module="tokenizer", name="anserini", config_overrides={"keepstops": False}),
+#        "tokenizerquery": Dependency(module="tokenizer", name="spacy", config_overrides={"keepstops": False, 'removesmallerlen': 2}), #removesmallerlen is actually only used for user profile (not the short queries) but I cannot separate them
+       # "tokenizer": Dependency(module="tokenizer", name="spacy", config_overrides={"keepstops": False}),
     }
 
     @staticmethod
@@ -206,20 +206,23 @@ class DocStats(Extractor):
         self.qid2toks = {}
         self.qid_termprob = {}
         for qid in qids:
-            query = self["tokenizerquery"].tokenize(topics[qid])
+            query = self["tokenizer"].tokenize(topics[qid])
             self.qid2toks[qid] = query
             q_count = Counter(query)
             self.qid_termprob[qid] = {k: (v/len(query)) for k, v in q_count.items()}
 
         # TODO hardcoded paths
-        df_fn, freq_fn = "/GW/NeuralIR/work/PES20/counts_IDF_stemmed.txt", "/GW/NeuralIR/work/PES20/counts_LM_stemmed.txt"
-        doclen_fn = "/GW/NeuralIR/work/PES20/counts_MUS_stemmed.txt"
-
+        #df_fn, freq_fn = "/GW/NeuralIR/work/PES20/counts_IDF_stemmed.txt", "/GW/NeuralIR/work/PES20/counts_LM_stemmed.txt"
+        #doclen_fn = "/GW/NeuralIR/work/PES20/counts_MUS_stemmed.txt"
+        df_fn, freq_fn = "/GW/PKB/work/data_personalization/TREC_format/counts_IDF_stemmed_cw12.nostemming.txt", "/GW/PKB/work/data_personalization/TREC_format/counts_LM_stemmed_cw12.nostemming.txt"
+        
         logger.debug("computing background probabilities")
         dfs = {}
         with open(df_fn, "rt") as f:
             for line in f:
-                k, v = line.strip().split(",")
+                cidx = line.strip().rindex(",")
+                k = line.strip()[:cidx]
+                v = line.strip()[cidx + 1:]
                 dfs[k] = int(v)
 
         total_docs = dfs["total_docs"]
@@ -232,7 +235,9 @@ class DocStats(Extractor):
         tfs = {}
         with open(freq_fn, "rt") as f:
             for line in f:
-                k, v = line.strip().split(",")
+                cidx = line.strip().rindex(",")
+                k = line.strip()[:cidx]
+                v = line.strip()[cidx + 1:]
                 tfs[k] = int(v)
 
         total_terms = tfs["total_terms"]
@@ -253,18 +258,18 @@ class DocStats(Extractor):
 
         #TODO: we have to calculate the avg doc len of the given query and documents eventually here (that's why O need qdocs as input) and here is the code but I disabled it for test:
 
-        # self.query_avg_doc_len = {}
-        # for qid, docs in qdocs.items():
-        #     doclen = 0
-        #     for docid in docs:
-        #         doclen += self.doc_len[docid]
-        #     self.query_avg_doc_len[qid] = doclen/len(docs)
-
         self.query_avg_doc_len = {}
-        with open(doclen_fn, "rt") as f:
-            for line in f:
-                qid, avglen = line.strip().split(",")
-                self.query_avg_doc_len[qid] = int(avglen)
+        for qid, docs in qdocs.items():
+            doclen = 0
+            for docid in docs:
+                doclen += self.doc_len[docid]
+            self.query_avg_doc_len[qid] = doclen/len(docs)
+
+        #self.query_avg_doc_len = {}
+        #with open(doclen_fn, "rt") as f:
+        #    for line in f:
+        #        qid, avglen = line.strip().split(",")
+        #        self.query_avg_doc_len[qid] = int(avglen)
 
         # todo (problem): the calculated avgdoclength and the one loaded are not matching: the reason is that that one is calculated from 100 docs, this one from 20 docs.
         # shared_items = {k: list([self.query_avg_doc_len[k], query_avg_doc_len[k]]) for k in self.query_avg_doc_len if k in query_avg_doc_len and self.query_avg_doc_len[k] == query_avg_doc_len[k]}
