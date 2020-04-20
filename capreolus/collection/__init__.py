@@ -250,4 +250,20 @@ class PES20(Collection):
 
     @staticmethod
     def config():
-        path = "/GW/NeuralIR/work/PES20/book_documents"
+        path = "/home/ghazaleh/workspace/capreolus/data/PES20/book_documents"
+
+
+class KITT(Collection):
+    name = "kitt"
+    config_keys_not_in_path = ["path"]
+    collection_type = "TrecCollection"
+    generator_type = "JsoupGenerator"
+
+    @staticmethod
+    def config():
+        domain = 'book'
+
+        if domain not in ["book", "trave_wikivoyage", "movie", "food"]:
+            raise ValueError(f"invalid domain: {domain}")
+
+        path = "/home/ghazaleh/workspace/capreolus/data/PES20/{}_documents".format(domain)

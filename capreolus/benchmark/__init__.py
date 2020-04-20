@@ -36,7 +36,9 @@ class Benchmark(ModuleBase, metaclass=RegisterableModule):
 
 class PES20(Benchmark):
     name = "pes20"
-    PES20_DIR = Path("/GW/NeuralIR/work/PES20")  # TODO hardcoded path
+    # PES20_DIR = Path("/GW/NeuralIR/work/PES20")  # TODO hardcoded path
+    # PES20_DIR = PACKAGE_PATH / "data" / "PES20" # package path was capreolus/capreolus/
+    PES20_DIR =  Path("/home/ghazaleh/workspace/capreolus/data/PES20")
     qrel_file = PES20_DIR / "judgements"
     fold_file = PES20_DIR / "splits.json"
 
@@ -64,6 +66,48 @@ class PES20(Benchmark):
         fn = f"topics.{self.query_type}.txt"
         return self.PES20_DIR / fn
 
+class KITT(PES20):
+    name = "kitt"
+    # PES20_DIR = Path("/GW/NeuralIR/work/PES20")  # TODO hardcoded path
+    # PES20_DIR = PACKAGE_PATH / "data" / "PES20" # package path was capreolus/capreolus/
+    DATA_DIR = Path("/home/ghazaleh/workspace/capreolus/data/PES20")
+    qrel_file = DATA_DIR / "judgements"
+    fold_file = DATA_DIR / "splits.json"
+
+    @staticmethod
+    def config():
+        querytype = "query"  # one of: query, basicprofile, entityprofile
+        domain = "book"
+
+        if querytype not in ["query", "basicprofile", "entityprofile"]:
+            raise ValueError(f"invalid querytype: {querytype}")
+
+        if domain not in ["book", "trave_wikivoyage", "movie", "food"]:
+            raise ValueError(f"invalid domain: {domain}")
+
+        KITT.qrel_file = KITT.DATA_DIR / "{}_judgements".format(domain)
+        KITT.fold_file = KITT.DATA_DIR / "{}_splits.json".format(domain)
+
+    @property
+    def topics(self):
+        if not hasattr(self, "_topics"):
+            self._topics = load_trec_topics(self.topic_file)
+            assert self.query_type not in self._topics
+            self._topics[self.query_type] = self._topics["title"]
+        return self._topics
+
+    @property
+    def query_type(self):
+        return self.cfg["querytype"]
+
+    @property
+    def domain(self):
+        return self.cfg["domain"]
+
+    @property
+    def topic_file(self):
+        fn = f"{self.domain}_topics.{self.query_type}.txt"
+        return self.DATA_DIR / fn
 
 class DummyBenchmark(Benchmark):
     name = "dummy"
