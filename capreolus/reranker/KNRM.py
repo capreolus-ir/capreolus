@@ -1,8 +1,9 @@
 import torch
-
+import tensorflow as tf
+from tensorflow.keras.layers import Layer
 from torch import nn
 
-from capreolus.reranker import Reranker
+from capreolus.reranker import Reranker, TensorFlowReranker
 from capreolus.reranker.common import create_emb_layer, SimilarityMatrix, RbfKernel, RbfKernelBank
 from capreolus.utils.loginit import get_logger
 
@@ -57,6 +58,52 @@ class KNRM_class(nn.Module):
         return scores
 
 
+class KNRM_TF_Class(Layer):
+    def __init__(self, extractor, config, **kwargs):
+        self.config = config
+        self.extractor = extractor
+        self.embedding = None
+        super(KNRM_TF_Class, self).__init__(**kwargs)
+
+    def build(self, input_shape):
+        self.embedding = tf.keras.layers.Embedding(len(self.extractor.stoi), self.extractor.embeddings.shape[1], weights=[self.extractor.embeddings], trainable=False)
+
+    def call(self, input, **kwargs):
+        """
+        All the inputs are arrays of indices into an embedding matrix
+        """
+        posdoc, query, query_idf = input[0], input[1], input[2]
+        query_embed = self.embedding(query)
+        print("query is {}".format(query))
+        print("query embed is {}".format(query_embed))
+        return 1
+
+    def compute_output_shape(self, input_shape):
+        return 1
+
+
+class KNRM_TF(TensorFlowReranker):
+    name = "KNRM_TF"
+
+    @staticmethod
+    def config():
+        gradkernels = True  # backprop through mus and sigmas
+        finetune = False  # Fine tune the embedding
+
+    def build(self):
+        self.model = KNRM_TF_Class(self["extractor"], self.cfg)
+        return self.model
+
+    def score(self, posdoc, negdoc, query, query_idf):
+        return [
+            self.model(posdoc, query, query_idf),
+            self.model(negdoc, query, query_idf)
+        ]
+
+    def test(self, doc, query, query_idf):
+        return self.model(doc, query, query_idf)
+
+
 class KNRM(Reranker):
     name = "KNRM"
     citation = """Chenyan Xiong, Zhuyun Dai, Jamie Callan, Zhiyuan Liu, and Russell Power. 2017.
@@ -70,8 +117,8 @@ class KNRM(Reranker):
         finetune = False  # Fine tune the embedding
 
     def build(self):
-        if not hasattr(self, "model"):
-            self.model = KNRM_class(self["extractor"], self.cfg)
+        self.model = KNRM_class(self["extractor"], self.cfg)
+
         return self.model
 
     def score(self, d):
@@ -87,4 +134,7 @@ class KNRM(Reranker):
         query_idf = d["query_idf"]
         query_sentence = d["query"]
         pos_sentence = d["posdoc"]
+
         return self.model(pos_sentence, query_sentence, query_idf).view(-1)
+
+

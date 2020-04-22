@@ -1,11 +1,14 @@
 import os
-import json
+import uuid
+from collections import defaultdict
+
+import tensorflow as  tf
 
 import numpy as np
 import torch
 from tqdm import tqdm
 from capreolus.registry import ModuleBase, RegisterableModule, Dependency, MAX_THREADS
-from capreolus.reranker.common import pair_hinge_loss, pair_softmax_loss
+from capreolus.reranker.common import pair_hinge_loss, pair_softmax_loss, tf_pair_hinge_loss
 from capreolus.searcher import Searcher
 from capreolus.utils.loginit import get_logger
 from capreolus.utils.common import plot_metrics, plot_loss
@@ -16,6 +19,19 @@ logger = get_logger(__name__)  # pylint: disable=invalid-name
 
 class Trainer(ModuleBase, metaclass=RegisterableModule):
     module_type = "trainer"
+
+    def get_paths_for_early_stopping(self, train_output_path, dev_output_path):
+        os.makedirs(dev_output_path, exist_ok=True)
+        dev_best_weight_fn = train_output_path / "dev.best"
+        weights_output_path = train_output_path / "weights"
+        info_output_path = train_output_path / "info"
+        os.makedirs(weights_output_path, exist_ok=True)
+        os.makedirs(info_output_path, exist_ok=True)
+
+        loss_fn = info_output_path / "loss.txt"
+        metrics_fn = dev_output_path / "metrics.json"
+
+        return dev_best_weight_fn, weights_output_path, info_output_path, loss_fn
 
 
 class PytorchTrainer(Trainer):
@@ -182,16 +198,9 @@ class PytorchTrainer(Trainer):
         else:
             self.loss = pair_hinge_loss
 
-        os.makedirs(dev_output_path, exist_ok=True)
-        dev_best_weight_fn = train_output_path / "dev.best"
-        weights_output_path = train_output_path / "weights"
-        info_output_path = train_output_path / "info"
-        os.makedirs(weights_output_path, exist_ok=True)
-        os.makedirs(info_output_path, exist_ok=True)
-
-        loss_fn = info_output_path / "loss.txt"
-        metrics_fn = dev_output_path / "metrics.json"
-        metrics_history = {}
+        dev_best_weight_fn, weights_output_path, info_output_path, loss_fn = self.get_paths_for_early_stopping(
+            train_output_path, dev_output_path
+        )
 
         initial_iter = self.fastforward_training(reranker, weights_output_path, loss_fn) if self.cfg["fastforward"] else 0
         logger.info("starting training from iteration %s/%s", initial_iter, self.cfg["niters"])
@@ -240,14 +249,10 @@ class PytorchTrainer(Trainer):
                 # write best dev weights to file
                 if metrics[metric] > dev_best_metric:
                     reranker.save_weights(dev_best_weight_fn, self.optimizer)
-                for m in metrics:
-                    metrics_history.setdefault(m, []).append(metrics[m])
 
             # write train_loss to file
             loss_fn.write_text("\n".join(f"{idx} {loss}" for idx, loss in enumerate(train_loss)))
 
-        json.dump(metrics_history, open(metrics_fn, "w", encoding="utf-8"))
-        plot_metrics(metrics_history, str(dev_output_path) + ".pdf", interactive=self.cfg["interactive"])
         print("training loss: ", train_loss)
         plot_loss(train_loss, str(loss_fn).replace(".txt", ".pdf"), interactive=self.cfg["interactive"])
 
@@ -292,3 +297,188 @@ class PytorchTrainer(Trainer):
         Searcher.write_trec_run(preds, pred_fn)
 
         return preds
+
+
+class TensorFlowTrainer(Trainer):
+    name = "pytorch"
+    dependencies = {}
+    def __init__(self, *args, **kwargs):
+        super(TensorFlowTrainer, self).__init__(*args, **kwargs)
+
+        # Use TPU if available, otherwise resort to GPU/CPU
+        try:
+            self.tpu = tf.distribute.cluster_resolver.TPUClusterResolver()
+        except ValueError:
+            self.tpu = None
+
+        # TPUStrategy for distributed training
+        if self.tpu:
+            tf.config.experimental_connect_to_cluster(self.tpu)
+            tf.tpu.experimental.initialize_tpu_system(self.tpu)
+            self.strategy = tf.distribute.experimental.TPUStrategy(self.tpu)
+        else:  # default strategy that works on CPU and single GPU
+            self.strategy = tf.distribute.get_strategy()
+
+        # Defining some props that we will alter initialize
+        self.optimizer = self.get_optimizer()  # TODO: Accept a config param?
+        self.loss = tf_pair_hinge_loss
+
+    @staticmethod
+    def config():
+        maxdoclen = 800  # maximum document length (in number of terms after tokenization)
+        maxqlen = 4  # maximum query length (in number of terms after tokenization)
+
+        batch = 32  # batch size
+        niters = 20  # number of iterations to train for
+        itersize = 512  # number of training instances in one iteration (epoch)
+        gradacc = 1  # number of batches to accumulate over before updating weights
+        lr = 0.001  # learning rate
+        softmaxloss = False  # True to use softmax loss (over pairs) or False to use hinge loss
+
+        interactive = False  # True for training with Notebook or False for command line environment
+        fastforward = False
+        validatefreq = 1
+
+    def fastforward_training(self, reranker, weights_path, loss_fn):
+        return 0
+
+    def load_best_model(self, reranker, train_output_path):
+        raise NotImplementedError
+
+    def train(self, reranker, train_dataset, train_output_path, dev_data, dev_output_path, qrels, metric):
+        os.makedirs(dev_output_path, exist_ok=True)
+        initial_iter = self.fastforward_training()
+        logger.info("starting training from iteration %s/%s", initial_iter, self.cfg["niters"])
+
+        train_records = reranker.convert_to_tf_record(train_dataset)
+        dev_records = reranker.convert_to_tf_record(dev_data)
+
+        validation_frequency = self.cfg["validatefreq"]
+        dev_best_metric = np.inf
+        for niter in range(initial_iter, self.cfg["niters"]):
+            for step, (queries, posdocs, negdocs) in enumerate(train_records):
+                with tf.GradientTape() as tape:
+                    posdoc_scores = reranker.score(queries, posdocs)
+                    negdoc_scores = reranker.score(queries, negdocs)
+                    loss_value = self.loss(posdoc_scores, negdoc_scores)
+
+                grads = tape.gradient(loss_value, reranker.model.trainable_weights)
+                self.optimizer.apply_gradients(zip(grads, reranker.model.trainable_weights))
+
+            if niter % validation_frequency == 0:
+                self.save_best_model(reranker, dev_records, dev_output_path, dev_best_metric, qrels, metric, niter)
+
+
+        # Skipping dumping metrics and plotting loss since that should be done through tensorboard
+
+    def save_best_model(self, reranker, dev_records, train_output_path, dev_output_path, dev_best_metric, qrels, metric, niter):
+        """
+        Attempt early stopping
+        """
+        dev_best_weight_fn, weights_output_path, info_output_path, loss_fn = self.get_paths_for_early_stopping(
+            train_output_path, dev_output_path
+        )
+
+        pred_fn = dev_output_path / f"{niter}.run"
+        preds = self.predict(reranker, dev_records, pred_fn)
+
+        # log dev metrics
+        metrics = evaluator.eval_runs(preds, qrels, ["ndcg_cut_20", "map", "P_20"])
+        logger.info("dev metrics: %s", " ".join([f"{metric}={v:0.3f}" for metric, v in sorted(metrics.items())]))
+
+        # write best dev weights to file
+        if metrics[metric] > dev_best_metric:
+            reranker.save_weights(dev_best_weight_fn, self.optimizer)
+
+    def predict(self, reranker, dev_records, pred_fn):
+        predictions = reranker.model.predict(dev_records)
+        pred_dict = defaultdict(lambda: dict)
+        for qid, docid, query, doc in dev_records:
+            pred_dict[qid][docid] = reranker.score(query, doc)
+
+        os.makedirs(os.path.dirname(pred_fn), exist_ok=True)
+        Searcher.write_trec_run(pred_dict, pred_fn)
+
+        return pred_dict
+
+    def write_tf_record_to_file(self, qids, posdoc_ids, negdoc_ids, queries, posdocs, negdocs, query_idfs):
+        filename = self.get_cache_path() / "{}.tfrecord".format(str(uuid.uuid4()))
+        feature = {
+            "qids": tf.train.Feature(int64_list=tf.train.Int64List(value=qids)),
+            "queries": tf.train.Feature(float_list=tf.train.FloatList(value=queries)),
+            "query_idfs": tf.train.Feature(float_list=tf.train.FloatList(value=query_idfs)),
+            "posdoc_ids": tf.train.Feature(bytes_list=tf.train.BytesList(value=posdoc_ids)),
+            "posdocs": tf.train.Feature(float_list=tf.train.FloatList(value=posdocs)),
+        }
+
+        if len(negdoc_ids):
+            feature["negdoc_ids"] = tf.train.Feature(bytes_list=tf.train.BytesList(value=negdoc_ids)),
+            feature["negdocs"] = tf.train.Feature(float_list=tf.train.FloatList(value=negdocs))
+
+        tf_record = tf.train.Example(features=tf.train.Features(feature=feature))
+        with tf.compat.v1.python_io.TFRecordWriter(filename) as outfile:
+            outfile.write(tf_record.SerializeToString())
+
+            return outfile
+
+    def convert_to_tf_record(self, dataset):
+        """
+        Tensorflow works better if the input data is fed in as tfrecords
+        Takes in a pytorch IterableDataset, iterates through it, and creates a tf record from it
+        The randomization/shuffling e.t.c is handled by IterableDataset. See sampler/__init__.py
+        """
+        qids, posdoc_ids, negdoc_ids, queries, posdocs, negdocs, query_idfs = [], [], [], [], [], [], []
+        tf_record_filenames = []
+
+        for niter in tqdm(range(0, self.cfg["niters"]), desc="Converting data to tf records"):
+            for sample_idx, data in enumerate(dataset):
+                # TODO: Split into multiple files. This will destroy the RAM
+                qids.append(data["qid"])
+                posdoc_ids.append(data["posdocid"])
+                queries.append(data["query"])
+                query_idfs.append(data["query_idf"])
+                posdocs.append(data["posdoc"])
+                if data.get("negdocid"):
+                    negdoc_ids.append(data["negdocid"])
+                    negdocs.append(data["negdoc"])
+
+            if (niter + 1) % 10 == 0:
+                tf_record_filenames.append(self.write_tf_record_to_file(qids, posdoc_ids, negdoc_ids, queries, posdocs, negdocs, query_idfs))
+
+        tf_record_filenames.append(
+            self.write_tf_record_to_file(qids, posdoc_ids, negdoc_ids, queries, posdocs, negdocs, query_idfs)
+        )
+        return tf_record_filenames
+
+    def cache_exists(self, dataset):
+        cache_dir_name = dataset.get_hash()
+        cache_dir_path = self.get_cache_path() / cache_dir_name
+        # TODO: Add checks to make sure that the number of files in the director is correct
+        return os.path.isdir(cache_dir_path) and len(os.listdir(cache_dir_path)) != 0
+
+    def load_cached_dataset(self, dataset):
+        cache_dir_path = self.get_cache_path() / dataset.get_hash()
+        filenames = os.listdir(cache_dir_path)
+        raw_dataset = tf.data.TFRecordDataset(filenames)
+        feature_description = {
+            'qids': tf.io.FixedLenFeature([], tf.int16),
+            'queries': tf.io.FixedLenFeature([self.cfg["maxqlen"]], tf.float32),
+            'query_idfs': tf.io.FixedLenFeature([self.cfg["maxqlen"]], tf.float32),
+            'posdoc_ids': tf.io.FixedLenFeature([], tf.string),
+            'posdoc': tf.io.FixedLenFeature([self.cfg["maxdoclen"]], tf.float32),
+            'negdoc_ids': tf.io.FixedLenFeature([], tf.string),
+            'negdocs': tf.io.FixedLenFeature([self.cfg['maxdoclen']], tf.float32)
+        }
+        parse_single_example and map it
+
+    def get_tf_record_dataset(self, dataset):
+        """
+        If cached data exists, use that
+        Else convert the dataset into tf record
+        """
+
+        if self.cfg["usecache"] and self.cache_exists():
+            return self.load_cached_dataset()
+        else:
+            tf_record_filenames = self.convert_to_tf_record(dataset)
+
