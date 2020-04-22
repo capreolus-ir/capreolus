@@ -36,9 +36,7 @@ class Benchmark(ModuleBase, metaclass=RegisterableModule):
 
 class PES20(Benchmark):
     name = "pes20"
-    # PES20_DIR = Path("/GW/NeuralIR/work/PES20")  # TODO hardcoded path
-    # PES20_DIR = PACKAGE_PATH / "data" / "PES20" # package path was capreolus/capreolus/
-    PES20_DIR =  Path("/home/ghazaleh/workspace/capreolus/data/PES20")
+    PES20_DIR = Path("/GW/NeuralIR/work/PES20")  # TODO hardcoded path
     qrel_file = PES20_DIR / "judgements"
     fold_file = PES20_DIR / "splits.json"
 
@@ -68,21 +66,19 @@ class PES20(Benchmark):
 
 class KITT(PES20):
     name = "kitt"
-    # PES20_DIR = Path("/GW/NeuralIR/work/PES20")  # TODO hardcoded path
-    # PES20_DIR = PACKAGE_PATH / "data" / "PES20" # package path was capreolus/capreolus/
-    DATA_DIR = Path("/home/ghazaleh/workspace/capreolus/data/PES20")
+    DATA_DIR = Path("/GW/PKB/work/data_personalization/TREC_format/")
     qrel_file = DATA_DIR / "judgements"
     fold_file = DATA_DIR / "splits.json"
 
     @staticmethod
     def config():
-        querytype = "query"  # one of: query, basicprofile, entityprofile
+        querytype = "query"  # one of: query, basicprofile, entityprofile, chatprofile #TODO: probably will change how the entities are incorporated into the system.
         domain = "book"
 
-        if querytype not in ["query", "basicprofile", "entityprofile"]:
+        if querytype not in ["query", "basicprofile", "entityprofile", "chatprofile"]:
             raise ValueError(f"invalid querytype: {querytype}")
 
-        if domain not in ["book", "trave_wikivoyage", "movie", "food"]:
+        if domain not in ["book", "travel_wikivoyage", "movie", "food"]:
             raise ValueError(f"invalid domain: {domain}")
 
         KITT.qrel_file = KITT.DATA_DIR / "{}_judgements".format(domain)

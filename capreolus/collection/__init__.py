@@ -250,7 +250,7 @@ class PES20(Collection):
 
     @staticmethod
     def config():
-        path = "/home/ghazaleh/workspace/capreolus/data/PES20/book_documents"
+        path = "/GW/NeuralIR/work/PES20/book_documents"
 
 
 class KITT(Collection):
@@ -263,7 +263,7 @@ class KITT(Collection):
     def config():
         domain = 'book'
 
-        if domain not in ["book", "trave_wikivoyage", "movie", "food"]:
+        if domain not in ["book", "travel_wikivoyage", "movie", "food"]:
             raise ValueError(f"invalid domain: {domain}")
 
-        path = "/home/ghazaleh/workspace/capreolus/data/PES20/{}_documents".format(domain)
+        path = "/GW/PKB/work/data_personalization/TREC_format/documents/{}".format(domain)
