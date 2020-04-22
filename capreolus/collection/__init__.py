@@ -279,6 +279,7 @@ class CodeSearchNet(Collection):
 
         pkl_path = tmp_dir / (self.cfg["lang"] + "_dedupe_definitions_v2.pkl")
         self._pkl2trec(pkl_path, coll_filename)
+        return document_dir
 
 
     def _pkl2trec(self, pkl_path, trec_path):

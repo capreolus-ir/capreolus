@@ -19,14 +19,15 @@ def test_antique_downloadifmissing():
 
 
 def test_csn_downloadifmissing():
-    cfg = {"_name": "codesearchnet", "lang": "ruby"}
-    col = CodeSearchNet(cfg)
+    for lang in ["python", "java", "javascript", "go", "ruby", "php"]:
+        cfg = {"_name": "codesearchnet", "lang": lang}
+        col = CodeSearchNet(cfg)
 
-    # make sure index can be built on this collection
-    cfg = {"_name": "anserini", "indexstops": False, "stemmer": "porter"}
-    index = AnseriniIndex(cfg)
-    index.modules["collection"] = col
+        # make sure index can be built on this collection
+        cfg = {"_name": "anserini", "indexstops": False, "stemmer": "porter"}
+        index = AnseriniIndex(cfg)
+        index.modules["collection"] = col
 
-    index.create_index()
-    assert index.exists()
+        index.create_index()
+        assert index.exists()
 
