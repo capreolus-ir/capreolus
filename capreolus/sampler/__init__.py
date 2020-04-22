@@ -1,4 +1,5 @@
 import random
+import hashlib
 import torch.utils.data
 
 from capreolus.utils.exceptions import MissingDocError
@@ -24,6 +25,7 @@ class TrainDataset(torch.utils.data.IterableDataset):
                 logger.warning("skipping qid=%s that was missing from the qrels", qid)
                 del qid_docid_to_rank[qid]
 
+        self.qid_docid_to_rank = qid_docid_to_rank
         self.qid_to_reldocs = {
             qid: [docid for docid in docids if qrels[qid].get(docid, 0) > 0] for qid, docids in qid_docid_to_rank.items()
         }
@@ -41,6 +43,11 @@ class TrainDataset(torch.utils.data.IterableDataset):
                 logger.warning("removing training qid=%s with %s positive docs and %s negative docs", qid, posdocs, negdocs)
                 del self.qid_to_reldocs[qid]
                 del self.qid_to_negdocs[qid]
+
+    def get_hash(self):
+        sorted_rep = sorted([(qid, docids) for qid, docids in self.qid_docid_to_rank.items()])
+        key = hashlib.md5(str(sorted_rep).encode("utf-8")).hexdigest()
+        return key
 
     def generator_func(self):
         # Convert each query and doc id to the corresponding feature/embedding and yield
@@ -77,6 +84,8 @@ class PredDataset(torch.utils.data.IterableDataset):
     """
 
     def __init__(self, qid_docid_to_rank, extractor):
+        self.qid_docid_to_rank = qid_docid_to_rank
+
         def genf():
             for qid, docids in qid_docid_to_rank.items():
                 for docid in docids:
@@ -88,6 +97,11 @@ class PredDataset(torch.utils.data.IterableDataset):
                         raise
 
         self.generator_func = genf
+
+    def get_hash(self):
+        sorted_rep = sorted([(qid, docids) for qid, docids in self.qid_docid_to_rank.items()])
+        key = hashlib.md5(str(sorted_rep).encode("utf-8")).hexdigest()
+        return key
 
     def __iter__(self):
         """

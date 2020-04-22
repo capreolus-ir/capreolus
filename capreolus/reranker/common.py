@@ -1,4 +1,5 @@
 import torch
+import tensorflow.keras.backend as K
 
 
 _hinge_loss = torch.nn.MarginRankingLoss(margin=1, reduction="mean")
@@ -12,6 +13,20 @@ def pair_softmax_loss(pos_neg_scores):
 def pair_hinge_loss(pos_neg_scores):
     label = torch.ones_like(pos_neg_scores[0])  # , dtype=torch.int)
     return _hinge_loss(pos_neg_scores[0], pos_neg_scores[1], label)
+
+
+def tf_pair_hinge_loss(y_true, y_pred):
+    """
+    y_true - the true scores
+    y_pred - the predicted scores
+    We don't care about the true scores because we have no idea what they should be
+    All we are going to do is to maximize the margin b/w pos doc scores and neg doc scores in y_pred
+    """
+    pos_neg_scores = y_pred
+    label = K.ones_like(pos_neg_scores[0])
+    # TODO: Perhas replace K.sum with K.mean?
+
+    return K.sum(K.max(1 - (y_pred[0] - y_pred[1])))
 
 
 class SimilarityMatrix(torch.nn.Module):

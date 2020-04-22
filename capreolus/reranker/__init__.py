@@ -39,3 +39,21 @@ class Reranker(ModuleBase, metaclass=RegisterableModule):
         optimizer_fn = weights_fn.as_posix() + ".optimizer"
         with open(optimizer_fn, "rb") as f:
             optimizer.load_state_dict(pickle.load(f))
+
+
+class TensorFlowReranker(ModuleBase, metaclass=RegisterableModule):
+    module_type = "reranker"
+    dependencies = {
+        "extractor": Dependency(module="extractor", name="embedtext"),
+        "trainer": Dependency(module="trainer", name="tensorflow"),
+    }
+
+    def __init__(self, *args, **kwargs):
+        self.model = None
+        super(TensorFlowReranker, self).__init__(*args, **kwargs)
+
+    def convert_to_tf_record(self, dataset):
+        """
+        Reponsible for converting a dataset provided by a sampler into tf records
+        """
+        raise NotImplementedError
