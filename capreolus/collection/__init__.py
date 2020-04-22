@@ -1,6 +1,8 @@
 import os
 import shutil
 import tarfile
+import pickle
+from zipfile import ZipFile
 
 from capreolus.registry import ModuleBase, RegisterableModule, PACKAGE_PATH
 from capreolus.utils.common import download_file, hash_file
@@ -238,3 +240,54 @@ class MSMarco(Collection):
     @staticmethod
     def config():
         path = "/GW/NeuralIR/nobackup/msmarco/trec_format"
+
+
+class CodeSearchNet(Collection):
+    name = "codesearchnet"
+    url = "https://s3.amazonaws.com/code-search-net/CodeSearchNet/v2"
+    collection_type = "TrecCollection"  # TODO: any other supported type?
+    generator_type = "JsoupGenerator"
+
+    @staticmethod
+    def config():
+        lang = "ruby"
+
+    def download_if_missing(self):
+        cachedir = self.get_cache_path()
+        document_dir = cachedir / "documents"
+        coll_filename = document_dir / ("csn-"+self.cfg["lang"]+"-collection.txt")
+
+        if coll_filename.exists():
+            return document_dir
+
+        zipfile = self.cfg["lang"] + ".zip"
+        lang_url = f"{self.url}/{zipfile}"
+        tmp_dir = cachedir / "tmp"
+        zip_path = tmp_dir / zipfile
+
+        if zip_path.exists():
+            logger.info(f"{zipfile} already exist under directory {tmp_dir}, skip downloaded")
+        else:
+            # cachedir.mkdir(exist_ok=True)  # tmp
+            # document_dir.mkdir(exist_ok=True) # tmp
+            tmp_dir.mkdir(exist_ok=True)
+
+            download_file(lang_url, zip_path)
+
+        with ZipFile(zip_path, "r") as zipobj:
+            zipobj.extractall(tmp_dir)
+
+        pkl_path = tmp_dir / (self.cfg["lang"] + "_dedupe_definitions_v2.pkl")
+        self._pkl2trec(pkl_path, coll_filename)
+
+
+    def _pkl2trec(self, pkl_path, trec_path):
+        with open(pkl_path, "rb") as f:
+            codes = pickle.load(f)
+
+        fout = open(trec_path, "w", encoding="utf-8")
+        for i, code in enumerate(codes):
+            docid = f"{self.cfg['lang']}_{i}"
+            doc = " ".join(code["function_tokens"])
+            fout.write(f"<DOC>\n<DOCNO>{docid}</DOCNO>\n<TEXT>\n{doc}\n</TEXT>\n</DOC>\n")
+        fout.close()
