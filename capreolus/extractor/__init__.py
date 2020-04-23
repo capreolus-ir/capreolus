@@ -229,7 +229,7 @@ class DocStats(Extractor):
                 k = line.strip()[:cidx]
                 v = line.strip()[cidx + 1:]
                 dfs[k] = int(v)
-                df_bg = int(self["backgroundindex"].get_df[k])
+                df_bg = self["backgroundindex"].get_df(k)
                 if v != df_bg:
                     logger.debug("df do noe match: {}".format(k))
 
