@@ -302,6 +302,7 @@ class PytorchTrainer(Trainer):
 class TensorFlowTrainer(Trainer):
     name = "pytorch"
     dependencies = {}
+
     def __init__(self, *args, **kwargs):
         super(TensorFlowTrainer, self).__init__(*args, **kwargs)
 
@@ -339,6 +340,9 @@ class TensorFlowTrainer(Trainer):
         fastforward = False
         validatefreq = 1
 
+    def get_optimizer(self):
+        return tf.keras.optimizers.Adam(learning_rate=self.cfg['lr'])
+
     def fastforward_training(self, reranker, weights_path, loss_fn):
         return 0
 
@@ -350,8 +354,8 @@ class TensorFlowTrainer(Trainer):
         initial_iter = self.fastforward_training()
         logger.info("starting training from iteration %s/%s", initial_iter, self.cfg["niters"])
 
-        train_records = reranker.convert_to_tf_record(train_dataset)
-        dev_records = reranker.convert_to_tf_record(dev_data)
+        train_records = self.get_tf_record_dataset(train_dataset)
+        dev_records = self.get_tf_record_dataset(dev_data)
 
         validation_frequency = self.cfg["validatefreq"]
         dev_best_metric = np.inf
@@ -401,25 +405,37 @@ class TensorFlowTrainer(Trainer):
 
         return pred_dict
 
-    def write_tf_record_to_file(self, qids, posdoc_ids, negdoc_ids, queries, posdocs, negdocs, query_idfs):
-        filename = self.get_cache_path() / "{}.tfrecord".format(str(uuid.uuid4()))
+    def create_tf_feature(self, qid, query, query_idf, posdoc_id, posdoc, negdoc_id, negdoc):
         feature = {
-            "qids": tf.train.Feature(int64_list=tf.train.Int64List(value=qids)),
-            "queries": tf.train.Feature(float_list=tf.train.FloatList(value=queries)),
-            "query_idfs": tf.train.Feature(float_list=tf.train.FloatList(value=query_idfs)),
-            "posdoc_ids": tf.train.Feature(bytes_list=tf.train.BytesList(value=posdoc_ids)),
-            "posdocs": tf.train.Feature(float_list=tf.train.FloatList(value=posdocs)),
+            "qid": tf.train.Feature(int64_list=tf.train.Int64List(value=[qid])),
+            "query": tf.train.Feature(float_list=tf.train.FloatList(value=query)),
+            "query_idf": tf.train.Feature(float_list=tf.train.FloatList(value=query_idf)),
+            "posdoc_id": tf.train.Feature(bytes_list=tf.train.BytesList(value=[posdoc_id.encode('utf-8')])),
+            "posdoc": tf.train.Feature(float_list=tf.train.FloatList(value=posdoc)),
         }
 
-        if len(negdoc_ids):
-            feature["negdoc_ids"] = tf.train.Feature(bytes_list=tf.train.BytesList(value=negdoc_ids)),
-            feature["negdocs"] = tf.train.Feature(float_list=tf.train.FloatList(value=negdocs))
+        if negdoc_id:
+            feature["negdoc_id"] = tf.train.Feature(bytes_list=tf.train.BytesList(value=[negdoc_id.encode('utf-8')])),
+            feature["negdoc"] = tf.train.Feature(float_list=tf.train.FloatList(value=negdoc))
 
-        tf_record = tf.train.Example(features=tf.train.Features(feature=feature))
-        with tf.compat.v1.python_io.TFRecordWriter(filename) as outfile:
-            outfile.write(tf_record.SerializeToString())
+        return feature
 
-            return outfile
+    def write_tf_record_to_file(self, dir_name, tf_features):
+        filename = dir_name / "{}.tfrecord".format(str(uuid.uuid4()))
+        examples = [tf.train.Example(features=tf.train.Features(feature=feature)) for feature in tf_features]
+
+        def generator():
+            for example in examples:
+                yield example.SerializeToString()
+
+        dataset = tf.data.Dataset.from_generator(generator, output_types=tf.string)
+        if not os.path.isdir(dir_name):
+            os.makedirs(dir_name, exist_ok=True)
+
+        writer = tf.data.experimental.TFRecordWriter(str(filename))
+        writer.write(dataset)
+
+        return str(filename)
 
     def convert_to_tf_record(self, dataset):
         """
@@ -427,49 +443,66 @@ class TensorFlowTrainer(Trainer):
         Takes in a pytorch IterableDataset, iterates through it, and creates a tf record from it
         The randomization/shuffling e.t.c is handled by IterableDataset. See sampler/__init__.py
         """
-        qids, posdoc_ids, negdoc_ids, queries, posdocs, negdocs, query_idfs = [], [], [], [], [], [], []
         tf_record_filenames = []
+        tf_features = []
+        dir_name = self.get_cache_path() / dataset.get_hash()
 
+        # There are 'n' iterations
+        # Each iterations has a size 'itersize' number of batches in it
         for niter in tqdm(range(0, self.cfg["niters"]), desc="Converting data to tf records"):
             for sample_idx, data in enumerate(dataset):
                 # TODO: Split into multiple files. This will destroy the RAM
-                qids.append(data["qid"])
-                posdoc_ids.append(data["posdocid"])
-                queries.append(data["query"])
-                query_idfs.append(data["query_idf"])
-                posdocs.append(data["posdoc"])
-                if data.get("negdocid"):
-                    negdoc_ids.append(data["negdocid"])
-                    negdocs.append(data["negdoc"])
+                tf_features.append(
+                    self.create_tf_feature(
+                        data["qid"], data["query"], data["query_idf"], data["posdocid"], data["posdoc"],
+                        data.get("negdocid"), data.get("negdoc")
+                    )
+                )
+                if sample_idx + 1 >= self.cfg["itersize"] * self.cfg["batch"]:
+                    break
 
             if (niter + 1) % 10 == 0:
-                tf_record_filenames.append(self.write_tf_record_to_file(qids, posdoc_ids, negdoc_ids, queries, posdocs, negdocs, query_idfs))
+                tf_record_filenames.append(self.write_tf_record_to_file(dir_name, tf_features))
+                tf_features = []
 
-        tf_record_filenames.append(
-            self.write_tf_record_to_file(qids, posdoc_ids, negdoc_ids, queries, posdocs, negdocs, query_idfs)
-        )
+        if len(tf_features):
+            tf_record_filenames.append(
+                self.write_tf_record_to_file(dir_name, tf_features)
+            )
+
         return tf_record_filenames
 
     def cache_exists(self, dataset):
+        # TODO: The caching logic is broken - the cache cannot be reused if itersize/batch size e.t.c changes
         cache_dir_name = dataset.get_hash()
         cache_dir_path = self.get_cache_path() / cache_dir_name
         # TODO: Add checks to make sure that the number of files in the director is correct
         return os.path.isdir(cache_dir_path) and len(os.listdir(cache_dir_path)) != 0
 
-    def load_cached_dataset(self, dataset):
-        cache_dir_path = self.get_cache_path() / dataset.get_hash()
-        filenames = os.listdir(cache_dir_path)
+    def load_tf_records_from_file(self, filenames):
         raw_dataset = tf.data.TFRecordDataset(filenames)
         feature_description = {
-            'qids': tf.io.FixedLenFeature([], tf.int16),
-            'queries': tf.io.FixedLenFeature([self.cfg["maxqlen"]], tf.float32),
-            'query_idfs': tf.io.FixedLenFeature([self.cfg["maxqlen"]], tf.float32),
-            'posdoc_ids': tf.io.FixedLenFeature([], tf.string),
+            'qid': tf.io.FixedLenFeature([], tf.int64),
+            'query': tf.io.FixedLenFeature([self.cfg["maxqlen"]], tf.float32),
+            'query_idf': tf.io.FixedLenFeature([self.cfg["maxqlen"]], tf.float32),
+            'posdoc_id': tf.io.FixedLenFeature([], tf.string),
             'posdoc': tf.io.FixedLenFeature([self.cfg["maxdoclen"]], tf.float32),
-            'negdoc_ids': tf.io.FixedLenFeature([], tf.string),
-            'negdocs': tf.io.FixedLenFeature([self.cfg['maxdoclen']], tf.float32)
+            'negdoc_id': tf.io.FixedLenFeature([], tf.string),
+            'negdoc': tf.io.FixedLenFeature([self.cfg['maxdoclen']], tf.float32)
         }
-        parse_single_example and map it
+
+        def parse_single_example(example_proto):
+            return tf.io.parse_single_example(example_proto, feature_description)
+
+        tf_records_dataset = raw_dataset.map(parse_single_example)
+
+        return tf_records_dataset
+
+    def load_cached_tf_records(self, dataset):
+        cache_dir_path = self.get_cache_path() / dataset.get_hash()
+        filenames = os.listdir(cache_dir_path)
+
+        return self.load_tf_records_from_file(filenames)
 
     def get_tf_record_dataset(self, dataset):
         """
@@ -478,7 +511,8 @@ class TensorFlowTrainer(Trainer):
         """
 
         if self.cfg["usecache"] and self.cache_exists():
-            return self.load_cached_dataset()
+            return self.load_cached_tf_records(dataset)
         else:
             tf_record_filenames = self.convert_to_tf_record(dataset)
+            return self.load_tf_records_from_file(tf_record_filenames)
 
