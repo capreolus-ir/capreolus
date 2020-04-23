@@ -185,6 +185,7 @@ class DocStats(Extractor):
     name = "docstats"
     dependencies = {
         "index": Dependency(module="index", name="anserini", config_overrides={"indexstops": True, "stemmer": "none"}),
+        "backgroundindex": Dependency(module="index", name="anserinicorpus"),
         "tokenizer": Dependency(module="tokenizer", name="anserini", config_overrides={"keepstops": False}),
 #        "tokenizerquery": Dependency(module="tokenizer", name="spacy", config_overrides={"keepstops": False, 'removesmallerlen': 2}), #removesmallerlen is actually only used for user profile (not the short queries) but I cannot separate them
        # "tokenizer": Dependency(module="tokenizer", name="spacy", config_overrides={"keepstops": False}),
@@ -202,6 +203,8 @@ class DocStats(Extractor):
             return
 
         self["index"].create_index()
+        logger.debug("Openning background index")
+        self["backgroundindex"].open()
 
         self.qid2toks = {}
         self.qid_termprob = {}
@@ -214,6 +217,8 @@ class DocStats(Extractor):
         # TODO hardcoded paths
         #df_fn, freq_fn = "/GW/NeuralIR/work/PES20/counts_IDF_stemmed.txt", "/GW/NeuralIR/work/PES20/counts_LM_stemmed.txt"
         #doclen_fn = "/GW/NeuralIR/work/PES20/counts_MUS_stemmed.txt"
+        #df_fn, freq_fn = "/home/ghazaleh/workspace/capreolus/data/PES20/counts_IDF_stemmed.txt", "/home/ghazaleh/workspace/capreolus/data/PES20/counts_LM_stemmed.txt"
+        #doclen_fn = "/home/ghazaleh/workspace/capreolus/data/PES20/counts_MUS_stemmed.txt"
         df_fn, freq_fn = "/GW/PKB/work/data_personalization/TREC_format/counts_IDF_stemmed_cw12.nostemming.txt", "/GW/PKB/work/data_personalization/TREC_format/counts_LM_stemmed_cw12.nostemming.txt"
         
         logger.debug("computing background probabilities")
@@ -224,6 +229,9 @@ class DocStats(Extractor):
                 k = line.strip()[:cidx]
                 v = line.strip()[cidx + 1:]
                 dfs[k] = int(v)
+                df_bg = int(self["backgroundindex"].get_df[k])
+                if v != df_bg:
+                    logger.debug("df do noe match: {}".format(k))
 
         total_docs = dfs["total_docs"]
         del dfs["total_docs"]

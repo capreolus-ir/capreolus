@@ -37,7 +37,7 @@ class LMDirichletWordEmbeddingsReranker(Reranker):
 
     def score_document(self, queryvocab, docid, qid, mu):
         return -1 * sum(
-            self.score_document_term(term, docid, qid, mu) for term in queryvocab if term in self["extractor"].background_termprob
+            self.score_document_term(term, docid, qid, mu) for term in queryvocab #if term in self["extractor"].background_termprob
         )
 
     def score_document_term(self, term, docid, qid, mu):
@@ -56,7 +56,7 @@ class LMDirichletWordEmbeddingsReranker(Reranker):
             smoothedprob = (doctf + mu * collectiontp) / (self['extractor'].doc_len[docid] + mu)
 
         if smoothedprob == 0:
-            print("smoothed prob zero: {}".format(term)) #TODO check this further why there exists such terms that do not occure in the collection at all
+            # print("smoothed prob zero: {}".format(term)) #TODO check this further why there exists such terms that do not occure in the collection at all
             return 0
 
         # return querytp * (np.log10(querytp) - np.log10(smoothedprob))
