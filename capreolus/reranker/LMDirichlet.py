@@ -36,7 +36,7 @@ class LMDirichletReranker(Reranker):
 
     def score_document(self, queryvocab, docid, qid, mu):
         return -1 * sum(
-            self.score_document_term(term, docid, qid, mu) for term in queryvocab if term in self["extractor"].background_termprob
+            self.score_document_term(term, docid, qid, mu) for term in queryvocab
         )
 
     def score_document_term(self, term, docid, qid, mu):
@@ -44,14 +44,14 @@ class LMDirichletReranker(Reranker):
 
         # here we implement a specific type of smoothing where it uses collectionP if doctf is zero TODO due to some reasons that I will have to think remember more about and also find the source and document it
         doctf = self["extractor"].doc_tf[docid].get(term, 0)
-        collectiontp = self['extractor'].background_termprob[term]
+        collectiontp = self['extractor'].background_termprob(term)
         if doctf == 0:
             smoothedprob = collectiontp
         else:
             smoothedprob = (doctf + mu * collectiontp) / (self['extractor'].doc_len[docid] + mu)
 
         if smoothedprob == 0:
-            print("smoothed prob zero: {}".format(term)) #TODO check this further why there exists such terms that do not occure in the collection at all
+            # print("smoothed prob zero: {}".format(term)) #TODO check this further why there exists such terms that do not occure in the collection at all
             return 0
 
         # return querytp * (np.log10(querytp) - np.log10(smoothedprob))
