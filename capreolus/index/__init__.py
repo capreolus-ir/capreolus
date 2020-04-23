@@ -133,7 +133,7 @@ class AnseriniCorpusIndex(Index):
         corpuspath = '/GW/NeuralIR/nobackup/lucene-index.cw12.nostemming'# todo: this was the only one which was working now
 
     def get_index_path(self):
-        return os.path.join(self.cfg['corpuspath'])
+        return self.cfg['corpuspath']
 
     def get_df(self, term):
         # returns 0 for missing terms
@@ -152,7 +152,7 @@ class AnseriniCorpusIndex(Index):
     def open(self):
         from jnius import autoclass
 
-        index_path = self.get_index_path().as_posix()
+        index_path = self.get_index_path()
 
         JIndexUtils = autoclass("io.anserini.index.IndexUtils")
         self.index_utils = JIndexUtils(index_path)
