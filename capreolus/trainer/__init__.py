@@ -445,7 +445,6 @@ class TensorFlowTrainer(Trainer):
             for sample in dataset
         ]
 
-        print("There are {} dev features".format(len(tf_features)))
         return [self.write_tf_record_to_file(dir_name, tf_features)]
 
     def convert_to_tf_train_record(self, dataset):
