@@ -1,6 +1,6 @@
 from allennlp.modules.matrix_attention import CosineMatrixAttention
 
-from capreolus.reranker import Reranker
+from capreolus.reranker import PyTorchReranker
 import torch
 from torch.nn import TransformerEncoder, TransformerEncoderLayer
 from torch import nn
@@ -142,7 +142,7 @@ class TK_class(nn.Module):
         return score
 
 
-class TK(Reranker):
+class TK(PyTorchReranker):
     name = "TK"
     citation = """Add citation"""
     # TODO: Declare the dependency on EmbedText

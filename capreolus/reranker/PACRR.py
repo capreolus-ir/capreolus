@@ -5,7 +5,7 @@ from torch.nn import functional as F
 
 # TODO add shuffle, cascade, disambig?
 from capreolus.reranker.common import create_emb_layer, SimilarityMatrix
-from capreolus.reranker import Reranker
+from capreolus.reranker import PyTorchReranker
 
 
 class PACRR_class(nn.Module):
@@ -82,7 +82,7 @@ class PACRRConvMax2dModule(torch.nn.Module):
         return result
 
 
-class PACRR(Reranker):
+class PACRR(PyTorchReranker):
     name = "PACRR"
     citation = "Kai Hui1, Andrew Yates1, Klaus Berberich1, Gerard de Melo, EMNLP 2017"
 

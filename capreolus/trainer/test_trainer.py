@@ -14,7 +14,7 @@ def test_tf_get_tf_dataset(monkeypatch):
     train_dataset = TrainDataset(training_judgments, training_judgments, extractor)
 
     def mock_id2vec(*args, **kwargs):
-        return {"query": np.array([1, 2, 3, 4], dtype=np.long), "posdoc": np.array([1, 1, 1, 1], dtype=np.float), "negdoc": np.array([2, 2, 2, 2], dtype=np.long), 'qid': 1, 'posdocid': 'posdoc1', 'negdocid': 'negdoc1', 'query_idf': np.array([0.1, 0.1, 0.2, 0.1], dtype=np.float)}
+        return {"query": np.array([1, 2, 3, 4], dtype=np.long), "posdoc": np.array([1, 1, 1, 1], dtype=np.float), "negdoc": np.array([2, 2, 2, 2], dtype=np.long), 'qid': '1', 'posdocid': 'posdoc1', 'negdocid': 'negdoc1', 'query_idf': np.array([0.1, 0.1, 0.2, 0.1], dtype=np.float)}
 
     monkeypatch.setattr(EmbedText, "id2vec", mock_id2vec)
     trainer = TensorFlowTrainer(
@@ -35,7 +35,7 @@ def test_tf_get_tf_dataset(monkeypatch):
         }
     )
 
-    tf_record_filenames = trainer.convert_to_tf_record(train_dataset)
+    tf_record_filenames = trainer.convert_to_tf_train_record(train_dataset)
     for filename in tf_record_filenames:
         assert os.path.isfile(filename)
 
@@ -44,7 +44,7 @@ def test_tf_get_tf_dataset(monkeypatch):
 
     num_batches = 0
     for idx, batch in enumerate(dataset):
-        tf.debugging.assert_equal(batch['qid'], tf.ones(2, dtype=tf.int64))
+        tf.debugging.assert_equal(batch['qid'], ['1', '1'])
         tf.debugging.assert_equal(
             batch['query'],
             tf.convert_to_tensor(
@@ -78,3 +78,5 @@ def test_tf_get_tf_dataset(monkeypatch):
     assert num_batches + 1 == 8 * 16
 
 
+def test_tf_trainer_caching(monkeypatch):
+    assert 1 == 2
