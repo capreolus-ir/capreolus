@@ -105,6 +105,14 @@ def document_to_trectxt(docno, txt):
     return s
 
 
+def topic_to_trectxt(qno, title, desc=None, narr=None):
+    return f"<top>\n\n" \
+           f"<num> Number: {qno}\n" \
+           f"<title>{title}\n\n" \
+           f"<desc> Description:\n{desc or title}\n\n" \
+           f"<narr> Narrative:\n{narr or title}\n\n"
+
+
 def anserini_index_to_trec_docs(index_dir, output_dir, expected_doc_count):
     from jnius import autoclass
 
