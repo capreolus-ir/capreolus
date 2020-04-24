@@ -2,6 +2,7 @@ import logging
 import math
 import os
 import subprocess
+from os.path import join
 
 from capreolus.registry import ModuleBase, RegisterableModule, Dependency, MAX_THREADS
 from capreolus.utils.common import Anserini
@@ -141,7 +142,7 @@ class AnseriniCorpusIndex(Index):
         indexcorpus = 'lucene-index.cw12.nostemming'# todo: this was the only one which was working now
 
     def get_index_path(self):
-        return self.cfg['corpuspath']
+        return join(self.corpusdir, self.cfg['indexcorpus'])
 
     def get_df(self, term):
         # returns 0 for missing terms
