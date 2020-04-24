@@ -174,11 +174,6 @@ class CodeSearchNet(Benchmark):
             doc_objs = pickle.load(f)
         self._docid_map = self._prep_url2docid(doc_objs)
         assert self._get_n_docid() == len(doc_objs)
-        if self._get_n_docid() == len(doc_objs):
-            print(lang, "SAME! ",  self._get_n_docid(), len(doc_objs))
-
-        if self._get_n_docid() != len(doc_objs):
-            print(lang, "NOT MATCH!", len(self._docid_map), self._get_n_docid(), "vs", len(doc_objs))
         with open(self.docid_map_file, "w") as f:
             json.dump(self._docid_map, f)
 
