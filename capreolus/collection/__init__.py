@@ -2,6 +2,8 @@ import os
 import shutil
 import tarfile
 import pickle
+
+from tqdm import tqdm
 from zipfile import ZipFile
 
 from capreolus.registry import ModuleBase, RegisterableModule, PACKAGE_PATH
@@ -280,12 +282,13 @@ class CodeSearchNet(Collection):
         return document_dir
 
     def _pkl2trec(self, pkl_path, trec_path):
+        lang = self.cfg["lang"]
         with open(pkl_path, "rb") as f:
             codes = pickle.load(f)
 
         fout = open(trec_path, "w", encoding="utf-8")
-        for i, code in enumerate(codes):
-            docno = f"{self.cfg['lang']}-FUNCTION-{i}"
+        for i, code in tqdm(enumerate(codes), desc=f"Preparing the {lang} collection file"):
+            docno = f"{lang}-FUNCTION-{i}"
             doc = remove_newline(" ".join(code["function_tokens"]))
             fout.write(document_to_trectxt(docno, doc))
         fout.close()

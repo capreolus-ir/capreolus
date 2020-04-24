@@ -3,6 +3,7 @@ import os
 import gzip
 import pickle
 
+from tqdm import tqdm
 from zipfile import ZipFile
 from pathlib import Path
 from collections import defaultdict
@@ -91,8 +92,8 @@ class CodeSearchNet(Benchmark):
     topic_dir = file_fn / "topics"
     fold_dir = file_fn / "folds"
 
-    docstring2qid_dir = file_fn / "docstring2qid"
-    url2docid_dir = file_fn / "url2docid"
+    qidmap_dir = file_fn / "qidmap"
+    docidmap_dir = file_fn / "docidmap"
 
     @staticmethod
     def config():
@@ -102,12 +103,12 @@ class CodeSearchNet(Benchmark):
         super().__init__(cfg)
         lang = cfg["lang"]
 
-        self.qid_map_file = self.docstring2qid_dir / f"{lang}.json"
-        self.docid_map_file = self.url2docid_dir / f"{self.cfg['lang']}.json"
+        self.qid_map_file = self.qidmap_dir / f"{lang}.json"
+        self.docid_map_file = self.docidmap_dir / f"{lang}.json"
 
-        self.qrel_file = self.qrel_dir / f"{self.cfg['lang']}.txt"
-        self.topic_file = self.topic_dir / f"{self.cfg['lang']}.txt"
-        self.fold_file = self.fold_dir / f"{self.cfg['lang']}.json"
+        self.qrel_file = self.qrel_dir / f"{lang}.txt"
+        self.topic_file = self.topic_dir / f"{lang}.txt"
+        self.fold_file = self.fold_dir / f"{lang}.json"
 
         for file in [var for var in vars(self) if var.endswith("file")]:
             eval(f"self.{file}").parent.mkdir(exist_ok=True, parents=True)  # TODO: is eval a good coding habit?
@@ -170,78 +171,76 @@ class CodeSearchNet(Benchmark):
 
         # prepare docid-url mapping from dedup.pkl
         pkl_fn = tmp_dir / f"{lang}_dedupe_definitions_v2.pkl"
-        with open(pkl_fn, "rb") as f:
-            doc_objs = pickle.load(f)
-        self._docid_map = self._prep_url2docid(doc_objs)
+        doc_objs = pickle.load(open(pkl_fn, "rb"))
+        self._docid_map = self._prep_docid_map(doc_objs)
         assert self._get_n_docid() == len(doc_objs)
 
-        with open(self.docid_map_file, "w") as f:
-            json.dump(self._docid_map, f)
-
         # prepare folds, qrels, topics, docstring2qid  # TODO: shall we add negative samples?
-        qrels, docstring2qid = defaultdict(dict), {}
+        qrels, self._qid_map = defaultdict(dict), {}
         qids = {s: [] for s in ["train", "valid", "test"]}
 
         topic_file = open(self.topic_file, "w", encoding="utf-8")
         qrel_file = open(self.qrel_file, "w", encoding="utf-8")
 
-        for set_name in qids:
-            set_path = tmp_dir / lang / "final" / "jsonl" / set_name
-            for fn in sorted(set_path.glob("*.jsonl.gz")):
+        def gen_doc_from_gzdir(dir):
+            """ generate parsed dict-format doc from all jsonl.gz files under given directory """
+            for fn in sorted(dir.glob("*.jsonl.gz")):
                 f = gzip.open(fn, "rb")
                 for doc in f:
-                    doc = json.loads(doc)
-                    docstring = remove_newline(" ".join(doc["docstring_tokens"]))
-                    code = remove_newline(" ".join(doc["code_tokens"]))
-                    docid = self.get_docid(doc["url"], code)
+                    yield json.loads(doc)
 
-                    if docstring in docstring2qid:
-                        qid = docstring2qid[docstring]
-                    else:
-                        qid = f"{lang}-DOCSTRING-{len(docstring2qid)}"
-                        qids[set_name].append(qid)      # for fold.json
-                        docstring2qid[docstring] = qid  # for docstring2qid.json
-                        topic_file.write(topic_to_trectxt(qid, docstring))  # write to topic.txt
+        for set_name in qids:
+            set_path = tmp_dir / lang / "final" / "jsonl" / set_name
+            for doc in gen_doc_from_gzdir(set_path):
+                code = remove_newline(" ".join(doc["code_tokens"]))
+                docstring = remove_newline(" ".join(doc["docstring_tokens"]))
 
-                    qrel_file.write(f"{qid} Q0 {docid} 1\n")  # write to qrels.txt
+                docid = self.get_docid(doc["url"], code)
+                qid = self._qid_map.get(docstring, f"{lang}-DOCSTRING-{len(self._qid_map)}")
+                qrel_file.write(f"{qid} Q0 {docid} 1\n")
+
+                if docstring not in self._qid_map:
+                    self._qid_map[docstring] = qid
+                    qids[set_name].append(qid)
+                    topic_file.write(topic_to_trectxt(qid, docstring))
+
         topic_file.close()
         qrel_file.close()
 
-        # write to fold.json, docstring2qid
-        self._qid_map = docstring2qid
-        with open(self.qid_map_file, "w") as f:
-            json.dump(docstring2qid, f)
-        with open(self.fold_file, "w") as f:
-            json.dump({"s1": {
-                "train": qids["train"],
-                "predict": {"dev": qids["valid"], "test": qids["test"]}
-            }}, f)
+        # write to qid_map.json, docid_map, fold.json
+        json.dump(self._qid_map, open(self.qid_map_file, "w"))
+        json.dump(self._docid_map, open(self.docid_map_file, "w"))
+        json.dump({"s1": {
+            "train": qids["train"],
+            "predict": {"dev": qids["valid"], "test": qids["test"]}
+        }}, open(self.fold_file, "w"))
 
-    def _prep_url2docid(self, doc_objs):
+    def _prep_docid_map(self, doc_objs):
         """
         construct a nested dict to map each doc into a unique docid
-        the dict structure: {url: {" ".join(code_tokens): docid, ...}}
+        which follows the structure: {url: {" ".join(code_tokens): docid, ...}}
 
-        For all the lanugage datasets but js and php in csn, url uniquely maps to a code_tokens, which makes a nested mapping is necessary.
+        For all the lanugage datasets the url uniquely maps to a code_tokens yet it's not the case for but js and php
+        which requires a second-level mapping from raw_doc to docid
 
-        :param doc_objs:
+        :param doc_objs: a list of dict having keys ["nwo", "url", "sha", "identifier", "arguments"
+            "function", "function_tokens", "docstring", "doctring_tokens",],
         :return:
         """
         # TODO: any way to avoid the twice traversal of all url and make the return dict structure consistent
-
+        lang = self.cfg["lang"]
         url2docid = defaultdict(dict)
-        for i, doc in enumerate(doc_objs):
-            lang = self.cfg["lang"]
+        for i, doc in tqdm(enumerate(doc_objs), desc=f"Preparing the {lang} docid_map"):
             url, code_tokens = doc["url"], remove_newline(" ".join(doc["function_tokens"]))
             url2docid[url][code_tokens] = f"{lang}-FUNCTION-{i}"
 
         # remove the code_tokens for the unique url-docid mapping
-        for url in url2docid:
-            if len(url2docid[url]) == 1:
-                url2docid[url] = list(url2docid[url].values())  # {code_tokens: docid} -> [docid]
+        for url, docids in tqdm(url2docid.items(), desc=f"Compressing the {lang} docid_map"):
+            url2docid[url] = list(docids.values()) if len(docids) == 1 else docids  # {code_tokens: docid} -> [docid]
         return url2docid
 
     def _get_n_docid(self):
+        """ calculate the number of document ids contained in the nested docid map """
         lens = [len(docs) for url, docs in self._docid_map.items()]
         return sum(lens)
 
