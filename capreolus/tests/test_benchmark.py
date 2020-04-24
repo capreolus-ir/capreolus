@@ -1,6 +1,7 @@
 import os
 from capreolus.benchmark import CodeSearchNet
 
+
 def test_csn_benchmark_downloadifmissing():
     for lang in ["python", "java", "javascript", "go", "ruby", "php"]:
         cfg = {"_name": "codesearchnet", "lang": lang}
@@ -14,3 +15,8 @@ def test_csn_benchmark_downloadifmissing():
         assert os.path.exists(benchmark.qrel_dir / f"{lang}.txt")
         assert os.path.exists(benchmark.fold_dir / f"{lang}.json")
 
+
+def test_csn_coll_benchmark_consistency():
+    for lang in ["python", "java", "javascript", "go", "ruby", "php"]:
+        cfg = {"_name": "codesearchnet", "lang": lang}
+        benchmark = CodeSearchNet(cfg)
