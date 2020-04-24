@@ -9,7 +9,7 @@ from collections import defaultdict
 
 from capreolus.registry import ModuleBase, RegisterableModule, PACKAGE_PATH
 from capreolus.utils.trec import load_qrels, load_trec_topics, topic_to_trectxt
-from capreolus.utils.common import download_file, hash_file
+from capreolus.utils.common import download_file, hash_file, remove_newline
 
 
 class Benchmark(ModuleBase, metaclass=RegisterableModule):
@@ -127,7 +127,7 @@ class CodeSearchNet(Benchmark):
             if not self.docid_map_file.exists():
                 self.download_if_missing()
 
-            self._docid_map = json.load(open(self.docid_map_file, "r") )
+            self._docid_map = json.load(open(self.docid_map_file, "r"))
         return self._docid_map
 
     @property
@@ -174,6 +174,7 @@ class CodeSearchNet(Benchmark):
             doc_objs = pickle.load(f)
         self._docid_map = self._prep_url2docid(doc_objs)
         assert self._get_n_docid() == len(doc_objs)
+
         with open(self.docid_map_file, "w") as f:
             json.dump(self._docid_map, f)
 
@@ -182,7 +183,7 @@ class CodeSearchNet(Benchmark):
         qids = {s: [] for s in ["train", "valid", "test"]}
 
         topic_file = open(self.topic_file, "w", encoding="utf-8")
-        qrel_file = open(self.qrel_file , "w", encoding="utf-8")
+        qrel_file = open(self.qrel_file, "w", encoding="utf-8")
 
         for set_name in qids:
             set_path = tmp_dir / lang / "final" / "jsonl" / set_name
@@ -190,8 +191,9 @@ class CodeSearchNet(Benchmark):
                 f = gzip.open(fn, "rb")
                 for doc in f:
                     doc = json.loads(doc)
-                    docstring, code = " ".join(doc["docstring_tokens"]), " ".join(doc["code_tokens"])
-                    docid = self._get_docid(doc)
+                    docstring = remove_newline(" ".join(doc["docstring_tokens"]))
+                    code = remove_newline(" ".join(doc["code_tokens"]))
+                    docid = self.get_docid(doc["url"], code)
 
                     if docstring in docstring2qid:
                         qid = docstring2qid[docstring]
@@ -206,6 +208,7 @@ class CodeSearchNet(Benchmark):
         qrel_file.close()
 
         # write to fold.json, docstring2qid
+        self._qid_map = docstring2qid
         with open(self.qid_map_file, "w") as f:
             json.dump(docstring2qid, f)
         with open(self.fold_file, "w") as f:
@@ -229,7 +232,7 @@ class CodeSearchNet(Benchmark):
         url2docid = defaultdict(dict)
         for i, doc in enumerate(doc_objs):
             lang = self.cfg["lang"]
-            url, code_tokens = doc["url"], " ".join(doc["function_tokens"])
+            url, code_tokens = doc["url"], remove_newline(" ".join(doc["function_tokens"]))
             url2docid[url][code_tokens] = f"{lang}-FUNCTION-{i}"
 
         # remove the code_tokens for the unique url-docid mapping
@@ -242,8 +245,7 @@ class CodeSearchNet(Benchmark):
         lens = [len(docs) for url, docs in self._docid_map.items()]
         return sum(lens)
 
-    def _get_docid(self, doc):
+    def get_docid(self, url, code_tokens):
         """ retrieve the doc id according to the doc dict """
-        url, code_tokens = doc["url"], " ".join(doc["code_tokens"])
-        docids = self._docid_map[url]
+        docids = self.docid_map[url]
         return docids[0] if len(docids) == 1 else docids[code_tokens]

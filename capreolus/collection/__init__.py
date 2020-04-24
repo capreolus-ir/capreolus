@@ -5,9 +5,9 @@ import pickle
 from zipfile import ZipFile
 
 from capreolus.registry import ModuleBase, RegisterableModule, PACKAGE_PATH
-from capreolus.utils.common import download_file, hash_file
+from capreolus.utils.common import download_file, hash_file, remove_newline
 from capreolus.utils.loginit import get_logger
-from capreolus.utils.trec import anserini_index_to_trec_docs
+from capreolus.utils.trec import anserini_index_to_trec_docs, document_to_trectxt
 
 logger = get_logger(__name__)
 
@@ -268,12 +268,10 @@ class CodeSearchNet(Collection):
         if zip_path.exists():
             logger.info(f"{zipfile} already exist under directory {tmp_dir}, skip downloaded")
         else:
-            # cachedir.mkdir(exist_ok=True)  # tmp
-            # document_dir.mkdir(exist_ok=True) # tmp
-            tmp_dir.mkdir(exist_ok=True)
-
+            tmp_dir.mkdir(exist_ok=True, parents=True)
             download_file(lang_url, zip_path)
 
+        document_dir.mkdir(exist_ok=True, parents=True)  # tmp
         with ZipFile(zip_path, "r") as zipobj:
             zipobj.extractall(tmp_dir)
 
@@ -281,14 +279,13 @@ class CodeSearchNet(Collection):
         self._pkl2trec(pkl_path, coll_filename)
         return document_dir
 
-
     def _pkl2trec(self, pkl_path, trec_path):
         with open(pkl_path, "rb") as f:
             codes = pickle.load(f)
 
         fout = open(trec_path, "w", encoding="utf-8")
         for i, code in enumerate(codes):
-            docid = f"{self.cfg['lang']}_{i}"
-            doc = " ".join(code["function_tokens"])
-            fout.write(f"<DOC>\n<DOCNO>{docid}</DOCNO>\n<TEXT>\n{doc}\n</TEXT>\n</DOC>\n")
+            docno = f"{self.cfg['lang']}-FUNCTION-{i}"
+            doc = remove_newline(" ".join(code["function_tokens"]))
+            fout.write(document_to_trectxt(docno, doc))
         fout.close()
