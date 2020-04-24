@@ -113,6 +113,8 @@ class CodeSearchNet(Benchmark):
         for file in [var for var in vars(self) if var.endswith("file")]:
             eval(f"self.{file}").parent.mkdir(exist_ok=True, parents=True)  # TODO: is eval a good coding habit?
 
+        self.download_if_missing()
+
     @property
     def qid_map(self):
         if not hasattr(self, "_qid_map"):
@@ -159,6 +161,11 @@ class CodeSearchNet(Benchmark):
         return self._folds
 
     def download_if_missing(self):
+        files = [self.qid_map_file, self.docid_map_file, self.qrel_file, self.topic_file, self.fold_file]
+        print(files)
+        if all([f.exists() for f in files]):
+            return
+
         lang = self.cfg["lang"]
 
         tmp_dir = Path("/tmp")
