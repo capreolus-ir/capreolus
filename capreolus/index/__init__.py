@@ -124,14 +124,6 @@ class AnseriniIndex(Index):
         self.reader = autoclass("org.apache.lucene.index.DirectoryReader").open(fsdir)
         self.numdocs = self.reader.numDocs()
         self.JTerm = autoclass("org.apache.lucene.index.Term")
-        self.JAnalyzer = autoclass("org.apache.lucene.analysis.en.EnglishAnalyzer")
-        self.analyzer = self.JAnalyzer()
-
-        QueryParser
-        qp = new
-        QueryParser(LuceneDocumentGenerator.FIELD_BODY, ea);
-        analyzer = self.Analyzer('porter')
-
 
 class AnseriniCorpusIndex(Index):
     name = "anserinicorpus"
