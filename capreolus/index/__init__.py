@@ -123,14 +123,22 @@ class AnseriniIndex(Index):
         self.reader = autoclass("org.apache.lucene.index.DirectoryReader").open(fsdir)
         self.numdocs = self.reader.numDocs()
         self.JTerm = autoclass("org.apache.lucene.index.Term")
+        self.JAnalyzer = autoclass("org.apache.lucene.analysis.en.EnglishAnalyzer")
+        self.analyzer = self.JAnalyzer()
+
+        QueryParser
+        qp = new
+        QueryParser(LuceneDocumentGenerator.FIELD_BODY, ea);
+        analyzer = self.Analyzer('porter')
 
 
 class AnseriniCorpusIndex(Index):
     name = "anserinicorpus"
+    corpusdir = '/GW/NeuralIR/nobackup/' #TODO hard codeed
 
     @staticmethod
     def config():
-        corpuspath = '/GW/NeuralIR/nobackup/lucene-index.cw12.nostemming'# todo: this was the only one which was working now
+        indexcorpus = 'lucene-index.cw12.nostemming'# todo: this was the only one which was working now
 
     def get_index_path(self):
         return self.cfg['corpuspath']
@@ -142,12 +150,19 @@ class AnseriniCorpusIndex(Index):
         jterm = self.JTerm("contents", term)
         return self.reader.docFreq(jterm)
 
-    def get_idf(self, term):
-        """ BM25's IDF with a floor of 0 """
-        df = self.get_df(term)
-        idf = (self.numdocs - df + 0.5) / (df + 0.5)
-        idf = math.log(1 + idf)
-        return max(idf, 0)
+    def get_tf(self, term):
+        # returns 0 for missing terms
+        if not hasattr(self, "reader") or self.reader is None:
+            self.open()
+        jterm = self.JTerm("contents", term)
+        return self.reader.totalTermFreq(jterm)
+
+    # def get_idf(self, term): # for now I wrote another one which doesn't have the last line in the extractor, we could use this as well if this is better.
+    #     """ BM25's IDF with a floor of 0 """
+    #     df = self.get_df(term)
+    #     idf = (self.numdocs - df + 0.5) / (df + 0.5)
+    #     idf = math.log(1 + idf)
+    #     return max(idf, 0)
 
     def open(self):
         from jnius import autoclass
@@ -163,3 +178,4 @@ class AnseriniCorpusIndex(Index):
         self.reader = autoclass("org.apache.lucene.index.DirectoryReader").open(fsdir)
         self.numdocs = self.reader.numDocs()
         self.JTerm = autoclass("org.apache.lucene.index.Term")
+        self.numterms = self.reader.getSumTotalTermFreq("contents");

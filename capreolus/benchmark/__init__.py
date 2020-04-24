@@ -75,7 +75,9 @@ class KITT(PES20):
         querytype = "query"  # one of: query, basicprofile, entityprofile, chatprofile #TODO: probably will change how the entities are incorporated into the system.
         domain = "book"
 
-        if querytype not in ["query", "basicprofile", "entityprofile", "chatprofile"]:
+        if querytype not in ["query", "basicprofile", "entityprofile", "chatprofile",
+                             "basicprofile_general", 'basicprofile_food', 'basicprofile_travel', 'basicprofile_book_movie',
+                             "chatprofile_general", 'chatprofile_food', 'chatprofile_travel', 'chatprofile_book', 'chatprofile_movie', 'chatprofile_hobbies']:
             raise ValueError(f"invalid querytype: {querytype}")
 
         if domain not in ["book", "travel_wikivoyage", "movie", "food"]:
