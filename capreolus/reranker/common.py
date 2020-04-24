@@ -15,18 +15,15 @@ def pair_hinge_loss(pos_neg_scores):
     return _hinge_loss(pos_neg_scores[0], pos_neg_scores[1], label)
 
 
-def tf_pair_hinge_loss(y_true, y_pred):
+def tf_pair_hinge_loss(posdoc_score, negdoc_score):
     """
     y_true - the true scores
     y_pred - the predicted scores
     We don't care about the true scores because we have no idea what they should be
     All we are going to do is to maximize the margin b/w pos doc scores and neg doc scores in y_pred
     """
-    pos_neg_scores = y_pred
-    label = K.ones_like(pos_neg_scores[0])
-    # TODO: Perhas replace K.sum with K.mean?
+    return K.sum(K.max(1 - (posdoc_score - negdoc_score)))
 
-    return K.sum(K.max(1 - (y_pred[0] - y_pred[1])))
 
 
 class SimilarityMatrix(torch.nn.Module):

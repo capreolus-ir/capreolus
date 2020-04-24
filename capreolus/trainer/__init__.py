@@ -300,7 +300,7 @@ class PytorchTrainer(Trainer):
 
 
 class TensorFlowTrainer(Trainer):
-    name = "pytorch"
+    name = "tensorflow"
     dependencies = {}
 
     def __init__(self, *args, **kwargs):
@@ -351,31 +351,31 @@ class TensorFlowTrainer(Trainer):
 
     def train(self, reranker, train_dataset, train_output_path, dev_data, dev_output_path, qrels, metric):
         os.makedirs(dev_output_path, exist_ok=True)
-        initial_iter = self.fastforward_training()
+        initial_iter = self.fastforward_training(reranker, dev_output_path, None)
         logger.info("starting training from iteration %s/%s", initial_iter, self.cfg["niters"])
 
-        train_records = self.get_tf_record_dataset(train_dataset)
-        dev_records = self.get_tf_record_dataset(dev_data)
+        train_records = self.get_tf_train_records(train_dataset)
+        dev_records = self.get_tf_dev_records(dev_data)
 
         validation_frequency = self.cfg["validatefreq"]
-        dev_best_metric = np.inf
+        dev_best_metric = -np.inf
         for niter in range(initial_iter, self.cfg["niters"]):
-            for step, (queries, posdocs, negdocs) in enumerate(train_records):
+            for step, batch in enumerate(train_records.batch(self.cfg["batch"])):
                 with tf.GradientTape() as tape:
-                    posdoc_scores = reranker.score(queries, posdocs)
-                    negdoc_scores = reranker.score(queries, negdocs)
+                    queries = batch['query']
+                    query_idfs = batch['query_idf']
+                    posdoc_scores, negdoc_scores = reranker.score(batch['posdoc'], batch['negdoc'], queries, query_idfs)
                     loss_value = self.loss(posdoc_scores, negdoc_scores)
 
                 grads = tape.gradient(loss_value, reranker.model.trainable_weights)
                 self.optimizer.apply_gradients(zip(grads, reranker.model.trainable_weights))
 
             if niter % validation_frequency == 0:
-                self.save_best_model(reranker, dev_records, dev_output_path, dev_best_metric, qrels, metric, niter)
-
+                self.eval_and_save_best_model(reranker, dev_records, train_output_path, dev_output_path, dev_best_metric, qrels, metric, niter)
 
         # Skipping dumping metrics and plotting loss since that should be done through tensorboard
 
-    def save_best_model(self, reranker, dev_records, train_output_path, dev_output_path, dev_best_metric, qrels, metric, niter):
+    def eval_and_save_best_model(self, reranker, dev_records, train_output_path, dev_output_path, dev_best_metric, qrels, metric, niter):
         """
         Attempt early stopping
         """
@@ -395,19 +395,19 @@ class TensorFlowTrainer(Trainer):
             reranker.save_weights(dev_best_weight_fn, self.optimizer)
 
     def predict(self, reranker, dev_records, pred_fn):
-        predictions = reranker.model.predict(dev_records)
-        pred_dict = defaultdict(lambda: dict)
-        for qid, docid, query, doc in dev_records:
-            pred_dict[qid][docid] = reranker.score(query, doc)
+        pred_dict = defaultdict(lambda: dict())
+        for step, batch in enumerate(dev_records.batch(1)):
+            qid, doc_id = batch['qid'][0].numpy(), batch['posdoc_id'][0].numpy()
+            pred_dict[qid.decode('utf-8')][doc_id.decode('utf-8')] = reranker.test(batch['posdoc'], batch['query'], batch['query_idf']).numpy().astype(np.float16).item()
 
         os.makedirs(os.path.dirname(pred_fn), exist_ok=True)
         Searcher.write_trec_run(pred_dict, pred_fn)
 
-        return pred_dict
+        return dict(pred_dict)
 
     def create_tf_feature(self, qid, query, query_idf, posdoc_id, posdoc, negdoc_id, negdoc):
         feature = {
-            "qid": tf.train.Feature(int64_list=tf.train.Int64List(value=[qid])),
+            "qid": tf.train.Feature(bytes_list=tf.train.BytesList(value=[qid.encode('utf-8')])),
             "query": tf.train.Feature(float_list=tf.train.FloatList(value=query)),
             "query_idf": tf.train.Feature(float_list=tf.train.FloatList(value=query_idf)),
             "posdoc_id": tf.train.Feature(bytes_list=tf.train.BytesList(value=[posdoc_id.encode('utf-8')])),
@@ -437,7 +437,18 @@ class TensorFlowTrainer(Trainer):
 
         return str(filename)
 
-    def convert_to_tf_record(self, dataset):
+    def convert_to_tf_dev_record(self, dataset):
+        dir_name = self.get_cache_path() / dataset.get_hash()
+
+        tf_features = [
+            self.create_tf_feature(sample["qid"], sample["query"], sample["query_idf"], sample["posdocid"], sample["posdoc"], None, None)
+            for sample in dataset
+        ]
+
+        print("There are {} dev features".format(len(tf_features)))
+        return [self.write_tf_record_to_file(dir_name, tf_features)]
+
+    def convert_to_tf_train_record(self, dataset):
         """
         Tensorflow works better if the input data is fed in as tfrecords
         Takes in a pytorch IterableDataset, iterates through it, and creates a tf record from it
@@ -455,7 +466,7 @@ class TensorFlowTrainer(Trainer):
                 tf_features.append(
                     self.create_tf_feature(
                         data["qid"], data["query"], data["query_idf"], data["posdocid"], data["posdoc"],
-                        data.get("negdocid"), data.get("negdoc")
+                        data["negdocid"], data["negdoc"]
                     )
                 )
                 if sample_idx + 1 >= self.cfg["itersize"] * self.cfg["batch"]:
@@ -482,13 +493,13 @@ class TensorFlowTrainer(Trainer):
     def load_tf_records_from_file(self, filenames):
         raw_dataset = tf.data.TFRecordDataset(filenames)
         feature_description = {
-            'qid': tf.io.FixedLenFeature([], tf.int64),
+            'qid': tf.io.FixedLenFeature([], tf.string),
             'query': tf.io.FixedLenFeature([self.cfg["maxqlen"]], tf.float32),
             'query_idf': tf.io.FixedLenFeature([self.cfg["maxqlen"]], tf.float32),
             'posdoc_id': tf.io.FixedLenFeature([], tf.string),
             'posdoc': tf.io.FixedLenFeature([self.cfg["maxdoclen"]], tf.float32),
-            'negdoc_id': tf.io.FixedLenFeature([], tf.string),
-            'negdoc': tf.io.FixedLenFeature([self.cfg['maxdoclen']], tf.float32)
+            'negdoc_id': tf.io.FixedLenFeature([], tf.string, default_value=b'na'),
+            'negdoc': tf.io.FixedLenFeature([self.cfg['maxdoclen']], tf.float32, default_value=tf.zeros(self.cfg['maxdoclen']))
         }
 
         def parse_single_example(example_proto):
@@ -504,7 +515,14 @@ class TensorFlowTrainer(Trainer):
 
         return self.load_tf_records_from_file(filenames)
 
-    def get_tf_record_dataset(self, dataset):
+    def get_tf_dev_records(self, dataset):
+        if self.cfg["usecache"] and self.cache_exists(dataset):
+            return self.load_cached_tf_records(dataset)
+        else:
+            tf_record_filenames = self.convert_to_tf_dev_record(dataset)
+            return self.load_tf_records_from_file(tf_record_filenames)
+
+    def get_tf_train_records(self, dataset):
         """
         If cached data exists, use that
         Else convert the dataset into tf record
@@ -513,6 +531,6 @@ class TensorFlowTrainer(Trainer):
         if self.cfg["usecache"] and self.cache_exists():
             return self.load_cached_tf_records(dataset)
         else:
-            tf_record_filenames = self.convert_to_tf_record(dataset)
+            tf_record_filenames = self.convert_to_tf_train_record(dataset)
             return self.load_tf_records_from_file(tf_record_filenames)
 

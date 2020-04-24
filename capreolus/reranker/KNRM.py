@@ -3,7 +3,7 @@ import tensorflow as tf
 from tensorflow.keras.layers import Layer
 from torch import nn
 
-from capreolus.reranker import Reranker, TensorFlowReranker
+from capreolus.reranker import PyTorchReranker, TensorFlowReranker
 from capreolus.reranker.common import create_emb_layer, SimilarityMatrix, RbfKernel, RbfKernelBank
 from capreolus.utils.loginit import get_logger
 
@@ -58,32 +58,24 @@ class KNRM_class(nn.Module):
         return scores
 
 
-class KNRM_TF_Class(Layer):
+class KNRM_TF_Class(tf.keras.Model):
     def __init__(self, extractor, config, **kwargs):
+        super(KNRM_TF_Class, self).__init__(**kwargs)
         self.config = config
         self.extractor = extractor
-        self.embedding = None
-        super(KNRM_TF_Class, self).__init__(**kwargs)
-
-    def build(self, input_shape):
         self.embedding = tf.keras.layers.Embedding(len(self.extractor.stoi), self.extractor.embeddings.shape[1], weights=[self.extractor.embeddings], trainable=False)
 
-    def call(self, input, **kwargs):
+    def call(self, x, **kwargs):
         """
         All the inputs are arrays of indices into an embedding matrix
         """
-        posdoc, query, query_idf = input[0], input[1], input[2]
+        doc, query, query_idf = x[0], x[1], x[2]
         query_embed = self.embedding(query)
-        print("query is {}".format(query))
-        print("query embed is {}".format(query_embed))
-        return 1
-
-    def compute_output_shape(self, input_shape):
-        return 1
+        return tf.ones(1)
 
 
 class KNRM_TF(TensorFlowReranker):
-    name = "KNRM_TF"
+    name = "KNRMTF"
 
     @staticmethod
     def config():
@@ -96,15 +88,15 @@ class KNRM_TF(TensorFlowReranker):
 
     def score(self, posdoc, negdoc, query, query_idf):
         return [
-            self.model(posdoc, query, query_idf),
-            self.model(negdoc, query, query_idf)
+            self.model((posdoc, query, query_idf)),
+            self.model((negdoc, query, query_idf))
         ]
 
     def test(self, doc, query, query_idf):
-        return self.model(doc, query, query_idf)
+        return self.model((doc, query, query_idf))
 
 
-class KNRM(Reranker):
+class KNRM(PyTorchReranker):
     name = "KNRM"
     citation = """Chenyan Xiong, Zhuyun Dai, Jamie Callan, Zhiyuan Liu, and Russell Power. 2017.
                   End-to-End Neural Ad-hoc Ranking with Kernel Pooling. In SIGIR'17."""
