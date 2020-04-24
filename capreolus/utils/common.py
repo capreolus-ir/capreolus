@@ -152,4 +152,4 @@ def plot_metrics(metrics, outfn, interactive=False, show={"map", "P_20", "ndcg_c
 
 
 def remove_newline(txt):
-    return txt.replace("\r", "").replace("\n", "")
+    return txt.replace("\r", "").replace("\n", "").strip()
