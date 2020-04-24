@@ -1,11 +1,11 @@
 import torch
 import tensorflow as tf
-from tensorflow.keras.layers import Layer
 from torch import nn
 
 from capreolus.reranker import PyTorchReranker, TensorFlowReranker
 from capreolus.reranker.common import create_emb_layer, SimilarityMatrix, RbfKernel, RbfKernelBank
 from capreolus.utils.loginit import get_logger
+from reranker.common import RbfKernelBankTF, SimilarityMatrixTF
 
 logger = get_logger(__name__)  # pylint: disable=invalid-name
 
@@ -63,15 +63,33 @@ class KNRM_TF_Class(tf.keras.Model):
         super(KNRM_TF_Class, self).__init__(**kwargs)
         self.config = config
         self.extractor = extractor
+        mus = [-0.9, -0.7, -0.5, -0.3, -0.1, 0.1, 0.3, 0.5, 0.7, 0.9, 1.0]
+        sigmas = [0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.001]
         self.embedding = tf.keras.layers.Embedding(len(self.extractor.stoi), self.extractor.embeddings.shape[1], weights=[self.extractor.embeddings], trainable=False)
+        self.kernels = RbfKernelBankTF(mus, sigmas, dim=1, requires_grad=config["gradkernels"])
+        self.simmat = SimilarityMatrixTF(padding=extractor.pad)
+        self.combine = tf.keras.layers.Dense(1, input_shape=(self.kernels.count(),))
 
     def call(self, x, **kwargs):
         """
         All the inputs are arrays of indices into an embedding matrix
         """
         doc, query, query_idf = x[0], x[1], x[2]
-        query_embed = self.embedding(query)
-        return tf.ones(1)
+        query_embed, doc_embed = self.embedding(query), self.embedding(doc)
+        simmat = self.simmat((query_embed, doc_embed, query, doc))
+        kernel_result = self.kernels(simmat)
+        batch, kernels, views, qlen, dlen = kernel_result.shape
+        kernel_result = tf.reshape(kernel_result, (batch, kernels * views, qlen, dlen))
+        simmat = (
+            tf.reshape(tf.broadcast_to(tf.reshape(simmat, (batch, 1, views, qlen, dlen)), (batch, kernels, views, qlen, dlen)), (batch, kernels * views, qlen, dlen))
+        )
+        result = tf.reduce_sum(kernel_result, 3)
+        mask = tf.reduce_sum(simmat, 3) != 0.0
+        result = tf.where(mask, tf.math.log(result + 1e-6), tf.cast(mask, tf.float32))
+        result = tf.reduce_sum(result, 2)
+        scores = self.combine(result)
+
+        return scores
 
 
 class KNRM_TF(TensorFlowReranker):
