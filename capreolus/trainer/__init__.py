@@ -339,6 +339,7 @@ class TensorFlowTrainer(Trainer):
         interactive = False  # True for training with Notebook or False for command line environment
         fastforward = False
         validatefreq = 1
+        usecache = False
 
     def get_optimizer(self):
         return tf.keras.optimizers.Adam(learning_rate=self.cfg['lr'])
