@@ -2,8 +2,6 @@ import torch
 import tensorflow as tf
 from tensorflow.keras.layers import Layer
 import tensorflow.keras.backend as K
-from tensorflow_core.python import trainable_variables
-from tensorflow_probability.python.trainable_distributions import trainable_distributions_lib
 
 _hinge_loss = torch.nn.MarginRankingLoss(margin=1, reduction="mean")
 
