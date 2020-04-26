@@ -5,7 +5,7 @@ from torch import nn
 from capreolus.reranker import PyTorchReranker, TensorFlowReranker
 from capreolus.reranker.common import create_emb_layer, SimilarityMatrix, RbfKernel, RbfKernelBank
 from capreolus.utils.loginit import get_logger
-from reranker.common import RbfKernelBankTF, SimilarityMatrixTF
+from capreolus.reranker.common import RbfKernelBankTF, SimilarityMatrixTF
 
 logger = get_logger(__name__)  # pylint: disable=invalid-name
 
