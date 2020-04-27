@@ -472,6 +472,7 @@ class TensorFlowTrainer(Trainer):
 
         writer = tf.data.experimental.TFRecordWriter(str(filename))
         writer.write(dataset)
+        logger.info("Wrote tf record file: {}".format(filename))
 
         return str(filename)
 
