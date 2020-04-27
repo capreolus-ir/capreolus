@@ -570,7 +570,7 @@ class TensorFlowTrainer(Trainer):
         2. Else, converts the dataset into tf records, writes them to disk, and returns them
         """
 
-        if self.cfg["usecache"] and self.cache_exists():
+        if self.cfg["usecache"] and self.cache_exists(dataset):
             return self.load_cached_tf_records(dataset)
         else:
             tf_record_filenames = self.convert_to_tf_train_record(dataset)
