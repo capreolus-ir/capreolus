@@ -389,7 +389,7 @@ class TensorFlowTrainer(Trainer):
         validation_frequency = self.cfg["validatefreq"]
         dev_best_metric = -np.inf
         for niter in range(initial_iter, self.cfg["niters"]):
-            for step, batch in enumerate(train_records.batch(self.cfg["batch"])):
+            for step, batch in tqdm(enumerate(train_records.batch(self.cfg["batch"]))):
                 with tf.GradientTape() as tape:
                     queries = batch['query']
                     query_idfs = batch['query_idf']
