@@ -235,3 +235,40 @@ class CodeSearchNetCorpus(Benchmark):
         """ retrieve the doc id according to the doc dict """
         docids = self.docid_map[url]
         return docids[0] if len(docids) == 1 else docids[code_tokens]
+
+
+class CodeSearchNetChallenge(Benchmark):
+    """
+    CodeSearchNetChallenge can only be used for training but not for evaluation since qrels is not provided
+    """
+    name = "codesearchnet_challenge"
+    url = "https://raw.githubusercontent.com/github/CodeSearchNet/master/resources/queries.csv"
+    query_type = "title"
+
+    file_fn = PACKAGE_PATH / "data" / "csn_challenge"
+    topic_file = file_fn / "topics.txt"
+    qid_map_file = file_fn / "qidmap.json"
+
+    def download_if_missing(self):
+        """ download query.csv and prepare queryid - query mapping file """
+        if self.topic_file.exists() and self.qid_map_file.exists():
+            return
+
+        tmp_dir = Path("/tmp")
+        tmp_dir.mkdir(exist_ok=True, parents=True)
+        self.file_fn.mkdir(exist_ok=True, parents=True)
+
+        query_fn = tmp_dir / f"query.csv"
+        if not query_fn.exists():
+            download_file(self.url, query_fn)
+
+        # prepare qid - query
+        qid_map = {}
+        topic_file = open(self.topic_file, "w", encoding="utf-8")
+        query_file = open(query_fn)
+        for qid, line in enumerate(query_file):
+            if qid != 0:  # ignore the first line "query"
+                topic_file.write(topic_to_trectxt(qid, line.strip()))
+                qid_map[qid] = line
+        topic_file.close()
+        json.dump(qid_map, open(self.qid_map_file, "w"))

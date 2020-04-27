@@ -4,7 +4,8 @@ from tqdm import tqdm
 
 from capreolus.utils.loginit import get_logger
 from capreolus.utils.common import remove_newline
-from capreolus.benchmark import CodeSearchNet as CodeSearchNetBenchmark
+from capreolus.benchmark import CodeSearchNetCorpus as CodeSearchNetCodeSearchNetCorpusBenchmark
+from capreolus.benchmark import CodeSearchNetChallenge as CodeSearchNetCodeSearchNetChallengeBenchmark
 from capreolus.collection import CodeSearchNet as CodeSearchNetCollection
 
 logger = get_logger(__name__)
@@ -13,8 +14,8 @@ logger = get_logger(__name__)
 def test_csn_corpus_benchmark_downloadifmissing():
     for lang in ["python", "java", "javascript", "go", "ruby", "php"]:
         logger.info(f"testing {lang}")
-        cfg = {"_name": "codesearchnet", "lang": lang}
-        benchmark = CodeSearchNetBenchmark(cfg)
+        cfg = {"_name": "codesearchnet_corpus", "lang": lang}
+        benchmark = CodeSearchNetCodeSearchNetCorpusBenchmark(cfg)
         benchmark.download_if_missing()
 
         assert os.path.exists(benchmark.docid_map_file)
@@ -55,8 +56,8 @@ def _load_trec_doc(fn):
 
 def test_csn_coll_benchmark_consistency():
     for lang in ["python", "java", "javascript", "go", "ruby", "php"]:
-        cfg = {"_name": "codesearchnet", "lang": lang}
-        benchmark = CodeSearchNetBenchmark(cfg)
+        cfg = {"_name": "codesearchnet_corpus", "lang": lang}
+        benchmark = CodeSearchNetCodeSearchNetCorpusBenchmark(cfg)
         collection = CodeSearchNetCollection(cfg)
 
         pkl_path = collection.get_cache_path() / "tmp" / f"{lang}_dedupe_definitions_v2.pkl"  # TODO: how to remove this "hack"
@@ -77,3 +78,11 @@ def test_csn_coll_benchmark_consistency():
 
             assert doc == code_tokens
             assert docno == benc_docno
+
+
+def test_csn_challenge_download_if_missing():
+    config = {"_name": "codesearchnet_challenge", "lang": "ruby"}
+    benmchmark = CodeSearchNetCodeSearchNetChallengeBenchmark(config)
+    benmchmark.download_if_missing()
+
+    assert benmchmark.qid_map_file.exists() and benmchmark.topic_file.exists()
