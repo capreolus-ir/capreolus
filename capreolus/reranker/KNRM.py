@@ -71,9 +71,6 @@ class KNRM_TF_Class(tf.keras.Model):
         self.combine = tf.keras.layers.Dense(1, input_shape=(self.kernels.count(),))
 
     def call(self, x, **kwargs):
-        """
-        All the inputs are arrays of indices into an embedding matrix
-        """
         doc, query, query_idf = x[0], x[1], x[2]
         query_embed, doc_embed = self.embedding(query), self.embedding(doc)
         simmat = self.simmat((query_embed, doc_embed, query, doc))

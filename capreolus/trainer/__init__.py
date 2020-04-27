@@ -407,6 +407,9 @@ class TensorFlowTrainer(Trainer):
         return dict(pred_dict)
 
     def create_tf_feature(self, qid, query, query_idf, posdoc_id, posdoc, negdoc_id, negdoc):
+        """
+        Creates a single tf.train.Feature instance (i.e, a single sample)
+        """
         feature = {
             "qid": tf.train.Feature(bytes_list=tf.train.BytesList(value=[qid.encode('utf-8')])),
             "query": tf.train.Feature(float_list=tf.train.FloatList(value=query)),
@@ -451,8 +454,7 @@ class TensorFlowTrainer(Trainer):
     def convert_to_tf_train_record(self, dataset):
         """
         Tensorflow works better if the input data is fed in as tfrecords
-        Takes in a pytorch IterableDataset, iterates through it, and creates a tf record from it
-        The randomization/shuffling e.t.c is handled by IterableDataset. See sampler/__init__.py
+        Takes in a dataset,  iterates through it, and creates multiple tf records from it.
         """
         tf_record_filenames = []
         tf_features = []
@@ -462,13 +464,15 @@ class TensorFlowTrainer(Trainer):
         # Each iterations has a size 'itersize' number of batches in it
         for niter in tqdm(range(0, self.cfg["niters"]), desc="Converting data to tf records"):
             for sample_idx, data in enumerate(dataset):
-                # TODO: Split into multiple files. This will destroy the RAM
+                # TODO: Split into multiple files? This might be too much memory consumption
                 tf_features.append(
                     self.create_tf_feature(
                         data["qid"], data["query"], data["query_idf"], data["posdocid"], data["posdoc"],
                         data["negdocid"], data["negdoc"]
                     )
                 )
+
+                # TODO: Below line means that the tfrecord created varies based on itersize and batch. Might interfere with caching
                 if sample_idx + 1 >= self.cfg["itersize"] * self.cfg["batch"]:
                     break
 
@@ -516,6 +520,10 @@ class TensorFlowTrainer(Trainer):
         return self.load_tf_records_from_file(filenames)
 
     def get_tf_dev_records(self, dataset):
+        """
+        1. Returns tf records from cache (disk) if applicable
+        2. Else, converts the dataset into tf records, writes them to disk, and returns them
+        """
         if self.cfg["usecache"] and self.cache_exists(dataset):
             return self.load_cached_tf_records(dataset)
         else:
@@ -524,8 +532,8 @@ class TensorFlowTrainer(Trainer):
 
     def get_tf_train_records(self, dataset):
         """
-        If cached data exists, use that
-        Else convert the dataset into tf record
+        1. Returns tf records from cache (disk) if applicable
+        2. Else, converts the dataset into tf records, writes them to disk, and returns them
         """
 
         if self.cfg["usecache"] and self.cache_exists():

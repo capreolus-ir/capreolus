@@ -44,6 +44,9 @@ class TrainDataset(torch.utils.data.IterableDataset):
                 del self.qid_to_reldocs[qid]
                 del self.qid_to_negdocs[qid]
 
+    def __hash__(self):
+        return self.get_hash()
+
     def get_hash(self):
         sorted_rep = sorted([(qid, docids) for qid, docids in self.qid_docid_to_rank.items()])
         key = hashlib.md5(str(sorted_rep).encode("utf-8")).hexdigest()
@@ -97,6 +100,9 @@ class PredDataset(torch.utils.data.IterableDataset):
                         raise
 
         self.generator_func = genf
+
+    def __hash__(self):
+        return self.get_hash()
 
     def get_hash(self):
         sorted_rep = sorted([(qid, docids) for qid, docids in self.qid_docid_to_rank.items()])
