@@ -61,6 +61,12 @@ class TensorFlowReranker(ModuleBase, metaclass=RegisterableModule):
         self.model = None
         super(TensorFlowReranker, self).__init__(*args, **kwargs)
 
+    def add_summary(self, summary_writer, niter):
+        """
+        Write to the summay_writer custom visualizations/data specific to this reranker
+        """
+        pass
+
     def save_weights(self, weights_fn, optimizer):
         # TODO: Skip the embedding layer while saving weights
         self.model.save_weights(str(weights_fn))

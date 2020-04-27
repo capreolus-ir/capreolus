@@ -56,6 +56,8 @@ class PytorchTrainer(Trainer):
         interactive = False  # True for training with Notebook or False for command line environment
         fastforward = False
         validatefreq = 1
+        boardname = "default"
+
         # sanity checks
         if batch < 1:
             raise ValueError("batch must be >= 1")
@@ -191,7 +193,7 @@ class PytorchTrainer(Trainer):
 
         """
         # Set up logging
-        summary_writer = SummaryWriter(RESULTS_BASE_PATH / "runs/", comment=train_output_path)
+        summary_writer = SummaryWriter(RESULTS_BASE_PATH / "runs" / self.cfg["boardname"], comment=train_output_path)
         # hyperparams = dict(self.cfg)
         # hyperparams.update(dict(reranker.cfg))
         # hyperparams.update(dict(reranker["extractor"].cfg))
@@ -276,10 +278,7 @@ class PytorchTrainer(Trainer):
             summary_writer.add_scalar("training_loss", iter_loss_tensor.item(), niter)
             reranker.add_summary(summary_writer, niter)
             summary_writer.flush()
-        json.dump(metrics_history, open(metrics_fn, "w", encoding="utf-8"))
-        plot_metrics(metrics_history, str(dev_output_path) + ".pdf", interactive=self.cfg["interactive"])
         print("training loss: ", train_loss)
-        plot_loss(train_loss, str(loss_fn).replace(".txt", ".pdf"), interactive=self.cfg["interactive"])
         summary_writer.close()
 
     def load_best_model(self, reranker, train_output_path):
@@ -366,6 +365,7 @@ class TensorFlowTrainer(Trainer):
         fastforward = False
         validatefreq = 1
         usecache = False
+        boardname = "default"
 
     def get_optimizer(self):
         return tf.keras.optimizers.Adam(learning_rate=self.cfg['lr'])
@@ -377,6 +377,8 @@ class TensorFlowTrainer(Trainer):
         raise NotImplementedError
 
     def train(self, reranker, train_dataset, train_output_path, dev_data, dev_output_path, qrels, metric):
+        summary_writer = tf.summary.create_file_writer(RESULTS_BASE_PATH / "runs" / self.cfg["boardname"])
+
         os.makedirs(dev_output_path, exist_ok=True)
         initial_iter = self.fastforward_training(reranker, dev_output_path, None)
         logger.info("starting training from iteration %s/%s", initial_iter, self.cfg["niters"])
@@ -394,12 +396,14 @@ class TensorFlowTrainer(Trainer):
                     posdoc_scores, negdoc_scores = reranker.score(batch['posdoc'], batch['negdoc'], queries, query_idfs)
                     loss_value = self.loss(posdoc_scores, negdoc_scores)
 
+                tf.summary.scalar('loss', loss_value, step=niter * step)
                 grads = tape.gradient(loss_value, reranker.model.trainable_weights)
                 self.optimizer.apply_gradients(zip(grads, reranker.model.trainable_weights))
 
             if niter % validation_frequency == 0:
                 self.eval_and_save_best_model(reranker, dev_records, train_output_path, dev_output_path, dev_best_metric, qrels, metric, niter)
 
+            reranker.add_summary(summary_writer, niter)
         # Skipping dumping metrics and plotting loss since that should be done through tensorboard
 
     def eval_and_save_best_model(self, reranker, dev_records, train_output_path, dev_output_path, dev_best_metric, qrels, metric, niter):
@@ -416,6 +420,10 @@ class TensorFlowTrainer(Trainer):
         # log dev metrics
         metrics = evaluator.eval_runs(preds, qrels, ["ndcg_cut_20", "map", "P_20"])
         logger.info("dev metrics: %s", " ".join([f"{metric}={v:0.3f}" for metric, v in sorted(metrics.items())]))
+
+        tf.summary.scalar('ndcg20', metrics['ndcg_cut_20'], step=niter)
+        tf.summary.scalar('map', metrics["map"], step=niter)
+        tf.summary.scalar('P_20', metrics['P_20'], step=niter)
 
         # write best dev weights to file
         if metrics[metric] > dev_best_metric:
