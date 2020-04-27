@@ -89,7 +89,7 @@ class CodeSearchNetCorpus(Benchmark):
     url = "https://s3.amazonaws.com/code-search-net/CodeSearchNet/v2"
     query_type = "title"
 
-    file_fn = PACKAGE_PATH / "data" / "csn"
+    file_fn = PACKAGE_PATH / "data" / "csn_corpus"
 
     qrel_dir = file_fn / "qrels"
     topic_dir = file_fn / "topics"
