@@ -110,7 +110,8 @@ def topic_to_trectxt(qno, title, desc=None, narr=None):
            f"<num> Number: {qno}\n" \
            f"<title>{title}\n\n" \
            f"<desc> Description:\n{desc or title}\n\n" \
-           f"<narr> Narrative:\n{narr or title}\n\n"
+           f"<narr> Narrative:\n{narr or title}\n\n" \
+           f"</top>\n\n\n"
 
 
 def anserini_index_to_trec_docs(index_dir, output_dir, expected_doc_count):
