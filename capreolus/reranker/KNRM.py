@@ -1,6 +1,7 @@
 import torch
 import tensorflow as tf
 from torch import nn
+import matplotlib.pyplot as plt
 
 from capreolus.reranker import PyTorchReranker, TensorFlowReranker
 from capreolus.reranker.common import create_emb_layer, SimilarityMatrix, RbfKernel, RbfKernelBank
@@ -148,6 +149,16 @@ class KNRM(PyTorchReranker):
         scoretanh = False  # use a tanh on the prediction as in paper (True) or do not use a    nonlinearity (False)
         singlefc = True  # use single fully connected layer as in paper (True) or 2 fully connected layers (False)
         finetune = False  # Fine tune the embedding
+
+    def add_summary(self, summary_writer, niter):
+        super(KNRM, self).add_summary(summary_writer, niter)
+        if self.cfg["singlefc"]:
+            fig = plt.figure()
+            ax = fig.add_subplot(1, 1, 1)
+            ax.matshow(self.model.combine[0].weight.data.cpu())
+            summary_writer.add_figure("combine_steps weight", fig, niter)
+        else:
+            pass
 
     def build(self):
         self.model = KNRM_class(self["extractor"], self.cfg)
