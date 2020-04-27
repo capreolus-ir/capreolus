@@ -17,16 +17,14 @@ def pair_hinge_loss(pos_neg_scores):
 
 
 def tf_pair_hinge_loss(posdoc_score, negdoc_score):
-    """
-    y_true - the true scores
-    y_pred - the predicted scores
-    We don't care about the true scores because we have no idea what they should be
-    All we are going to do is to maximize the margin b/w pos doc scores and neg doc scores in y_pred
-    """
     return K.sum(K.max(1 - (posdoc_score - negdoc_score)))
 
 
 class SimilarityMatrixTF(Layer):
+    """
+    Takes in a list of query tokens and doc tokens (and their embeddings) and returns
+    a cosine similarity matrix
+    """
     def __init__(self, padding=0, **kwargs):
         super(SimilarityMatrixTF, self).__init__(**kwargs)
         self.padding = padding
