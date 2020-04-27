@@ -367,8 +367,8 @@ class TensorFlowTrainer(Trainer):
         fastforward = False
         validatefreq = 1
         usecache = False
-        tpuname = "local"
-        tpuzone = "us"
+        tpuname = None
+        tpuzone = None
         boardname = "default"
 
     def get_optimizer(self):
