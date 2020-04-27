@@ -10,7 +10,7 @@ from capreolus.collection import CodeSearchNet as CodeSearchNetCollection
 logger = get_logger(__name__)
 
 
-def test_csn_benchmark_downloadifmissing():
+def test_csn_corpus_benchmark_downloadifmissing():
     for lang in ["python", "java", "javascript", "go", "ruby", "php"]:
         logger.info(f"testing {lang}")
         cfg = {"_name": "codesearchnet", "lang": lang}
