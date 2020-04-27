@@ -72,44 +72,20 @@ class KNRM_TF_Class(tf.keras.Model):
         self.combine = tf.keras.layers.Dense(1, input_shape=(self.kernels.count(),))
         self.debug = True
 
-    def print_doc_and_query(self, query, doc):
-        # Batch size should be 1 in debug mode
-        print("The query is: {}".format([self.extractor.itos.get(x) for x in query[0]]))
-        print("The doc is: {}".format([self.extractor.itos.get(x) for x in doc[0]]))
-
-
-
     def call(self, x, **kwargs):
         doc, query, query_idf = x[0], x[1], x[2]
-        if self.debug:
-            self.print_doc_and_query(query, doc)
         query_embed, doc_embed = self.embedding(query), self.embedding(doc)
         simmat = self.simmat((query_embed, doc_embed, query, doc))
-        if self.debug:
-            print("The similarity matrix is: ")
-            print(simmat)
-
         kernel_result = self.kernels(simmat)
-        if self.debug:
-            print("After applying kernels")
-            print(kernel_result)
         batch, kernels, views, qlen, dlen = kernel_result.shape
         kernel_result = tf.reshape(kernel_result, (batch, kernels * views, qlen, dlen))
         simmat = (
             tf.reshape(tf.broadcast_to(tf.reshape(simmat, (batch, 1, views, qlen, dlen)), (batch, kernels, views, qlen, dlen)), (batch, kernels * views, qlen, dlen))
         )
-        if self.debug:
-            print("After broadcasting simmat:")
-            print(simmat)
         result = tf.reduce_sum(kernel_result, 3)
-        if self.debug:
-            print("Intermediate result")
-            print(result)
         mask = tf.reduce_sum(simmat, 3) != 0.0
         result = tf.where(mask, tf.math.log(result + 1e-6), tf.cast(mask, tf.float32))
         result = tf.reduce_sum(result, 2)
-        if self.debug:
-            print("final result: {}".format(result))
         scores = self.combine(result)
 
         return scores
