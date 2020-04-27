@@ -377,7 +377,7 @@ class TensorFlowTrainer(Trainer):
         raise NotImplementedError
 
     def train(self, reranker, train_dataset, train_output_path, dev_data, dev_output_path, qrels, metric):
-        summary_writer = tf.summary.create_file_writer(RESULTS_BASE_PATH / "runs" / self.cfg["boardname"])
+        summary_writer = tf.summary.create_file_writer(str(RESULTS_BASE_PATH / "runs" / self.cfg["boardname"]))
 
         os.makedirs(dev_output_path, exist_ok=True)
         initial_iter = self.fastforward_training(reranker, dev_output_path, None)
