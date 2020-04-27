@@ -74,7 +74,6 @@ class KNRM_TF_Class(tf.keras.Model):
 
     def print_doc_and_query(self, query, doc):
         # Batch size should be 1 in debug mode
-        assert query.shape[0] == 1
         print("The query is: {}".format([self.extractor.itos.get(x) for x in query[0]]))
         print("The doc is: {}".format([self.extractor.itos.get(x) for x in doc[0]]))
 
