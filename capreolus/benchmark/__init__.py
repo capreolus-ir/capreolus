@@ -84,8 +84,8 @@ class MSMarcoPassage(Benchmark):
     query_type = "title"
 
 
-class CodeSearchNet(Benchmark):
-    name = "codesearchnet"
+class CodeSearchNetCorpus(Benchmark):
+    name = "codesearchnet_corpus"
     url = "https://s3.amazonaws.com/code-search-net/CodeSearchNet/v2"
     query_type = "title"
 
@@ -135,33 +135,6 @@ class CodeSearchNet(Benchmark):
 
             self._docid_map = json.load(open(self.docid_map_file, "r"))
         return self._docid_map
-
-    @property
-    def qrels(self):
-        if not hasattr(self, "_qrels"):
-            if not self.qrel_file.exists():
-                self.download_if_missing()
-
-            self._qrels = load_qrels(self.qrel_file)
-        return self._qrels
-
-    @property
-    def topics(self):
-        if not hasattr(self, "_topics"):
-            if not self.topic_file.exists():
-                self.download_if_missing()
-
-            self._topics = load_trec_topics(self.topic_file)
-        return self._topics
-
-    @property
-    def folds(self):
-        if not hasattr(self, "_folds"):
-            if not self.fold_file.exists():
-                self.download_if_missing()
-
-            self._folds = json.load(open(self.fold_file, "rt"))
-        return self._folds
 
     def download_if_missing(self):
         files = [self.qid_map_file, self.docid_map_file, self.qrel_file, self.topic_file, self.fold_file]
