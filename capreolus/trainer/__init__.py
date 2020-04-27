@@ -333,7 +333,7 @@ class TensorFlowTrainer(Trainer):
 
         # Use TPU if available, otherwise resort to GPU/CPU
         try:
-            self.tpu = tf.distribute.cluster_resolver.TPUClusterResolver(tpu=self.cfg['tpu'])
+            self.tpu = tf.distribute.cluster_resolver.TPUClusterResolver(tpu=self.cfg['tpuname'], zone=self.cfg['tpuzone'])
         except ValueError:
             self.tpu = None
             logger.info("Could not find the tpu")
@@ -367,7 +367,8 @@ class TensorFlowTrainer(Trainer):
         fastforward = False
         validatefreq = 1
         usecache = False
-        tpu = "local"
+        tpuname = "local"
+        tpuzone = "us"
         boardname = "default"
 
     def get_optimizer(self):
