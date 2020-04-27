@@ -9,8 +9,11 @@ from pathlib import Path
 from collections import defaultdict
 
 from capreolus.registry import ModuleBase, RegisterableModule, PACKAGE_PATH
+from capreolus.utils.loginit import get_logger
 from capreolus.utils.trec import load_qrels, load_trec_topics, topic_to_trectxt
 from capreolus.utils.common import download_file, hash_file, remove_newline
+
+logger = get_logger(__name__)
 
 
 class Benchmark(ModuleBase, metaclass=RegisterableModule):
@@ -162,7 +165,6 @@ class CodeSearchNet(Benchmark):
 
     def download_if_missing(self):
         files = [self.qid_map_file, self.docid_map_file, self.qrel_file, self.topic_file, self.fold_file]
-        print(files)
         if all([f.exists() for f in files]):
             return
 
@@ -201,9 +203,14 @@ class CodeSearchNet(Benchmark):
             for doc in gen_doc_from_gzdir(set_path):
                 code = remove_newline(" ".join(doc["code_tokens"]))
                 docstring = remove_newline(" ".join(doc["docstring_tokens"]))
+                n_words_in_docstring = len(docstring.split())
+                if n_words_in_docstring >= 1024:
+                    logger.warning(f"chunk query to first 1000 words otherwise TooManyClause would be triggered "
+                                   f"at lucene at search stage, ")
+                    docstring = " ".join(docstring.split()[:1020])  # for TooManyClause
 
                 docid = self.get_docid(doc["url"], code)
-                qid = self._qid_map.get(docstring, f"{lang}-DOCSTRING-{len(self._qid_map)}")
+                qid = self._qid_map.get(docstring, str(len(self._qid_map)))
                 qrel_file.write(f"{qid} Q0 {docid} 1\n")
 
                 if docstring not in self._qid_map:
