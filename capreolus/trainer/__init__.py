@@ -333,18 +333,20 @@ class TensorFlowTrainer(Trainer):
 
         # Use TPU if available, otherwise resort to GPU/CPU
         try:
-            self.tpu = tf.distribute.cluster_resolver.TPUClusterResolver()
+            self.tpu = tf.distribute.cluster_resolver.TPUClusterResolver(tpu=self.cfg['tpu'])
         except ValueError:
             self.tpu = None
+            logger.info("Could not find the tpu")
 
         # TPUStrategy for distributed training
         if self.tpu:
+            logger.info("Oh yay tpu works")
             tf.config.experimental_connect_to_cluster(self.tpu)
             tf.tpu.experimental.initialize_tpu_system(self.tpu)
             self.strategy = tf.distribute.experimental.TPUStrategy(self.tpu)
         else:  # default strategy that works on CPU and single GPU
             self.strategy = tf.distribute.get_strategy()
-
+            logger.info("TPU shit did not work")
         # Defining some props that we will alter initialize
         self.optimizer = self.get_optimizer()  # TODO: Accept a config param?
         self.loss = tf_pair_hinge_loss
@@ -365,6 +367,7 @@ class TensorFlowTrainer(Trainer):
         fastforward = False
         validatefreq = 1
         usecache = False
+        tpu = "local"
         boardname = "default"
 
     def get_optimizer(self):
@@ -388,23 +391,26 @@ class TensorFlowTrainer(Trainer):
 
         validation_frequency = self.cfg["validatefreq"]
         dev_best_metric = -np.inf
-        for niter in range(initial_iter, self.cfg["niters"]):
-            for step, batch in tqdm(enumerate(train_records.batch(self.cfg["batch"]))):
-                with tf.GradientTape() as tape:
-                    queries = batch['query']
-                    query_idfs = batch['query_idf']
-                    posdoc_scores, negdoc_scores = reranker.score(batch['posdoc'], batch['negdoc'], queries, query_idfs)
-                    loss_value = self.loss(posdoc_scores, negdoc_scores)
+        strategy_scope = self.strategy.scope()
+        with strategy_scope:
+            for niter in range(initial_iter, self.cfg["niters"]):
+                for step, batch in tqdm(enumerate(train_records.batch(self.cfg["batch"]))):
+                    with tf.GradientTape() as tape:
+                        queries = batch['query']
 
-                tf.summary.scalar('loss', loss_value, step=niter * step)
-                grads = tape.gradient(loss_value, reranker.model.trainable_weights)
-                self.optimizer.apply_gradients(zip(grads, reranker.model.trainable_weights))
+                        query_idfs = batch['query_idf']
+                        posdoc_scores, negdoc_scores = reranker.score(batch['posdoc'], batch['negdoc'], queries, query_idfs)
+                        loss_value = self.loss(posdoc_scores, negdoc_scores)
 
-            if niter % validation_frequency == 0:
-                self.eval_and_save_best_model(reranker, dev_records, train_output_path, dev_output_path, dev_best_metric, qrels, metric, niter)
+                    tf.summary.scalar('loss', loss_value, step=niter * step)
+                    grads = tape.gradient(loss_value, reranker.model.trainable_weights)
+                    self.optimizer.apply_gradients(zip(grads, reranker.model.trainable_weights))
 
-            reranker.add_summary(summary_writer, niter)
-        # Skipping dumping metrics and plotting loss since that should be done through tensorboard
+                if niter % validation_frequency == 0:
+                    self.eval_and_save_best_model(reranker, dev_records, train_output_path, dev_output_path, dev_best_metric, qrels, metric, niter)
+
+                reranker.add_summary(summary_writer, niter)
+            # Skipping dumping metrics and plotting loss since that should be done through tensorboard
 
     def eval_and_save_best_model(self, reranker, dev_records, train_output_path, dev_output_path, dev_best_metric, qrels, metric, niter):
         """
