@@ -467,7 +467,7 @@ class TensorFlowTrainer(Trainer):
         return feature
 
     def write_tf_record_to_file(self, dir_name, tf_features):
-        filename = dir_name / "{}.tfrecord".format(str(uuid.uuid4()))
+        filename = "{0}/{1}.tfrecord".format(dir_name, str(uuid.uuid4()))
         examples = [tf.train.Example(features=tf.train.Features(feature=feature)) for feature in tf_features]
 
         def generator():
