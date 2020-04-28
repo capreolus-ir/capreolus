@@ -369,6 +369,7 @@ class TensorFlowTrainer(Trainer):
         usecache = False
         tpuname = None
         tpuzone = None
+        gcsbucket = None
         boardname = "default"
 
     def get_optimizer(self):
@@ -484,7 +485,7 @@ class TensorFlowTrainer(Trainer):
         return str(filename)
 
     def convert_to_tf_dev_record(self, dataset):
-        dir_name = self.get_cache_path() / dataset.get_hash()
+        dir_name = "{0}/{1}/{2}".format(self.cfg["gcsbucket"], "capreolus_tfrecords", dataset.get_hash())
 
         tf_features = [
             self.create_tf_feature(sample["qid"], sample["query"], sample["query_idf"], sample["posdocid"], sample["posdoc"], None, None)
