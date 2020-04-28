@@ -501,8 +501,7 @@ class TensorFlowTrainer(Trainer):
         """
         tf_record_filenames = []
         tf_features = []
-        dir_name = self.get_cache_path() / dataset.get_hash()
-
+        dir_name = "{0}/{1}/{2}".format(self.cfg["gcsbucket"], "capreolus_tfrecords", dataset.get_hash())
         # There are 'n' iterations
         # Each iterations has a size 'itersize' number of batches in it
         for niter in tqdm(range(0, self.cfg["niters"]), desc="Converting data to tf records"):
