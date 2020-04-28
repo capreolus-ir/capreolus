@@ -470,16 +470,21 @@ class TensorFlowTrainer(Trainer):
         filename = "{0}/{1}.tfrecord".format(dir_name, str(uuid.uuid4()))
         examples = [tf.train.Example(features=tf.train.Features(feature=feature)) for feature in tf_features]
 
-        def generator():
-            for example in examples:
-                yield example.SerializeToString()
-
-        dataset = tf.data.Dataset.from_generator(generator, output_types=tf.string)
+        # def generator():
+        #     for example in examples:
+        #         yield example.SerializeToString()
+        #
+        # dataset = tf.data.Dataset.from_generator(generator, output_types=tf.string)
         if not os.path.isdir(dir_name):
             os.makedirs(dir_name, exist_ok=True)
 
-        writer = tf.data.experimental.TFRecordWriter(str(filename))
-        writer.write(dataset)
+        examples = [example.SerializeToString() for example in examples]
+        with tf.io.TFRecordWriter(filename) as writer:
+            for example in examples:
+                writer.write(example)
+
+        # writer = tf.data.experimental.TFRecordWriter(str(filename))
+        # writer.write(dataset)
         logger.info("Wrote tf record file: {}".format(filename))
 
         return str(filename)
