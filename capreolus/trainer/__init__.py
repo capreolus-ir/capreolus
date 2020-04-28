@@ -4,12 +4,13 @@ from collections import defaultdict
 from copy import copy
 import tensorflow as  tf
 
+import tensorflow.keras.backend as K
 import numpy as np
 import torch
 from tqdm import tqdm
 from torch.utils.tensorboard import SummaryWriter
 from capreolus.registry import ModuleBase, RegisterableModule, Dependency, MAX_THREADS
-from capreolus.reranker.common import pair_hinge_loss, pair_softmax_loss, tf_pair_hinge_loss
+from capreolus.reranker.common import pair_hinge_loss, pair_softmax_loss
 from capreolus.searcher import Searcher
 from capreolus.utils.loginit import get_logger
 from capreolus.utils.common import plot_metrics, plot_loss
@@ -394,7 +395,13 @@ class TensorFlowTrainer(Trainer):
         validation_frequency = self.cfg["validatefreq"]
         dev_best_metric = -np.inf
         strategy_scope = self.strategy.scope()
+        
         with strategy_scope:
+            reranker.build()
+
+            def tf_pair_hinge_loss(posdoc_score, negdoc_score):
+                return K.sum(K.max(1 - (posdoc_score - negdoc_score)))
+
             self.optimizer = self.get_optimizer()
             self.loss = tf_pair_hinge_loss
             for niter in range(initial_iter, self.cfg["niters"]):

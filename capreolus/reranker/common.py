@@ -1,7 +1,6 @@
 import torch
 import tensorflow as tf
 from tensorflow.keras.layers import Layer
-import tensorflow.keras.backend as K
 
 _hinge_loss = torch.nn.MarginRankingLoss(margin=1, reduction="mean")
 
@@ -14,10 +13,6 @@ def pair_softmax_loss(pos_neg_scores):
 def pair_hinge_loss(pos_neg_scores):
     label = torch.ones_like(pos_neg_scores[0])  # , dtype=torch.int)
     return _hinge_loss(pos_neg_scores[0], pos_neg_scores[1], label)
-
-
-def tf_pair_hinge_loss(posdoc_score, negdoc_score):
-    return K.sum(K.max(1 - (posdoc_score - negdoc_score)))
 
 
 class SimilarityMatrixTF(Layer):
