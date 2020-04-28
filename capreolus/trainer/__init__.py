@@ -350,7 +350,6 @@ class TensorFlowTrainer(Trainer):
         # Defining some props that we will alter initialize
         self.optimizer = self.get_optimizer()  # TODO: Accept a config param?
         self.loss = tf_pair_hinge_loss
-        tf.enable_eager_execution()
 
     @staticmethod
     def config():
