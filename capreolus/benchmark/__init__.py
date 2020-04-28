@@ -198,7 +198,7 @@ class CodeSearchNetCorpus(Benchmark):
         json.dump(self._qid_map, open(self.qid_map_file, "w"))
         json.dump(self._docid_map, open(self.docid_map_file, "w"))
         json.dump({"s1": {
-            "train": qids["train"],
+            "train_qids": qids["train"],
             "predict": {"dev": qids["valid"], "test": qids["test"]}
         }}, open(self.fold_file, "w"))
 
