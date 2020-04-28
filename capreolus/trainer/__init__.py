@@ -331,6 +331,7 @@ class TensorFlowTrainer(Trainer):
     def __init__(self, *args, **kwargs):
         super(TensorFlowTrainer, self).__init__(*args, **kwargs)
 
+        tf.enable_eager_execution()
         # Use TPU if available, otherwise resort to GPU/CPU
         try:
             self.tpu = tf.distribute.cluster_resolver.TPUClusterResolver(tpu=self.cfg['tpuname'], zone=self.cfg['tpuzone'])
@@ -350,7 +351,6 @@ class TensorFlowTrainer(Trainer):
         # Defining some props that we will alter initialize
         self.optimizer = self.get_optimizer()  # TODO: Accept a config param?
         self.loss = tf_pair_hinge_loss
-        tf.enable_eager_execution()
 
     @staticmethod
     def config():
