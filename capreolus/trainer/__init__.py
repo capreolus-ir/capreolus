@@ -349,7 +349,7 @@ class TensorFlowTrainer(Trainer):
             logger.info("TPU shit did not work")
         # Defining some props that we will alter initialize
         self.optimizer = None
-        self.loss = tf_pair_hinge_loss
+        self.loss = None
 
     @staticmethod
     def config():
@@ -396,6 +396,7 @@ class TensorFlowTrainer(Trainer):
         strategy_scope = self.strategy.scope()
         with strategy_scope:
             self.optimizer = self.get_optimizer()
+            self.loss = tf_pair_hinge_loss
             for niter in range(initial_iter, self.cfg["niters"]):
                 for step, batch in tqdm(enumerate(train_records.batch(self.cfg["batch"]))):
                     with tf.GradientTape() as tape:
