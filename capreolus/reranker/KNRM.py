@@ -72,12 +72,26 @@ class KNRM_TF_Class(tf.keras.Model):
         self.combine = tf.keras.layers.Dense(1, input_shape=(self.kernels.count(),))
         self.debug = True
 
+        # Flags to make sure that tf.Variable gets called in call() only once.
+        # See this: https://github.com/tensorflow/community/blob/master/rfcs/20180918-functions-not-sessions-20.md#functions-that-create-state
+        self.is_simmat_var = False
+        self.is_kernel_var = False
+        self.is_score_var = False
+
     @tf.function
     def call(self, x, **kwargs):
         doc, query, query_idf = x[0], x[1], x[2]
         query_embed, doc_embed = self.embedding(query), self.embedding(doc)
         simmat = self.simmat((query_embed, doc_embed, query, doc))
+        if not self.is_simmat_var:
+            simmat = tf.Variable(simmat)
+            self.is_simmat_var = True
+
         kernel_result = self.kernels(simmat)
+        if not self.is_kernel_var:
+            kernel_result = tf.Variable(kernel_result)
+            self.is_kernel_var = True
+
         batch, kernels, views, qlen, dlen = kernel_result.shape
         kernel_result = tf.reshape(kernel_result, (batch, kernels * views, qlen, dlen))
         simmat = (
@@ -88,6 +102,9 @@ class KNRM_TF_Class(tf.keras.Model):
         result = tf.where(mask, tf.math.log(result + 1e-6), tf.cast(mask, tf.float32))
         result = tf.reduce_sum(result, 2)
         scores = self.combine(result)
+        if not self.is_score_var:
+            scores = tf.Variable(scores)
+            self.is_score_var = True
 
         return scores
 
