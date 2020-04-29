@@ -396,7 +396,6 @@ class TensorFlowTrainer(Trainer):
         dev_best_metric = -np.inf
         strategy_scope = self.strategy.scope()
         with strategy_scope:
-            tf.distribute.Strategy.experimental_run_v2()
             reranker.build()
             def tf_pair_hinge_loss(posdoc_score, negdoc_score):
                 return K.sum(K.max(1 - (posdoc_score - negdoc_score)))
