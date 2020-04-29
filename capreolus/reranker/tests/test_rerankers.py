@@ -97,7 +97,11 @@ def test_knrm_tf(dummy_index, tmpdir, tmpdir_as_cache, monkeypatch):
             "interactive": False,
             "fastforward": True,
             "validatefreq": 1,
-            "usecache": False
+            "usecache": False,
+            "tpuname": None,
+            "tpuzone": None,
+            "gcsbucket": None,
+            "boardname": "default"
         }
     )
     reranker.modules["trainer"] = trainer
