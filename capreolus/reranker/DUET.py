@@ -21,14 +21,11 @@ class LocalModel(nn.Module):
 
         q_len, doc_len = p["trainer"]["maxqlen"], p["trainer"]["maxdoclen"]
         dropoutrate = p["trainer"]["dropoutrate"]
-        self.conv = nn.Sequential(  # (B, 1, Q, D) -> (B, H, Q, 1)
-            nn.Conv2d(1, p["nfilters"], (1, doc_len)), self.activation)
+        self.conv = nn.Sequential(nn.Conv2d(1, p["nfilters"], (1, doc_len)), self.activation)  # (B, 1, Q, D) -> (B, H, Q, 1)
 
         self.ffw = nn.Sequential(
-            nn.Linear(q_len * p["nfilters"], p["lmhidden"]),
-            self.activation,
-            nn.Dropout(dropoutrate),
-            nn.Linear(p["lmhidden"], 1))
+            nn.Linear(q_len * p["nfilters"], p["lmhidden"]), self.activation, nn.Dropout(dropoutrate), nn.Linear(p["lmhidden"], 1)
+        )
 
     def exact_match(self, m1, m2):
         """
@@ -97,26 +94,24 @@ class DistributedModel(nn.Module):
 
     def forward(self, documents, queries):
         # dm query
-        dm_q = self.embedding(queries).unsqueeze(1)     # (B, 1, nq, D)
-        dm_q = self.q_conv(dm_q).squeeze()              # (B, H)
-        dm_q = self.q_ffw(dm_q)                         # (B, H)
+        dm_q = self.embedding(queries).unsqueeze(1)  # (B, 1, nq, D)
+        dm_q = self.q_conv(dm_q).squeeze()  # (B, H)
+        dm_q = self.q_ffw(dm_q)  # (B, H)
 
         # dm document
-        dm_d = self.embedding(documents).unsqueeze(1)   # (B, 1, nd, D)
-        dm_d = self.d_conv1(dm_d).squeeze()             # (B, H, 699)
-        dm_d = self.d_conv2(
-            dm_d.unsqueeze(1)).squeeze()                # (B, H, 699) -> (B, 1, H, 699) -> (B, H, 1, 699) -> (B, H, 699)
+        dm_d = self.embedding(documents).unsqueeze(1)  # (B, 1, nd, D)
+        dm_d = self.d_conv1(dm_d).squeeze()  # (B, H, 699)
+        dm_d = self.d_conv2(dm_d.unsqueeze(1)).squeeze()  # (B, H, 699) -> (B, 1, H, 699) -> (B, H, 1, 699) -> (B, H, 699)
 
         # aggregate dm_q & dm_d
-        dm_x = dm_q.unsqueeze(2) * dm_d                 # (B, H, 1) * (B, H, 699)
-        dm_x = self.ffw_1(dm_x).squeeze()               # -> (B, H, 1) -> (B, H)
-        dm_score = self.ffw_2(dm_x)                     # (B, H) -> (B, H) -> (B, 1)
+        dm_x = dm_q.unsqueeze(2) * dm_d  # (B, H, 1) * (B, H, 699)
+        dm_x = self.ffw_1(dm_x).squeeze()  # -> (B, H, 1) -> (B, H)
+        dm_score = self.ffw_2(dm_x)  # (B, H) -> (B, H) -> (B, 1)
 
         return dm_score
 
 
 class DUET_class(nn.Module):
-
     def __init__(self, extractor, p):
         super(DUET_class, self).__init__()
         self.lm = LocalModel(p)
