@@ -201,10 +201,10 @@ class DocStats(Extractor):
     def create(self, qids, docids, topics, qdocs=None):
         #todo where can I check this: is here good?
         if 'stemmer' in self["tokenizer"].cfg and self["tokenizer"].cfg['stemmer'] != "none":
-            if self["backgroundindex"].csf["indexcorpus"].contains(".nostemming"):
+            if "nostemming" in self["backgroundindex"].cfg["indexcorpus"]:
                 print("WARNING: tokenizer's stemming is on, but backgroundindex is without stemming.")
         else:
-            if self["backgroundindex"].csf["indexcorpus"].contains(".stemming"):
+            if "stemming" in self["backgroundindex"].cfg["indexcorpus"]:
                 print("WARNING: tokenizer's stemming is off, but backgroundindex is stemmed.")
 
         if self.exist():
