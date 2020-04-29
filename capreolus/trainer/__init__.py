@@ -397,6 +397,8 @@ class TensorFlowTrainer(Trainer):
         strategy_scope = self.strategy.scope()
         with strategy_scope:
             reranker.build()
+
+            @tf.function
             def tf_pair_hinge_loss(posdoc_score, negdoc_score):
                 return K.sum(K.max(1 - (posdoc_score - negdoc_score)))
 
@@ -414,7 +416,7 @@ class TensorFlowTrainer(Trainer):
                     tf.summary.scalar('loss', loss_value, step=niter * step)
                     grads = tape.gradient(loss_value, reranker.model.trainable_weights)
                     # self.optimizer.apply_gradients(zip(grads, reranker.model.trainable_weights))
-                    self.strategy.experimental_run_v2(self.optimizer.apply_gradients, args=(zip(grads, reranker.model.trainable_weights)))
+                    self.strategy.experimental_run_v2(self.optimizer.apply_gradients, args=[[x for x in zip(grads, reranker.model.trainable_weights)]])
                 if niter % validation_frequency == 0:
                     self.eval_and_save_best_model(reranker, dev_records, train_output_path, dev_output_path, dev_best_metric, qrels, metric, niter)
 
