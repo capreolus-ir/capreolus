@@ -383,8 +383,8 @@ class TensorFlowTrainer(Trainer):
         raise NotImplementedError
 
     @tf.function
-    def apply_gradients(self, reranker, grads):
-        self.optimizer.apply_gradients(zip(grads, reranker.model.trainable_weights))
+    def apply_gradients(self, weights, grads):
+        self.optimizer.apply_gradients(zip(grads, weights))
 
     def train(self, reranker, train_dataset, train_output_path, dev_data, dev_output_path, qrels, metric):
         summary_writer = tf.summary.create_file_writer("{0}/runs/{1}".format(self.cfg["gcsbucket"], self.cfg["boardname"]))
@@ -420,7 +420,7 @@ class TensorFlowTrainer(Trainer):
                     tf.summary.scalar('loss', loss_value, step=niter * step)
                     grads = tape.gradient(loss_value, reranker.model.trainable_weights)
                     # self.optimizer.apply_gradients(zip(grads, reranker.model.trainable_weights))
-                    self.strategy.experimental_run_v2(self.apply_gradients, args=[reranker, grads])
+                    self.strategy.experimental_run_v2(self.apply_gradients, args=[reranker.model.trainable_weights, grads])
                 if niter % validation_frequency == 0:
                     self.eval_and_save_best_model(reranker, dev_records, train_output_path, dev_output_path, dev_best_metric, qrels, metric, niter)
 
