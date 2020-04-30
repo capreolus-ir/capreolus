@@ -418,7 +418,7 @@ class TensorFlowTrainer(Trainer):
                         loss_value = self.loss(posdoc_scores, negdoc_scores)
 
                     tf.summary.scalar('loss', loss_value, step=niter * step)
-                    grads = tape.gradient(loss_value, reranker.model.trainable_weights)
+                    grads = tape.gradient(loss_value, reranker.model.trainable_variables)
                     # self.optimizer.apply_gradients(zip(grads, reranker.model.trainable_weights))
                     self.strategy.experimental_run_v2(self.apply_gradients, args=[reranker.model.trainable_weights, grads])
                 if niter % validation_frequency == 0:
