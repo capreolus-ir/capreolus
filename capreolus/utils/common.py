@@ -1,6 +1,7 @@
 import hashlib
 import logging
 import os
+import re
 import requests
 import sys
 from glob import glob
@@ -153,3 +154,14 @@ def plot_metrics(metrics, outfn, interactive=False, show={"map", "P_20", "ndcg_c
 
 def remove_newline(txt):
     return txt.replace("\r", "").replace("\n", "").strip()
+
+
+def get_camel_parser():
+    camel_patterns = [re.compile('(.)([A-Z][a-z]+)'), re.compile('([a-z0-9])([A-Z])')]
+
+    def camel_parser(name):
+        for pattern in camel_patterns:
+            name = pattern.sub(r'\1 \2', name)
+        return name.lower()
+
+    return camel_parser
