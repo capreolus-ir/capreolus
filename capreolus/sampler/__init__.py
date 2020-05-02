@@ -33,6 +33,7 @@ class TrainDataset(torch.utils.data.IterableDataset):
         }
 
         # remove any qids that do not have both relevant and non-relevant documents for training
+        n_removed, n_all = 0, len(qid_docid_to_rank)
         for qid in qid_docid_to_rank:
             posdocs = len(self.qid_to_reldocs[qid])
             negdocs = len(self.qid_to_negdocs[qid])
@@ -41,6 +42,8 @@ class TrainDataset(torch.utils.data.IterableDataset):
                 logger.warning("removing training qid=%s with %s positive docs and %s negative docs", qid, posdocs, negdocs)
                 del self.qid_to_reldocs[qid]
                 del self.qid_to_negdocs[qid]
+                n_removed += 1
+        logger.warning(f"{n_removed} out of {n_all} queries are removed due to lack of pos/neg docs")
 
     def generator_func(self):
         # Convert each query and doc id to the corresponding feature/embedding and yield
