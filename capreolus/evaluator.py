@@ -1,4 +1,6 @@
 import os
+from tqdm import tqdm
+from multiprocessing import Pool, get_context
 
 import pytrec_eval
 import numpy as np
@@ -12,24 +14,62 @@ VALID_METRICS = {"P", "map", "map_cut", "ndcg_cut", "Rprec", "recip_rank", "set_
 CUT_POINTS = [5, 10, 15, 20, 30, 100, 200, 500, 1000]
 
 
+def _mrr(rundoc, qrel):
+    """
+    calculate the mrr for a list of docs from same query
+    :param rundoc: dict, mapping the doc id into doc score
+    :param qrel: dict, mapping the doc id into ground truth label
+    :return: float, the mrr score
+    """
+    if (not rundoc) or (not qrel):
+        return 0.
+
+    pos_docids, pos_doc_ranks = [d for d in rundoc if qrel.get(d, 0) > 0], []
+    if not pos_docids:  # or all([d not in rundoc for d in pos_docids]):
+        return 0.
+
+    rundoc = sorted(rundoc.items(), key=lambda doc_score: float(doc_score[1]), reverse=True)
+    rundoc = [d for d, i in rundoc]
+
+    for d in pos_docids:
+        if d in rundoc:
+            pos_doc_ranks.append(rundoc.index(d) + 1)
+
+    # return (1/min(pos_doc_ranks)) if len(pos_doc_ranks) > 0 else 0.
+    return 1/min(pos_doc_ranks)
+
+
 def mrr(qrels, runs, qids=None):
-    if qids:
-        qrels = {q: v for q, v in qrels.items() if q in qids}
-        runs = {q: v for q, v in runs.items() if q in qids}
+    qids = set(qrels.keys()) & set(runs.keys()) & set(qids) if qids \
+        else set(qrels.keys()) & set(runs.keys())
 
-    ranks = []
-    for q, rundocs in runs.items():
-        if q not in qrels:
-            continue
-
-        rundocs = sorted(rundocs.items(), key=lambda k_v: float(k_v[1]), reverse=True)
-        rundocs = [d for d, i in rundocs]
-        pos_docids, pos_doc_ranks = [d for d in rundocs if qrels[q].get(d, 0) > 0], []
-        for d in pos_docids:
-            if d in rundocs:
-                pos_doc_ranks.append(rundocs.index(d)+1)
-        ranks.append(1/min(pos_doc_ranks)) if len(pos_doc_ranks) > 0 else 0
+    rundoc_qrel = [(runs.get(q, {}), qrels.get(q, {})) for q in qids]
+    with get_context("spawn").Pool(12) as p:
+        ranks = p.starmap(_mrr, rundoc_qrel)
+    print("number of runs: ", len(ranks),  sum(ranks) / len(ranks))
     return sum(ranks) / len(ranks)
+
+# if qids:
+#     qrels = {q: v for q, v in qrels.items() if q in qids}
+#     runs = {q: v for q, v in runs.items() if q in qids}
+#
+# ranks = []
+# for q, rundocs in runs.items():
+#     if q not in qrels:
+#         continue
+#
+#     rundocs = sorted(rundocs.items(), key=lambda k_v: float(k_v[1]), reverse=True)
+#     rundocs = [d for d, i in rundocs]
+#     pos_docids, pos_doc_ranks = [d for d in rundocs if qrels[q].get(d, 0) > 0], []
+#
+#     for d in pos_docids:
+#         if d in rundocs:
+#             pos_doc_ranks.append(rundocs.index(d)+1)
+#     ranks.append(1/min(pos_doc_ranks) if len(pos_doc_ranks) > 0 else 0)
+#     # ranks.append(1/min(pos_doc_ranks)) if len(pos_doc_ranks) > 0 else 0
+#
+# print("number of runs: ", len(ranks),  sum(ranks) / len(ranks))
+# return sum(ranks) / len(ranks)
 
 
 def _verify_metric(metrics):
@@ -63,21 +103,40 @@ def _transform_metric(metrics):
     return metrics
 
 
+def calc_single_query_runs_trec(qrel, run, metrics):
+    trec_metrics = _transform_metric(metrics)
+    results = list(pytrec_eval.RelevanceEvaluator(qrel, trec_metrics).evaluate(run).values())[0]   # only one query is supposed to be contained
+    # print(results, metrics, trec_metrics)
+    # print("qrel: ", qrel, "run: ", run.keys(), len(run[q]), type(results), len(results))
+    results = [results.get(m, -1) for m in metrics]
+    return results
+
+
 def _eval_runs(runs, qrels, metrics, dev_qids):
     assert isinstance(metrics, list)
+
     calc_mrr = "mrr" in metrics
     if calc_mrr:
         metrics.remove("mrr")
         mrr_score = mrr(qrels, runs, dev_qids)
 
-    _verify_metric(metrics)
+    if not metrics:  # in case only "mrr" is provided
+        scores = {}
+    else:
+        _verify_metric(metrics)
+        # trec_metrics = _transform_metric(metrics)
+        qids = set(dev_qids) & set(qrels.keys()) & set(runs.keys())
+        qrel_run_metrics = [({q: qrels.get(q, {})}, {q: runs.get(q, {})}, metrics) for q in qids]
 
-    dev_qrels = {qid: labels for qid, labels in qrels.items() if qid in dev_qids}
-    evaluator = pytrec_eval.RelevanceEvaluator(dev_qrels, _transform_metric(metrics))
+        with get_context("spawn").Pool(12) as p:
+            scores = p.starmap(calc_single_query_runs_trec, qrel_run_metrics)  # (Q, n_metrics)
+            print(len(scores), scores[0])
 
-    scores = [[metrics_dict.get(m, -1) for m in metrics] for metrics_dict in evaluator.evaluate(runs).values()]
-    scores = np.array(scores).mean(axis=0).tolist()
-    scores = dict(zip(metrics, scores))
+        # dev_qrels = {qid: labels for qid, labels in qrels.items() if qid in dev_qids}
+        # evaluator = pytrec_eval.RelevanceEvaluator(dev_qrels, _transform_metric(metrics))
+        # scores = [[metrics_dict.get(m, -1) for m in metrics] for metrics_dict in evaluator.evaluate(runs).values()]
+        scores = np.array(scores).mean(axis=0).tolist()
+        scores = dict(zip(metrics, scores))
 
     if calc_mrr:
         scores["mrr"] = mrr_score
@@ -147,7 +206,7 @@ def search_best_run(runfile_dir, benchmark, primary_metric, metrics=None, folds=
         return {"score": eval_runfile(runfiles[0], benchmark.qrels, metrics), "path": {s: runfiles[0] for s in folds}}
 
     best_scores = {s: {primary_metric: 0, "path": None} for s in folds}
-    for runfile in runfiles:
+    for runfile in tqdm(runfiles, desc="Processing available runfiles"):
         runs = Searcher.load_trec_run(runfile)
         for s, v in folds.items():
             score = _eval_runs(
