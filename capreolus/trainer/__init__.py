@@ -7,6 +7,8 @@ import tensorflow as  tf
 import tensorflow.keras.backend as K
 import numpy as np
 import torch
+from keras import Sequential, layers
+from keras.layers import Dense
 from tqdm import tqdm
 from torch.utils.tensorboard import SummaryWriter
 from capreolus.registry import ModuleBase, RegisterableModule, Dependency, MAX_THREADS
@@ -396,65 +398,51 @@ class TensorFlowTrainer(Trainer):
         train_records = self.get_tf_train_records(train_dataset)
         dev_records = self.get_tf_dev_records(dev_data)
 
-        validation_frequency = self.cfg["validatefreq"]
-        dev_best_metric = -np.inf
         strategy_scope = self.strategy.scope()
         with strategy_scope:
             reranker.build()
 
+            # tf.config.experimental_run_functions_eagerly(True)
             @tf.function
-            def tf_pair_hinge_loss(posdoc_score, negdoc_score):
-                return K.sum(K.max(1 - (posdoc_score - negdoc_score)))
+            def tf_pair_hinge_loss(labels, scores):
+                """
+                Labels - a dummy zero tensor.
+                Scores - A tensor of the shape (batch_size, diff), where diff = posdoc_score - negdoc_score
+                """
+                ones = tf.ones_like(scores)
+                zeros = tf.ones_like(scores)
 
+                return K.sum(K.maximum(zeros, ones - scores))
+
+            train_iter = iter(train_records.batch(self.cfg["batch"]))
+            train_input = next(train_iter)
+            dev_iter = iter(dev_records.batch(self.cfg["batch"]))
+            dev_input = next(dev_iter)
             self.optimizer = self.get_optimizer()
-            self.loss = tf_pair_hinge_loss
-            for niter in range(initial_iter, self.cfg["niters"]):
-                for step, batch in tqdm(enumerate(train_records.batch(self.cfg["batch"]))):
-                    with tf.GradientTape() as tape:
-                        queries = batch['query']
+            reranker.model.compile(optimizer=self.optimizer, loss=tf_pair_hinge_loss)
 
-                        query_idfs = batch['query_idf']
-                        posdoc_scores, negdoc_scores = reranker.score(batch['posdoc'], batch['negdoc'], queries, query_idfs)
-                        loss_value = self.loss(posdoc_scores, negdoc_scores)
-
-                    tf.summary.scalar('loss', loss_value, step=niter * step)
-                    grads = tape.gradient(loss_value, reranker.model.trainable_variables)
-                    # self.optimizer.apply_gradients(zip(grads, reranker.model.trainable_weights))
-                    self.strategy.experimental_run_v2(self.apply_gradients, args=[reranker.model.trainable_weights, grads])
-                if niter % validation_frequency == 0:
-                    self.eval_and_save_best_model(reranker, dev_records, train_output_path, dev_output_path, dev_best_metric, qrels, metric, niter)
-
-                reranker.add_summary(summary_writer, niter)
+            labels_1 = tf.convert_to_tensor(np.ones((self.cfg["batch"], 1), dtype=np.float))
+            reranker.model.fit(train_input, labels_1, epochs=1, steps_per_epoch=32)
+            predictions = reranker.model.predict(dev_input)
+            trec_preds = self.get_preds_in_trec_format(predictions, dev_data, dev_output_path / "out")
+            metrics = evaluator.eval_runs(trec_preds, dict(qrels), ["ndcg_cut_20", "map", "P_20"])
+            # reranker.add_summary(summary_writer, niter)
             # Skipping dumping metrics and plotting loss since that should be done through tensorboard
 
-    def eval_and_save_best_model(self, reranker, dev_records, train_output_path, dev_output_path, dev_best_metric, qrels, metric, niter):
+            logger.info("dev metrics: %s", " ".join([f"{metric}={v:0.3f}" for metric, v in sorted(metrics.items())]))
+            reranker.save_weights(train_output_path/ "dev.best", self.optimizer)
+
+
+    def get_preds_in_trec_format(self, predictions, dev_data, pred_fn):
         """
-        Attempt early stopping
+        Takes in a list of predictions and returns a dict that can be fed into pytrec_eval
+        As a side effect, also writes the predictions into a file in the trec format
         """
-        dev_best_weight_fn, weights_output_path, info_output_path, loss_fn = self.get_paths_for_early_stopping(
-            train_output_path, dev_output_path
-        )
-
-        pred_fn = dev_output_path / f"{niter}.run"
-        preds = self.predict(reranker, dev_records, pred_fn)
-
-        # log dev metrics
-        metrics = evaluator.eval_runs(preds, qrels, ["ndcg_cut_20", "map", "P_20"])
-        logger.info("dev metrics: %s", " ".join([f"{metric}={v:0.3f}" for metric, v in sorted(metrics.items())]))
-
-        tf.summary.scalar('ndcg20', metrics['ndcg_cut_20'], step=niter)
-        tf.summary.scalar('map', metrics["map"], step=niter)
-        tf.summary.scalar('P_20', metrics['P_20'], step=niter)
-
-        # write best dev weights to file
-        if metrics[metric] > dev_best_metric:
-            reranker.save_weights(dev_best_weight_fn, self.optimizer)
-
-    def predict(self, reranker, dev_records, pred_fn):
         pred_dict = defaultdict(lambda: dict())
-        for step, batch in enumerate(dev_records.batch(1)):
-            qid, doc_id = batch['qid'][0].numpy(), batch['posdoc_id'][0].numpy()
-            pred_dict[qid.decode('utf-8')][doc_id.decode('utf-8')] = reranker.test(batch['posdoc'], batch['query'], batch['query_idf']).numpy().astype(np.float16).item()
+
+        for i, (qid, docid) in enumerate(dev_data.get_qid_docid_pairs()):
+            # Pytrec_eval has problems with high precision floats
+            pred_dict[qid][docid] = predictions[i][0].astype(np.float16).item()
 
         os.makedirs(os.path.dirname(pred_fn), exist_ok=True)
         Searcher.write_trec_run(pred_dict, pred_fn)
@@ -567,7 +555,11 @@ class TensorFlowTrainer(Trainer):
         }
 
         def parse_single_example(example_proto):
-            return tf.io.parse_single_example(example_proto, feature_description)
+            single_example = tf.io.parse_single_example(example_proto, feature_description)
+            posdoc = single_example['posdoc']
+            negdoc = single_example['negdoc']
+
+            return posdoc, negdoc
 
         tf_records_dataset = raw_dataset.map(parse_single_example)
 

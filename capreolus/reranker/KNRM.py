@@ -66,10 +66,11 @@ class KNRM_TF_Class(tf.keras.Model):
         self.extractor = extractor
         mus = [-0.9, -0.7, -0.5, -0.3, -0.1, 0.1, 0.3, 0.5, 0.7, 0.9, 1.0]
         sigmas = [0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.001]
-        self.embedding = tf.keras.layers.Embedding(len(self.extractor.stoi), self.extractor.embeddings.shape[1], weights=[self.extractor.embeddings], trainable=False)
-        self.kernels = RbfKernelBankTF(mus, sigmas, dim=1, requires_grad=config["gradkernels"])
-        self.simmat = SimilarityMatrixTF(padding=extractor.pad)
-        self.combine = tf.keras.layers.Dense(1, input_shape=(self.kernels.count(),))
+        # self.embedding = tf.keras.layers.Embedding(len(self.extractor.stoi), self.extractor.embeddings.shape[1], weights=[self.extractor.embeddings], trainable=False)
+        # self.kernels = RbfKernelBankTF(mus, sigmas, dim=1, requires_grad=config["gradkernels"])
+        # self.simmat = SimilarityMatrixTF(padding=extractor.pad)
+        # self.combine = tf.keras.layers.Dense(1, input_shape=(self.kernels.count(),))
+        self.dummy_combine = tf.keras.layers.Dense(1, kernel_initializer='random_uniform', input_shape=(extractor.cfg["maxdoclen"],))
         self.debug = True
 
         # Flags to make sure that tf.Variable gets called in call() only once.
@@ -78,35 +79,47 @@ class KNRM_TF_Class(tf.keras.Model):
         self.is_kernel_var = False
         self.is_score_var = False
 
+    def get_score(self, doc):
+        # query_embed, doc_embed = self.embedding(query), self.embedding(doc)
+        # simmat = self.simmat((query_embed, doc_embed, query, doc))
+        # if not self.is_simmat_var:
+        #     simmat = tf.Variable(simmat)
+        #     self.is_simmat_var = True
+        #
+        # kernel_result = self.kernels(simmat)
+        # if not self.is_kernel_var:
+        #     kernel_result = tf.Variable(kernel_result)
+        #     self.is_kernel_var = True
+        #
+        # batch, kernels, views, qlen, dlen = kernel_result.shape
+        # kernel_result = tf.reshape(kernel_result, (batch, kernels * views, qlen, dlen))
+        # simmat = (
+        #     tf.reshape(
+        #         tf.broadcast_to(tf.reshape(simmat, (batch, 1, views, qlen, dlen)), (batch, kernels, views, qlen, dlen)),
+        #         (batch, kernels * views, qlen, dlen))
+        # )
+        # result = tf.reduce_sum(kernel_result, 3)
+        # mask = tf.reduce_sum(simmat, 3) != 0.0
+        # result = tf.where(mask, tf.math.log(result + 1e-6), tf.cast(mask, tf.float32))
+        # result = tf.reduce_sum(result, 2)
+        # scores = self.combine(result)
+        # if not self.is_score_var:
+        #     scores = tf.Variable(scores)
+        #     self.is_score_var = True
+        #
+        # return scores
+        x = self.dummy_combine(doc)
+        return x
+
     @tf.function
     def call(self, x, **kwargs):
-        doc, query, query_idf = x[0], x[1], x[2]
-        query_embed, doc_embed = self.embedding(query), self.embedding(doc)
-        simmat = self.simmat((query_embed, doc_embed, query, doc))
-        if not self.is_simmat_var:
-            simmat = tf.Variable(simmat)
-            self.is_simmat_var = True
+        posdoc, negdoc = x[0], x[1]
 
-        kernel_result = self.kernels(simmat)
-        if not self.is_kernel_var:
-            kernel_result = tf.Variable(kernel_result)
-            self.is_kernel_var = True
+        posdoc_score, negdoc_score = self.get_score(posdoc), self.get_score(negdoc)
 
-        batch, kernels, views, qlen, dlen = kernel_result.shape
-        kernel_result = tf.reshape(kernel_result, (batch, kernels * views, qlen, dlen))
-        simmat = (
-            tf.reshape(tf.broadcast_to(tf.reshape(simmat, (batch, 1, views, qlen, dlen)), (batch, kernels, views, qlen, dlen)), (batch, kernels * views, qlen, dlen))
-        )
-        result = tf.reduce_sum(kernel_result, 3)
-        mask = tf.reduce_sum(simmat, 3) != 0.0
-        result = tf.where(mask, tf.math.log(result + 1e-6), tf.cast(mask, tf.float32))
-        result = tf.reduce_sum(result, 2)
-        scores = self.combine(result)
-        if not self.is_score_var:
-            scores = tf.Variable(scores)
-            self.is_score_var = True
-
-        return scores
+        # During eval, the negdoc_score would be a zero tensor
+        # TODO: Verify that negdoc_score is indeed always zero whenever a zero negdoc tensor is passed into it
+        return posdoc_score - negdoc_score
 
 
 class KNRM_TF(TensorFlowReranker):
