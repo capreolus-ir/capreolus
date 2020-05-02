@@ -41,8 +41,6 @@ def train(config, modules):
     searcher_run_dir = searcher.query_from_file(topics_fn, searcher_cache_dir)
 
     results = evaluator.search_best_run(searcher_run_dir, benchmark, metric)
-    print("score: ", results["score"])
-    # end of tmp
     best_search_run_path = results["path"][fold]
     best_search_run = searcher.load_trec_run(best_search_run_path)
 
