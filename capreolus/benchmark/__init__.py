@@ -271,7 +271,7 @@ class CodeSearchNetCorpus(Benchmark):
         for file in [var for var in vars(self) if var.endswith("file")]:
             eval(f"self.{file}").parent.mkdir(exist_ok=True, parents=True)  # TODO: is eval a good coding habit?
 
-        # self.download_if_missing()
+        self.download_if_missing()
 
     @property
     def qid_map(self):
@@ -335,7 +335,7 @@ class CodeSearchNetCorpus(Benchmark):
                 if n_words_in_docstring >= 1024:
                     logger.warning(f"chunk query to first 1000 words otherwise TooManyClause would be triggered "
                                    f"at lucene at search stage, ")
-                    docstring = " ".join(docstring.split()[:1020])  # for TooManyClause
+                docstring = " ".join(docstring.split()[:1020])  # remove extra space
 
                 docid = self.get_docid(doc["url"], code)
                 qid = self._qid_map.get(docstring, str(len(self._qid_map)))
