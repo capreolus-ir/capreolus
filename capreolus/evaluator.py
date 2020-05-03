@@ -29,6 +29,7 @@ def _mrr(rundoc, qrel):
         return 0.
 
     rundoc = sorted(rundoc.items(), key=lambda doc_score: float(doc_score[1]), reverse=True)
+    # print(f"length of rundoc: {len(rundoc)}")
     rundoc = [d for d, i in rundoc]
 
     for d in pos_docids:
@@ -42,11 +43,13 @@ def _mrr(rundoc, qrel):
 def mrr(qrels, runs, qids=None):
     qids = set(qrels.keys()) & set(runs.keys()) & set(qids) if qids \
         else set(qrels.keys()) & set(runs.keys())
+    print("length of qrel: ", f"qrel: {len(qrels)}; runs: {len(runs)}; qids: {len(qids)}")
 
     rundoc_qrel = [(runs.get(q, {}), qrels.get(q, {})) for q in qids]
     with get_context("spawn").Pool(12) as p:
         ranks = p.starmap(_mrr, rundoc_qrel)
-    print("number of runs: ", len(ranks),  sum(ranks) / len(ranks))
+    print("number of runs: ", len(ranks),  sum(ranks) / len(ranks), "number of zero: ", ranks.count(0.0))
+
     return sum(ranks) / len(ranks)
 
 # if qids:
@@ -196,11 +199,18 @@ def search_best_run(runfile_dir, benchmark, primary_metric, metrics=None, folds=
         metrics = [primary_metric] + metrics
 
     folds = {s: benchmark.folds[s] for s in [folds]} if folds else benchmark.folds
-    runfiles = [
-        os.path.join(runfile_dir, f)
-        for f in os.listdir(runfile_dir)
-        if (f != "done" and not os.path.isdir(os.path.join(runfile_dir, f)))
-    ]
+    # runfiles = [
+    #     os.path.join(runfile_dir, f)
+    #     for f in os.listdir(runfile_dir)
+    #     if (f != "done" and not os.path.isdir(os.path.join(runfile_dir, f)))
+    # ]
+
+    # TMP
+    p = "/home/xinyu1zhang/mpi-spring/capreolus/capreolus/csn_runfile_camel_2/filtered_bm25"
+    # p = "/home/xinyu1zhang/mpi-spring/capreolus/capreolus/csn_runfile_camel/filtered_bm25"
+    runfiles = [os.path.join(p, benchmark.cfg["lang"], "test.filtered.runfile")]
+    print(runfiles)
+    # end of tmp
 
     if len(runfiles) == 1:
         return {"score": eval_runfile(runfiles[0], benchmark.qrels, metrics), "path": {s: runfiles[0] for s in folds}}
