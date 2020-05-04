@@ -43,18 +43,20 @@ def parse_lang(lang):
     return LANGS if lang == "all" else [lang]
 
 
-def prep_csn_runfile(csn_rawdata_dir, map_dir, langs, csn_outp_dir):
+def prep_csn_runfile(csn_rawdata_dir, map_dir, langs, csn_outp_dir, withcamel=True):
+    config_name = "with_camelstem" if withcamel else "without_camelstem"
+
     """ chunk the downloaded csn gzip file into size of 1k """
     for lang in langs:
         csn_lang_dir = os.path.join(csn_rawdata_dir, lang, "final", "jsonl")
         outp_lang_dir = os.path.join(csn_outp_dir, lang)
         os.makedirs(outp_lang_dir, exist_ok=True)
 
-        qidmap = json.load(open(os.path.join(map_dir, "qidmap", f"{lang}.json")))
+        qidmap = json.load(open(os.path.join(map_dir, "qidmap", config_name, f"{lang}.json")))
         q_keys = list(qidmap.keys())
         for k in q_keys:
             qidmap[" ".join(k.split())] = qidmap.pop(k)
-        docidmap = Docobj2docid(docmap_fn=os.path.join(map_dir, "docidmap", f"{lang}.json"))
+        docidmap = Docobj2docid(docmap_fn=os.path.join(map_dir, "docidmap", config_name, f"{lang}.json"))
 
         camel_parser = get_camel_parser()
         # for set_name in ["train", "valid", "test"]:
@@ -79,7 +81,7 @@ def prep_csn_runfile(csn_rawdata_dir, map_dir, langs, csn_outp_dir):
                             for obj1 in objs:
                                 gt_docid, all_docs = docidmap[obj1], []
                                 docstring = remove_newline(" ".join(obj1["docstring_tokens"]))
-                                docstring = camel_parser(docstring).replace("_", " ").strip()  # tmp
+                                docstring = camel_parser(docstring).replace("_", " ").strip() if withcamel else docstring # tmp
                                 docstring = " ".join(docstring.split()[:1020])  # for TooManyClause
                                 qid = qidmap[docstring]
 
@@ -158,17 +160,19 @@ if __name__ == "__main__":
     parser = ArgumentParser()
     parser.add_argument("--overwrite_csn_runfile", "-o", type=bool, default=False)
     parser.add_argument("--lang", "-l", type=str, default="all")
+    parser.add_argument("--withcamel", type=bool, default=False)
 
     parser.add_argument("--raw_csn_data", type=str, default="/tmp")
-    parser.add_argument("--csn_runfile_dir", type=str, default="./csn_runfile_camel_2")
+    parser.add_argument("--csn_runfile_dir", type=str, default="./csn_runfile_4")
     parser.add_argument(
         "--bm25_runfile_pattern", "-csn", type=str,
-        default="/home/xinyu1zhang/.capreolus/cache/collection-codesearchnet_camel_parser_lang-%s/index-anserini_indexstops-False_stemmer-porter/searcher-BM25_b-0.75_hits-100_k1-1.2/codesearchnet_corpus_camel_fix/searcher")
-        # default="/home/xinyu1zhang/.capreolus/cache/collection-codesearchnet_lang-%s/index-anserini_indexstops-False_stemmer-porter/searcher-BM25_b-0.4_hits-100_k1-0.9/codesearchnet_corpus/searcher")
+        # default="/home/xinyu1zhang/.capreolus/cache/collection-codesearchnet_camel_parser_lang-%s/index-anserini_indexstops-False_stemmer-porter/searcher-BM25_b-0.75_hits-100_k1-1.2/codesearchnet_corpus_camel_fix/searcher")
+        # default="/home/xinyu1zhang/.capreolus/cache/collection-codesearchnet_lang-%s_camelstemmer-True/index-anserini_indexstops-False_stemmer-porter/searcher-BM25_b-0.4_hits-100_k1-0.9/codesearchnet_corpus_camelstemmer-True/searcher")
+        default="/home/xinyu1zhang/.capreolus/cache/collection-codesearchnet_camelstemmer-True_lang-%s/index-anserini_indexstops-False_stemmer-porter/searcher-BM25_b-0.75_hits-100_k1-1.2/codesearchnet_corpus/searcher")
     parser.add_argument(
         "--map_dir", type=str,
-        # default="/home/xinyu1zhang/mpi-spring/capreolus/capreolus/data/csn_corpus")
-        default="/home/xinyu1zhang/mpi-spring/capreolus/capreolus/data/csn_corpus_camel")
+        default="/home/xinyu1zhang/mpi-spring/capreolus/capreolus/data/csn_corpus")
+        # default="/home/xinyu1zhang/mpi-spring/capreolus/capreolus/data/csn_corpus_camel")
 
     args = parser.parse_args()
     langs = parse_lang(args.lang)
@@ -176,10 +180,13 @@ if __name__ == "__main__":
     csn_runfile_dir = os.path.join(args.csn_runfile_dir, "neighbour1k")
     csn_filtered_runfile_dir = os.path.join(args.csn_runfile_dir, "filtered_bm25")
 
-    if not os.path.exists(csn_runfile_dir) or args.overwrite_csn_runfile:
+    if args.overwrite_csn_runfile or \
+        (args.lang == "all" and not os.path.exists(csn_runfile_dir)) or \
+        (args.lang != "all" and not os.path.exists(os.path.join(csn_runfile_dir, args.lang))):
         os.makedirs(csn_runfile_dir, exist_ok=True)
         prep_csn_runfile(
-            csn_rawdata_dir=args.raw_csn_data, map_dir=args.map_dir, langs=langs, csn_outp_dir=csn_runfile_dir)
+            csn_rawdata_dir=args.raw_csn_data, map_dir=args.map_dir,
+            langs=langs, csn_outp_dir=csn_runfile_dir, withcamel=args.withcamel)
 
     os.makedirs(csn_filtered_runfile_dir, exist_ok=True)
     filter_results(
