@@ -1,6 +1,7 @@
 import torch
 import tensorflow as tf
 from tensorflow.keras.layers import Layer
+from tensorflow_core.python import name_scope
 
 _hinge_loss = torch.nn.MarginRankingLoss(margin=1, reduction="mean")
 
@@ -13,6 +14,31 @@ def pair_softmax_loss(pos_neg_scores):
 def pair_hinge_loss(pos_neg_scores):
     label = torch.ones_like(pos_neg_scores[0])  # , dtype=torch.int)
     return _hinge_loss(pos_neg_scores[0], pos_neg_scores[1], label)
+
+
+def alternate_simmat(query_embed, doc_embed):
+    """
+    The shape of input tensor is (maxdoclen, embeddim,
+    """
+    # assert query_embed.shape[0] == doc_embed.shape[0]
+    batch_size, qlen, doclen = tf.shape(query_embed)[0], tf.shape(query_embed)[1], tf.shape(doc_embed)[1]
+    # print("Batch size is {0} qlen is {1} and doclen is {2}".format(batch_size, qlen, doclen))
+    # qlen, doclen = tf.shape(query_embed)[1], tf.shape(doc_embed)[1]
+    q_denom = tf.broadcast_to(tf.reshape(tf.norm(query_embed, axis=2), (batch_size, qlen, 1)),
+                              (batch_size, qlen, doclen,)) + 1e-9
+    doc_denom = tf.broadcast_to(tf.reshape(tf.norm(doc_embed, axis=2), (batch_size, 1, doclen)),
+                                (batch_size, qlen, doclen,)) + 1e-9
+
+    # Why perm?
+    # let query have shape (32, 8, 300)
+    # let doc have shape (32, 800, 300)
+    # Our similarity matrix should have the shape (32, 8, 800)
+    # The perm is required so that the result of matmul will have this shape
+    perm = tf.transpose(doc_embed, perm=[0, 2, 1])
+    sim = tf.matmul(query_embed, perm) / (q_denom * doc_denom)
+
+    # TODO: Add support for handling list inputs (eg: for CEDR). See the pytorch implementation of simmat
+    return sim
 
 
 class SimilarityMatrixTF(Layer):
@@ -129,8 +155,8 @@ class RbfKernelBankTF(Layer):
 class RbfKernelTF(Layer):
     def __init__(self, initial_mu, initial_sigma, requires_grad=True, **kwargs):
         super(RbfKernelTF, self).__init__(**kwargs)
-        self.mu = tf.Variable(initial_mu, trainable=requires_grad)
-        self.sigma = tf.Variable(initial_sigma, trainable=requires_grad)
+        self.mu = tf.Variable(initial_mu, trainable=requires_grad, name="mus", dtype=tf.float32)
+        self.sigma = tf.Variable(initial_sigma, trainable=requires_grad, name="sigmas", dtype=tf.float32)
 
     def call(self, data, *kwargs):
         adj = data - self.mu

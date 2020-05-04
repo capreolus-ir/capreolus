@@ -395,13 +395,14 @@ class TensorFlowTrainer(Trainer):
         initial_iter = self.fastforward_training(reranker, dev_output_path, None)
         logger.info("starting training from iteration %s/%s", initial_iter, self.cfg["niters"])
 
-        train_records = self.get_tf_train_records(train_dataset)
-        dev_records = self.get_tf_dev_records(dev_data)
-
         strategy_scope = self.strategy.scope()
+
         with strategy_scope:
+            train_records = self.get_tf_train_records(train_dataset)
+            dev_records = self.get_tf_dev_records(dev_data)
             reranker.build()
 
+            # tf.compat.v1.disable_eager_execution()
             # tf.config.experimental_run_functions_eagerly(True)
             @tf.function
             def tf_pair_hinge_loss(labels, scores):
@@ -415,15 +416,13 @@ class TensorFlowTrainer(Trainer):
                 return K.sum(K.maximum(zeros, ones - scores))
 
             train_iter = iter(train_records.batch(self.cfg["batch"]))
-            train_input = next(train_iter)
             dev_iter = iter(dev_records.batch(self.cfg["batch"]))
-            dev_input = next(dev_iter)
             self.optimizer = self.get_optimizer()
             reranker.model.compile(optimizer=self.optimizer, loss=tf_pair_hinge_loss)
 
-            labels_1 = tf.convert_to_tensor(np.ones((self.cfg["batch"], 1), dtype=np.float))
-            reranker.model.fit(train_input, labels_1, epochs=1, steps_per_epoch=32)
-            predictions = reranker.model.predict(dev_input)
+            reranker.model.fit(train_records.batch(self.cfg["batch"]), epochs=self.cfg["niters"], steps_per_epoch=self.cfg["itersize"])
+            predictions = reranker.model.predict(dev_records.batch(self.cfg["batch"]))
+
             trec_preds = self.get_preds_in_trec_format(predictions, dev_data, dev_output_path / "out")
             metrics = evaluator.eval_runs(trec_preds, dict(qrels), ["ndcg_cut_20", "map", "P_20"])
             # reranker.add_summary(summary_writer, niter)
@@ -551,15 +550,20 @@ class TensorFlowTrainer(Trainer):
             'posdoc_id': tf.io.FixedLenFeature([], tf.string),
             'posdoc': tf.io.FixedLenFeature([self.cfg["maxdoclen"]], tf.float32),
             'negdoc_id': tf.io.FixedLenFeature([], tf.string, default_value=b'na'),
-            'negdoc': tf.io.FixedLenFeature([self.cfg['maxdoclen']], tf.float32, default_value=tf.zeros(self.cfg['maxdoclen']))
+            'negdoc': tf.io.FixedLenFeature([self.cfg['maxdoclen']], tf.float32, default_value=tf.zeros(self.cfg['maxdoclen'])),
+            'label': tf.io.FixedLenFeature([1], tf.float32, default_value=tf.zeros((1)))
         }
 
+        @tf.function
         def parse_single_example(example_proto):
             single_example = tf.io.parse_single_example(example_proto, feature_description)
             posdoc = single_example['posdoc']
             negdoc = single_example['negdoc']
+            query = single_example['query']
+            query_idf = single_example['query_idf']
+            label = single_example['label']
 
-            return posdoc, negdoc
+            return (posdoc, negdoc, query, query_idf), label
 
         tf_records_dataset = raw_dataset.map(parse_single_example)
 
