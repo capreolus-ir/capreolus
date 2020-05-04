@@ -64,24 +64,30 @@ class PES20(Benchmark):
         fn = f"topics.{self.query_type}.txt"
         return self.PES20_DIR / fn
 
-class KITT(PES20):
+class KITT(Benchmark):
     name = "kitt"
     DATA_DIR = Path("/GW/PKB/work/data_personalization/TREC_format/")
+    # DATA_DIR = Path("/home/ghazaleh/workspace/capreolus/data/test/")
     qrel_file = DATA_DIR / "judgements"
     fold_file = DATA_DIR / "splits.json"
 
     @staticmethod
     def config():
-        querytype = "query"  # one of: query, basicprofile, entityprofile, chatprofile #TODO: probably will change how the entities are incorporated into the system.
+        querytype = "query"
         domain = "book"
+        incorporate_entities = False
+        entity_strategy = 'all'
 
-        if querytype not in ["query", "basicprofile", "entityprofile", "chatprofile",
+        if querytype not in ["query", "basicprofile", "chatprofile",
                              "basicprofile_general", 'basicprofile_food', 'basicprofile_travel', 'basicprofile_book_movie',
                              "chatprofile_general", 'chatprofile_food', 'chatprofile_travel', 'chatprofile_book', 'chatprofile_movie', 'chatprofile_hobbies']:
             raise ValueError(f"invalid querytype: {querytype}")
 
         if domain not in ["book", "travel_wikivoyage", "movie", "food"]:
             raise ValueError(f"invalid domain: {domain}")
+
+        if entity_strategy not in ['all']: #TODO add strategies
+            raise ValueError(f"invalid entity usage strategy (or not implemented): {entity_strategy}")
 
         KITT.qrel_file = KITT.DATA_DIR / "{}_judgements".format(domain)
         KITT.fold_file = KITT.DATA_DIR / "{}_splits.json".format(domain)
@@ -99,8 +105,16 @@ class KITT(PES20):
         return self.cfg["querytype"]
 
     @property
+    def incorporate_entities(self):
+        return self.cfg["incorporate_entities"]
+
+    @property
     def domain(self):
         return self.cfg["domain"]
+
+    @property
+    def entity_strategy(self):
+        return self.cfg['entity_strategy']
 
     @property
     def topic_file(self):

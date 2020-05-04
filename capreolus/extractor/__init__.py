@@ -185,10 +185,11 @@ class DocStats(Extractor):
     name = "docstats"
     dependencies = {
         "index": Dependency(module="index", name="anserini", config_overrides={"indexstops": True, "stemmer": "none"}),
-        "backgroundindex": Dependency(module="index", name="anserinicorpus", config_overrides={"indexcorpus": "lucene-index.cw12.nostemming"}),##the other one could be:lucene-index.cw12.stemming.docvectors
+        "backgroundindex": Dependency(module="index", name="anserinicorpus", config_overrides={"indexcorpus": "anserini0.9-index.clueweb09.englishonly.nostem.stopwording"}),##the other one could be:anserini0.9-index.clueweb09.englishonly.porterstem.stopwording
         "tokenizer": Dependency(module="tokenizer", name="anserini", config_overrides={"keepstops": False}),
 #        "tokenizerquery": Dependency(module="tokenizer", name="spacy", config_overrides={"keepstops": False, 'removesmallerlen': 2}), #removesmallerlen is actually only used for user profile (not the short queries) but I cannot separate them
        # "tokenizer": Dependency(module="tokenizer", name="spacy", config_overrides={"keepstops": False}),
+        "entitylinking": Dependency(module="entitylinking", name='ambiversenlu')
     }
 
     @staticmethod
@@ -198,13 +199,13 @@ class DocStats(Extractor):
     def exist(self):
         return hasattr(self, "doc_tf")
 
-    def create(self, qids, docids, topics, qdocs=None):
+    def create(self, qids, docids, topics, qdocs=None, extract_entities=False):
         #todo where can I check this: is here good?
-        if 'stemmer' in self["tokenizer"].cfg and self["tokenizer"].cfg['stemmer'] != "none":
-            if self["backgroundindex"].csf["indexcorpus"].contains(".nostemming"):
+        if "nostem" in self["backgroundindex"].cfg["indexcorpus"]:
+            if 'stemmer' in self["tokenizer"].cfg and self["tokenizer"].cfg['stemmer'] != "none":
                 print("WARNING: tokenizer's stemming is on, but backgroundindex is without stemming.")
         else:
-            if self["backgroundindex"].csf["indexcorpus"].contains(".stemming"):
+            if 'stemmer' not in self["tokenizer"].cfg or self["tokenizer"].cfg['stemmer'] == "none":
                 print("WARNING: tokenizer's stemming is off, but backgroundindex is stemmed.")
 
         if self.exist():
@@ -214,10 +215,28 @@ class DocStats(Extractor):
         logger.debug("Openning background index")
         self["backgroundindex"].open()
 
+        if extract_entities:
+            logger.debug("extracting entities from queries(user profiles)")
+            for qid in qids:
+                # To avoid redundency in extracting (and as the user profiles are the same as many queries). We cache the extraction based on the profileid.
+                # This is handled in entitylinking component. In case of using another benchmark there may be a need to extend.
+                self["entitylinking"].extract_entities(qid, topics[qid])
+            logger.debug("loading entity descriptions")
+            self["entitylinking"].load_descriptions()
+
+        logger.debug("tokenizing queries [+entity descriptions]")
         self.qid2toks = {}
         self.qid_termprob = {}
         for qid in qids:
-            query = self["tokenizer"].tokenize(topics[qid])
+            qtext = topics[qid]
+            qdesc = []
+            if extract_entities:
+                qentities = self["entitylinking"].get_entities(qid)
+                for e in qentities:
+                    qdesc.append(self["entitylinking"].get_entity_description(e))
+            qtext += "\n" + "\n".join(qdesc)
+            query = self["tokenizer"].tokenize(qtext)
+
             self.qid2toks[qid] = query
             q_count = Counter(query)
             self.qid_termprob[qid] = {k: (v/len(query)) for k, v in q_count.items()}
@@ -349,11 +368,11 @@ class DocStatsEmbedding(DocStats):
         model_path = api.load(self.embed_names[self.cfg["embeddings"]], return_path=True)
         return gensim.models.KeyedVectors.load_word2vec_format(model_path, binary=True)
 
-    def create(self, qids, docids, topics, qdocs=None):
+    def create(self, qids, docids, topics, qdocs=None, extract_entities=False):
         if self.exist():
             return
 
-        super().create(qids, docids, topics, qdocs)
+        super().create(qids, docids, topics, qdocs, extract_entities)
 
         logger.debug("loading embedding")
         self.emb_model = self._get_pretrained_emb()
