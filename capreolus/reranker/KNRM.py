@@ -7,6 +7,7 @@ from capreolus.reranker import PyTorchReranker, TensorFlowReranker
 from capreolus.reranker.common import create_emb_layer, SimilarityMatrix, RbfKernel, RbfKernelBank
 from capreolus.utils.loginit import get_logger
 from capreolus.reranker.common import RbfKernelBankTF, SimilarityMatrixTF
+from reranker.common import alternate_simmat, RbfKernelTF
 
 logger = get_logger(__name__)  # pylint: disable=invalid-name
 
@@ -67,11 +68,11 @@ class KNRM_TF_Class(tf.keras.Model):
         mus = [-0.9, -0.7, -0.5, -0.3, -0.1, 0.1, 0.3, 0.5, 0.7, 0.9, 1.0]
         sigmas = [0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.001]
         # self.embedding = tf.keras.layers.Embedding(len(self.extractor.stoi), self.extractor.embeddings.shape[1], weights=[self.extractor.embeddings], trainable=False)
-        # self.kernels = RbfKernelBankTF(mus, sigmas, dim=1, requires_grad=config["gradkernels"])
-        # self.simmat = SimilarityMatrixTF(padding=extractor.pad)
-        # self.combine = tf.keras.layers.Dense(1, input_shape=(self.kernels.count(),))
-        self.dummy_combine = tf.keras.layers.Dense(1, kernel_initializer='random_uniform', input_shape=(extractor.cfg["maxdoclen"],))
-        self.debug = True
+        self.embedding = tf.keras.layers.Embedding(len(self.extractor.stoi), self.extractor.embeddings.shape[1], trainable=True)
+        self.kernels = RbfKernelBankTF(mus, sigmas, dim=1, requires_grad=True)
+        self.simmat = SimilarityMatrixTF(padding=extractor.pad)
+        self.combine = tf.keras.layers.Dense(1, input_shape=(self.kernels.count(),))
+        # self.dummy_combine = tf.keras.layers.Dense(1, input_shape=(11, extractor.cfg["maxqlen"], extractor.cfg["maxdoclen"],))
 
         # Flags to make sure that tf.Variable gets called in call() only once.
         # See this: https://github.com/tensorflow/community/blob/master/rfcs/20180918-functions-not-sessions-20.md#functions-that-create-state
@@ -79,43 +80,26 @@ class KNRM_TF_Class(tf.keras.Model):
         self.is_kernel_var = False
         self.is_score_var = False
 
-    def get_score(self, doc):
-        # query_embed, doc_embed = self.embedding(query), self.embedding(doc)
-        # simmat = self.simmat((query_embed, doc_embed, query, doc))
-        # if not self.is_simmat_var:
-        #     simmat = tf.Variable(simmat)
-        #     self.is_simmat_var = True
-        #
-        # kernel_result = self.kernels(simmat)
-        # if not self.is_kernel_var:
-        #     kernel_result = tf.Variable(kernel_result)
-        #     self.is_kernel_var = True
-        #
-        # batch, kernels, views, qlen, dlen = kernel_result.shape
-        # kernel_result = tf.reshape(kernel_result, (batch, kernels * views, qlen, dlen))
-        # simmat = (
-        #     tf.reshape(
-        #         tf.broadcast_to(tf.reshape(simmat, (batch, 1, views, qlen, dlen)), (batch, kernels, views, qlen, dlen)),
-        #         (batch, kernels * views, qlen, dlen))
-        # )
-        # result = tf.reduce_sum(kernel_result, 3)
-        # mask = tf.reduce_sum(simmat, 3) != 0.0
-        # result = tf.where(mask, tf.math.log(result + 1e-6), tf.cast(mask, tf.float32))
-        # result = tf.reduce_sum(result, 2)
-        # scores = self.combine(result)
-        # if not self.is_score_var:
-        #     scores = tf.Variable(scores)
-        #     self.is_score_var = True
-        #
-        # return scores
-        x = self.dummy_combine(doc)
-        return x
+    def get_score(self, doc, query, query_idf):
+        query = self.embedding(query)
+        doc = self.embedding(doc)
+        simmat = alternate_simmat(query, doc)
+
+        k = self.kernels(simmat)
+        doc_k = tf.reduce_sum(k, axis=3)  # sum over document
+        log_k = tf.math.log(doc_k + 1e-6)
+        query_k = tf.reduce_sum(log_k, axis=2)
+        # TODO: Fix/handle padding tokens
+        scores = self.combine(query_k)
+
+        return scores
+
+        # return self.dummy_combine(simmat)
 
     @tf.function
     def call(self, x, **kwargs):
-        posdoc, negdoc = x[0], x[1]
-
-        posdoc_score, negdoc_score = self.get_score(posdoc), self.get_score(negdoc)
+        posdoc, negdoc, query, query_idf = x[0], x[1], x[2], x[3]
+        posdoc_score, negdoc_score = self.get_score(posdoc, query, query_idf), self.get_score(negdoc, query, query_idf)
 
         # During eval, the negdoc_score would be a zero tensor
         # TODO: Verify that negdoc_score is indeed always zero whenever a zero negdoc tensor is passed into it
@@ -127,7 +111,7 @@ class KNRM_TF(TensorFlowReranker):
 
     @staticmethod
     def config():
-        gradkernels = True  # backprop through mus and sigmas
+        gradkernels = True # backprop through mus and sigmas
         finetune = False  # Fine tune the embedding
 
     def build(self):
