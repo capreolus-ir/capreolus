@@ -10,7 +10,6 @@ import torch
 from keras import Sequential, layers
 from keras.layers import Dense
 from tqdm import tqdm
-from torch.utils.tensorboard import SummaryWriter
 from capreolus.registry import ModuleBase, RegisterableModule, Dependency, MAX_THREADS
 from capreolus.reranker.common import pair_hinge_loss, pair_softmax_loss
 from capreolus.searcher import Searcher
@@ -196,7 +195,7 @@ class PytorchTrainer(Trainer):
 
         """
         # Set up logging
-        summary_writer = SummaryWriter(RESULTS_BASE_PATH / "runs" / self.cfg["boardname"], comment=train_output_path)
+        # summary_writer = SummaryWriter(RESULTS_BASE_PATH / "runs" / self.cfg["boardname"], comment=train_output_path)
         # hyperparams = dict(self.cfg)
         # hyperparams.update(dict(reranker.cfg))
         # hyperparams.update(dict(reranker["extractor"].cfg))
@@ -223,14 +222,14 @@ class PytorchTrainer(Trainer):
         )
         dataiter = iter(train_dataloader)
         sample_input = dataiter.next()
-        summary_writer.add_graph(
-            reranker.model,
-            [
-                sample_input["query"].to(self.device),
-                sample_input["posdoc"].to(self.device),
-                sample_input["negdoc"].to(self.device),
-            ],
-        )
+        # summary_writer.add_graph(
+        #     reranker.model,
+        #     [
+        #         sample_input["query"].to(self.device),
+        #         sample_input["posdoc"].to(self.device),
+        #         sample_input["negdoc"].to(self.device),
+        #     ],
+        # )
 
         train_loss = []
         # are we resuming training?
@@ -268,9 +267,9 @@ class PytorchTrainer(Trainer):
                 # log dev metrics
                 metrics = evaluator.eval_runs(preds, qrels, ["ndcg_cut_20", "map", "P_20"])
                 logger.info("dev metrics: %s", " ".join([f"{metric}={v:0.3f}" for metric, v in sorted(metrics.items())]))
-                summary_writer.add_scalar("ndcg_cut_20", metrics["ndcg_cut_20"], niter)
-                summary_writer.add_scalar("map", metrics["map"], niter)
-                summary_writer.add_scalar("P_20", metrics["P_20"], niter)
+                # summary_writer.add_scalar("ndcg_cut_20", metrics["ndcg_cut_20"], niter)
+                # summary_writer.add_scalar("map", metrics["map"], niter)
+                # summary_writer.add_scalar("P_20", metrics["P_20"], niter)
                 # write best dev weights to file
                 if metrics[metric] > dev_best_metric:
                     reranker.save_weights(dev_best_weight_fn, self.optimizer)
@@ -278,11 +277,11 @@ class PytorchTrainer(Trainer):
             # write train_loss to file
             loss_fn.write_text("\n".join(f"{idx} {loss}" for idx, loss in enumerate(train_loss)))
 
-            summary_writer.add_scalar("training_loss", iter_loss_tensor.item(), niter)
-            reranker.add_summary(summary_writer, niter)
-            summary_writer.flush()
+            # summary_writer.add_scalar("training_loss", iter_loss_tensor.item(), niter)
+            # reranker.add_summary(summary_writer, niter)
+            # summary_writer.flush()
         print("training loss: ", train_loss)
-        summary_writer.close()
+        # summary_writer.close()
 
     def load_best_model(self, reranker, train_output_path):
         self.optimizer = torch.optim.Adam(
