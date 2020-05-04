@@ -43,9 +43,17 @@ class PES20(Benchmark):
     @staticmethod
     def config():
         querytype = "query"  # one of: query, basicprofile, entityprofile
+        incorporate_entities = False
+        entity_strategy = 'all'
 
         if querytype not in ["query", "basicprofile", "entityprofile"]:
             raise ValueError(f"invalid querytype: {querytype}")
+
+        if entity_strategy not in ['all']: #TODO add strategies
+            raise ValueError(f"invalid entity usage strategy (or not implemented): {entity_strategy}")
+
+        if querytype == 'entityprofile' and incorporate_entities == True:
+            raise ValueError(f"wrong usage of incorporate entities. We cannot use it with querytype 'entityprofile'")
 
     @property
     def topics(self):
@@ -59,6 +67,14 @@ class PES20(Benchmark):
     def query_type(self):
         return self.cfg["querytype"]
 
+    @property
+    def incorporate_entities(self):
+        return self.cfg["incorporate_entities"]
+
+    @property
+    def entity_strategy(self):
+        return self.cfg['entity_strategy']
+    
     @property
     def topic_file(self):
         fn = f"topics.{self.query_type}.txt"
