@@ -325,29 +325,39 @@ class PytorchTrainer(Trainer):
         return preds
 
 
-class TrecMetricCallback(tf.keras.callbacks.Callback):
+class TrecCheckpointCallback(tf.keras.callbacks.Callback):
     """
     A callback that runs after every epoch and calculates pytrec_eval style metrics for the dev dataset.
     See TensorflowTrainer.train() for the invocation
+    Also saves the best model to disk
     """
-    def __init__(self, qrels, dev_data, dev_records, *args, **kwargs):
-        super(TrecMetricCallback, self).__init__(*args, **kwargs)
+    def __init__(self, qrels, dev_data, dev_records, output_path, *args, **kwargs):
+        super(TrecCheckpointCallback, self).__init__(*args, **kwargs)
         """
         qrels - a qrels dict
         dev_data - a torch.utils.IterableDataset
         dev_records - a BatchedDataset instance 
         """
+        self.best_metric = -np.inf
         self.qrels = qrels
         self.dev_data = dev_data
         self.dev_records = dev_records
+        self.output_path = output_path
+
+    def save_model(self):
+        self.model.save("{0}/dev.best".format(self.output_path))
 
     def on_epoch_end(self, epoch, logs=None):
         predictions = self.model.predict(self.dev_records)
         trec_preds = self.get_preds_in_trec_format(predictions, self.dev_data)
         metrics = evaluator.eval_runs(trec_preds, dict(self.qrels), ["ndcg_cut_20", "map", "P_20"])
         logger.info("dev metrics: %s", " ".join([f"{metric}={v:0.3f}" for metric, v in sorted(metrics.items())]))
+        if metrics['ndcg_cut_20'] > self.best_metric:
+            self.best_metric = metrics["ndcg_cut_20"]
+            self.save_model()
 
-    def get_preds_in_trec_format(self, predictions, dev_data):
+    @staticmethod
+    def get_preds_in_trec_format(predictions, dev_data):
         """
         Takes in a list of predictions and returns a dict that can be fed into pytrec_eval
         As a side effect, also writes the predictions into a file in the trec format
@@ -415,7 +425,11 @@ class TensorFlowTrainer(Trainer):
         return 0
 
     def load_best_model(self, reranker, train_output_path):
-        raise NotImplementedError
+        # TODO: Do this at one place?
+        if self.tpu:
+            train_output_path = "{0}/{1}".format(self.cfg["gcsbucket"], train_output_path)
+
+        reranker.model.load_model("{0}/dev.best".format(train_output_path))
 
     def apply_gradients(self, weights, grads):
         self.optimizer.apply_gradients(zip(grads, weights))
@@ -424,7 +438,9 @@ class TensorFlowTrainer(Trainer):
         summary_writer = tf.summary.create_file_writer("{0}/runs/{1}".format(self.cfg["gcsbucket"], self.cfg["boardname"]))
 
         # Because TPUs can't work with local files
-        train_output_path = "{0}/{1}".format(self.cfg["gcsbucket"], train_output_path)
+        if self.tpu:
+            train_output_path = "{0}/{1}".format(self.cfg["gcsbucket"], train_output_path)
+
         os.makedirs(dev_output_path, exist_ok=True)
         initial_iter = self.fastforward_training(reranker, dev_output_path, None)
         logger.info("starting training from iteration %s/%s", initial_iter, self.cfg["niters"])
@@ -433,7 +449,7 @@ class TensorFlowTrainer(Trainer):
         with strategy_scope:
             train_records = self.get_tf_train_records(train_dataset)
             dev_records = self.get_tf_dev_records(dev_data)
-            trec_callback = TrecMetricCallback(qrels, dev_data, dev_records.batch(self.cfg["batch"]))
+            trec_callback = TrecCheckpointCallback(qrels, dev_data, dev_records.batch(self.cfg["batch"]), train_output_path)
             reranker.build()
 
             self.optimizer = self.get_optimizer()
@@ -592,3 +608,26 @@ class TensorFlowTrainer(Trainer):
             tf_record_filenames = self.convert_to_tf_train_record(dataset)
             return self.load_tf_records_from_file(tf_record_filenames)
 
+    def predict(self, reranker, pred_data, pred_fn):
+        """Predict query-document scores on `pred_data` using `model` and write a corresponding run file to `pred_fn`
+
+        Args:
+           model (Reranker): a PyTorch Reranker
+           pred_data (IterableDataset): data to predict on
+           pred_fn (Path): path to write the prediction run file to
+
+        Returns:
+           TREC Run
+
+        """
+
+        strategy_scope = self.strategy.scope()
+        with strategy_scope:
+            pred_records = self.get_tf_dev_records(pred_data)
+            predictions = reranker.model.predict(pred_records.batch(self.cfg["batch"]))
+            trec_preds = TrecCheckpointCallback.get_preds_in_trec_format(predictions, pred_data)
+
+        os.makedirs(os.path.dirname(pred_fn), exist_ok=True)
+        Searcher.write_trec_run(trec_preds, pred_fn)
+
+        return trec_preds

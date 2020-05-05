@@ -134,7 +134,7 @@ def test_knrm_tf(dummy_index, tmpdir, tmpdir_as_cache, monkeypatch):
         reranker, train_dataset, Path(tmpdir) / "train", dev_dataset, Path(tmpdir) / "dev", benchmark.qrels, metric
     )
 
-    assert os.path.exists(Path(tmpdir) / "train" / "dev.best.index")
+    assert os.path.exists(Path(tmpdir) / "train" / "dev.best" / "saved_model.pb")
 
 
 def test_pacrr(dummy_index, tmpdir, tmpdir_as_cache, monkeypatch):
