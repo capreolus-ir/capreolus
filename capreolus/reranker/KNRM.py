@@ -61,16 +61,16 @@ class KNRM_class(nn.Module):
 
 
 class KNRM_TF_Class(tf.keras.Model):
-    def __init__(self, extractor, config, **kwargs):
+    def __init__(self, config, **kwargs):
         super(KNRM_TF_Class, self).__init__(**kwargs)
         self.config = config
-        self.extractor = extractor
+        # self.extractor = extractor
         mus = [-0.9, -0.7, -0.5, -0.3, -0.1, 0.1, 0.3, 0.5, 0.7, 0.9, 1.0]
         sigmas = [0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.001]
+        self.embeddim = 300
         # self.embedding = tf.keras.layers.Embedding(len(self.extractor.stoi), self.extractor.embeddings.shape[1], weights=[self.extractor.embeddings], trainable=False)
-        self.embedding = tf.keras.layers.Embedding(len(self.extractor.stoi), self.extractor.embeddings.shape[1], trainable=True)
+        self.embedding = tf.keras.layers.Embedding(200, self.embeddim, trainable=True)
         self.kernels = RbfKernelBankTF(mus, sigmas, dim=1, requires_grad=True)
-        self.simmat = SimilarityMatrixTF(padding=extractor.pad)
         self.combine = tf.keras.layers.Dense(1, input_shape=(self.kernels.count(),))
         # self.dummy_combine = tf.keras.layers.Dense(1, input_shape=(11, extractor.cfg["maxqlen"], extractor.cfg["maxdoclen"],))
 
@@ -115,7 +115,7 @@ class KNRM_TF(TensorFlowReranker):
         finetune = False  # Fine tune the embedding
 
     def build(self):
-        self.model = KNRM_TF_Class(self["extractor"], self.cfg)
+        self.model = KNRM_TF_Class(self.cfg)
         return self.model
 
     def score(self, posdoc, negdoc, query, query_idf):
