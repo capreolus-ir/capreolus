@@ -410,7 +410,7 @@ class TensorFlowTrainer(Trainer):
             # Skipping dumping metrics and plotting loss since that should be done through tensorboard
 
             logger.info("dev metrics: %s", " ".join([f"{metric}={v:0.3f}" for metric, v in sorted(metrics.items())]))
-            reranker.save_weights("{0}/dev.best".format(train_output_path), self.optimizer)
+            # reranker.save_weights("{0}/dev.best".format(train_output_path), self.optimizer)
 
 
     def get_preds_in_trec_format(self, predictions, dev_data, pred_fn):
