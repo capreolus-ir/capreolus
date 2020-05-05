@@ -68,6 +68,14 @@ class PES20(Benchmark):
         return self.cfg["querytype"]
 
     @property
+    def incorporate_entities(self):
+        return self.cfg["incorporate_entities"]
+
+    @property
+    def entity_strategy(self):
+        return self.cfg['entity_strategy']
+    
+    @property
     def topic_file(self):
         fn = f"topics.{self.query_type}.txt"
         return self.PES20_DIR / fn
