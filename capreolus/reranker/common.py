@@ -1,6 +1,7 @@
 import torch
 import tensorflow as tf
 from tensorflow.keras.layers import Layer
+import tensorflow.keras.backend as K
 from tensorflow_core.python import name_scope
 
 _hinge_loss = torch.nn.MarginRankingLoss(margin=1, reduction="mean")
@@ -14,6 +15,17 @@ def pair_softmax_loss(pos_neg_scores):
 def pair_hinge_loss(pos_neg_scores):
     label = torch.ones_like(pos_neg_scores[0])  # , dtype=torch.int)
     return _hinge_loss(pos_neg_scores[0], pos_neg_scores[1], label)
+
+
+def tf_pair_hinge_loss(labels, scores):
+    """
+    Labels - a dummy zero tensor.
+    Scores - A tensor of the shape (batch_size, diff), where diff = posdoc_score - negdoc_score
+    """
+    ones = tf.ones_like(scores)
+    zeros = tf.ones_like(scores)
+
+    return K.sum(K.maximum(zeros, ones - scores))
 
 
 def alternate_simmat(query_embed, doc_embed):
