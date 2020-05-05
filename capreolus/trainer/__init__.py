@@ -417,7 +417,7 @@ class TensorFlowTrainer(Trainer):
             self.optimizer = self.get_optimizer()
             reranker.model.compile(optimizer=self.optimizer, loss=tf_pair_hinge_loss)
 
-            reranker.model.fit(train_records.batch(self.cfg["batch"]), epochs=self.cfg["niters"], steps_per_epoch=self.cfg["itersize"])
+            reranker.model.fit(train_records.batch(self.cfg["batch"], drop_remainder=True), epochs=self.cfg["niters"], steps_per_epoch=self.cfg["itersize"])
             predictions = reranker.model.predict(dev_records.batch(self.cfg["batch"]))
 
             trec_preds = self.get_preds_in_trec_format(predictions, dev_data, dev_output_path / "out")
