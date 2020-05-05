@@ -325,6 +325,42 @@ class PytorchTrainer(Trainer):
         return preds
 
 
+class TrecMetricCallback(tf.keras.callbacks.Callback):
+    """
+    A callback that runs after every epoch and calculates pytrec_eval style metrics for the dev dataset.
+    See TensorflowTrainer.train() for the invocation
+    """
+    def __init__(self, qrels, dev_data, dev_records, *args, **kwargs):
+        super(TrecMetricCallback, self).__init__(*args, **kwargs)
+        """
+        qrels - a qrels dict
+        dev_data - a torch.utils.IterableDataset
+        dev_records - a BatchedDataset instance 
+        """
+        self.qrels = qrels
+        self.dev_data = dev_data
+        self.dev_records = dev_records
+
+    def on_epoch_end(self, epoch, logs=None):
+        predictions = self.model.predict(self.dev_records)
+        trec_preds = self.get_preds_in_trec_format(predictions, self.dev_data)
+        metrics = evaluator.eval_runs(trec_preds, dict(self.qrels), ["ndcg_cut_20", "map", "P_20"])
+        logger.info("dev metrics: %s", " ".join([f"{metric}={v:0.3f}" for metric, v in sorted(metrics.items())]))
+
+    def get_preds_in_trec_format(self, predictions, dev_data):
+        """
+        Takes in a list of predictions and returns a dict that can be fed into pytrec_eval
+        As a side effect, also writes the predictions into a file in the trec format
+        """
+        pred_dict = defaultdict(lambda: dict())
+
+        for i, (qid, docid) in enumerate(dev_data.get_qid_docid_pairs()):
+            # Pytrec_eval has problems with high precision floats
+            pred_dict[qid][docid] = predictions[i][0].astype(np.float16).item()
+
+        return dict(pred_dict)
+
+
 class TensorFlowTrainer(Trainer):
     name = "tensorflow"
     dependencies = {}
@@ -397,37 +433,17 @@ class TensorFlowTrainer(Trainer):
         with strategy_scope:
             train_records = self.get_tf_train_records(train_dataset)
             dev_records = self.get_tf_dev_records(dev_data)
+            trec_callback = TrecMetricCallback(qrels, dev_data, dev_records.batch(self.cfg["batch"]))
             reranker.build()
 
             self.optimizer = self.get_optimizer()
             reranker.model.compile(optimizer=self.optimizer, loss=tf_pair_hinge_loss)
-            reranker.model.fit(train_records.batch(self.cfg["batch"], drop_remainder=True), epochs=self.cfg["niters"], steps_per_epoch=self.cfg["itersize"])
-            predictions = reranker.model.predict(dev_records.batch(self.cfg["batch"]))
+            reranker.model.fit(train_records.batch(self.cfg["batch"], drop_remainder=True), epochs=self.cfg["niters"], steps_per_epoch=self.cfg["itersize"], callbacks=[trec_callback])
 
-            trec_preds = self.get_preds_in_trec_format(predictions, dev_data, dev_output_path / "out")
-            metrics = evaluator.eval_runs(trec_preds, dict(qrels), ["ndcg_cut_20", "map", "P_20"])
             # reranker.add_summary(summary_writer, niter)
             # Skipping dumping metrics and plotting loss since that should be done through tensorboard
 
-            logger.info("dev metrics: %s", " ".join([f"{metric}={v:0.3f}" for metric, v in sorted(metrics.items())]))
             # reranker.save_weights("{0}/dev.best".format(train_output_path), self.optimizer)
-
-
-    def get_preds_in_trec_format(self, predictions, dev_data, pred_fn):
-        """
-        Takes in a list of predictions and returns a dict that can be fed into pytrec_eval
-        As a side effect, also writes the predictions into a file in the trec format
-        """
-        pred_dict = defaultdict(lambda: dict())
-
-        for i, (qid, docid) in enumerate(dev_data.get_qid_docid_pairs()):
-            # Pytrec_eval has problems with high precision floats
-            pred_dict[qid][docid] = predictions[i][0].astype(np.float16).item()
-
-        os.makedirs(os.path.dirname(pred_fn), exist_ok=True)
-        Searcher.write_trec_run(pred_dict, pred_fn)
-
-        return dict(pred_dict)
 
     def create_tf_feature(self, qid, query, query_idf, posdoc_id, posdoc, negdoc_id, negdoc):
         """
