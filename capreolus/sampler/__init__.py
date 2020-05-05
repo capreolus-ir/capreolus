@@ -51,7 +51,7 @@ class TrainDataset(torch.utils.data.IterableDataset):
     def get_hash(self):
         sorted_rep = sorted([(qid, docids) for qid, docids in self.qid_docid_to_rank.items()])
         key = hashlib.md5(str(sorted_rep).encode("utf-8")).hexdigest()
-        return key
+        return "train_{0}".format(key)
 
     def generator_func(self):
         # Convert each query and doc id to the corresponding feature/embedding and yield
@@ -108,7 +108,7 @@ class PredDataset(torch.utils.data.IterableDataset):
     def get_hash(self):
         sorted_rep = sorted([(qid, docids) for qid, docids in self.qid_docid_to_rank.items()])
         key = hashlib.md5(str(sorted_rep).encode("utf-8")).hexdigest()
-        return key
+        return "dev_{0}".format(key)
 
     def __iter__(self):
         """
