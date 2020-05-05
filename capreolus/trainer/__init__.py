@@ -17,7 +17,6 @@ from capreolus.utils.loginit import get_logger
 from capreolus.utils.common import plot_metrics, plot_loss
 from capreolus import evaluator
 from registry import RESULTS_BASE_PATH
-from reranker.KNRM import KNRM_TF_Class
 
 logger = get_logger(__name__)  # pylint: disable=invalid-name
 
@@ -388,24 +387,19 @@ class TensorFlowTrainer(Trainer):
     def apply_gradients(self, weights, grads):
         self.optimizer.apply_gradients(zip(grads, weights))
 
-    def train(self, *args, **kwargs):
-        metric = "ndcg_cut_20"
-        train_output_path = "train_output"
-        dev_output_path = "dev_output"
-
+    def train(self, reranker, train_dataset, train_output_path, dev_data, dev_output_path, qrels, metric):
         summary_writer = tf.summary.create_file_writer("{0}/runs/{1}".format(self.cfg["gcsbucket"], self.cfg["boardname"]))
 
         os.makedirs(dev_output_path, exist_ok=True)
-        initial_iter = 0
+        initial_iter = self.fastforward_training(reranker, dev_output_path, None)
         logger.info("starting training from iteration %s/%s", initial_iter, self.cfg["niters"])
 
         strategy_scope = self.strategy.scope()
 
         with strategy_scope:
-            model = KNRM_TF_Class({"gradkernels": True, "finetune": False})
-            train_records = self.get_tf_train_records()
-            dev_records = self.get_tf_dev_records()
-            # model.build()
+            train_records = self.get_tf_train_records(train_dataset)
+            dev_records = self.get_tf_dev_records(dev_data)
+            reranker.build()
 
             # tf.compat.v1.disable_eager_execution()
             # tf.config.experimental_run_functions_eagerly(True)
@@ -421,18 +415,18 @@ class TensorFlowTrainer(Trainer):
                 return K.sum(K.maximum(zeros, ones - scores))
 
             self.optimizer = self.get_optimizer()
-            model.compile(optimizer=self.optimizer, loss=tf_pair_hinge_loss)
+            reranker.model.compile(optimizer=self.optimizer, loss=tf_pair_hinge_loss)
 
-            model.fit(train_records.batch(self.cfg["batch"]), epochs=self.cfg["niters"], steps_per_epoch=self.cfg["itersize"])
-            predictions = model.predict(dev_records.batch(self.cfg["batch"]))
+            reranker.model.fit(train_records.batch(self.cfg["batch"]), epochs=self.cfg["niters"], steps_per_epoch=self.cfg["itersize"])
+            predictions = reranker.model.predict(dev_records.batch(self.cfg["batch"]))
 
-            # trec_preds = self.get_preds_in_trec_format(predictions, dev_data, dev_output_path / "out")
-            # metrics = evaluator.eval_runs(trec_preds, dict(qrels), ["ndcg_cut_20", "map", "P_20"])
+            trec_preds = self.get_preds_in_trec_format(predictions, dev_data, dev_output_path / "out")
+            metrics = evaluator.eval_runs(trec_preds, dict(qrels), ["ndcg_cut_20", "map", "P_20"])
             # reranker.add_summary(summary_writer, niter)
             # Skipping dumping metrics and plotting loss since that should be done through tensorboard
 
-            # logger.info("dev metrics: %s", " ".join([f"{metric}={v:0.3f}" for metric, v in sorted(metrics.items())]))
-            # reranker.save_weights(train_output_path/ "dev.best", self.optimizer)
+            logger.info("dev metrics: %s", " ".join([f"{metric}={v:0.3f}" for metric, v in sorted(metrics.items())]))
+            reranker.save_weights(train_output_path/ "dev.best", self.optimizer)
 
 
     def get_preds_in_trec_format(self, predictions, dev_data, pred_fn):
@@ -578,14 +572,26 @@ class TensorFlowTrainer(Trainer):
 
         return self.load_tf_records_from_file(filenames)
 
+    def get_tf_dev_records(self, dataset):
+        """
+        1. Returns tf records from cache (disk) if applicable
+        2. Else, converts the dataset into tf records, writes them to disk, and returns them
+        """
+        if self.cfg["usecache"] and self.cache_exists(dataset):
+            return self.load_cached_tf_records(dataset)
+        else:
+            tf_record_filenames = self.convert_to_tf_dev_record(dataset)
+            return self.load_tf_records_from_file(tf_record_filenames)
 
-    def get_tf_dev_records(self):
-        filenames = [
-            "gs://robust04/capreolus_tfrecords/dev_d3813aba8999157622a92454ea7e72c7/71979b7c-7523-478e-bcc1-884597751756.tfrecord"]
-        return self.load_tf_records_from_file(filenames)
+    def get_tf_train_records(self, dataset):
+        """
+        1. Returns tf records from cache (disk) if applicable
+        2. Else, converts the dataset into tf records, writes them to disk, and returns them
+        """
 
+        if self.cfg["usecache"] and self.cache_exists(dataset):
+            return self.load_cached_tf_records(dataset)
+        else:
+            tf_record_filenames = self.convert_to_tf_train_record(dataset)
+            return self.load_tf_records_from_file(tf_record_filenames)
 
-    def get_tf_train_records(self):
-        filenames = [
-            "gs://robust04/capreolus_tfrecords/train_d3813aba8999157622a92454ea7e72c7/bad4311b-6505-4c18-bc7e-964dfe20c655.tfrecord"]
-        return self.load_tf_records_from_file(filenames)
