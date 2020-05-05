@@ -4,19 +4,18 @@ from collections import defaultdict
 from copy import copy
 import tensorflow as  tf
 
-import tensorflow.keras.backend as K
 import numpy as np
 import torch
 from keras import Sequential, layers
 from keras.layers import Dense
 from tqdm import tqdm
 from capreolus.registry import ModuleBase, RegisterableModule, Dependency, MAX_THREADS
-from capreolus.reranker.common import pair_hinge_loss, pair_softmax_loss
+from capreolus.reranker.common import pair_hinge_loss, pair_softmax_loss, tf_pair_hinge_loss
 from capreolus.searcher import Searcher
 from capreolus.utils.loginit import get_logger
 from capreolus.utils.common import plot_metrics, plot_loss
 from capreolus import evaluator
-from registry import RESULTS_BASE_PATH
+from capreolus.registry import RESULTS_BASE_PATH
 
 logger = get_logger(__name__)  # pylint: disable=invalid-name
 
@@ -342,13 +341,12 @@ class TensorFlowTrainer(Trainer):
 
         # TPUStrategy for distributed training
         if self.tpu:
-            logger.info("Oh yay tpu works")
+            logger.info("Utilizing TPUs")
             tf.config.experimental_connect_to_cluster(self.tpu)
             tf.tpu.experimental.initialize_tpu_system(self.tpu)
             self.strategy = tf.distribute.experimental.TPUStrategy(self.tpu)
         else:  # default strategy that works on CPU and single GPU
             self.strategy = tf.distribute.get_strategy()
-            logger.info("TPU shit did not work")
         # Defining some props that we will alter initialize
         self.optimizer = None
         self.loss = None
@@ -383,40 +381,26 @@ class TensorFlowTrainer(Trainer):
     def load_best_model(self, reranker, train_output_path):
         raise NotImplementedError
 
-    # @tf.function
     def apply_gradients(self, weights, grads):
         self.optimizer.apply_gradients(zip(grads, weights))
 
     def train(self, reranker, train_dataset, train_output_path, dev_data, dev_output_path, qrels, metric):
         summary_writer = tf.summary.create_file_writer("{0}/runs/{1}".format(self.cfg["gcsbucket"], self.cfg["boardname"]))
 
+        # Because TPUs can't work with local files
+        train_output_path = "{0}/{1}".format(self.cfg["gcsbucket"], train_output_path)
         os.makedirs(dev_output_path, exist_ok=True)
         initial_iter = self.fastforward_training(reranker, dev_output_path, None)
         logger.info("starting training from iteration %s/%s", initial_iter, self.cfg["niters"])
 
         strategy_scope = self.strategy.scope()
-
         with strategy_scope:
             train_records = self.get_tf_train_records(train_dataset)
             dev_records = self.get_tf_dev_records(dev_data)
             reranker.build()
 
-            # tf.compat.v1.disable_eager_execution()
-            # tf.config.experimental_run_functions_eagerly(True)
-            # @tf.function
-            def tf_pair_hinge_loss(labels, scores):
-                """
-                Labels - a dummy zero tensor.
-                Scores - A tensor of the shape (batch_size, diff), where diff = posdoc_score - negdoc_score
-                """
-                ones = tf.ones_like(scores)
-                zeros = tf.ones_like(scores)
-
-                return K.sum(K.maximum(zeros, ones - scores))
-
             self.optimizer = self.get_optimizer()
             reranker.model.compile(optimizer=self.optimizer, loss=tf_pair_hinge_loss)
-
             reranker.model.fit(train_records.batch(self.cfg["batch"], drop_remainder=True), epochs=self.cfg["niters"], steps_per_epoch=self.cfg["itersize"])
             predictions = reranker.model.predict(dev_records.batch(self.cfg["batch"]))
 
@@ -426,7 +410,7 @@ class TensorFlowTrainer(Trainer):
             # Skipping dumping metrics and plotting loss since that should be done through tensorboard
 
             logger.info("dev metrics: %s", " ".join([f"{metric}={v:0.3f}" for metric, v in sorted(metrics.items())]))
-            reranker.save_weights(train_output_path/ "dev.best", self.optimizer)
+            reranker.save_weights("{0}/dev.best".format(train_output_path), self.optimizer)
 
 
     def get_preds_in_trec_format(self, predictions, dev_data, pred_fn):
@@ -464,14 +448,13 @@ class TensorFlowTrainer(Trainer):
         return feature
 
     def write_tf_record_to_file(self, dir_name, tf_features):
+        """
+        Actually write the tf record to file. The destination can also be a gcs bucket.
+        TODO: Use generators to optimize memory usage
+        """
         filename = "{0}/{1}.tfrecord".format(dir_name, str(uuid.uuid4()))
         examples = [tf.train.Example(features=tf.train.Features(feature=feature)) for feature in tf_features]
 
-        # def generator():
-        #     for example in examples:
-        #         yield example.SerializeToString()
-        #
-        # dataset = tf.data.Dataset.from_generator(generator, output_types=tf.string)
         if not os.path.isdir(dir_name):
             os.makedirs(dir_name, exist_ok=True)
 
@@ -480,8 +463,6 @@ class TensorFlowTrainer(Trainer):
             for example in examples:
                 writer.write(example)
 
-        # writer = tf.data.experimental.TFRecordWriter(str(filename))
-        # writer.write(dataset)
         logger.info("Wrote tf record file: {}".format(filename))
 
         return str(filename)
