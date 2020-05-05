@@ -96,7 +96,7 @@ class KNRM_TF_Class(tf.keras.Model):
 
         # return self.dummy_combine(simmat)
 
-    @tf.function
+    # @tf.function
     def call(self, x, **kwargs):
         posdoc, negdoc, query, query_idf = x[0], x[1], x[2], x[3]
         posdoc_score, negdoc_score = self.get_score(posdoc, query, query_idf), self.get_score(negdoc, query, query_idf)

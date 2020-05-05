@@ -383,7 +383,7 @@ class TensorFlowTrainer(Trainer):
     def load_best_model(self, reranker, train_output_path):
         raise NotImplementedError
 
-    @tf.function
+    # @tf.function
     def apply_gradients(self, weights, grads):
         self.optimizer.apply_gradients(zip(grads, weights))
 
@@ -403,7 +403,7 @@ class TensorFlowTrainer(Trainer):
 
             # tf.compat.v1.disable_eager_execution()
             # tf.config.experimental_run_functions_eagerly(True)
-            @tf.function
+            # @tf.function
             def tf_pair_hinge_loss(labels, scores):
                 """
                 Labels - a dummy zero tensor.
@@ -414,8 +414,6 @@ class TensorFlowTrainer(Trainer):
 
                 return K.sum(K.maximum(zeros, ones - scores))
 
-            train_iter = iter(train_records.batch(self.cfg["batch"]))
-            dev_iter = iter(dev_records.batch(self.cfg["batch"]))
             self.optimizer = self.get_optimizer()
             reranker.model.compile(optimizer=self.optimizer, loss=tf_pair_hinge_loss)
 
@@ -553,7 +551,7 @@ class TensorFlowTrainer(Trainer):
             'label': tf.io.FixedLenFeature([1], tf.float32, default_value=tf.zeros((1)))
         }
 
-        @tf.function
+        # @tf.function
         def parse_single_example(example_proto):
             single_example = tf.io.parse_single_example(example_proto, feature_description)
             posdoc = single_example['posdoc']
