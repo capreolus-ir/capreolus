@@ -88,8 +88,6 @@ class KNRM_TF_Class(tf.keras.Model):
 
         return scores
 
-        # return self.dummy_combine(simmat)
-
     def call(self, x, **kwargs):
         """
         Unlike the pytorch KNRM model, KNRMTF accepts both the positive and negative document in its forward pass.
@@ -114,15 +112,6 @@ class KNRM_TF(TensorFlowReranker):
     def build(self):
         self.model = KNRM_TF_Class(self["extractor"], self.cfg)
         return self.model
-
-    def score(self, posdoc, negdoc, query, query_idf):
-        return [
-            self.model((posdoc, query, query_idf)),
-            self.model((negdoc, query, query_idf))
-        ]
-
-    def test(self, doc, query, query_idf):
-        return self.model((doc, query, query_idf))
 
 
 class KNRM(PyTorchReranker):

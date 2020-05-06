@@ -66,19 +66,3 @@ class TensorFlowReranker(ModuleBase, metaclass=RegisterableModule):
         Write to the summay_writer custom visualizations/data specific to this reranker
         """
         pass
-
-    def save_weights(self, weights_fn, optimizer):
-        # TODO: Skip the embedding layer while saving weights
-        self.model.save_weights(str(weights_fn))
-        symbolic_weights = getattr(optimizer, "weights")
-        optimizer_weights = tf.keras.backend.batch_get_value(symbolic_weights)
-        optimizer_fn = weights_fn + ".optimizer"
-        with open(optimizer_fn, "wb") as outf:
-            pickle.dump(optimizer_weights, outf, protocol=-1)
-
-    def load_weights(self, weights_fn, optimizer):
-        self.model.load_weights(str(weights_fn))
-        optimizer_fn = weights_fn + ".optimizer"
-        with open(optimizer_fn, "rb") as f:
-            optimizer_weights = pickle.load(f)
-        optimizer.set_weights(optimizer_weights)
