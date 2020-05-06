@@ -67,7 +67,9 @@ class KNRM_TF_Class(tf.keras.Model):
         self.extractor = extractor
         mus = [-0.9, -0.7, -0.5, -0.3, -0.1, 0.1, 0.3, 0.5, 0.7, 0.9, 1.0]
         sigmas = [0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.001]
-        self.embedding = tf.keras.layers.Embedding(len(self.extractor.stoi), self.extractor.embeddings.shape[1], weights=[self.extractor.embeddings], trainable=False)
+        self.embedding = tf.keras.layers.Embedding(
+            len(self.extractor.stoi), self.extractor.embeddings.shape[1], weights=[self.extractor.embeddings], trainable=False
+        )
         self.kernels = RbfKernelBankTF(mus, sigmas, dim=1, requires_grad=True)
         self.combine = tf.keras.layers.Dense(1, input_shape=(self.kernels.count(),))
 
@@ -80,7 +82,9 @@ class KNRM_TF_Class(tf.keras.Model):
 
         k = self.kernels(simmat)
         doc_k = tf.reduce_sum(k, axis=3)  # sum over document
-        reshaped_simmat = tf.broadcast_to(tf.reshape(simmat, (batch_size, 1, qlen, doclen)), (batch_size, self.kernels.count(), qlen, doclen))
+        reshaped_simmat = tf.broadcast_to(
+            tf.reshape(simmat, (batch_size, 1, qlen, doclen)), (batch_size, self.kernels.count(), qlen, doclen)
+        )
         mask = tf.reduce_sum(reshaped_simmat, axis=3) != 0.0
         log_k = tf.where(mask, tf.math.log(doc_k + 1e-6), tf.cast(mask, tf.float32))
         query_k = tf.reduce_sum(log_k, axis=2)
@@ -106,7 +110,7 @@ class KNRM_TF(TensorFlowReranker):
 
     @staticmethod
     def config():
-        gradkernels = True # backprop through mus and sigmas
+        gradkernels = True  # backprop through mus and sigmas
         finetune = False  # Fine tune the embedding
 
     def build(self):
@@ -156,5 +160,3 @@ class KNRM(PyTorchReranker):
         pos_sentence = d["posdoc"]
 
         return self.model(pos_sentence, query_sentence, query_idf).view(-1)
-
-

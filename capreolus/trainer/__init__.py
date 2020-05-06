@@ -3,7 +3,7 @@ import os
 import uuid
 from collections import defaultdict
 from copy import copy
-import tensorflow as  tf
+import tensorflow as tf
 
 import numpy as np
 import torch
@@ -200,7 +200,7 @@ class PytorchTrainer(Trainer):
         hyperparams = dict(self.cfg)
         hyperparams.update(dict(reranker.cfg))
         hyperparams.update(dict(reranker["extractor"].cfg))
-        summary_writer.add_hparams(hyperparams, {'hparams/fake': 0})
+        summary_writer.add_hparams(hyperparams, {"hparams/fake": 0})
 
         self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
         model = reranker.model.to(self.device)
@@ -333,6 +333,7 @@ class TrecCheckpointCallback(tf.keras.callbacks.Callback):
     See TensorflowTrainer.train() for the invocation
     Also saves the best model to disk
     """
+
     def __init__(self, qrels, dev_data, dev_records, output_path, *args, **kwargs):
         super(TrecCheckpointCallback, self).__init__(*args, **kwargs)
         """
@@ -356,7 +357,7 @@ class TrecCheckpointCallback(tf.keras.callbacks.Callback):
         logger.info("dev metrics: %s", " ".join([f"{metric}={v:0.3f}" for metric, v in sorted(metrics.items())]))
 
         # TODO: Make the metric configurable
-        if metrics['ndcg_cut_20'] > self.best_metric:
+        if metrics["ndcg_cut_20"] > self.best_metric:
             self.best_metric = metrics["ndcg_cut_20"]
             # TODO: Prevent the embedding layer weights from being saved
             self.save_model()
@@ -385,7 +386,7 @@ class TensorFlowTrainer(Trainer):
 
         # Use TPU if available, otherwise resort to GPU/CPU
         try:
-            self.tpu = tf.distribute.cluster_resolver.TPUClusterResolver(tpu=self.cfg['tpuname'], zone=self.cfg['tpuzone'])
+            self.tpu = tf.distribute.cluster_resolver.TPUClusterResolver(tpu=self.cfg["tpuname"], zone=self.cfg["tpuzone"])
         except ValueError:
             self.tpu = None
             logger.info("Could not find the tpu")
@@ -430,7 +431,7 @@ class TensorFlowTrainer(Trainer):
         boardname = "default"
 
     def get_optimizer(self):
-        return tf.keras.optimizers.Adam(learning_rate=self.cfg['lr'])
+        return tf.keras.optimizers.Adam(learning_rate=self.cfg["lr"])
 
     def fastforward_training(self, reranker, weights_path, loss_fn):
         return 0
@@ -438,7 +439,9 @@ class TensorFlowTrainer(Trainer):
     def load_best_model(self, reranker, train_output_path):
         # TODO: Do the train_output_path modification at one place?
         if self.tpu:
-            train_output_path = "{0}/{1}/{2}".format(self.cfg["gcsbucket"], "train_output", hashlib.md5(str(train_output_path).encode('utf-8')).hexdigest())
+            train_output_path = "{0}/{1}/{2}".format(
+                self.cfg["gcsbucket"], "train_output", hashlib.md5(str(train_output_path).encode("utf-8")).hexdigest()
+            )
 
         reranker.model.load_weights("{0}/dev.best".format(train_output_path))
 
@@ -450,7 +453,9 @@ class TensorFlowTrainer(Trainer):
 
         # Because TPUs can't work with local files
         if self.tpu:
-            train_output_path = "{0}/{1}/{2}".format(self.cfg["gcsbucket"], "train_output", hashlib.md5(str(train_output_path).encode('utf-8')).hexdigest())
+            train_output_path = "{0}/{1}/{2}".format(
+                self.cfg["gcsbucket"], "train_output", hashlib.md5(str(train_output_path).encode("utf-8")).hexdigest()
+            )
 
         os.makedirs(dev_output_path, exist_ok=True)
         initial_iter = self.fastforward_training(reranker, dev_output_path, None)
@@ -461,15 +466,18 @@ class TensorFlowTrainer(Trainer):
             train_records = self.get_tf_train_records(train_dataset)
             dev_records = self.get_tf_dev_records(dev_data)
             trec_callback = TrecCheckpointCallback(qrels, dev_data, dev_records.batch(self.cfg["batch"]), train_output_path)
-            tensorboard_callback = tf.keras.callbacks.TensorBoard(log_dir="{0}/capreolus_tensorboard/{1}".format(self.cfg["gcsbucket"], self.cfg["boardname"]))
+            tensorboard_callback = tf.keras.callbacks.TensorBoard(
+                log_dir="{0}/capreolus_tensorboard/{1}".format(self.cfg["gcsbucket"], self.cfg["boardname"])
+            )
             reranker.build()
 
             self.optimizer = self.get_optimizer()
             reranker.model.compile(optimizer=self.optimizer, loss=tf_pair_hinge_loss)
             reranker.model.fit(
                 train_records.repeat().shuffle(train_dataset.get_total_samples()).batch(self.cfg["batch"], drop_remainder=True),
-                epochs=self.cfg["niters"], steps_per_epoch=self.cfg["itersize"],
-                callbacks=[trec_callback, tensorboard_callback]
+                epochs=self.cfg["niters"],
+                steps_per_epoch=self.cfg["itersize"],
+                callbacks=[trec_callback, tensorboard_callback],
             )
 
             # Skipping dumping metrics and plotting loss since that should be done through tensorboard
@@ -479,15 +487,15 @@ class TensorFlowTrainer(Trainer):
         Creates a single tf.train.Feature instance (i.e, a single sample)
         """
         feature = {
-            "qid": tf.train.Feature(bytes_list=tf.train.BytesList(value=[qid.encode('utf-8')])),
+            "qid": tf.train.Feature(bytes_list=tf.train.BytesList(value=[qid.encode("utf-8")])),
             "query": tf.train.Feature(float_list=tf.train.FloatList(value=query)),
             "query_idf": tf.train.Feature(float_list=tf.train.FloatList(value=query_idf)),
-            "posdoc_id": tf.train.Feature(bytes_list=tf.train.BytesList(value=[posdoc_id.encode('utf-8')])),
+            "posdoc_id": tf.train.Feature(bytes_list=tf.train.BytesList(value=[posdoc_id.encode("utf-8")])),
             "posdoc": tf.train.Feature(float_list=tf.train.FloatList(value=posdoc)),
         }
 
         if negdoc_id:
-            feature["negdoc_id"] = tf.train.Feature(bytes_list=tf.train.BytesList(value=[negdoc_id.encode('utf-8')])),
+            feature["negdoc_id"] = (tf.train.Feature(bytes_list=tf.train.BytesList(value=[negdoc_id.encode("utf-8")])),)
             feature["negdoc"] = tf.train.Feature(float_list=tf.train.FloatList(value=negdoc))
 
         return feature
@@ -516,7 +524,9 @@ class TensorFlowTrainer(Trainer):
         dir_name = "{0}/{1}/{2}".format(self.cfg["gcsbucket"], "capreolus_tfrecords", dataset.get_hash())
 
         tf_features = [
-            self.create_tf_feature(sample["qid"], sample["query"], sample["query_idf"], sample["posdocid"], sample["posdoc"], None, None)
+            self.create_tf_feature(
+                sample["qid"], sample["query"], sample["query_idf"], sample["posdocid"], sample["posdoc"], None, None
+            )
             for sample in dataset
         ]
 
@@ -531,9 +541,15 @@ class TensorFlowTrainer(Trainer):
 
         tf_features = [
             self.create_tf_feature(
-                sample["qid"], sample["query"], sample["query_idf"], sample["posdocid"], sample["posdoc"],
-                sample["negdocid"], sample["negdoc"]
-            ) for sample in dataset.epoch_generator_func()
+                sample["qid"],
+                sample["query"],
+                sample["query_idf"],
+                sample["posdocid"],
+                sample["posdoc"],
+                sample["negdocid"],
+                sample["negdoc"],
+            )
+            for sample in dataset.epoch_generator_func()
         ]
 
         tf_record_filename = self.write_tf_record_to_file(dir_name, tf_features)
@@ -559,24 +575,24 @@ class TensorFlowTrainer(Trainer):
     def load_tf_records_from_file(self, filenames):
         raw_dataset = tf.data.TFRecordDataset(filenames)
         feature_description = {
-            'qid': tf.io.FixedLenFeature([], tf.string),
-            'query': tf.io.FixedLenFeature([self.cfg["maxqlen"]], tf.float32),
-            'query_idf': tf.io.FixedLenFeature([self.cfg["maxqlen"]], tf.float32),
-            'posdoc_id': tf.io.FixedLenFeature([], tf.string),
-            'posdoc': tf.io.FixedLenFeature([self.cfg["maxdoclen"]], tf.float32),
-            'negdoc_id': tf.io.FixedLenFeature([], tf.string, default_value=b'na'),
-            'negdoc': tf.io.FixedLenFeature([self.cfg['maxdoclen']], tf.float32, default_value=tf.zeros(self.cfg['maxdoclen'])),
-            'label': tf.io.FixedLenFeature([1], tf.float32, default_value=tf.zeros((1)))
+            "qid": tf.io.FixedLenFeature([], tf.string),
+            "query": tf.io.FixedLenFeature([self.cfg["maxqlen"]], tf.float32),
+            "query_idf": tf.io.FixedLenFeature([self.cfg["maxqlen"]], tf.float32),
+            "posdoc_id": tf.io.FixedLenFeature([], tf.string),
+            "posdoc": tf.io.FixedLenFeature([self.cfg["maxdoclen"]], tf.float32),
+            "negdoc_id": tf.io.FixedLenFeature([], tf.string, default_value=b"na"),
+            "negdoc": tf.io.FixedLenFeature([self.cfg["maxdoclen"]], tf.float32, default_value=tf.zeros(self.cfg["maxdoclen"])),
+            "label": tf.io.FixedLenFeature([1], tf.float32, default_value=tf.zeros((1))),
         }
 
         # @tf.function
         def parse_single_example(example_proto):
             single_example = tf.io.parse_single_example(example_proto, feature_description)
-            posdoc = single_example['posdoc']
-            negdoc = single_example['negdoc']
-            query = single_example['query']
-            query_idf = single_example['query_idf']
-            label = single_example['label']
+            posdoc = single_example["posdoc"]
+            negdoc = single_example["negdoc"]
+            query = single_example["query"]
+            query_idf = single_example["query_idf"]
+            label = single_example["label"]
 
             return (posdoc, negdoc, query, query_idf), label
 
