@@ -7,7 +7,7 @@ from capreolus.reranker import PyTorchReranker, TensorFlowReranker
 from capreolus.reranker.common import create_emb_layer, SimilarityMatrix, RbfKernel, RbfKernelBank
 from capreolus.utils.loginit import get_logger
 from capreolus.reranker.common import RbfKernelBankTF, SimilarityMatrixTF
-from capreolus.reranker.common import alternate_simmat, RbfKernelTF
+from capreolus.reranker.common import similarity_matrix_tf, RbfKernelTF
 
 logger = get_logger(__name__)  # pylint: disable=invalid-name
 
@@ -80,10 +80,10 @@ class KNRM_TF_Class(tf.keras.Model):
         self.is_kernel_var = False
         self.is_score_var = False
 
-    def get_score(self, doc, query, query_idf):
-        query = self.embedding(query)
-        doc = self.embedding(doc)
-        simmat = alternate_simmat(query, doc)
+    def get_score(self, doc_tok, query_tok, query_idf):
+        query = self.embedding(query_tok)
+        doc = self.embedding(doc_tok)
+        simmat = similarity_matrix_tf(query, doc, query_tok, doc_tok, self.extractor.pad)
 
         k = self.kernels(simmat)
         doc_k = tf.reduce_sum(k, axis=3)  # sum over document
