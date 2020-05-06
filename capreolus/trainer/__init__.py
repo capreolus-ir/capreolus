@@ -434,7 +434,7 @@ class TensorFlowTrainer(Trainer):
     def load_best_model(self, reranker, train_output_path):
         # TODO: Do the train_output_path modification at one place?
         if self.tpu:
-            train_output_path = "{0}/{1}".format(self.cfg["gcsbucket"], train_output_path)
+            train_output_path = "{0}/{1}".format(self.cfg["gcsbucket"], "train_output")
 
         reranker.model.load_weights("{0}/dev.best".format(train_output_path))
 
@@ -446,7 +446,7 @@ class TensorFlowTrainer(Trainer):
 
         # Because TPUs can't work with local files
         if self.tpu:
-            train_output_path = "{0}/{1}".format(self.cfg["gcsbucket"], train_output_path)
+            train_output_path = "{0}/{1}".format(self.cfg["gcsbucket"], "train_output")
 
         os.makedirs(dev_output_path, exist_ok=True)
         initial_iter = self.fastforward_training(reranker, dev_output_path, None)
