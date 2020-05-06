@@ -5,8 +5,12 @@ from os.path import exists, join
 import json
 import re
 
+from capreolus.utils.loginit import get_logger
+
 from capreolus.registry import ModuleBase, RegisterableModule, Dependency, PACKAGE_PATH
 import requests
+
+logger = get_logger(__name__)
 
 class EntityLinking(ModuleBase, metaclass=RegisterableModule):
     """the module base class"""
@@ -19,7 +23,8 @@ class AmbiverseNLU(EntityLinking):
     yagodescription_dir = '/GW/D5data-11/ghazaleh/search_ranking_data/yago_description_20180120/'
     #PACKAGE_PATH / 'data' / 'yago_descriptions' #TODO set YAGO description path
 
-    dependencies = {"benchmark": Dependency(module="benchmark")} ### well I think I'm not using it but I need the profiletype in the path
+    dependencies = {"benchmark": Dependency(module="benchmark"),
+                    "domainrelatedness": Dependency(module='entityutils', name='relatednesswiki2vec', config_overrides={"strategy": "domain-vector-100"})}
 
     entity_descriptions = {}
 
@@ -32,6 +37,10 @@ class AmbiverseNLU(EntityLinking):
         return self.get_cache_path() / 'entities'
 
     def extract_entities(self, textid, text):
+        if self['benchmark'].entity_strategy == 'none':
+            return
+
+        logger.debug("extracting entities from queries(user profiles)")
         outdir = self.get_extracted_path()
         if exists(join(outdir, self.get_file_name(textid))):
             for e in self.get_all_entities(textid):
@@ -47,13 +56,16 @@ class AmbiverseNLU(EntityLinking):
 
         with open(join(outdir, self.get_file_name(textid)), 'w') as f:
             f.write(json.dumps(r.json(), sort_keys=True, indent=4))
-        
+
         if 'entities' in r.json():
             for e in r.json()['entities']:
                 self.entity_descriptions[e['name']] = ""
-        
 
     def load_descriptions(self):
+        if self['benchmark'].entity_strategy == 'none':
+            return
+
+        logger.debug("loading entity descriptions")
         if self.cfg["descriptions"] == "YAGO_long_short":
             self.load_YAGOdescriptions()
         else:
@@ -94,12 +106,17 @@ class AmbiverseNLU(EntityLinking):
 
     def get_entities(self, profile_id):
         entity_strategy = self['benchmark'].entity_strategy
+        domain = self['benchmark'].domain
 
-        if entity_strategy == 'all':
+        if entity_strategy == 'none':
+            return []
+        elif entity_strategy == 'all':
             return self.get_all_entities(profile_id)
+        elif entity_strategy == 'domain':
+            self["domainrelatedness"].initialize(domain)
+            return self["domainrelatedness"].get_domain_related_entities(self.get_all_entities(profile_id))
         else:
             raise NotImplementedError("TODO implement other entity strategies (by first implementing measures)")
-        # elif TODO implement
 
     def get_all_entities(self, textid):
         data = json.load(open(join(self.get_extracted_path(), self.get_file_name(textid)), 'r'))
