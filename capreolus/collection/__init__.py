@@ -8,9 +8,9 @@ from tqdm import tqdm
 from zipfile import ZipFile
 
 from capreolus.registry import ModuleBase, RegisterableModule, PACKAGE_PATH
-from capreolus.utils.common import download_file, hash_file, remove_newline, get_camel_parser
+from capreolus.utils.common import download_file, hash_file, remove_newline, get_code_parser
 from capreolus.utils.loginit import get_logger
-from capreolus.utils.trec import anserini_index_to_trec_docs, document_to_trectxt
+from capreolus.utils.trec import anserini_index_to_trec_docs, document_to_trectxt, load_trec_coll_docno
 
 logger = get_logger(__name__)
 
@@ -27,6 +27,12 @@ class Collection(ModuleBase, metaclass=RegisterableModule):
             self._path = self.find_document_path()
 
         return self._path, self.collection_type, self.generator_type
+
+    def get_docnos(self):
+        if not hasattr(self, "docnos"):
+            coll_path = self.find_document_path()
+            self.docnos = load_trec_coll_docno(coll_path)
+        return self.docnos
 
     def validate_document_path(self, path):
         """ Attempt to validate the document collection at `path`.
@@ -80,16 +86,11 @@ class Collection(ModuleBase, metaclass=RegisterableModule):
             f"a download URL is not configured for collection={self.name} and the collection path does not exist; you must manually place the document collection at this path in order to use this collection"
         )
 
-    def download_if_missing(self):
-        raise IOError(
-            f"a download URL is not configured for collection={self.name} and the collection path {self._path} does not exist; you must manually place the document collection at this path in order to use this collection"
-        )
-
 
 class Robust04(Collection):
     name = "robust04"
     collection_type = "TrecCollection"
-    generator_type = "JsoupGenerator"
+    generator_type = "DefaultLuceneDocumentGenerator"
     config_keys_not_in_path = ["path"]
 
     @staticmethod
@@ -179,7 +180,7 @@ class DummyCollection(Collection):
     name = "dummy"
     _path = PACKAGE_PATH / "data" / "dummy" / "data"
     collection_type = "TrecCollection"
-    generator_type = "JsoupGenerator"
+    generator_type = "DefaultLuceneDocumentGenerator"
 
     def _validate_document_path(self, path):
         """ Validate that the document path contains `dummy_trec_doc` """
@@ -191,7 +192,7 @@ class ANTIQUE(Collection):
     _path = PACKAGE_PATH / "data" / "antique-collection"
 
     collection_type = "TrecCollection"
-    generator_type = "JsoupGenerator"
+    generator_type = "DefaultLuceneDocumentGenerator"
 
     def download_if_missing(self):
         url = "https://ciir.cs.umass.edu/downloads/Antique/antique-collection.txt"
@@ -238,7 +239,7 @@ class MSMarco(Collection):
     name = "msmarco"
     config_keys_not_in_path = ["path"]
     collection_type = "TrecCollection"
-    generator_type = "JsoupGenerator"
+    generator_type = "DefaultLuceneDocumentGenerator"
 
     @staticmethod
     def config():
@@ -249,7 +250,7 @@ class CodeSearchNet(Collection):
     name = "codesearchnet"
     url = "https://s3.amazonaws.com/code-search-net/CodeSearchNet/v2"
     collection_type = "TrecCollection"  # TODO: any other supported type?
-    generator_type = "JsoupGenerator"
+    generator_type = "DefaultLuceneDocumentGenerator"
 
     @staticmethod
     def config():
@@ -283,16 +284,21 @@ class CodeSearchNet(Collection):
         self._pkl2trec(pkl_path, coll_filename)
         return document_dir
 
+    def process_sentence(self, sent, parser=None):
+        if isinstance(sent, list):
+            sent = " ".join(sent)
+        sent = remove_newline(sent)
+        return parser(sent) if parser else sent
+
     def _pkl2trec(self, pkl_path, trec_path):
         lang = self.cfg["lang"]
         with open(pkl_path, "rb") as f:
             codes = pickle.load(f)
 
-        camel_parser = get_camel_parser()
+        code_parser = get_code_parser() if self.cfg["camelstemmer"] else None
         fout = open(trec_path, "w", encoding="utf-8")
         for i, code in tqdm(enumerate(codes), desc=f"Preparing the {lang} collection file"):
             docno = f"{lang}-FUNCTION-{i}"
-            doc = remove_newline(" ".join(code["function_tokens"]))
-            doc = camel_parser(doc).replace("_", " ").strip() if self.cfg["camelstemmer"] else doc
+            doc = self.process_sentence(code["function_tokens"], parser=code_parser)
             fout.write(document_to_trectxt(docno, doc))
         fout.close()

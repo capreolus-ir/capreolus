@@ -11,7 +11,7 @@ from collections import defaultdict
 from capreolus.registry import ModuleBase, RegisterableModule, PACKAGE_PATH
 from capreolus.utils.loginit import get_logger
 from capreolus.utils.trec import load_qrels, load_trec_topics, topic_to_trectxt
-from capreolus.utils.common import download_file, hash_file, remove_newline, get_camel_parser
+from capreolus.utils.common import download_file, hash_file, remove_newline, get_code_parser
 
 logger = get_logger(__name__)
 
@@ -107,6 +107,7 @@ class CodeSearchNetCorpus(Benchmark):
         super().__init__(cfg)
         lang, camel = cfg["lang"], cfg["camelstemmer"]
         config_name = "with_camelstem" if camel else "without_camelstem"
+        self.parser = get_code_parser() if camel else (lambda x: x)
 
         self.qid_map_file = self.qidmap_dir / config_name / f"{lang}.json"
         self.docid_map_file = self.docidmap_dir / config_name / f"{lang}.json"
@@ -138,6 +139,21 @@ class CodeSearchNetCorpus(Benchmark):
             self._docid_map = json.load(open(self.docid_map_file, "r"))
         return self._docid_map
 
+    def download_raw_data(self):
+        lang = self.cfg["lang"]
+
+        tmp_dir = Path("/tmp/csn")
+        zip_fn = tmp_dir / f"{lang}.zip"
+        if zip_fn.exists():
+            return tmp_dir, zip_fn
+
+        tmp_dir.mkdir(exist_ok=True, parents=True)
+        download_file(f"{self.url}/{lang}.zip", zip_fn)
+        with ZipFile(zip_fn, "r") as zipobj:
+            zipobj.extractall(tmp_dir)
+
+        return tmp_dir, zip_fn
+
     def download_if_missing(self):
         files = [self.qid_map_file, self.docid_map_file, self.qrel_file, self.topic_file, self.fold_file]
         if all([f.exists() for f in files]):
@@ -145,13 +161,7 @@ class CodeSearchNetCorpus(Benchmark):
 
         lang, camel = self.cfg["lang"], self.cfg["camelstemmer"]
 
-        tmp_dir = Path("/tmp")
-        zip_fn = tmp_dir / f"{lang}.zip"
-        if not zip_fn.exists():
-            download_file(f"{self.url}/{lang}.zip", zip_fn)
-
-        with ZipFile(zip_fn, "r") as zipobj:
-            zipobj.extractall(tmp_dir)
+        tmp_dir, zip_fn = self.download_raw_data()
 
         # prepare docid-url mapping from dedup.pkl
         pkl_fn = tmp_dir / f"{lang}_dedupe_definitions_v2.pkl"
@@ -173,18 +183,16 @@ class CodeSearchNetCorpus(Benchmark):
                 for doc in f:
                     yield json.loads(doc)
 
-        camel_parser = get_camel_parser()
         for set_name in qids:
             set_path = tmp_dir / lang / "final" / "jsonl" / set_name
             for doc in gen_doc_from_gzdir(set_path):
-                code = remove_newline(" ".join(doc["code_tokens"]))
-                docstring = remove_newline(" ".join(doc["docstring_tokens"]))
-                docstring = camel_parser(docstring).replace("_", " ").strip() if camel else docstring
-                n_words_in_docstring = len(docstring.split())
+                code = self.process_sentence(" ".join(doc["code_tokens"]))
+                docstring = self.process_sentence(" ".join(doc["docstring_tokens"])).split()
+                n_words_in_docstring = len(docstring)
                 if n_words_in_docstring >= 1024:
                     logger.warning(f"chunk query to first 1000 words otherwise TooManyClause would be triggered "
                                    f"at lucene at search stage, ")
-                docstring = " ".join(docstring.split()[:1020])
+                docstring = " ".join(docstring[:1020])
 
                 docid = self.get_docid(doc["url"], code)
                 qid = self._qid_map.get(docstring, str(len(self._qid_map)))
@@ -206,6 +214,12 @@ class CodeSearchNetCorpus(Benchmark):
             "predict": {"dev": qids["valid"], "test": qids["test"]}
         }}, open(self.fold_file, "w"))
 
+    def process_sentence(self, sent):
+        if isinstance(sent, list):
+            sent = " ".join(sent)
+        sent = remove_newline(sent)
+        return self.parser(sent)
+
     def _prep_docid_map(self, doc_objs):
         """
         construct a nested dict to map each doc into a unique docid
@@ -222,7 +236,7 @@ class CodeSearchNetCorpus(Benchmark):
         lang = self.cfg["lang"]
         url2docid = defaultdict(dict)
         for i, doc in tqdm(enumerate(doc_objs), desc=f"Preparing the {lang} docid_map"):
-            url, code_tokens = doc["url"], remove_newline(" ".join(doc["function_tokens"]))
+            url, code_tokens = doc["url"], self.process_sentence(" ".join(doc["function_tokens"]))
             url2docid[url][code_tokens] = f"{lang}-FUNCTION-{i}"
 
         # remove the code_tokens for the unique url-docid mapping
@@ -235,10 +249,17 @@ class CodeSearchNetCorpus(Benchmark):
         lens = [len(docs) for url, docs in self._docid_map.items()]
         return sum(lens)
 
-    def get_docid(self, url, code_tokens):
+    def get_docid(self, url, code_tokens, parse=False):
         """ retrieve the doc id according to the doc dict """
+        if parse:
+            code_tokens = self.process_sentence(code_tokens)
         docids = self.docid_map[url]
         return docids[0] if len(docids) == 1 else docids[code_tokens]
+
+    def get_qid(self, docstring, parse=False):
+        if parse:
+            docstring = " ".join(self.process_sentence(docstring).split()[:1020])
+        return self.qid_map[docstring]
 
 
 class CodeSearchNetChallenge(Benchmark):
@@ -258,7 +279,7 @@ class CodeSearchNetChallenge(Benchmark):
         if self.topic_file.exists() and self.qid_map_file.exists():
             return
 
-        tmp_dir = Path("/tmp")
+        tmp_dir = Path("/tmp/csn")
         tmp_dir.mkdir(exist_ok=True, parents=True)
         self.file_fn.mkdir(exist_ok=True, parents=True)
 
