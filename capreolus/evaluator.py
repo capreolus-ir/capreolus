@@ -29,14 +29,9 @@ def _mrr(rundoc, qrel):
         return 0.
 
     rundoc = sorted(rundoc.items(), key=lambda doc_score: float(doc_score[1]), reverse=True)
-    # print(f"length of rundoc: {len(rundoc)}")
     rundoc = [d for d, i in rundoc]
 
-    for d in pos_docids:
-        if d in rundoc:
-            pos_doc_ranks.append(rundoc.index(d) + 1)
-
-    # return (1/min(pos_doc_ranks)) if len(pos_doc_ranks) > 0 else 0.
+    pos_doc_ranks = [rundoc.index(d)+1 for d in pos_docids]
     return 1/min(pos_doc_ranks)
 
 
@@ -51,28 +46,6 @@ def mrr(qrels, runs, qids=None):
     print("number of runs: ", len(ranks),  sum(ranks) / len(ranks), "number of zero: ", ranks.count(0.0))
 
     return sum(ranks) / len(ranks)
-
-# if qids:
-#     qrels = {q: v for q, v in qrels.items() if q in qids}
-#     runs = {q: v for q, v in runs.items() if q in qids}
-#
-# ranks = []
-# for q, rundocs in runs.items():
-#     if q not in qrels:
-#         continue
-#
-#     rundocs = sorted(rundocs.items(), key=lambda k_v: float(k_v[1]), reverse=True)
-#     rundocs = [d for d, i in rundocs]
-#     pos_docids, pos_doc_ranks = [d for d in rundocs if qrels[q].get(d, 0) > 0], []
-#
-#     for d in pos_docids:
-#         if d in rundocs:
-#             pos_doc_ranks.append(rundocs.index(d)+1)
-#     ranks.append(1/min(pos_doc_ranks) if len(pos_doc_ranks) > 0 else 0)
-#     # ranks.append(1/min(pos_doc_ranks)) if len(pos_doc_ranks) > 0 else 0
-#
-# print("number of runs: ", len(ranks),  sum(ranks) / len(ranks))
-# return sum(ranks) / len(ranks)
 
 
 def _verify_metric(metrics):
@@ -109,8 +82,6 @@ def _transform_metric(metrics):
 def calc_single_query_runs_trec(qrel, run, metrics):
     trec_metrics = _transform_metric(metrics)
     results = list(pytrec_eval.RelevanceEvaluator(qrel, trec_metrics).evaluate(run).values())[0]   # only one query is supposed to be contained
-    # print(results, metrics, trec_metrics)
-    # print("qrel: ", qrel, "run: ", run.keys(), len(run[q]), type(results), len(results))
     results = [results.get(m, -1) for m in metrics]
     return results
 
@@ -122,27 +93,22 @@ def _eval_runs(runs, qrels, metrics, dev_qids):
     if calc_mrr:
         metrics.remove("mrr")
         mrr_score = mrr(qrels, runs, dev_qids)
-
-    if not metrics:  # in case only "mrr" is provided
-        scores = {}
+        scores = {"mrr": mrr_score}
     else:
+        scores = {}
+
+    if metrics:  # in case only "mrr" is provided
         _verify_metric(metrics)
-        # trec_metrics = _transform_metric(metrics)
         qids = set(dev_qids) & set(qrels.keys()) & set(runs.keys())
         qrel_run_metrics = [({q: qrels.get(q, {})}, {q: runs.get(q, {})}, metrics) for q in qids]
 
         with get_context("spawn").Pool(12) as p:
-            scores = p.starmap(calc_single_query_runs_trec, qrel_run_metrics)  # (Q, n_metrics)
-            print(len(scores), scores[0])
+            trec_scores = p.starmap(calc_single_query_runs_trec, qrel_run_metrics)  # (Q, n_metrics)
+            assert len(trec_scores) == len(qrel_run_metrics)
 
-        # dev_qrels = {qid: labels for qid, labels in qrels.items() if qid in dev_qids}
-        # evaluator = pytrec_eval.RelevanceEvaluator(dev_qrels, _transform_metric(metrics))
-        # scores = [[metrics_dict.get(m, -1) for m in metrics] for metrics_dict in evaluator.evaluate(runs).values()]
-        scores = np.array(scores).mean(axis=0).tolist()
-        scores = dict(zip(metrics, scores))
-
-    if calc_mrr:
-        scores["mrr"] = mrr_score
+        trec_scores = np.array(trec_scores).mean(axis=0).tolist()
+        trec_scores = dict(zip(metrics, trec_scores))
+        scores.update(trec_scores)
 
     return scores
 
@@ -199,17 +165,17 @@ def search_best_run(runfile_dir, benchmark, primary_metric, metrics=None, folds=
         metrics = [primary_metric] + metrics
 
     folds = {s: benchmark.folds[s] for s in [folds]} if folds else benchmark.folds
-    # runfiles = [
-    #     os.path.join(runfile_dir, f)
-    #     for f in os.listdir(runfile_dir)
-    #     if (f != "done" and not os.path.isdir(os.path.join(runfile_dir, f)))
-    # ]
+    runfiles = [
+        os.path.join(runfile_dir, f)
+        for f in os.listdir(runfile_dir)
+        if (f != "done" and not os.path.isdir(os.path.join(runfile_dir, f)))
+    ]
 
     # TMP
-    p = "/home/xinyu1zhang/mpi-spring/capreolus/capreolus/csn_runfile_camel_2/filtered_bm25"
-    # p = "/home/xinyu1zhang/mpi-spring/capreolus/capreolus/csn_runfile_camel/filtered_bm25"
-    runfiles = [os.path.join(p, benchmark.cfg["lang"], "test.filtered.runfile")]
-    print(runfiles)
+    # p = "/home/xinyu1zhang/mpi-spring/capreolus/capreolus/csn_runfile_camel_2/filtered_bm25"
+    # p = "/home/xinyu1zhang/mpi-spring/capreolus/capreolus/csn_runfile_4/filtered_bm25"
+    # runfiles = [os.path.join(p, benchmark.cfg["lang"], "test.filtered.runfile")]
+    print("all runfiles", runfiles)
     # end of tmp
 
     if len(runfiles) == 1:
