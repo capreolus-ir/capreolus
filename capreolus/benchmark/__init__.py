@@ -39,6 +39,7 @@ class PES20(Benchmark):
     PES20_DIR = Path("/GW/NeuralIR/work/PES20")  # TODO hardcoded path
     qrel_file = PES20_DIR / "judgements"
     fold_file = PES20_DIR / "splits.json"
+    domain = 'book'
 
     @staticmethod
     def config():
@@ -73,6 +74,10 @@ class PES20(Benchmark):
     @property
     def entity_strategy(self):
         return self.cfg['entity_strategy']
+
+    @property
+    def domain(self):
+        return self.domain
 
     @property
     def topic_file(self):
