@@ -436,7 +436,7 @@ class TensorFlowTrainer(Trainer):
         if self.tpu:
             train_output_path = "{0}/{1}".format(self.cfg["gcsbucket"], train_output_path)
 
-        reranker.model.load_model("{0}/dev.best".format(train_output_path))
+        reranker.model.load("{0}/dev.best".format(train_output_path))
 
     def apply_gradients(self, weights, grads):
         self.optimizer.apply_gradients(zip(grads, weights))
