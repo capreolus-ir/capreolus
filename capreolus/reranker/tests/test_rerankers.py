@@ -41,7 +41,7 @@ def test_knrm_pytorch(dummy_index, tmpdir, tmpdir_as_cache, monkeypatch):
             "fastforward": True,
             "validatefreq": 1,
             "usecache": False,
-            "boardname": "default"
+            "boardname": "default",
         }
     )
     reranker.modules["trainer"] = trainer
@@ -102,7 +102,7 @@ def test_knrm_tf(dummy_index, tmpdir, tmpdir_as_cache, monkeypatch):
             "tpuname": None,
             "tpuzone": None,
             "gcsbucket": None,
-            "boardname": "default"
+            "boardname": "default",
         }
     )
     reranker.modules["trainer"] = trainer
@@ -158,7 +158,7 @@ def test_pacrr(dummy_index, tmpdir, tmpdir_as_cache, monkeypatch):
             "interactive": False,
             "fastforward": True,
             "validatefreq": 1,
-            "boardname": "default"
+            "boardname": "default",
         }
     )
     reranker.modules["trainer"] = trainer
@@ -214,7 +214,7 @@ def test_dssm_unigram(dummy_index, tmpdir, tmpdir_as_cache, monkeypatch):
             "interactive": False,
             "fastforward": True,
             "validatefreq": 1,
-            "boardname": "default"
+            "boardname": "default",
         }
     )
     reranker.modules["trainer"] = trainer
@@ -276,7 +276,7 @@ def test_tk(dummy_index, tmpdir, tmpdir_as_cache, monkeypatch):
             "interactive": False,
             "fastforward": False,
             "validatefreq": 1,
-            "boardname": "default"
+            "boardname": "default",
         }
     )
     reranker.modules["trainer"] = trainer
