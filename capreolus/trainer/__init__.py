@@ -562,7 +562,8 @@ class TensorFlowTrainer(Trainer):
         # TODO: Add checks to make sure that the number of files in the director is correct
         cache_dir = self.get_tf_record_cache_path(dataset)
         logger.info("The cache path is {0} and does it exist? : {1}".format(cache_dir, tf.io.gfile.exists(cache_dir)))
-        return tf.io.gfile.exists(cache_dir)
+
+        return tf.io.gfile.isdir(cache_dir)
 
 
     def load_tf_records_from_file(self, filenames):
