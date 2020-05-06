@@ -28,7 +28,7 @@ def tf_pair_hinge_loss(labels, scores):
     return K.sum(K.maximum(zeros, ones - scores))
 
 
-def alternate_simmat(query_embed, doc_embed):
+def similarity_matrix_tf(query_embed, doc_embed, query_tok, doc_tok, padding):
     """
     The shape of input tensor is (maxdoclen, embeddim,
     """
@@ -48,41 +48,15 @@ def alternate_simmat(query_embed, doc_embed):
     # The perm is required so that the result of matmul will have this shape
     perm = tf.transpose(doc_embed, perm=[0, 2, 1])
     sim = tf.matmul(query_embed, perm) / (q_denom * doc_denom)
-
+    nul = tf.zeros_like(sim)
+    sim = tf.where(
+        tf.broadcast_to(tf.reshape(query_tok, (batch_size, qlen, 1)), (batch_size, qlen, doclen)) == padding, nul,
+        sim)
+    sim = tf.where(
+        tf.broadcast_to(tf.reshape(doc_tok, (batch_size, 1, doclen)), (batch_size, qlen, doclen)) == padding, nul,
+        sim)
     # TODO: Add support for handling list inputs (eg: for CEDR). See the pytorch implementation of simmat
     return sim
-
-
-class SimilarityMatrixTF(Layer):
-    """
-    Takes in a list of query tokens and doc tokens (and their embeddings) and returns
-    a cosine similarity matrix
-    """
-    def __init__(self, padding=0, **kwargs):
-        super(SimilarityMatrixTF, self).__init__(**kwargs)
-        self.padding = padding
-
-    def call(self, inputs, **kwargs):
-        query_embed, doc_embed, query_tok, doc_tok = inputs[0], inputs[1], inputs[2], inputs[3]
-        assert query_embed.shape[0] == doc_embed.shape[0]
-        batch_size, qlen, doclen = query_embed.shape[0], query_embed.shape[1],  doc_embed.shape[1]
-        q_denom = tf.broadcast_to(tf.reshape(tf.norm(query_embed, axis=2), (batch_size, qlen, 1)), (batch_size, qlen, doclen)) + 1e-9
-        doc_denom = tf.broadcast_to(tf.reshape(tf.norm(doc_embed, axis=2), (batch_size, 1, doclen)), (batch_size, qlen, doclen)) + 1e-9
-
-        # Why perm?
-        # let query have shape (32, 8, 300)
-        # let doc have shape (32, 800, 300)
-        # Our similarity matrix should have the shape (32, 8, 800)
-        # The perm is required so that the result of matmul will have this shape
-        perm = tf.transpose(doc_embed, perm=[0, 2, 1])
-        sim = tf.matmul(query_embed, perm) / (q_denom * doc_denom)
-
-        nul = tf.zeros_like(sim)
-        sim = tf.where(tf.broadcast_to(tf.reshape(query_tok, (batch_size, qlen, 1)), (batch_size, qlen, doclen)) == self.padding, nul, sim)
-        sim = tf.where(tf.broadcast_to(tf.reshape(doc_tok, (batch_size, 1, doclen)), (batch_size, qlen, doclen)) == self.padding, nul, sim)
-
-        # TODO: Add support for handling list inputs (eg: for CEDR). See the pytorch implementation of simmat
-        return tf.stack([sim], axis=1)
 
 
 class SimilarityMatrix(torch.nn.Module):
