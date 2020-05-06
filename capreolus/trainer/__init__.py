@@ -357,6 +357,7 @@ class TrecCheckpointCallback(tf.keras.callbacks.Callback):
         # TODO: Make the metric configurable
         if metrics['ndcg_cut_20'] > self.best_metric:
             self.best_metric = metrics["ndcg_cut_20"]
+            # TODO: Prevent the embedding layer weights from being saved
             self.save_model()
 
     @staticmethod

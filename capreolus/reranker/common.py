@@ -32,10 +32,7 @@ def similarity_matrix_tf(query_embed, doc_embed, query_tok, doc_tok, padding):
     """
     The shape of input tensor is (maxdoclen, embeddim,
     """
-    # assert query_embed.shape[0] == doc_embed.shape[0]
     batch_size, qlen, doclen = tf.shape(query_embed)[0], tf.shape(query_embed)[1], tf.shape(doc_embed)[1]
-    # print("Batch size is {0} qlen is {1} and doclen is {2}".format(batch_size, qlen, doclen))
-    # qlen, doclen = tf.shape(query_embed)[1], tf.shape(doc_embed)[1]
     q_denom = tf.broadcast_to(tf.reshape(tf.norm(query_embed, axis=2), (batch_size, qlen, 1)),
                               (batch_size, qlen, doclen,)) + 1e-9
     doc_denom = tf.broadcast_to(tf.reshape(tf.norm(doc_embed, axis=2), (batch_size, 1, doclen)),
@@ -55,6 +52,7 @@ def similarity_matrix_tf(query_embed, doc_embed, query_tok, doc_tok, padding):
     sim = tf.where(
         tf.broadcast_to(tf.reshape(doc_tok, (batch_size, 1, doclen)), (batch_size, qlen, doclen)) == padding, nul,
         sim)
+
     # TODO: Add support for handling list inputs (eg: for CEDR). See the pytorch implementation of simmat
     return sim
 
