@@ -131,7 +131,7 @@ class AnseriniCorpusIndex(Index):
 
     @staticmethod
     def config():
-        indexcorpus = 'anserini0.9-index.clueweb09.englishonly.nostem.stopwording'# todo: this was the only one which was working now
+        indexcorpus = 'anserini0.9-index.clueweb09.englishonly.nostem.stopwording'
 
     def get_index_path(self):
         return join(self.corpusdir, self.cfg['indexcorpus'])

@@ -5,8 +5,13 @@ from os.path import exists, join
 import json
 import re
 
+from capreolus.utils.common import get_file_name
+from capreolus.utils.loginit import get_logger
+
 from capreolus.registry import ModuleBase, RegisterableModule, Dependency, PACKAGE_PATH
 import requests
+
+logger = get_logger(__name__)
 
 class EntityLinking(ModuleBase, metaclass=RegisterableModule):
     """the module base class"""
@@ -15,11 +20,13 @@ class EntityLinking(ModuleBase, metaclass=RegisterableModule):
 
 class AmbiverseNLU(EntityLinking):
     name = 'ambiversenlu'
-    server = ''  # TODO set the ambiverseNLU server here
+    server = open(PACKAGE_PATH / "data" / "ambiversenlu" / "server", 'r').read().replace("\n", "")  # TODO set the ambiverseNLU server here
     yagodescription_dir = '/GW/D5data-11/ghazaleh/search_ranking_data/yago_description_20180120/'
     #PACKAGE_PATH / 'data' / 'yago_descriptions' #TODO set YAGO description path
 
-    dependencies = {"benchmark": Dependency(module="benchmark")} ### well I think I'm not using it but I need the profiletype in the path
+    dependencies = {
+        "benchmark": Dependency(module="benchmark"),
+    }
 
     entity_descriptions = {}
 
@@ -28,12 +35,19 @@ class AmbiverseNLU(EntityLinking):
         extractConcepts = True ## TODO: let's get the pipeline as input (later when I implemented that part).
         descriptions = "YAGO_long_short"
 
-    def get_extracted_path(self):
+    def get_extracted_entities_cache_path(self):
         return self.get_cache_path() / 'entities'
 
     def extract_entities(self, textid, text):
-        outdir = self.get_extracted_path()
-        if exists(join(outdir, self.get_file_name(textid))):
+        if self['benchmark'].entity_strategy is None:
+            return
+
+        benchmark_name = self['benchmark'].name
+        benchmark_querytype = self['benchmark'].query_type
+
+        logger.debug("extracting entities from queries(user profiles)")
+        outdir = self.get_extracted_entities_cache_path()
+        if exists(join(outdir, get_file_name(textid, benchmark_name, benchmark_querytype))):
             for e in self.get_all_entities(textid):
                 self.entity_descriptions[e] = ""
             return
@@ -41,19 +55,29 @@ class AmbiverseNLU(EntityLinking):
         os.makedirs(outdir, exist_ok=True)
 
         headers = {'accept': 'application/json', 'content-type': 'application/json'}
-        data = {"docId": "{}".format(self.get_file_name(textid)), "text": "{}".format(text), "extractConcepts": "{}".format(str(self.cfg["extractConcepts"])), "language": "en"}#"annotatedMentions": [{"charLength": 7, "charOffset":5}, {"charLength": 4, "charOffset": 0}]
-        r = requests.post(url=self.server, data=json.dumps(data), headers=headers)
-        #TODO: later maybe I could use the annotatedMentions to annotate the input??? since in the profile I know what's NE/C mainly????????
+        data = {"docId": "{}".format(get_file_name(textid, benchmark_name, benchmark_querytype)), "text": "{}".format(text), "extractConcepts": "{}".format(str(self.cfg["extractConcepts"])), "language": "en"}#"annotatedMentions": [{"charLength": 7, "charOffset":5}, {"charLength": 4, "charOffset": 0}]
+        try:
+            r = requests.post(url=self.server, data=json.dumps(data), headers=headers)
+        except requests.exceptions.RequestException as e:
+            raise RuntimeError(e)
 
-        with open(join(outdir, self.get_file_name(textid)), 'w') as f:
-            f.write(json.dumps(r.json(), sort_keys=True, indent=4))
-        
-        if 'entities' in r.json():
-            for e in r.json()['entities']:
-                self.entity_descriptions[e['name']] = ""
-        
+        # TODO: later maybe I could use the annotatedMentions to annotate the input?
+        # logger.debug(f"entitylinking id:{textid} {benchmark_name} {benchmark_querytype}  status:{r.status_code}")
+        if r.status_code == 200:
+            with open(join(outdir, get_file_name(textid, benchmark_name, benchmark_querytype)), 'w') as f:
+                f.write(json.dumps(r.json(), sort_keys=True, indent=4))
+
+            if 'entities' in r.json():
+                for e in r.json()['entities']:
+                    self.entity_descriptions[e['name']] = ""
+        else:
+            raise RuntimeError(f"request status_code is {r.status_code}")
 
     def load_descriptions(self):
+        if self['benchmark'].entity_strategy is None:
+            return
+
+        logger.debug("loading entity descriptions")
         if self.cfg["descriptions"] == "YAGO_long_short":
             self.load_YAGOdescriptions()
         else:
@@ -95,14 +119,18 @@ class AmbiverseNLU(EntityLinking):
     def get_entities(self, profile_id):
         entity_strategy = self['benchmark'].entity_strategy
 
-        if entity_strategy == 'all':
+        if entity_strategy == 'none':
+            return []
+        elif entity_strategy == 'all':
             return self.get_all_entities(profile_id)
+        elif entity_strategy == 'domain':
+            self["domainrelatedness"].initialize(self['benchmark'].domain)
+            return self["domainrelatedness"].get_domain_related_entities(self.get_all_entities(profile_id))
         else:
             raise NotImplementedError("TODO implement other entity strategies (by first implementing measures)")
-        # elif TODO implement
 
     def get_all_entities(self, textid):
-        data = json.load(open(join(self.get_extracted_path(), self.get_file_name(textid)), 'r'))
+        data = json.load(open(join(self.get_extracted_entities_cache_path(), get_file_name(textid, self['benchmark'].name, self['benchmark'].query_type)), 'r'))
         res = []
         if 'entities' in data:
             for e in data['entities']:
@@ -113,16 +141,3 @@ class AmbiverseNLU(EntityLinking):
         domain = self['benchmark'].domain
         #TODO     Implement - a new dependency - component
 
-    def get_file_name(self, id):
-        benchmark = self['benchmark']
-        ### This is written wrt our benchmarks and the ids we have for the queries.
-        ### Maybe need to be extended on new benchmarks.
-        ## The idea is that, we don't want to have redundency in the extraction and caching
-
-        if benchmark.name in ['pes20', 'kitt']:
-            if benchmark.query_type == "query":
-                return re.sub(r'(\d+)_(.+)', r'\g<1>', id)
-            else:
-                return re.sub(r'(\d+)_(.+)', r'\g<2>', id)
-        else:
-            return id

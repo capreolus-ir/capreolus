@@ -113,7 +113,7 @@ class EmbedText(Extractor):
             and 0 < len(self.stoi) == self.embeddings.shape[0]
         )
 
-    def create(self, qids, docids, topics):
+    def create(self, qids, docids, topics, qdocs=None, entity_strategy=None):
 
         if self.exist():
             return
@@ -189,7 +189,8 @@ class DocStats(Extractor):
         "tokenizer": Dependency(module="tokenizer", name="anserini", config_overrides={"keepstops": False}),
 #        "tokenizerquery": Dependency(module="tokenizer", name="spacy", config_overrides={"keepstops": False, 'removesmallerlen': 2}), #removesmallerlen is actually only used for user profile (not the short queries) but I cannot separate them
        # "tokenizer": Dependency(module="tokenizer", name="spacy", config_overrides={"keepstops": False}),
-        "entitylinking": Dependency(module="entitylinking", name='ambiversenlu')
+        "entitylinking": Dependency(module="entitylinking", name='ambiversenlu'),
+        "domainrelatedness": Dependency(module='entityutils', name='relatednesswiki2vec', config_overrides={"strategy": "centroid-k100"})
     }
 
     @staticmethod
@@ -199,7 +200,7 @@ class DocStats(Extractor):
     def exist(self):
         return hasattr(self, "doc_tf")
 
-    def create(self, qids, docids, topics, qdocs=None, extract_entities=False):
+    def create(self, qids, docids, topics, qdocs=None, entity_strategy=None):
         #todo where can I check this: is here good?
         if "nostem" in self["backgroundindex"].cfg["indexcorpus"]:
             if 'stemmer' in self["tokenizer"].cfg and self["tokenizer"].cfg['stemmer'] != "none":
@@ -215,14 +216,16 @@ class DocStats(Extractor):
         logger.debug("Openning background index")
         self["backgroundindex"].open()
 
-        if extract_entities:
-            logger.debug("extracting entities from queries(user profiles)")
-            for qid in qids:
-                # To avoid redundency in extracting (and as the user profiles are the same as many queries). We cache the extraction based on the profileid.
-                # This is handled in entitylinking component. In case of using another benchmark there may be a need to extend.
-                self["entitylinking"].extract_entities(qid, topics[qid])
-            logger.debug("loading entity descriptions")
-            self["entitylinking"].load_descriptions()
+        ##TODO: I could pass the entity_strategy from reranker to the extractor, and then here call the entity extraction IF it was using entities.
+        ## But what I did was that I called the extract_entities anyways, but I will check whether to extract or just return null inside the entitylinking component
+        ## I would definately prefer to use the former approach which is cleaner in a reader's perspective, but I think we want to keep the reranker free of entity-related parameters
+        # logger.debug("extracting entities from queries(user profiles)")
+        for qid in qids:
+            # To avoid redundency in extracting (and as the user profiles are the same as many queries). We cache the extraction based on the profileid.
+            # This is handled in entitylinking component. In case of using another benchmark there may be a need to extend.
+            self["entitylinking"].extract_entities(qid, topics[qid])
+        # logger.debug("loading entity descriptions")
+        self["entitylinking"].load_descriptions()
 
         logger.debug("tokenizing queries [+entity descriptions]")
         self.qid2toks = {}
@@ -230,10 +233,11 @@ class DocStats(Extractor):
         for qid in qids:
             qtext = topics[qid]
             qdesc = []
-            if extract_entities:
-                qentities = self["entitylinking"].get_entities(qid)
-                for e in qentities:
-                    qdesc.append(self["entitylinking"].get_entity_description(e))
+
+            qentities = self.get_entities(qid, entity_strategy) # returns empty array if the entity_strategy is None
+            for e in qentities:
+                qdesc.append(self["entitylinking"].get_entity_description(e))
+
             qtext += "\n" + "\n".join(qdesc)
             query = self["tokenizer"].tokenize(qtext)
 
@@ -322,6 +326,16 @@ class DocStats(Extractor):
         total_terms = self["backgroundindex"].numterms
         return tf/ total_terms
 
+    def get_entities(self, profile_id, entity_strategy):
+        if entity_strategy is None:
+            return []
+        elif entity_strategy == 'all':
+            return self['entitylinking'].get_all_entities(profile_id)
+        elif entity_strategy == 'domain':
+            return self["domainrelatedness"].get_domain_related_entities(profile_id, self['entitylinking'].get_all_entities(profile_id))
+        else:
+            raise NotImplementedError("TODO implement other entity strategies (by first implementing measures)")
+
     def id2vec(self, qid, posid, negid=None, query=None):#todo (ask) where is it used?
         if query is not None:
             if qid is None:
@@ -368,11 +382,11 @@ class DocStatsEmbedding(DocStats):
         model_path = api.load(self.embed_names[self.cfg["embeddings"]], return_path=True)
         return gensim.models.KeyedVectors.load_word2vec_format(model_path, binary=True)
 
-    def create(self, qids, docids, topics, qdocs=None, extract_entities=False):
+    def create(self, qids, docids, topics, qdocs=None, entity_strategy=None):
         if self.exist():
             return
 
-        super().create(qids, docids, topics, qdocs, extract_entities)
+        super().create(qids, docids, topics, qdocs, entity_strategy)
 
         logger.debug("loading embedding")
         self.emb_model = self._get_pretrained_emb()
