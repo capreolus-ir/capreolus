@@ -352,6 +352,8 @@ class TrecCheckpointCallback(tf.keras.callbacks.Callback):
         trec_preds = self.get_preds_in_trec_format(predictions, self.dev_data)
         metrics = evaluator.eval_runs(trec_preds, dict(self.qrels), ["ndcg_cut_20", "map", "P_20"])
         logger.info("dev metrics: %s", " ".join([f"{metric}={v:0.3f}" for metric, v in sorted(metrics.items())]))
+
+        # TODO: Make the metric configurable
         if metrics['ndcg_cut_20'] > self.best_metric:
             self.best_metric = metrics["ndcg_cut_20"]
             self.save_model()
@@ -396,6 +398,11 @@ class TensorFlowTrainer(Trainer):
         # Defining some props that we will alter initialize
         self.optimizer = None
         self.loss = None
+        self.validate()
+
+    def validate(self):
+        if self.tpu and any([self.cfg["gcsbucket"] is None, self.cfg["tpuname"] is None, self.cfg["tpuzone"] is None]):
+            raise ValueError("gcsbucket, tpuname and tpuzone configs must be provided when training on TPU")
 
     @staticmethod
     def config():
@@ -425,7 +432,7 @@ class TensorFlowTrainer(Trainer):
         return 0
 
     def load_best_model(self, reranker, train_output_path):
-        # TODO: Do this at one place?
+        # TODO: Do the train_output_path modification at one place?
         if self.tpu:
             train_output_path = "{0}/{1}".format(self.cfg["gcsbucket"], train_output_path)
 
@@ -459,7 +466,6 @@ class TensorFlowTrainer(Trainer):
             # reranker.add_summary(summary_writer, niter)
             # Skipping dumping metrics and plotting loss since that should be done through tensorboard
 
-            # reranker.save_weights("{0}/dev.best".format(train_output_path), self.optimizer)
 
     def create_tf_feature(self, qid, query, query_idf, posdoc_id, posdoc, negdoc_id, negdoc):
         """
@@ -548,8 +554,12 @@ class TensorFlowTrainer(Trainer):
         # TODO: The caching logic is broken - the cache cannot be reused if itersize/batch size e.t.c changes
         cache_dir_name = dataset.get_hash()
         cache_dir_path = self.get_cache_path() / cache_dir_name
+
         # TODO: Add checks to make sure that the number of files in the director is correct
-        return os.path.isdir(cache_dir_path) and len(os.listdir(cache_dir_path)) != 0
+        if self.tpu:
+            return tf.io.gfile.exists(cache_dir_path)
+        else:
+            return os.path.isdir(cache_dir_path) and len(os.listdir(cache_dir_path)) != 0
 
     def load_tf_records_from_file(self, filenames):
         raw_dataset = tf.data.TFRecordDataset(filenames)
@@ -580,6 +590,7 @@ class TensorFlowTrainer(Trainer):
         return tf_records_dataset
 
     def load_cached_tf_records(self, dataset):
+        logger.info("Loading TF records from cache")
         cache_dir_path = self.get_cache_path() / dataset.get_hash()
         filenames = os.listdir(cache_dir_path)
 
