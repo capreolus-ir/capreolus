@@ -13,17 +13,18 @@ logger = get_logger(__name__)
 
 def test_csn_corpus_benchmark_downloadifmissing():
     for lang in ["python", "java", "javascript", "go", "ruby", "php"]:
-        logger.info(f"testing {lang}")
-        cfg = {"_name": "codesearchnet_corpus", "lang": lang}
-        benchmark = CodeSearchNetCodeSearchNetCorpusBenchmark(cfg)
-        benchmark.download_if_missing()
+        for camelstemmer in [True, False]:
+            logger.info(f"testing {lang}")
+            cfg = {"_name": "codesearchnet_corpus", "lang": lang, "camelstemmer": camelstemmer}
+            benchmark = CodeSearchNetCodeSearchNetCorpusBenchmark(cfg)
+            benchmark.download_if_missing()
 
-        assert os.path.exists(benchmark.docid_map_file)
-        assert os.path.exists(benchmark.qid_map_file)
+            assert os.path.exists(benchmark.docid_map_file)
+            assert os.path.exists(benchmark.qid_map_file)
 
-        assert os.path.exists(benchmark.topic_dir / f"{lang}.txt")
-        assert os.path.exists(benchmark.qrel_dir / f"{lang}.txt")
-        assert os.path.exists(benchmark.fold_dir / f"{lang}.json")
+            assert os.path.exists(benchmark.topic_file)
+            assert os.path.exists(benchmark.qrel_file)
+            assert os.path.exists(benchmark.fold_file)
 
 
 def _load_trec_doc(fn):
