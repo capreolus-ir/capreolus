@@ -42,7 +42,7 @@ def test_tf_get_tf_dataset(monkeypatch):
             "usecache": False,
             "tpuname": None,
             "tpuzone": None,
-            "gcsbucket": None
+            "gcsbucket": None,
         }
     )
 
@@ -61,6 +61,3 @@ def test_tf_get_tf_dataset(monkeypatch):
         tf.debugging.assert_equal(
             batch[3], tf.convert_to_tensor(np.array([[0.1, 0.1, 0.2, 0.1], [0.1, 0.1, 0.2, 0.1]]), dtype=tf.float32)
         )
-
-
-

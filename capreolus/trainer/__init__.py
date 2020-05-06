@@ -408,6 +408,8 @@ class TensorFlowTrainer(Trainer):
     def validate(self):
         if self.tpu and any([self.cfg["gcsbucket"] is None, self.cfg["tpuname"] is None, self.cfg["tpuzone"] is None]):
             raise ValueError("gcsbucket, tpuname and tpuzone configs must be provided when training on TPU")
+        if self.cfg["gcsbucket"] and not self.cfg["gcsbucket"].startswith("gs://"):
+            raise ValueError("The gcsbucket config should start with 'gs://'")
 
     @staticmethod
     def config():
