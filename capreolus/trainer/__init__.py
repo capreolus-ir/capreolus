@@ -565,7 +565,6 @@ class TensorFlowTrainer(Trainer):
 
         return tf.io.gfile.isdir(cache_dir)
 
-
     def load_tf_records_from_file(self, filenames):
         raw_dataset = tf.data.TFRecordDataset(filenames)
         feature_description = {
@@ -598,6 +597,7 @@ class TensorFlowTrainer(Trainer):
         logger.info("Loading TF records from cache")
         cache_dir = self.get_tf_record_cache_path(dataset)
         filenames = tf.io.gfile.listdir(cache_dir)
+        filenames = ["{0}/{1}".format(cache_dir, name) for name in filenames]
 
         return self.load_tf_records_from_file(filenames)
 
