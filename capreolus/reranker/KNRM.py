@@ -4,10 +4,10 @@ from torch import nn
 import matplotlib.pyplot as plt
 
 from capreolus.reranker import PyTorchReranker, TensorFlowReranker
-from capreolus.reranker.common import create_emb_layer, SimilarityMatrix, RbfKernel, RbfKernelBank
+from capreolus.reranker.common import create_emb_layer, SimilarityMatrix, RbfKernelBank
 from capreolus.utils.loginit import get_logger
-from capreolus.reranker.common import RbfKernelBankTF, SimilarityMatrixTF
-from capreolus.reranker.common import similarity_matrix_tf, RbfKernelTF
+from capreolus.reranker.common import RbfKernelBankTF
+from capreolus.reranker.common import similarity_matrix_tf
 
 logger = get_logger(__name__)  # pylint: disable=invalid-name
 
@@ -70,7 +70,6 @@ class KNRM_TF_Class(tf.keras.Model):
         # self.embedding = tf.keras.layers.Embedding(len(self.extractor.stoi), self.extractor.embeddings.shape[1], weights=[self.extractor.embeddings], trainable=False)
         self.embedding = tf.keras.layers.Embedding(len(self.extractor.stoi), self.extractor.embeddings.shape[1], trainable=True)
         self.kernels = RbfKernelBankTF(mus, sigmas, dim=1, requires_grad=True)
-        self.simmat = SimilarityMatrixTF(padding=extractor.pad)
         self.combine = tf.keras.layers.Dense(1, input_shape=(self.kernels.count(),))
         # self.dummy_combine = tf.keras.layers.Dense(1, input_shape=(11, extractor.cfg["maxqlen"], extractor.cfg["maxdoclen"],))
 
