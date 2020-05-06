@@ -178,9 +178,6 @@ def search_best_run(runfile_dir, benchmark, primary_metric, metrics=None, folds=
     print("all runfiles", runfiles)
     # end of tmp
 
-    if len(runfiles) == 1:
-        return {"score": eval_runfile(runfiles[0], benchmark.qrels, metrics), "path": {s: runfiles[0] for s in folds}}
-
     best_scores = {s: {primary_metric: 0, "path": None} for s in folds}
     for runfile in tqdm(runfiles, desc="Processing available runfiles"):
         runs = Searcher.load_trec_run(runfile)
