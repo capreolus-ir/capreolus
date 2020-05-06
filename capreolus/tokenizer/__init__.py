@@ -24,9 +24,9 @@ class AnseriniTokenizer(Tokenizer):
 
         stemmer, keepstops = self.cfg["stemmer"], self.cfg["keepstops"]
         emptyjchar = autoclass("org.apache.lucene.analysis.CharArraySet").EMPTY_SET
-        Analyzer = autoclass("io.anserini.analysis.EnglishStemmingAnalyzer")
-        analyzer = Analyzer(stemmer, emptyjchar) if keepstops else Analyzer(stemmer)
-        tokenizefn = autoclass("io.anserini.analysis.AnalyzerUtils").tokenize
+        Analyzer = autoclass("io.anserini.analysis.DefaultEnglishAnalyzer")
+        analyzer = Analyzer.newStemmingInstance(stemmer, emptyjchar) if keepstops else Analyzer.newStemmingInstance(stemmer)
+        tokenizefn = autoclass("io.anserini.analysis.AnalyzerUtils").analyze
 
         def _tokenize(sentence):
             return tokenizefn(analyzer, sentence).toArray()
