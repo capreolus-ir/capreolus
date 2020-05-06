@@ -550,16 +550,19 @@ class TensorFlowTrainer(Trainer):
 
         return tf_record_filenames
 
-    def cache_exists(self, dataset):
+    def get_tf_record_cache_path(self, dataset):
         # TODO: The caching logic is broken - the cache cannot be reused if itersize/batch size e.t.c changes
-        cache_dir_name = dataset.get_hash()
-        cache_dir_path = self.get_cache_path() / cache_dir_name
-
-        # TODO: Add checks to make sure that the number of files in the director is correct
         if self.tpu:
-            return tf.io.gfile.exists(cache_dir_path)
+            return "{0}/tfrecord_cache/{1}".format(self.cfg["gcsbucket"], dataset.get_hash())
         else:
-            return os.path.isdir(cache_dir_path) and len(os.listdir(cache_dir_path)) != 0
+            base_path = self.get_cache_path()
+            return "{0}/{1}".format(base_path, dataset.get_hash())
+
+    def cache_exists(self, dataset):
+        # TODO: Add checks to make sure that the number of files in the director is correct
+        cache_dir = self.get_tf_record_cache_path(dataset)
+        return tf.io.gfile.exists(cache_dir)
+
 
     def load_tf_records_from_file(self, filenames):
         raw_dataset = tf.data.TFRecordDataset(filenames)
@@ -591,8 +594,8 @@ class TensorFlowTrainer(Trainer):
 
     def load_cached_tf_records(self, dataset):
         logger.info("Loading TF records from cache")
-        cache_dir_path = self.get_cache_path() / dataset.get_hash()
-        filenames = os.listdir(cache_dir_path)
+        cache_dir = self.get_tf_record_cache_path(dataset)
+        filenames = tf.io.gfile.listdir(cache_dir)
 
         return self.load_tf_records_from_file(filenames)
 
