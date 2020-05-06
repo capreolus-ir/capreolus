@@ -156,12 +156,14 @@ def remove_newline(txt):
     return txt.replace("\r", "").replace("\n", "").strip()
 
 
-def get_camel_parser():
+def get_code_parser():
     camel_patterns = [re.compile('(.)([A-Z][a-z]+)'), re.compile('([a-z0-9])([A-Z])')]
 
-    def camel_parser(name):
+    def code_parser(name):
         for pattern in camel_patterns:
-            name = pattern.sub(r'\1 \2', name)
+            name = pattern.sub(r'\1 \2', name)  # tokenize camel naming
+        name = name.replace("_", " ").split()  # tokenize snake naming
+        name = " ".join(name)  # remove extra space between tokens
         return name.lower()
 
-    return camel_parser
+    return code_parser
