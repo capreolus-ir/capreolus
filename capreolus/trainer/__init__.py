@@ -553,7 +553,7 @@ class TensorFlowTrainer(Trainer):
     def get_tf_record_cache_path(self, dataset):
         # TODO: The caching logic is broken - the cache cannot be reused if itersize/batch size e.t.c changes
         if self.tpu:
-            return "{0}/tfrecord_cache/{1}".format(self.cfg["gcsbucket"], dataset.get_hash())
+            return "{0}/capreolus_tfrecords/{1}".format(self.cfg["gcsbucket"], dataset.get_hash())
         else:
             base_path = self.get_cache_path()
             return "{0}/{1}".format(base_path, dataset.get_hash())
