@@ -67,17 +67,9 @@ class KNRM_TF_Class(tf.keras.Model):
         self.extractor = extractor
         mus = [-0.9, -0.7, -0.5, -0.3, -0.1, 0.1, 0.3, 0.5, 0.7, 0.9, 1.0]
         sigmas = [0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.001]
-        # self.embedding = tf.keras.layers.Embedding(len(self.extractor.stoi), self.extractor.embeddings.shape[1], weights=[self.extractor.embeddings], trainable=False)
-        self.embedding = tf.keras.layers.Embedding(len(self.extractor.stoi), self.extractor.embeddings.shape[1], trainable=True)
+        self.embedding = tf.keras.layers.Embedding(len(self.extractor.stoi), self.extractor.embeddings.shape[1], weights=[self.extractor.embeddings], trainable=False)
         self.kernels = RbfKernelBankTF(mus, sigmas, dim=1, requires_grad=True)
         self.combine = tf.keras.layers.Dense(1, input_shape=(self.kernels.count(),))
-        # self.dummy_combine = tf.keras.layers.Dense(1, input_shape=(11, extractor.cfg["maxqlen"], extractor.cfg["maxdoclen"],))
-
-        # Flags to make sure that tf.Variable gets called in call() only once.
-        # See this: https://github.com/tensorflow/community/blob/master/rfcs/20180918-functions-not-sessions-20.md#functions-that-create-state
-        self.is_simmat_var = False
-        self.is_kernel_var = False
-        self.is_score_var = False
 
     def get_score(self, doc_tok, query_tok, query_idf):
         query = self.embedding(query_tok)
