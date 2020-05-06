@@ -40,6 +40,9 @@ def test_tf_get_tf_dataset(monkeypatch):
             "fastforward": True,
             "validatefreq": 1,
             "usecache": False,
+            "tpuname": None,
+            "tpuzone": None,
+            "gcsbucket": None
         }
     )
 
@@ -50,21 +53,14 @@ def test_tf_get_tf_dataset(monkeypatch):
     tf_record_dataset = trainer.load_tf_records_from_file(tf_record_filenames)
     dataset = tf_record_dataset.batch(2)
 
-    num_batches = 0
-    for idx, batch in enumerate(dataset):
-        tf.debugging.assert_equal(batch["qid"], ["1", "1"])
-        tf.debugging.assert_equal(batch["query"], tf.convert_to_tensor(np.array([[1, 2, 3, 4], [1, 2, 3, 4]]), dtype=tf.float32))
+    for idx, data_and_label in enumerate(dataset):
+        batch, _ = data_and_label
+        tf.debugging.assert_equal(batch[0], tf.convert_to_tensor(np.array([[1, 1, 1, 1], [1, 1, 1, 1]]), dtype=tf.float32))
+        tf.debugging.assert_equal(batch[1], tf.convert_to_tensor(np.array([[2, 2, 2, 2], [2, 2, 2, 2]]), dtype=tf.float32))
+        tf.debugging.assert_equal(batch[2], tf.convert_to_tensor(np.array([[1, 2, 3, 4], [1, 2, 3, 4]]), dtype=tf.float32))
         tf.debugging.assert_equal(
-            batch["query_idf"], tf.convert_to_tensor(np.array([[0.1, 0.1, 0.2, 0.1], [0.1, 0.1, 0.2, 0.1]]), dtype=tf.float32)
+            batch[3], tf.convert_to_tensor(np.array([[0.1, 0.1, 0.2, 0.1], [0.1, 0.1, 0.2, 0.1]]), dtype=tf.float32)
         )
-        tf.debugging.assert_equal(batch["posdoc_id"], ["posdoc1", "posdoc1"])
-        tf.debugging.assert_equal(batch["posdoc"], tf.convert_to_tensor(np.array([[1, 1, 1, 1], [1, 1, 1, 1]]), dtype=tf.float32))
-        tf.debugging.assert_equal(batch["negdoc_id"], ["negdoc1", "negdoc1"])
-        tf.debugging.assert_equal(batch["negdoc"], tf.convert_to_tensor(np.array([[2, 2, 2, 2], [2, 2, 2, 2]]), dtype=tf.float32))
-        num_batches = idx
-
-    assert num_batches + 1 == 8 * 16
 
 
-def test_tf_trainer_caching(monkeypatch):
-    assert 1 == 2
+
