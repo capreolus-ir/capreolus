@@ -345,7 +345,7 @@ class TrecCheckpointCallback(tf.keras.callbacks.Callback):
         self.output_path = output_path
 
     def save_model(self):
-        self.model.save("{0}/dev.best".format(self.output_path))
+        self.model.save_weights("{0}/dev.best".format(self.output_path))
 
     def on_epoch_end(self, epoch, logs=None):
         predictions = self.model.predict(self.dev_records)
@@ -436,7 +436,7 @@ class TensorFlowTrainer(Trainer):
         if self.tpu:
             train_output_path = "{0}/{1}".format(self.cfg["gcsbucket"], train_output_path)
 
-        reranker.model.load("{0}/dev.best".format(train_output_path))
+        reranker.model.load_weights("{0}/dev.best".format(train_output_path))
 
     def apply_gradients(self, weights, grads):
         self.optimizer.apply_gradients(zip(grads, weights))
