@@ -9,6 +9,7 @@ import numpy as np
 import torch
 from keras import Sequential, layers
 from keras.layers import Dense
+from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
 from capreolus.registry import ModuleBase, RegisterableModule, Dependency, MAX_THREADS
 from capreolus.reranker.common import pair_hinge_loss, pair_softmax_loss, tf_pair_hinge_loss
@@ -195,11 +196,11 @@ class PytorchTrainer(Trainer):
 
         """
         # Set up logging
-        # summary_writer = SummaryWriter(RESULTS_BASE_PATH / "runs" / self.cfg["boardname"], comment=train_output_path)
-        # hyperparams = dict(self.cfg)
-        # hyperparams.update(dict(reranker.cfg))
-        # hyperparams.update(dict(reranker["extractor"].cfg))
-        # summary_writer.add_hparams(hyperparams, {'hparams/fake': 0})
+        summary_writer = SummaryWriter(RESULTS_BASE_PATH / "runs" / self.cfg["boardname"], comment=train_output_path)
+        hyperparams = dict(self.cfg)
+        hyperparams.update(dict(reranker.cfg))
+        hyperparams.update(dict(reranker["extractor"].cfg))
+        summary_writer.add_hparams(hyperparams, {'hparams/fake': 0})
 
         self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
         model = reranker.model.to(self.device)
@@ -222,14 +223,14 @@ class PytorchTrainer(Trainer):
         )
         dataiter = iter(train_dataloader)
         sample_input = dataiter.next()
-        # summary_writer.add_graph(
-        #     reranker.model,
-        #     [
-        #         sample_input["query"].to(self.device),
-        #         sample_input["posdoc"].to(self.device),
-        #         sample_input["negdoc"].to(self.device),
-        #     ],
-        # )
+        summary_writer.add_graph(
+            reranker.model,
+            [
+                sample_input["query"].to(self.device),
+                sample_input["posdoc"].to(self.device),
+                sample_input["negdoc"].to(self.device),
+            ],
+        )
 
         train_loss = []
         # are we resuming training?
@@ -267,9 +268,9 @@ class PytorchTrainer(Trainer):
                 # log dev metrics
                 metrics = evaluator.eval_runs(preds, qrels, ["ndcg_cut_20", "map", "P_20"])
                 logger.info("dev metrics: %s", " ".join([f"{metric}={v:0.3f}" for metric, v in sorted(metrics.items())]))
-                # summary_writer.add_scalar("ndcg_cut_20", metrics["ndcg_cut_20"], niter)
-                # summary_writer.add_scalar("map", metrics["map"], niter)
-                # summary_writer.add_scalar("P_20", metrics["P_20"], niter)
+                summary_writer.add_scalar("ndcg_cut_20", metrics["ndcg_cut_20"], niter)
+                summary_writer.add_scalar("map", metrics["map"], niter)
+                summary_writer.add_scalar("P_20", metrics["P_20"], niter)
                 # write best dev weights to file
                 if metrics[metric] > dev_best_metric:
                     reranker.save_weights(dev_best_weight_fn, self.optimizer)
@@ -277,11 +278,11 @@ class PytorchTrainer(Trainer):
             # write train_loss to file
             loss_fn.write_text("\n".join(f"{idx} {loss}" for idx, loss in enumerate(train_loss)))
 
-            # summary_writer.add_scalar("training_loss", iter_loss_tensor.item(), niter)
-            # reranker.add_summary(summary_writer, niter)
-            # summary_writer.flush()
+            summary_writer.add_scalar("training_loss", iter_loss_tensor.item(), niter)
+            reranker.add_summary(summary_writer, niter)
+            summary_writer.flush()
         print("training loss: ", train_loss)
-        # summary_writer.close()
+        summary_writer.close()
 
     def load_best_model(self, reranker, train_output_path):
         self.optimizer = torch.optim.Adam(
@@ -397,7 +398,8 @@ class TensorFlowTrainer(Trainer):
             self.strategy = tf.distribute.experimental.TPUStrategy(self.tpu)
         else:  # default strategy that works on CPU and single GPU
             self.strategy = tf.distribute.get_strategy()
-        # Defining some props that we will alter initialize
+
+        # Defining some props that we will later initialize
         self.optimizer = None
         self.loss = None
         self.validate()
@@ -444,7 +446,7 @@ class TensorFlowTrainer(Trainer):
         self.optimizer.apply_gradients(zip(grads, weights))
 
     def train(self, reranker, train_dataset, train_output_path, dev_data, dev_output_path, qrels, metric):
-        summary_writer = tf.summary.create_file_writer("{0}/runs/{1}".format(self.cfg["gcsbucket"], self.cfg["boardname"]))
+        # summary_writer = tf.summary.create_file_writer("{0}/capreolus_tensorboard/{1}".format(self.cfg["gcsbucket"], self.cfg["boardname"]))
 
         # Because TPUs can't work with local files
         if self.tpu:
@@ -459,13 +461,13 @@ class TensorFlowTrainer(Trainer):
             train_records = self.get_tf_train_records(train_dataset)
             dev_records = self.get_tf_dev_records(dev_data)
             trec_callback = TrecCheckpointCallback(qrels, dev_data, dev_records.batch(self.cfg["batch"]), train_output_path)
+            tensorboard_callback = tf.keras.callbacks.TensorBoard(log_dir="{0}/capreolus_tensorboard/{1}".format(self.cfg["gcsbucket"], self.cfg["boardname"]))
             reranker.build()
 
             self.optimizer = self.get_optimizer()
             reranker.model.compile(optimizer=self.optimizer, loss=tf_pair_hinge_loss)
-            reranker.model.fit(train_records.batch(self.cfg["batch"], drop_remainder=True), epochs=self.cfg["niters"], steps_per_epoch=self.cfg["itersize"], callbacks=[trec_callback])
+            reranker.model.fit(train_records.batch(self.cfg["batch"], drop_remainder=True), epochs=self.cfg["niters"], steps_per_epoch=self.cfg["itersize"], callbacks=[trec_callback, tensorboard_callback])
 
-            # reranker.add_summary(summary_writer, niter)
             # Skipping dumping metrics and plotting loss since that should be done through tensorboard
 
 

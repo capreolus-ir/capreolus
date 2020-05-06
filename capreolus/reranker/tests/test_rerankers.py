@@ -40,7 +40,8 @@ def test_knrm_pytorch(dummy_index, tmpdir, tmpdir_as_cache, monkeypatch):
             "interactive": False,
             "fastforward": True,
             "validatefreq": 1,
-            "usecache": False
+            "usecache": False,
+            "boardname": "default"
         }
     )
     reranker.modules["trainer"] = trainer
@@ -157,6 +158,7 @@ def test_pacrr(dummy_index, tmpdir, tmpdir_as_cache, monkeypatch):
             "interactive": False,
             "fastforward": True,
             "validatefreq": 1,
+            "boardname": "default"
         }
     )
     reranker.modules["trainer"] = trainer
@@ -212,6 +214,7 @@ def test_dssm_unigram(dummy_index, tmpdir, tmpdir_as_cache, monkeypatch):
             "interactive": False,
             "fastforward": True,
             "validatefreq": 1,
+            "boardname": "default"
         }
     )
     reranker.modules["trainer"] = trainer
@@ -273,6 +276,7 @@ def test_tk(dummy_index, tmpdir, tmpdir_as_cache, monkeypatch):
             "interactive": False,
             "fastforward": False,
             "validatefreq": 1,
+            "boardname": "default"
         }
     )
     reranker.modules["trainer"] = trainer
