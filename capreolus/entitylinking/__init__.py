@@ -16,7 +16,8 @@ class EntityLinking(ModuleBase, metaclass=RegisterableModule):
 class AmbiverseNLU(EntityLinking):
     name = 'ambiversenlu'
     server = ''  # TODO set the ambiverseNLU server here
-    yagodescription_dir = PACKAGE_PATH / 'data' / 'yago_descriptions' #TODO set YAGO description path
+    yagodescription_dir = '/GW/D5data-11/ghazaleh/search_ranking_data/yago_description_20180120/'
+    #PACKAGE_PATH / 'data' / 'yago_descriptions' #TODO set YAGO description path
 
     dependencies = {"benchmark": Dependency(module="benchmark")} ### well I think I'm not using it but I need the profiletype in the path
 
@@ -46,11 +47,11 @@ class AmbiverseNLU(EntityLinking):
 
         with open(join(outdir, self.get_file_name(textid)), 'w') as f:
             f.write(json.dumps(r.json(), sort_keys=True, indent=4))
-
-        for e in r.json()['entities']:
-            self.entity_descriptions[e['name']] = ""
-        print(self.entity_descriptions.keys())
-
+        
+        if 'entities' in r.json():
+            for e in r.json()['entities']:
+                self.entity_descriptions[e['name']] = ""
+        
 
     def load_descriptions(self):
         if self.cfg["descriptions"] == "YAGO_long_short":
@@ -103,8 +104,9 @@ class AmbiverseNLU(EntityLinking):
     def get_all_entities(self, textid):
         data = json.load(open(join(self.get_extracted_path(), self.get_file_name(textid)), 'r'))
         res = []
-        for e in data['entities']:
-            res.append(e['name'])
+        if 'entities' in data:
+            for e in data['entities']:
+                res.append(e['name'])
         return res
 
     def get_domain_related_entieis(self, textid):

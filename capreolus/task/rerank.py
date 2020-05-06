@@ -118,7 +118,7 @@ def evaluate(config, modules):
     print(f"average metrics across {found}/{len(benchmark.folds)} folds:", avg)
 
     metrics = evaluator.eval_runs(all_preds, benchmark.qrels, ["ndcg_cut_20", "ndcg_cut_10", "map", "P_20", "P_10", "ndcg_cut_5", "P_1"])
-    print(f"micro average metrics over {len(all_preds.keys())} user-query pairs:", metrics)
+    print(f"{benchmark.query_type} - micro average metrics over {len(all_preds.keys())} user-query pairs:", metrics)
 
 
 def _pipeline_path(config, modules, fold=None):
