@@ -74,21 +74,27 @@ class KNRM_TF_Class(tf.keras.Model):
     def get_score(self, doc_tok, query_tok, query_idf):
         query = self.embedding(query_tok)
         doc = self.embedding(doc_tok)
+        batch_size, qlen, doclen = tf.shape(query)[0], tf.shape(query)[1], tf.shape(doc)[1]
+
         simmat = similarity_matrix_tf(query, doc, query_tok, doc_tok, self.extractor.pad)
 
         k = self.kernels(simmat)
         doc_k = tf.reduce_sum(k, axis=3)  # sum over document
-        log_k = tf.math.log(doc_k + 1e-6)
+        reshaped_simmat = tf.broadcast_to(tf.reshape(simmat, (batch_size, 1, qlen, doclen)), (batch_size, self.kernels.count(), qlen, doclen))
+        mask = tf.reduce_sum(reshaped_simmat, axis=3) != 0.0
+        log_k = tf.where(mask, tf.math.log(doc_k + 1e-6), tf.cast(mask, tf.float32))
         query_k = tf.reduce_sum(log_k, axis=2)
-        # TODO: Fix/handle padding tokens
         scores = self.combine(query_k)
 
         return scores
 
         # return self.dummy_combine(simmat)
 
-    # @tf.function
     def call(self, x, **kwargs):
+        """
+        Unlike the pytorch KNRM model, KNRMTF accepts both the positive and negative document in its forward pass.
+        It scores them separately and returns the score difference (i.e posdoc_score - negdoc_score).
+        """
         posdoc, negdoc, query, query_idf = x[0], x[1], x[2], x[3]
         posdoc_score, negdoc_score = self.get_score(posdoc, query, query_idf), self.get_score(negdoc, query, query_idf)
 
