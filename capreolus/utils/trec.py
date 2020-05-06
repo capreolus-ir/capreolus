@@ -99,6 +99,27 @@ def load_qrels(qrelfile, qids=None, include_spam=True):
     return labels
 
 
+def load_trec_coll_docno(fn):
+    if os.path.isdir(fn):
+        fns = [os.path.join(fn, filename) for filename in os.listdir(fn)]
+    else:
+        fns = [fn] if not isinstance(fn, list) else fn
+
+    docnos = []
+    for fn in fns:
+        if fn.endswith(".gz"):
+            f = gzip.open(fn, "rt")
+        else:
+            f = open(fn, "rt", encoding="utf-8")
+
+        for line in f:
+            if "<DOCNO>" in line:
+                docno = line.replace("<DOCNO>", "").replace("</DOCNO>", "").strip()
+                docnos.append(docno)
+        f.close()
+    return docnos
+
+
 def document_to_trectxt(docno, txt):
     s = f"<DOC>\n<DOCNO> {docno} </DOCNO>\n"
     s += f"<TEXT>\n{txt}\n</TEXT>\n</DOC>\n"
