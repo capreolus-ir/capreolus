@@ -35,15 +35,18 @@ class TrainDataset(torch.utils.data.IterableDataset):
             qid: [docid for docid in docids if qrels[qid].get(docid, 0) <= 0] for qid, docids in qid_docid_to_rank.items()
         }
 
-        # remove any qids that do not have both relevant and non-relevant documents for training
+        # remove any ids that do not have both relevant and non-relevant documents for training
+        total_samples = 1  # keep tracks of the total possible number of unique training triples for this dataset
         for qid in qid_docid_to_rank:
             posdocs = len(self.qid_to_reldocs[qid])
             negdocs = len(self.qid_to_negdocs[qid])
-
+            total_samples += posdocs * negdocs
             if posdocs == 0 or negdocs == 0:
                 logger.warning("removing training qid=%s with %s positive docs and %s negative docs", qid, posdocs, negdocs)
                 del self.qid_to_reldocs[qid]
                 del self.qid_to_negdocs[qid]
+
+        self.total_samples = total_samples
 
     def __hash__(self):
         return self.get_hash()
@@ -52,6 +55,9 @@ class TrainDataset(torch.utils.data.IterableDataset):
         sorted_rep = sorted([(qid, docids) for qid, docids in self.qid_docid_to_rank.items()])
         key = hashlib.md5(str(sorted_rep).encode("utf-8")).hexdigest()
         return "train_{0}".format(key)
+
+    def get_total_samples(self):
+        return self.total_samples
 
     def generator_func(self):
         # Convert each query and doc id to the corresponding feature/embedding and yield
@@ -73,6 +79,19 @@ class TrainDataset(torch.utils.data.IterableDataset):
                     logger.warning(
                         "skipping training pair with missing features: qid=%s posid=%s negid=%s", qid, posdocid, negdocid
                     )
+
+    def epoch_generator_func(self):
+        """
+        Generates all unique training triplets for the dataset
+        """
+        all_qids = sorted(self.qid_to_reldocs)
+        for qid in all_qids:
+            for posdoc_id in self.qid_to_reldocs[qid]:
+                for negdoc_id in self.qid_to_negdocs[qid]:
+                    try:
+                        yield self.extractor.id2vec(qid, posdoc_id, negdoc_id)
+                    except MissingDocError:
+                        logger.warning("skipping training pair with missing features: qid=%s posid=%s negid=%s", qid, posdoc_id, negdoc_id)
 
     def __iter__(self):
         """

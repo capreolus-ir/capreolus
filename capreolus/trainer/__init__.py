@@ -221,16 +221,16 @@ class PytorchTrainer(Trainer):
         train_dataloader = torch.utils.data.DataLoader(
             train_dataset, batch_size=self.cfg["batch"], pin_memory=True, num_workers=0
         )
-        dataiter = iter(train_dataloader)
-        sample_input = dataiter.next()
-        summary_writer.add_graph(
-            reranker.model,
-            [
-                sample_input["query"].to(self.device),
-                sample_input["posdoc"].to(self.device),
-                sample_input["negdoc"].to(self.device),
-            ],
-        )
+        # dataiter = iter(train_dataloader)
+        # sample_input = dataiter.next()
+        # summary_writer.add_graph(
+        #     reranker.model,
+        #     [
+        #         sample_input["query"].to(self.device),
+        #         sample_input["posdoc"].to(self.device),
+        #         sample_input["negdoc"].to(self.device),
+        #     ],
+        # )
 
         train_loss = []
         # are we resuming training?
@@ -466,10 +466,13 @@ class TensorFlowTrainer(Trainer):
 
             self.optimizer = self.get_optimizer()
             reranker.model.compile(optimizer=self.optimizer, loss=tf_pair_hinge_loss)
-            reranker.model.fit(train_records.batch(self.cfg["batch"], drop_remainder=True), epochs=self.cfg["niters"], steps_per_epoch=self.cfg["itersize"], callbacks=[trec_callback, tensorboard_callback])
+            reranker.model.fit(
+                train_records.repeat().shuffle(train_dataset.get_total_samples()).batch(self.cfg["batch"], drop_remainder=True),
+                epochs=self.cfg["niters"], steps_per_epoch=self.cfg["itersize"],
+                callbacks=[trec_callback, tensorboard_callback]
+            )
 
             # Skipping dumping metrics and plotting loss since that should be done through tensorboard
-
 
     def create_tf_feature(self, qid, query, query_idf, posdoc_id, posdoc, negdoc_id, negdoc):
         """
@@ -524,35 +527,19 @@ class TensorFlowTrainer(Trainer):
         Tensorflow works better if the input data is fed in as tfrecords
         Takes in a dataset,  iterates through it, and creates multiple tf records from it.
         """
-        tf_record_filenames = []
-        tf_features = []
         dir_name = "{0}/{1}/{2}".format(self.cfg["gcsbucket"], "capreolus_tfrecords", dataset.get_hash())
-        # There are 'n' iterations
-        # Each iterations has a size 'itersize' number of batches in it
-        for niter in tqdm(range(0, self.cfg["niters"]), desc="Converting data to tf records"):
-            for sample_idx, data in enumerate(dataset):
-                # TODO: Split into multiple files? This might be too much memory consumption
-                tf_features.append(
-                    self.create_tf_feature(
-                        data["qid"], data["query"], data["query_idf"], data["posdocid"], data["posdoc"],
-                        data["negdocid"], data["negdoc"]
-                    )
-                )
 
-                # TODO: Below line means that the tfrecord created varies based on itersize and batch. Might interfere with caching
-                if sample_idx + 1 >= self.cfg["itersize"] * self.cfg["batch"]:
-                    break
+        tf_features = [
+            self.create_tf_feature(
+                sample["qid"], sample["query"], sample["query_idf"], sample["posdocid"], sample["posdoc"],
+                sample["negdocid"], sample["negdoc"]
+            ) for sample in dataset.epoch_generator_func()
+        ]
 
-            if (niter + 1) % 10 == 0:
-                tf_record_filenames.append(self.write_tf_record_to_file(dir_name, tf_features))
-                tf_features = []
-
-        if len(tf_features):
-            tf_record_filenames.append(
-                self.write_tf_record_to_file(dir_name, tf_features)
-            )
-
-        return tf_record_filenames
+        tf_record_filename = self.write_tf_record_to_file(dir_name, tf_features)
+        logger.info("We have {} training samples".format(len(tf_features)))
+        # TODO: Split into multiple files to speed up training
+        return [tf_record_filename]
 
     def get_tf_record_cache_path(self, dataset):
         # TODO: The caching logic is broken - the cache cannot be reused if itersize/batch size e.t.c changes
@@ -563,7 +550,7 @@ class TensorFlowTrainer(Trainer):
             return "{0}/{1}".format(base_path, dataset.get_hash())
 
     def cache_exists(self, dataset):
-        # TODO: Add checks to make sure that the number of files in the director is correct
+        # TODO: Add checks to make sure that the number of files in the directory is correct
         cache_dir = self.get_tf_record_cache_path(dataset)
         logger.info("The cache path is {0} and does it exist? : {1}".format(cache_dir, tf.io.gfile.exists(cache_dir)))
 
