@@ -12,7 +12,6 @@ logger = get_logger(__name__)  # pylint: disable=invalid-name
 class DRMM_class(nn.Module):
     def __init__(self, extractor, config):
         super(DRMM_class, self).__init__()
-        # self.p = config
         self.nbins = config["nbins"]
         self.nodes = config["nodes"]
         self.hist_type = config["histType"]
@@ -130,15 +129,6 @@ class DRMM(Reranker):
         nodes = 5  # hidden layer dimension for feed forward matching network
         histType = "LCH"  # histogram type: 'CH', 'NH' or 'LCH'
         gateType = "IDF"  # term gate type: 'TV' or 'IDF'
-
-    # @staticmethod
-    # def required_params():
-    #     # Used for validation. Returns a set of params required by the class defined in get_model_class()
-    #     return {"gateType", "histType", "nodes", "nbins"}
-
-    # @classmethod
-    # def get_model_class(cls):
-    #     return DRMM_class
 
     def build(self):
         if not hasattr(self, "model"):
