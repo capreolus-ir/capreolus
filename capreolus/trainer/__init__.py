@@ -548,10 +548,11 @@ class TensorFlowTrainer(Trainer):
         dir_name = "{0}/{1}/{2}".format(self.cfg["gcsbucket"], "capreolus_tfrecords", dataset.get_hash())
 
         total_samples = dataset.get_total_samples()
-        split_every = int(total_samples / 5) or 1
+        split_every = int(total_samples / 10) or 1
         tf_features = []
         tf_record_filenames = []
 
+        logger.info("Converting {} samples to tf records".format(total_samples))
         for idx, sample in tqdm(enumerate(dataset.epoch_generator_func())):
             tf_features.append(
                 self.create_tf_feature(
