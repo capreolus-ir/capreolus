@@ -570,7 +570,10 @@ class TensorFlowTrainer(Trainer):
         return tf_record_filenames
 
     def get_tf_record_cache_path(self, dataset):
-        # TODO: The caching logic is broken - the cache cannot be reused if itersize/batch size e.t.c changes
+        """
+        Get the path to the directory where tf records are written to.
+        If using TPUs, this will be a gcs path.
+        """
         if self.tpu:
             return "{0}/capreolus_tfrecords/{1}".format(self.cfg["gcsbucket"], dataset.get_hash())
         else:
