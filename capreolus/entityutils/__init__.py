@@ -45,7 +45,7 @@ class DomainRelatednessWiki2Vec(EntityUtils):
         sorted_sim = {k: v for k, v in sorted(similarities.items(), key=lambda item: item[1], reverse = True)}
         print(f"Domain: {self.domain}, Strategy: {self.cfg['strategy']}, similarities:")
         print(sorted_sim)
-        ret = [k for k, v in similarities.items() if v >= self.cfg['domain_relatedness_threshold']]
+        ret = [k[7:].replace("_", " ") for k, v in similarities.items() if v >= self.cfg['domain_relatedness_threshold']]
         return ret
 
     def get_pretrained_emb(self):
