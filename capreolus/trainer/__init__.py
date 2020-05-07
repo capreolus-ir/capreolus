@@ -546,7 +546,7 @@ class TensorFlowTrainer(Trainer):
         tf_features = []
         tf_record_filenames = []
 
-        for idx, sample in enumerate(dataset.epoch_generator_func()):
+        for idx, sample in tqdm(enumerate(dataset.epoch_generator_func())):
             tf_features.append(
                 self.create_tf_feature(
                     sample["qid"],
