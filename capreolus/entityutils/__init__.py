@@ -34,7 +34,9 @@ class DomainRelatednessWiki2Vec(EntityUtils):
 
     def initialize(self, domain):
         self.domain = domain
+        logger.debug("loading wiki2vec embeddings")
         self.wiki2vec = self.get_pretrained_emb()
+        logger.debug(f"getting domain representative {self.cfg['strategy']}")
         self.domain_rep = self.get_domain_rep()
 
     def get_domain_related_entities(self, entities):
@@ -43,8 +45,8 @@ class DomainRelatednessWiki2Vec(EntityUtils):
         entity_similarities = self.wiki2vec.cosine_similarities(self.domain_rep, entity_vectors)
         similarities = {entities[i]: entity_similarities[i] for i in range(0, len(entities))}
         sorted_sim = {k: v for k, v in sorted(similarities.items(), key=lambda item: item[1], reverse = True)}
-        print(f"Domain: {self.domain}, Strategy: {self.cfg['strategy']}, similarities:")
-        print(sorted_sim)
+        logger.debug(f"Domain: {self.domain}, Strategy: {self.cfg['strategy']}, similarities:")
+        logger.debug(sorted_sim)
         ret = [k for k, v in similarities.items() if v >= self.cfg['domain_relatedness_threshold']]
         return ret
 
