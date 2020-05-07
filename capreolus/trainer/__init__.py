@@ -541,23 +541,33 @@ class TensorFlowTrainer(Trainer):
         """
         dir_name = "{0}/{1}/{2}".format(self.cfg["gcsbucket"], "capreolus_tfrecords", dataset.get_hash())
 
-        tf_features = [
-            self.create_tf_feature(
-                sample["qid"],
-                sample["query"],
-                sample["query_idf"],
-                sample["posdocid"],
-                sample["posdoc"],
-                sample["negdocid"],
-                sample["negdoc"],
-            )
-            for sample in dataset.epoch_generator_func()
-        ]
+        total_samples = dataset.get_total_samples()
+        split_every = int(total_samples / 5) or 1
+        tf_features = []
+        tf_record_filenames = []
 
-        tf_record_filename = self.write_tf_record_to_file(dir_name, tf_features)
-        logger.info("We have {} training samples".format(len(tf_features)))
-        # TODO: Split into multiple files to speed up training
-        return [tf_record_filename]
+        for idx, sample in enumerate(dataset.epoch_generator_func()):
+            tf_features.append(
+                self.create_tf_feature(
+                    sample["qid"],
+                    sample["query"],
+                    sample["query_idf"],
+                    sample["posdocid"],
+                    sample["posdoc"],
+                    sample["negdocid"],
+                    sample["negdoc"],
+                )
+            )
+
+            # Spreads the dataset across 5 files since split_every is total_samples/5
+            if (idx + 1) % split_every == 0:
+                tf_record_filenames.append(self.write_tf_record_to_file(dir_name, tf_features))
+                tf_features = []
+
+        if len(tf_features):
+            tf_record_filenames.append(self.write_tf_record_to_file(dir_name, tf_features))
+
+        return tf_record_filenames
 
     def get_tf_record_cache_path(self, dataset):
         # TODO: The caching logic is broken - the cache cannot be reused if itersize/batch size e.t.c changes
