@@ -439,6 +439,7 @@ class TensorFlowTrainer(Trainer):
         return tf.keras.optimizers.Adam(learning_rate=self.cfg["lr"])
 
     def fastforward_training(self, reranker, weights_path, loss_fn):
+        # TODO: Fix fast forwarding
         return 0
 
     def load_best_model(self, reranker, train_output_path):
