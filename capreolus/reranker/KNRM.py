@@ -70,7 +70,7 @@ class KNRM_TF_Class(tf.keras.Model):
         self.embedding = tf.keras.layers.Embedding(
             len(self.extractor.stoi), self.extractor.embeddings.shape[1], weights=[self.extractor.embeddings], trainable=False
         )
-        self.kernels = RbfKernelBankTF(mus, sigmas, dim=1, requires_grad=True)
+        self.kernels = RbfKernelBankTF(mus, sigmas, dim=1, requires_grad=config["gradkernels"])
         self.combine = tf.keras.layers.Dense(1, input_shape=(self.kernels.count(),))
 
     def get_score(self, doc_tok, query_tok, query_idf):
