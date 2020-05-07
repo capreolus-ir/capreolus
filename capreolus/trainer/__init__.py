@@ -1,5 +1,6 @@
 import hashlib
 import os
+import time
 import uuid
 from collections import defaultdict
 from copy import copy
@@ -248,6 +249,7 @@ class PytorchTrainer(Trainer):
 
         dev_best_metric = -np.inf
         validation_frequency = self.cfg["validatefreq"]
+        train_start_time = time.time()
         for niter in range(initial_iter, self.cfg["niters"]):
             model.train()
 
@@ -275,6 +277,7 @@ class PytorchTrainer(Trainer):
                 if metrics[metric] > dev_best_metric:
                     reranker.save_weights(dev_best_weight_fn, self.optimizer)
 
+            logger.info("Training took {}".format(time.time() - train_start_time))
             # write train_loss to file
             loss_fn.write_text("\n".join(f"{idx} {loss}" for idx, loss in enumerate(train_loss)))
 
@@ -475,12 +478,15 @@ class TensorFlowTrainer(Trainer):
 
             self.optimizer = self.get_optimizer()
             reranker.model.compile(optimizer=self.optimizer, loss=tf_pair_hinge_loss)
+
+            train_start_time = time.time()
             reranker.model.fit(
                 train_records.repeat().shuffle(train_dataset.get_total_samples()).batch(self.cfg["batch"], drop_remainder=True),
                 epochs=self.cfg["niters"],
                 steps_per_epoch=self.cfg["itersize"],
                 callbacks=[trec_callback, tensorboard_callback],
             )
+            logger.info("Training took {}".format(time.time() - train_start_time))
 
             # Skipping dumping metrics and plotting loss since that should be done through tensorboard
 
