@@ -15,9 +15,10 @@ from capreolus.trainer import PytorchTrainer
 from capreolus.extractor.bagofwords import BagOfWords
 from capreolus.reranker.DSSM import DSSM
 from capreolus.reranker.TK import TK
-from reranker import TensorFlowReranker
-from reranker.KNRM import KNRM, KNRM_TF
-from trainer import TensorFlowTrainer
+from capreolus.reranker import TensorFlowReranker
+from capreolus.reranker.KNRM import KNRM
+from capreolus.reranker.KNRMTF import KNRMTF
+from capreolus.trainer import TensorFlowTrainer
 
 
 def test_knrm_pytorch(dummy_index, tmpdir, tmpdir_as_cache, monkeypatch):
@@ -83,7 +84,7 @@ def test_knrm_tf(dummy_index, tmpdir, tmpdir_as_cache, monkeypatch):
 
     monkeypatch.setattr(EmbedText, "_get_pretrained_emb", fake_magnitude_embedding)
 
-    reranker = KNRM_TF({"gradkernels": True, "finetune": False})
+    reranker = KNRMTF({"gradkernels": True, "finetune": False})
     trainer = TensorFlowTrainer(
         {
             "_name": "tensorflow",
