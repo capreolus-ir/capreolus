@@ -15,7 +15,6 @@ from capreolus.trainer import PytorchTrainer
 from capreolus.extractor.bagofwords import BagOfWords
 from capreolus.reranker.DSSM import DSSM
 from capreolus.reranker.TK import TK
-from capreolus.reranker import TensorFlowReranker
 from capreolus.reranker.KNRM import KNRM
 from capreolus.reranker.KNRMTF import KNRMTF
 from capreolus.trainer import TensorFlowTrainer

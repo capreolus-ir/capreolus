@@ -1,7 +1,8 @@
 import tensorflow as tf
 
-from capreolus.reranker import TensorFlowReranker
 from capreolus.reranker.common import RbfKernelBankTF, similarity_matrix_tf
+from capreolus.reranker import Reranker
+from capreolus.registry import Dependency
 
 
 class KNRM_TF_Class(tf.keras.Model):
@@ -49,9 +50,12 @@ class KNRM_TF_Class(tf.keras.Model):
         return posdoc_score - negdoc_score
 
 
-class KNRMTF(TensorFlowReranker):
+class KNRMTF(Reranker):
     name = "KNRMTF"
-
+    dependencies = {
+        "extractor": Dependency(module="extractor", name="embedtext"),
+        "trainer": Dependency(module="trainer", name="tensorflow"),
+    }
     @staticmethod
     def config():
         gradkernels = True  # backprop through mus and sigmas
