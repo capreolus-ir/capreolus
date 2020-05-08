@@ -2,7 +2,7 @@ import torch
 from torch import nn
 import matplotlib.pyplot as plt
 
-from capreolus.reranker import PyTorchReranker, TensorFlowReranker
+from capreolus.reranker import Reranker
 from capreolus.reranker.common import create_emb_layer, SimilarityMatrix, RbfKernelBank
 from capreolus.utils.loginit import get_logger
 
@@ -57,7 +57,7 @@ class KNRM_class(nn.Module):
         return scores
 
 
-class KNRM(PyTorchReranker):
+class KNRM(Reranker):
     name = "KNRM"
     citation = """Chenyan Xiong, Zhuyun Dai, Jamie Callan, Zhiyuan Liu, and Russell Power. 2017.
                   End-to-End Neural Ad-hoc Ranking with Kernel Pooling. In SIGIR'17."""

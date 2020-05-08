@@ -3,7 +3,7 @@ from capreolus.extractor.bagofwords import BagOfWords
 import torch
 import torch.nn as nn
 
-from capreolus.reranker import PyTorchReranker
+from capreolus.reranker import Reranker
 from capreolus.utils.loginit import get_logger
 from capreolus.registry import Dependency
 
@@ -45,7 +45,7 @@ class DSSM_class(nn.Module):
 dtype = torch.FloatTensor
 
 
-class DSSM(PyTorchReranker):
+class DSSM(Reranker):
     description = """Po-Sen Huang, Xiaodong He, Jianfeng Gao, Li Deng, Alex Acero, and Larry Heck. 2013. Learning deep structured semantic models for web search using clickthrough data. In CIKM'13."""
     EXTRACTORS = [BagOfWords]
     name = "DSSM"

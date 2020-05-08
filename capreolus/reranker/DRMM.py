@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from capreolus.reranker import PyTorchReranker
+from capreolus.reranker import Reranker
 from capreolus.reranker.common import create_emb_layer
 from capreolus.utils.loginit import get_logger
 
@@ -119,7 +119,7 @@ class DRMM_class(nn.Module):
 dtype = torch.FloatTensor
 
 
-class DRMM(PyTorchReranker):
+class DRMM(Reranker):
     name = "DRMM"
     description = """Jiafeng Guo, Yixing Fan, Qingyao Ai, and W. Bruce Croft. 2016. A Deep Relevance Matching Model for Ad-hoc Retrieval. In CIKM'16."""
     # EXTRACTORS = [EmbedText]
