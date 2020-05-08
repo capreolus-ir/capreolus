@@ -56,6 +56,7 @@ class KNRMTF(Reranker):
         "extractor": Dependency(module="extractor", name="embedtext"),
         "trainer": Dependency(module="trainer", name="tensorflow"),
     }
+
     @staticmethod
     def config():
         gradkernels = True  # backprop through mus and sigmas
