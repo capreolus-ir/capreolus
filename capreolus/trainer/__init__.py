@@ -482,7 +482,7 @@ class TensorFlowTrainer(Trainer):
 
             train_start_time = time.time()
             reranker.model.fit(
-                train_records.repeat().shuffle(train_dataset.get_total_samples()).batch(self.cfg["batch"], drop_remainder=True),
+                train_records.batch(self.cfg["batch"], drop_remainder=True),
                 epochs=self.cfg["niters"],
                 steps_per_epoch=self.cfg["itersize"],
                 callbacks=[trec_callback, tensorboard_callback],
@@ -553,24 +553,43 @@ class TensorFlowTrainer(Trainer):
         tf_features = []
         tf_record_filenames = []
 
-        logger.info("Converting {} samples to tf records".format(total_samples))
-        for idx, sample in tqdm(enumerate(dataset.epoch_generator_func())):
-            tf_features.append(
-                self.create_tf_feature(
-                    sample["qid"],
-                    sample["query"],
-                    sample["query_idf"],
-                    sample["posdocid"],
-                    sample["posdoc"],
-                    sample["negdocid"],
-                    sample["negdoc"],
+        for niter in tqdm(range(0, self.cfg["niters"]), desc="Converting data to tf records"):
+            for sample_idx, sample in enumerate(dataset):
+                tf_features.append(
+                    self.create_tf_feature(
+                        sample["qid"],
+                        sample["query"],
+                        sample["query_idf"],
+                        sample["posdocid"],
+                        sample["posdoc"],
+                        sample["negdocid"],
+                        sample["negdoc"],
+                    )
                 )
-            )
-
-            # Spreads the dataset across 5 files since split_every is total_samples/5
-            if (idx + 1) % split_every == 0:
+                if sample_idx + 1 >= self.cfg["itersize"] * self.cfg["batch"]:
+                    break
+            if (niter + 1) % 10 == 0:
                 tf_record_filenames.append(self.write_tf_record_to_file(dir_name, tf_features))
                 tf_features = []
+
+        # logger.info("Converting {} samples to tf records".format(total_samples))
+        # for idx, sample in tqdm(enumerate(dataset.epoch_generator_func())):
+        #     tf_features.append(
+        #         self.create_tf_feature(
+        #             sample["qid"],
+        #             sample["query"],
+        #             sample["query_idf"],
+        #             sample["posdocid"],
+        #             sample["posdoc"],
+        #             sample["negdocid"],
+        #             sample["negdoc"],
+        #         )
+        #     )
+        #
+        #     # Spreads the dataset across 5 files since split_every is total_samples/5
+        #     if (idx + 1) % split_every == 0:
+        #         tf_record_filenames.append(self.write_tf_record_to_file(dir_name, tf_features))
+        #         tf_features = []
 
         if len(tf_features):
             tf_record_filenames.append(self.write_tf_record_to_file(dir_name, tf_features))
