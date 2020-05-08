@@ -253,8 +253,9 @@ class PytorchTrainer(Trainer):
         for niter in range(initial_iter, self.cfg["niters"]):
             model.train()
 
+            iter_start_time = time.time()
             iter_loss_tensor = self.single_train_iteration(reranker, train_dataloader)
-
+            logger.info("A single iteration takes {}".format(time.time() - iter_start_time))
             train_loss.append(iter_loss_tensor.item())
             logger.info("iter = %d loss = %f", niter, train_loss[-1])
 
@@ -349,11 +350,16 @@ class TrecCheckpointCallback(tf.keras.callbacks.Callback):
         self.dev_data = dev_data
         self.dev_records = dev_records
         self.output_path = output_path
+        self.iter_start_time = time.time()
 
     def save_model(self):
         self.model.save_weights("{0}/dev.best".format(self.output_path))
 
+    def on_epoch_begin(self, epoch, logs=None):
+        self.iter_start_time = time.time()
+
     def on_epoch_end(self, epoch, logs=None):
+        logger.info("One iteration took {}".format(time.time() - self.iter_start_time))
         predictions = self.model.predict(self.dev_records)
         trec_preds = self.get_preds_in_trec_format(predictions, self.dev_data)
         metrics = evaluator.eval_runs(trec_preds, dict(self.qrels), ["ndcg_cut_20", "map", "P_20"])
