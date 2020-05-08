@@ -278,7 +278,6 @@ class PytorchTrainer(Trainer):
                 if metrics[metric] > dev_best_metric:
                     reranker.save_weights(dev_best_weight_fn, self.optimizer)
 
-            logger.info("Training took {}".format(time.time() - train_start_time))
             # write train_loss to file
             loss_fn.write_text("\n".join(f"{idx} {loss}" for idx, loss in enumerate(train_loss)))
 
@@ -286,6 +285,7 @@ class PytorchTrainer(Trainer):
             reranker.add_summary(summary_writer, niter)
             summary_writer.flush()
         print("training loss: ", train_loss)
+        logger.info("Training took {}".format(time.time() - train_start_time))
         summary_writer.close()
 
     def load_best_model(self, reranker, train_output_path):
@@ -491,7 +491,9 @@ class TensorFlowTrainer(Trainer):
                 train_records.batch(self.cfg["batch"], drop_remainder=True),
                 epochs=self.cfg["niters"],
                 steps_per_epoch=self.cfg["itersize"],
-                callbacks=[trec_callback, tensorboard_callback],
+                callbacks=[trec_callback],
+                workers=8,
+                use_multiprocessing=True
             )
             logger.info("Training took {}".format(time.time() - train_start_time))
 
