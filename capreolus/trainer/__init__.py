@@ -491,7 +491,7 @@ class TensorFlowTrainer(Trainer):
                 train_records.batch(self.cfg["batch"], drop_remainder=True),
                 epochs=self.cfg["niters"],
                 steps_per_epoch=self.cfg["itersize"],
-                callbacks=[trec_callback],
+                callbacks=[trec_callback, tensorboard_callback],
                 workers=8,
                 use_multiprocessing=True
             )
