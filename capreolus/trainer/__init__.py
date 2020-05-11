@@ -578,7 +578,7 @@ class TensorFlowTrainer(Trainer):
                 if sample_idx + 1 >= self.cfg["itersize"] * self.cfg["batch"]:
                     break
 
-            if sys.getsizeof(tf_features)/(1024 * 1024) > 150:
+            if len(tf_features) > 20000:
                 tf_record_filenames.append(self.write_tf_record_to_file(dir_name, tf_features))
                 tf_features = []
 
