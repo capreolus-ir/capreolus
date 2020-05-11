@@ -479,7 +479,7 @@ class TensorFlowTrainer(Trainer):
             dev_records = self.get_tf_dev_records(dev_data)
             trec_callback = TrecCheckpointCallback(qrels, dev_data, dev_records.batch(self.cfg["batch"]), train_output_path)
             tensorboard_callback = tf.keras.callbacks.TensorBoard(
-                log_dir="{0}/capreolus_tensorboard/{1}".format(self.cfg["gcsbucket"], self.cfg["boardname"]), profile_batch='100,120'
+                log_dir="{0}/capreolus_tensorboard/{1}".format(self.cfg["gcsbucket"], self.cfg["boardname"])
             )
             reranker.build()
 
