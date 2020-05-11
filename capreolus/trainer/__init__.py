@@ -1,5 +1,6 @@
 import hashlib
 import os
+import sys
 import time
 import uuid
 from collections import defaultdict
@@ -576,7 +577,8 @@ class TensorFlowTrainer(Trainer):
                 )
                 if sample_idx + 1 >= self.cfg["itersize"] * self.cfg["batch"]:
                     break
-            if (niter + 1) % 10 == 0:
+
+            if sys.getsizeof(tf_features)/(1024 * 1024) > 150:
                 tf_record_filenames.append(self.write_tf_record_to_file(dir_name, tf_features))
                 tf_features = []
 
