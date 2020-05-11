@@ -26,7 +26,6 @@ class AmbiverseNLU(EntityLinking):
 
     dependencies = {
         "benchmark": Dependency(module="benchmark"),
-        "domainrelatedness": Dependency(module='entityutils', name='relatednesswiki2vec', config_overrides={"strategy": "domain-vector-100"})
     }
 
     entity_descriptions = {}
@@ -40,7 +39,7 @@ class AmbiverseNLU(EntityLinking):
         return self.get_cache_path() / 'entities'
 
     def extract_entities(self, textid, text):
-        if self['benchmark'].entity_strategy == 'none':
+        if self['benchmark'].entity_strategy is None:
             return
 
         benchmark_name = self['benchmark'].name
@@ -68,7 +67,7 @@ class AmbiverseNLU(EntityLinking):
                 self.entity_descriptions[e['name']] = ""
 
     def load_descriptions(self):
-        if self['benchmark'].entity_strategy == 'none':
+        if self['benchmark'].entity_strategy is None:
             return
 
         logger.debug("loading entity descriptions")
@@ -109,19 +108,6 @@ class AmbiverseNLU(EntityLinking):
 
     def get_entity_description(self, entity):
         return self.entity_descriptions[entity]
-
-    def get_entities(self, profile_id):
-        entity_strategy = self['benchmark'].entity_strategy
-        
-        if entity_strategy == 'none':
-            return []
-        elif entity_strategy == 'all':
-            return self.get_all_entities(profile_id)
-        elif entity_strategy == 'domain':
-            logger.debug(f"{entity_strategy}")
-            return self["domainrelatedness"].get_domain_related_entities(self.get_all_entities(profile_id))
-        else:
-            raise NotImplementedError("TODO implement other entity strategies (by first implementing measures)")
 
     def get_all_entities(self, textid):
         data = json.load(open(join(self.get_extracted_entities_cache_path(), get_file_name(textid, self['benchmark'].name, self['benchmark'].query_type)), 'r'))

@@ -14,6 +14,7 @@ class Benchmark(ModuleBase, metaclass=RegisterableModule):
     topic_file = None
     fold_file = None
     query_type = None
+    entity_strategy = None
 
     @property
     def qrels(self):
@@ -44,15 +45,15 @@ class PES20(Benchmark):
     @staticmethod
     def config():
         querytype = "query"  # one of: query, basicprofile, entityprofile
-        entity_strategy = 'none'
+        entity_strategy = None
 
         if querytype not in ["query", "basicprofile", "entityprofile"]:
             raise ValueError(f"invalid querytype: {querytype}")
 
-        if entity_strategy not in ['none', 'all', 'domain']: #TODO add strategies
+        if entity_strategy not in [None, 'all', 'domain']: #TODO add strategies
             raise ValueError(f"invalid entity usage strategy (or not implemented): {entity_strategy}")
 
-        if querytype == 'entityprofile' and entity_strategy != 'none':
+        if querytype == 'entityprofile' and entity_strategy is not None:
             raise ValueError(f"wrong usage of incorporate entities. We cannot use it with querytype 'entityprofile'")
 
     @property
@@ -69,7 +70,7 @@ class PES20(Benchmark):
 
     @property
     def incorporate_entities(self):
-        return False if self.cfg["entity_strategy"] == 'none' else True
+        return False if self.cfg["entity_strategy"] is None else True
 
     @property
     def entity_strategy(self):
@@ -91,7 +92,7 @@ class KITT(Benchmark):
     def config():
         querytype = "query"
         domain = "book"
-        entity_strategy = 'none' ##TODO: I don't like that this is a string, and will be used in other modules... how can this be handled better though?
+        entity_strategy = None ##TODO: I don't like that this is a string, and will be used in other modules... how can this be handled better though?
 
         if querytype not in ["query", "basicprofile", "chatprofile",
                              "basicprofile_general", 'basicprofile_food', 'basicprofile_travel', 'basicprofile_book_movie',
@@ -101,7 +102,7 @@ class KITT(Benchmark):
         if domain not in ["book", "travel_wikivoyage", "movie", "food"]:
             raise ValueError(f"invalid domain: {domain}")
 
-        if entity_strategy not in ['none', 'all', 'domain']: #TODO add strategies
+        if entity_strategy not in [None, 'all', 'domain']: #TODO add strategies
             raise ValueError(f"invalid entity usage strategy (or not implemented): {entity_strategy}")
 
         KITT.qrel_file = KITT.DATA_DIR / "{}_judgements".format(domain)
@@ -118,10 +119,6 @@ class KITT(Benchmark):
     @property
     def query_type(self):
         return self.cfg["querytype"]
-
-    # @property
-    # def incorporate_entities(self):
-    #     return False if self.cfg["entity_strategy"] == 'none' else True
 
     @property
     def domain(self):
