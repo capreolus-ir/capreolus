@@ -3,6 +3,7 @@ import logging
 import os
 import requests
 import sys
+import re
 from glob import glob
 
 import numpy as np
@@ -149,3 +150,17 @@ def plot_metrics(metrics, outfn, interactive=False, show={"map", "P_20", "ndcg_c
     if interactive:
         plt.show(block=False)
     plt.close()
+
+
+def get_file_name(fid, benchmark_name, benchmark_querytype):
+    ### This is written wrt our benchmarks and the ids we have for the queries.
+    ### Maybe need to be extended on new benchmarks.
+    ## The idea is that, we don't want to have redundency in the extraction and caching
+
+    if benchmark_name in ['pes20', 'kitt']:
+        if benchmark_querytype == "query":
+            return re.sub(r'(\d+)_(.+)', r'\g<1>', fid)
+        else:
+            return re.sub(r'(\d+)_(.+)', r'\g<2>', fid)
+    else:
+        return fid

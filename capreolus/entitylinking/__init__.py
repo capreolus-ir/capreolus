@@ -5,6 +5,7 @@ from os.path import exists, join
 import json
 import re
 
+from capreolus.utils.common import get_file_name
 from capreolus.utils.loginit import get_logger
 
 from capreolus.registry import ModuleBase, RegisterableModule, Dependency, PACKAGE_PATH
@@ -23,8 +24,10 @@ class AmbiverseNLU(EntityLinking):
     yagodescription_dir = '/GW/D5data-11/ghazaleh/search_ranking_data/yago_description_20180120/'
     #PACKAGE_PATH / 'data' / 'yago_descriptions' #TODO set YAGO description path
 
-    dependencies = {"benchmark": Dependency(module="benchmark"),
-                    "domainrelatedness": Dependency(module='entityutils', name='relatednesswiki2vec', config_overrides={"strategy": "domain-vector-100"})}
+    dependencies = {
+        "benchmark": Dependency(module="benchmark"),
+        "domainrelatedness": Dependency(module='entityutils', name='relatednesswiki2vec', config_overrides={"strategy": "domain-vector-100"})
+    }
 
     entity_descriptions = {}
 
@@ -33,16 +36,19 @@ class AmbiverseNLU(EntityLinking):
         extractConcepts = True ## TODO: let's get the pipeline as input (later when I implemented that part).
         descriptions = "YAGO_long_short"
 
-    def get_extracted_path(self):
+    def get_extracted_entities_cache_path(self):
         return self.get_cache_path() / 'entities'
 
     def extract_entities(self, textid, text):
         if self['benchmark'].entity_strategy == 'none':
             return
 
+        benchmark_name = self['benchmark'].name
+        benchmark_querytype = self['benchmark'].query_type
+
         logger.debug("extracting entities from queries(user profiles)")
-        outdir = self.get_extracted_path()
-        if exists(join(outdir, self.get_file_name(textid))):
+        outdir = self.get_extracted_entities_cache_path()
+        if exists(join(outdir, get_file_name(textid, benchmark_name, benchmark_querytype))):
             for e in self.get_all_entities(textid):
                 self.entity_descriptions[e] = ""
             return
@@ -50,11 +56,11 @@ class AmbiverseNLU(EntityLinking):
         os.makedirs(outdir, exist_ok=True)
 
         headers = {'accept': 'application/json', 'content-type': 'application/json'}
-        data = {"docId": "{}".format(self.get_file_name(textid)), "text": "{}".format(text), "extractConcepts": "{}".format(str(self.cfg["extractConcepts"])), "language": "en"}#"annotatedMentions": [{"charLength": 7, "charOffset":5}, {"charLength": 4, "charOffset": 0}]
+        data = {"docId": "{}".format(get_file_name(textid, benchmark_name, benchmark_querytype)), "text": "{}".format(text), "extractConcepts": "{}".format(str(self.cfg["extractConcepts"])), "language": "en"}#"annotatedMentions": [{"charLength": 7, "charOffset":5}, {"charLength": 4, "charOffset": 0}]
         r = requests.post(url=self.server, data=json.dumps(data), headers=headers)
         #TODO: later maybe I could use the annotatedMentions to annotate the input??? since in the profile I know what's NE/C mainly????????
 
-        with open(join(outdir, self.get_file_name(textid)), 'w') as f:
+        with open(join(outdir, get_file_name(textid, benchmark_name, benchmark_querytype)), 'w') as f:
             f.write(json.dumps(r.json(), sort_keys=True, indent=4))
 
         if 'entities' in r.json():
@@ -112,16 +118,13 @@ class AmbiverseNLU(EntityLinking):
         elif entity_strategy == 'all':
             return self.get_all_entities(profile_id)
         elif entity_strategy == 'domain':
-            logger.debug(f"GET ENTITIES {entity_strategy}")
-            domain = self['benchmark'].domain 
-            logger.debug(f"GET ENTITIES {domain}")
-            self["domainrelatedness"].initialize(domain)
+            logger.debug(f"{entity_strategy}")
             return self["domainrelatedness"].get_domain_related_entities(self.get_all_entities(profile_id))
         else:
             raise NotImplementedError("TODO implement other entity strategies (by first implementing measures)")
 
     def get_all_entities(self, textid):
-        data = json.load(open(join(self.get_extracted_path(), self.get_file_name(textid)), 'r'))
+        data = json.load(open(join(self.get_extracted_entities_cache_path(), get_file_name(textid, self['benchmark'].name, self['benchmark'].query_type)), 'r'))
         res = []
         if 'entities' in data:
             for e in data['entities']:
@@ -132,16 +135,3 @@ class AmbiverseNLU(EntityLinking):
         domain = self['benchmark'].domain
         #TODO     Implement - a new dependency - component
 
-    def get_file_name(self, id):
-        benchmark = self['benchmark']
-        ### This is written wrt our benchmarks and the ids we have for the queries.
-        ### Maybe need to be extended on new benchmarks.
-        ## The idea is that, we don't want to have redundency in the extraction and caching
-
-        if benchmark.name in ['pes20', 'kitt']:
-            if benchmark.query_type == "query":
-                return re.sub(r'(\d+)_(.+)', r'\g<1>', id)
-            else:
-                return re.sub(r'(\d+)_(.+)', r'\g<2>', id)
-        else:
-            return id
