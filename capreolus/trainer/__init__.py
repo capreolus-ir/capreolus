@@ -488,7 +488,7 @@ class TensorFlowTrainer(Trainer):
 
             train_start_time = time.time()
             reranker.model.fit(
-                train_records.batch(self.cfg["batch"], drop_remainder=True),
+                train_records.batch(self.cfg["batch"], drop_remainder=True).prefetch(tf.data.experimental.AUTOTUNE),
                 epochs=self.cfg["niters"],
                 steps_per_epoch=self.cfg["itersize"],
                 callbacks=[trec_callback, tensorboard_callback],
@@ -646,7 +646,7 @@ class TensorFlowTrainer(Trainer):
 
             return (posdoc, negdoc, query, query_idf), label
 
-        tf_records_dataset = raw_dataset.map(parse_single_example)
+        tf_records_dataset = raw_dataset.map(parse_single_example, num_parallel_calls=tf.data.experimental.AUTOTUNE)
 
         return tf_records_dataset
 
