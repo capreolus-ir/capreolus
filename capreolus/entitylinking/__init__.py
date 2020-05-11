@@ -19,7 +19,7 @@ class EntityLinking(ModuleBase, metaclass=RegisterableModule):
 
 class AmbiverseNLU(EntityLinking):
     name = 'ambiversenlu'
-    server = ''  # TODO set the ambiverseNLU server here
+    server = open(PACKAGE_PATH / "data" / "amvibersenlu" / "server", 'r').read()  # TODO set the ambiverseNLU server here
     yagodescription_dir = '/GW/D5data-11/ghazaleh/search_ranking_data/yago_description_20180120/'
     #PACKAGE_PATH / 'data' / 'yago_descriptions' #TODO set YAGO description path
 
@@ -106,13 +106,16 @@ class AmbiverseNLU(EntityLinking):
 
     def get_entities(self, profile_id):
         entity_strategy = self['benchmark'].entity_strategy
-
+        
         if entity_strategy == 'none':
             return []
         elif entity_strategy == 'all':
             return self.get_all_entities(profile_id)
         elif entity_strategy == 'domain':
-            self["domainrelatedness"].initialize(self['benchmark'].domain)
+            logger.debug(f"GET ENTITIES {entity_strategy}")
+            domain = self['benchmark'].domain 
+            logger.debug(f"GET ENTITIES {domain}")
+            self["domainrelatedness"].initialize(domain)
             return self["domainrelatedness"].get_domain_related_entities(self.get_all_entities(profile_id))
         else:
             raise NotImplementedError("TODO implement other entity strategies (by first implementing measures)")

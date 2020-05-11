@@ -27,12 +27,15 @@ class DomainRelatednessWiki2Vec(EntityUtils):
     def config():
         embedding = 'enwiki_20180420_300d'
         strategy = 'domain-vector-100'
-        domain_relatedness_threshold = 0.3
+        domain_relatedness_threshold = 0.4
 
         if not re.match(r"^(manual-domain-pages|domain-vector)-(\d+)$", strategy):
             raise ValueError(f"invalid domain embedding strategy: {strategy}")
 
     def initialize(self, domain):
+        if hasattr(self, "domain"):
+            return
+
         self.domain = domain
         logger.debug("loading wiki2vec embeddings")
         self.wiki2vec = self.get_pretrained_emb()
@@ -40,13 +43,24 @@ class DomainRelatednessWiki2Vec(EntityUtils):
         self.domain_rep = self.get_domain_rep()
 
     def get_domain_related_entities(self, entities):
-        entities = ["ENTITY/{}".format(e.replace(" ", "_")) for e in entities]
-        entity_vectors = [self.wiki2vec.word_vec(e) for e in entities]
+        entities_in_w2v = []
+        entity_vectors = []
+        for e in entities:
+            w2ve = "ENTITY/{}".format(e.replace(" ", "_"))
+            if self.wiki2vec.__contains__(w2ve):
+                entities_in_w2v.append(e)
+                entity_vectors.append(self.wiki2vec.word_vec(w2ve))
+
+        if len(entity_vectors) == 0:
+            return []
+
         entity_similarities = self.wiki2vec.cosine_similarities(self.domain_rep, entity_vectors)
-        similarities = {entities[i]: entity_similarities[i] for i in range(0, len(entities))}
+        similarities = {entities_in_w2v[i]: entity_similarities[i] for i in range(0, len(entities_in_w2v))}
+
         sorted_sim = {k: v for k, v in sorted(similarities.items(), key=lambda item: item[1], reverse = True)}
-        logger.debug(f"Domain: {self.domain}, Strategy: {self.cfg['strategy']}, similarities:")
-        logger.debug(sorted_sim)
+        logger.debug(f"Domain: {self.domain}, Strategy: {self.cfg['strategy']}")
+        logger.debug(f"Similarities: {sorted_sim}")
+
         ret = [k for k, v in similarities.items() if v >= self.cfg['domain_relatedness_threshold']]
         return ret
 

@@ -76,10 +76,6 @@ class PES20(Benchmark):
         return self.cfg['entity_strategy']
 
     @property
-    def domain(self):
-        return self.domain
-
-    @property
     def topic_file(self):
         fn = f"topics.{self.query_type}.txt"
         return self.PES20_DIR / fn
