@@ -21,7 +21,6 @@ class DomainRelatednessWiki2Vec(EntityUtils):
     name = 'relatednesswiki2vec'
     dependencies = {
         "benchmark": Dependency(module="benchmark"),
-        "tokenizer": Dependency(module="tokenizer", name="anserini", config_overrides={"keepstops": False}),
     }
 
     embedding_dir = "/GW/PKB/nobackup/wikipedia2vec_pretrained/"
