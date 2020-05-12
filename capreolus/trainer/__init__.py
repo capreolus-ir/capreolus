@@ -361,7 +361,7 @@ class TrecCheckpointCallback(tf.keras.callbacks.Callback):
         self.iter_start_time = time.time()
 
     def on_epoch_end(self, epoch, logs=None):
-        logger.info("One iteration took {}".format(time.time() - self.iter_start_time))
+        logger.info("Epoch {} took {}".format(epoch, time.time() - self.iter_start_time))
         if (epoch + 1) % self.validate_freq == 0:
             predictions = self.model.predict(self.dev_records)
             trec_preds = self.get_preds_in_trec_format(predictions, self.dev_data)
