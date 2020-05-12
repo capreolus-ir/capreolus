@@ -4,7 +4,7 @@ from capreolus.tokenizer import Tokenizer
 
 
 class BertTokenizer(Tokenizer):
-    name = "bert"
+    name = "berttokenizer"
 
     @staticmethod
     def config():
