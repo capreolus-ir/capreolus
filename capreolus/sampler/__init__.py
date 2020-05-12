@@ -53,7 +53,8 @@ class TrainDataset(torch.utils.data.IterableDataset):
 
     def get_hash(self):
         sorted_rep = sorted([(qid, docids) for qid, docids in self.qid_docid_to_rank.items()])
-        key = hashlib.md5(str(sorted_rep).encode("utf-8")).hexdigest()
+        key_content = "{0}{1}".format(self.extractor.name, str(sorted_rep))
+        key = hashlib.md5(key_content.encode("utf-8")).hexdigest()
         return "train_{0}".format(key)
 
     def get_total_samples(self):
@@ -128,7 +129,9 @@ class PredDataset(torch.utils.data.IterableDataset):
 
     def get_hash(self):
         sorted_rep = sorted([(qid, docids) for qid, docids in self.qid_docid_to_rank.items()])
-        key = hashlib.md5(str(sorted_rep).encode("utf-8")).hexdigest()
+        key_content = "{0}{1}".format(self.extractor.name, str(sorted_rep))
+        key = hashlib.md5(key_content.encode("utf-8")).hexdigest()
+
         return "dev_{0}".format(key)
 
     def __iter__(self):
