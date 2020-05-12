@@ -20,7 +20,7 @@ class EntityLinking(ModuleBase, metaclass=RegisterableModule):
 
 class AmbiverseNLU(EntityLinking):
     name = 'ambiversenlu'
-    server = open(PACKAGE_PATH / "data" / "ambiversenlu" / "server", 'r').read()  # TODO set the ambiverseNLU server here
+    server = open(PACKAGE_PATH / "data" / "ambiversenlu" / "server", 'r').read().replace("\n", "")  # TODO set the ambiverseNLU server here
     yagodescription_dir = '/GW/D5data-11/ghazaleh/search_ranking_data/yago_description_20180120/'
     #PACKAGE_PATH / 'data' / 'yago_descriptions' #TODO set YAGO description path
 
@@ -58,7 +58,6 @@ class AmbiverseNLU(EntityLinking):
         data = {"docId": "{}".format(get_file_name(textid, benchmark_name, benchmark_querytype)), "text": "{}".format(text), "extractConcepts": "{}".format(str(self.cfg["extractConcepts"])), "language": "en"}#"annotatedMentions": [{"charLength": 7, "charOffset":5}, {"charLength": 4, "charOffset": 0}]
         r = requests.post(url=self.server, data=json.dumps(data), headers=headers)
         #TODO: later maybe I could use the annotatedMentions to annotate the input??? since in the profile I know what's NE/C mainly????????
-
         with open(join(outdir, get_file_name(textid, benchmark_name, benchmark_querytype)), 'w') as f:
             f.write(json.dumps(r.json(), sort_keys=True, indent=4))
 

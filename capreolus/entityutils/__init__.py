@@ -1,6 +1,7 @@
 import json
 from os.path import join, exists
 import re
+import os
 
 import numpy as np
 from capreolus.utils.common import get_file_name
@@ -43,6 +44,7 @@ class DomainRelatednessWiki2Vec(EntityUtils):
             return
 
         self.domain = self["benchmark"].domain
+        logger.debug("loading wikipedia2vec pretrained embedding")
         self.wiki2vec = self.get_pretrained_emb()
         logger.debug(f"getting domain representative {self.cfg['strategy']}")
         self.domain_rep = self.get_domain_rep()
@@ -50,7 +52,7 @@ class DomainRelatednessWiki2Vec(EntityUtils):
     def calculate_domain_entity_similarities(self, entities):
         entities_in_w2v = []
         entity_vectors = []
-        for e in entities:
+        for e in entities: 
             w2ve = "ENTITY/{}".format(e.replace(" ", "_"))
             if self.wiki2vec.__contains__(w2ve):
                 entities_in_w2v.append(e)
@@ -60,7 +62,7 @@ class DomainRelatednessWiki2Vec(EntityUtils):
             return {}
 
         entity_similarities = self.wiki2vec.cosine_similarities(self.domain_rep, entity_vectors)
-        similarities = {entities_in_w2v[i]: entity_similarities[i] for i in range(0, len(entities_in_w2v))}
+        similarities = {entities_in_w2v[i]: float(entity_similarities[i]) for i in range(0, len(entities_in_w2v))}
         for e in entities:
             if e not in similarities:
                 similarities[e] = -1
@@ -75,17 +77,18 @@ class DomainRelatednessWiki2Vec(EntityUtils):
         logger.debug("calculating similarity between domain model and extracted entities")
         outdir = self.get_similarities_cache_path()
         if exists(join(outdir, get_file_name(tid, benchmark_name, benchmark_querytype))):
-            similarities = json.load(open(join(outdir, get_file_name(tid, benchmark_name, benchmark_querytype), 'r')))
+            similarities = json.load(open(join(outdir, get_file_name(tid, benchmark_name, benchmark_querytype)), 'r'))
         else:
             self.initialize()
             similarities = self.calculate_domain_entity_similarities(entities)
+            os.makedirs(outdir, exist_ok=True)
             with open(join(outdir, get_file_name(tid, benchmark_name, benchmark_querytype)), 'w') as f:
                 f.write(json.dumps(similarities, sort_keys=True, indent=4))
 
         # just for logging:
-        sorted_sim = {k: v for k, v in sorted(similarities.items(), key=lambda item: item[1], reverse=True)}
-        logger.debug(f"Domain: {self.domain}, Strategy: {self.cfg['strategy']}")
-        logger.debug(f"Similarities: {sorted_sim}")
+        #sorted_sim = {k: v for k, v in sorted(similarities.items(), key=lambda item: item[1], reverse=True)}
+        #logger.debug(f"Domain: {self.domain}, Strategy: {self.cfg['strategy']}")
+        #logger.debug(f"Similarities: {sorted_sim}")
 
         ret = [k for k, v in similarities.items() if v >= self.cfg['domain_relatedness_threshold']]
         return ret
@@ -99,7 +102,7 @@ class DomainRelatednessWiki2Vec(EntityUtils):
     def get_domain_rep(self):
         m = re.match(r"^centroid-(?:entity-word-(\d+(?:\.\d+)?)-)?k(\d+)$", self.cfg['strategy'])
         if m:
-            k = m.group(2)
+            k = int(m.group(2))
             if m.group(1):
                 raise NotImplementedError("domain model as combination of entity neighbors and word neighbors is not implemented")
             else:
