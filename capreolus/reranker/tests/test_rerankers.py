@@ -16,8 +16,11 @@ from capreolus.extractor.bagofwords import BagOfWords
 from capreolus.reranker.DSSM import DSSM
 from capreolus.reranker.TK import TK
 from capreolus.reranker.KNRM import KNRM
-from capreolus.reranker.KNRMTF import KNRMTF
+from capreolus.reranker.TFKNRM import TFKNRM
 from capreolus.trainer import TensorFlowTrainer
+from capreolus.extractor.berttext import Berttext
+from capreolus.reranker.VanillaBert import TFVanillaBERT
+from capreolus.tokenizer.berttokenizer import BertTokenizer
 
 
 def test_knrm_pytorch(dummy_index, tmpdir, tmpdir_as_cache, monkeypatch):
@@ -83,7 +86,7 @@ def test_knrm_tf(dummy_index, tmpdir, tmpdir_as_cache, monkeypatch):
 
     monkeypatch.setattr(EmbedText, "_get_pretrained_emb", fake_magnitude_embedding)
 
-    reranker = KNRMTF({"gradkernels": True, "finetune": False})
+    reranker = TFKNRM({"gradkernels": True, "finetune": False})
     trainer = TensorFlowTrainer(
         {
             "_name": "tensorflow",
@@ -395,3 +398,49 @@ def test_tk_get_mask(tmpdir, dummy_index, monkeypatch):
     )
 
     assert torch.equal(mask[2], torch.zeros(4, 4, dtype=torch.float))
+
+
+def test_vanillabert_tf(dummy_index, tmpdir, tmpdir_as_cache, monkeypatch):
+    reranker = TFVanillaBERT({"pretrained": "bert-base-uncased"})
+    trainer = TensorFlowTrainer(
+        {
+            "_name": "tensorflow",
+            "maxdoclen": 505,
+            "maxqlen": 4,
+            "batch": 16,
+            "niters": 1,
+            "itersize": 64,
+            "gradacc": 1,
+            "lr": 0.001,
+            "softmaxloss": True,
+            "interactive": False,
+            "fastforward": True,
+            "validatefreq": 1,
+            "usecache": False,
+            "tpuname": None,
+            "tpuzone": None,
+            "gcsbucket": None,
+            "boardname": "default",
+        }
+    )
+    reranker.modules["trainer"] = trainer
+    reranker.modules["extractor"] = Berttext({"_name": "berttext", "maxqlen": 4, "maxdoclen": 505, "usecache": False})
+    extractor = reranker.modules["extractor"]
+    extractor.modules["index"] = dummy_index
+    tok_cfg = {"_name": "bert", "pretrained": "bert-base-uncased"}
+    tokenizer = BertTokenizer(tok_cfg)
+    extractor.modules["tokenizer"] = tokenizer
+    metric = "map"
+    benchmark = DummyBenchmark({"fold": "s1", "rundocsonly": True})
+
+    extractor.create(["301"], ["LA010189-0001", "LA010189-0002"], benchmark.topics[benchmark.query_type])
+    reranker.build()
+
+    train_run = {"301": ["LA010189-0001", "LA010189-0002"]}
+    train_dataset = TrainDataset(qid_docid_to_rank=train_run, qrels=benchmark.qrels, extractor=extractor)
+    dev_dataset = PredDataset(qid_docid_to_rank=train_run, extractor=extractor)
+    reranker["trainer"].train(
+        reranker, train_dataset, Path(tmpdir) / "train", dev_dataset, Path(tmpdir) / "dev", benchmark.qrels, metric
+    )
+
+    assert os.path.exists(Path(tmpdir) / "train" / "dev.best.index")

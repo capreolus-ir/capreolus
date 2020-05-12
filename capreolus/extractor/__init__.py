@@ -183,16 +183,8 @@ class EmbedText(Extractor):
         # return [self.embeddings[self.stoi[tok]] for tok in toks]
         return [self.stoi[tok] for tok in toks]
 
-    def id2vec(self, qid, posid, negid=None, query=None):
-        if query is not None:
-            if qid is None:
-                query = self["tokenizer"].tokenize(query)
-                pass
-            else:
-                raise RuntimeError("received both a qid and query, but only one can be passed")
-
-        else:
-            query = self.qid2toks[qid]
+    def id2vec(self, qid, posid, negid=None):
+        query = self.qid2toks[qid]
 
         # TODO find a way to calculate qlen/doclen stats earlier, so we can log them and check sanity of our values
         qlen, doclen = self.cfg["maxqlen"], self.cfg["maxdoclen"]

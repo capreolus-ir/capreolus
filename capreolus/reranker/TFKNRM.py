@@ -5,9 +5,9 @@ from capreolus.reranker import Reranker
 from capreolus.registry import Dependency
 
 
-class KNRM_TF_Class(tf.keras.Model):
+class TFKNRM_Class(tf.keras.Model):
     def __init__(self, extractor, config, **kwargs):
-        super(KNRM_TF_Class, self).__init__(**kwargs)
+        super(TFKNRM_Class, self).__init__(**kwargs)
         self.config = config
         self.extractor = extractor
         mus = [-0.9, -0.7, -0.5, -0.3, -0.1, 0.1, 0.3, 0.5, 0.7, 0.9, 1.0]
@@ -50,8 +50,8 @@ class KNRM_TF_Class(tf.keras.Model):
         return posdoc_score - negdoc_score
 
 
-class KNRMTF(Reranker):
-    name = "KNRMTF"
+class TFKNRM(Reranker):
+    name = "TFKNRM"
     dependencies = {
         "extractor": Dependency(module="extractor", name="embedtext"),
         "trainer": Dependency(module="trainer", name="tensorflow"),
@@ -63,5 +63,5 @@ class KNRMTF(Reranker):
         finetune = False  # Fine tune the embedding
 
     def build(self):
-        self.model = KNRM_TF_Class(self["extractor"], self.cfg)
+        self.model = TFKNRM_Class(self["extractor"], self.cfg)
         return self.model
