@@ -34,16 +34,13 @@ class BM25Reranker(Reranker):
 
     def score_document(self, query, docid, avg_doc_len):
         # TODO is it correct to skip over terms that don't appear to be in the idf vocab?
-        return sum(
-            self.score_document_term(term, docid, avg_doc_len) for term in query if term in self["extractor"].background_idf
-        )
-        # return sum(self.score_document_term(term, docid, avg_doc_len) for term in query)
+        return sum(self.score_document_term(term, docid, avg_doc_len) for term in query)
 
     def score_document_term(self, term, docid, avg_doc_len):
         tf = self["extractor"].doc_tf[docid].get(term, 0)
         numerator = tf * (self.cfg["k1"] + 1)
         denominator = tf + self.cfg["k1"] * (1 - self.cfg["b"] + self.cfg["b"] * (self["extractor"].doc_len[docid] / avg_doc_len))
 
-        idf = self["extractor"].background_idf[term]
+        idf = self["extractor"].background_idf(term)
 
         return idf * (numerator / denominator)

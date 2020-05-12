@@ -1,3 +1,4 @@
+import os
 from collections import defaultdict, Counter
 
 import numpy as np
@@ -184,7 +185,10 @@ class DocStats(Extractor):
     name = "docstats"
     dependencies = {
         "index": Dependency(module="index", name="anserini", config_overrides={"indexstops": True, "stemmer": "none"}),
-        "tokenizer": Dependency(module="tokenizer", name="anserini"),
+        "backgroundindex": Dependency(module="index", name="anserinicorpus", config_overrides={"indexcorpus": "lucene-index.cw12.nostemming"}),##the other one could be:lucene-index.cw12.stemming.docvectors
+        "tokenizer": Dependency(module="tokenizer", name="anserini", config_overrides={"keepstops": False}),
+#        "tokenizerquery": Dependency(module="tokenizer", name="spacy", config_overrides={"keepstops": False, 'removesmallerlen': 2}), #removesmallerlen is actually only used for user profile (not the short queries) but I cannot separate them
+       # "tokenizer": Dependency(module="tokenizer", name="spacy", config_overrides={"keepstops": False}),
     }
 
     @staticmethod
@@ -194,51 +198,180 @@ class DocStats(Extractor):
     def exist(self):
         return hasattr(self, "doc_tf")
 
-    def create(self, qids, docids, topics):
+    def create(self, qids, docids, topics, qdocs=None):
+        #todo where can I check this: is here good?
+        if 'stemmer' in self["tokenizer"].cfg and self["tokenizer"].cfg['stemmer'] != "none":
+            if "nostemming" in self["backgroundindex"].cfg["indexcorpus"]:
+                print("WARNING: tokenizer's stemming is on, but backgroundindex is without stemming.")
+        else:
+            if "stemming" in self["backgroundindex"].cfg["indexcorpus"]:
+                print("WARNING: tokenizer's stemming is off, but backgroundindex is stemmed.")
+
         if self.exist():
             return
 
         self["index"].create_index()
-        self.qid2toks = {qid: self["tokenizer"].tokenize(topics[qid]) for qid in qids}
+        logger.debug("Openning background index")
+        self["backgroundindex"].open()
+
+        self.qid2toks = {}
+        self.qid_termprob = {}
+        for qid in qids:
+            query = self["tokenizer"].tokenize(topics[qid])
+            self.qid2toks[qid] = query
+            q_count = Counter(query)
+            self.qid_termprob[qid] = {k: (v/len(query)) for k, v in q_count.items()}
 
         # TODO hardcoded paths
-        df_fn, freq_fn = "/GW/NeuralIR/work/PES20/counts_IDF_stemmed.txt", "/GW/NeuralIR/work/PES20/counts_LM_stemmed.txt"
-        doclen_fn = "/GW/NeuralIR/work/PES20/counts_MUS_stemmed.txt"
+        #df_fn, freq_fn = "/GW/NeuralIR/work/PES20/counts_IDF_stemmed.txt", "/GW/NeuralIR/work/PES20/counts_LM_stemmed.txt"
+        #doclen_fn = "/GW/NeuralIR/work/PES20/counts_MUS_stemmed.txt"
+        #df_fn, freq_fn = "/home/ghazaleh/workspace/capreolus/data/PES20/counts_IDF_stemmed.txt", "/home/ghazaleh/workspace/capreolus/data/PES20/counts_LM_stemmed.txt"
+        #doclen_fn = "/home/ghazaleh/workspace/capreolus/data/PES20/counts_MUS_stemmed.txt"
+        # df_fn, freq_fn = "/GW/PKB/work/data_personalization/TREC_format/counts_IDF_stemmed_cw12.nostemming.txt", "/GW/PKB/work/data_personalization/TREC_format/counts_LM_stemmed_cw12.nostemming.txt"
+        
+        # logger.debug("computing background probabilities")
+        # dfs = {}
+        # with open(df_fn, "rt") as f:
+        #     for line in f:
+        #         cidx = line.strip().rindex(",")
+        #         k = line.strip()[:cidx]
+        #         v = line.strip()[cidx + 1:]
+        #         dfs[k] = int(v)
+        #         # df_bg = self["backgroundindex"].get_df(k)
+        #         # if v != df_bg:
+        #         #     logger.debug("df do noe match: {}".format(k))
+        #
+        # total_docs = dfs["total_docs"]
+        # del dfs["total_docs"]
 
-        logger.debug("computing background probabilities")
-        dfs = {}
-        with open(df_fn, "rt") as f:
-            for line in f:
-                k, v = line.strip().split(",")
-                dfs[k] = int(v)
+        # TODO unsure if log base is correct? gh:Yes I used the same; unsure if the non-negative max(0, idf) formulation was used, gh: I also didn't
+        # get_idf = lambda x: np.log10((total_docs - dfs[x] + 0.5) / (dfs[x] + 0.5))
+        # self.background_idfs = {term: get_idf(term) for term in dfs}
 
-        total_docs = dfs["total_docs"]
-        del dfs["total_docs"]
-
-        # TODO unsure if log base is correct; unsure if the non-negative max(0, idf) formulation was used
-        get_idf = lambda x: np.log10((total_docs - dfs[x] + 0.5) / (dfs[x] + 0.5))
-        self.background_idf = {term: get_idf(term) for term in dfs}
-
-        # TODO fill in from freq_fn
-        self.background_termprob = {}
+        # tfs = {}
+        # with open(freq_fn, "rt") as f:
+        #     for line in f:
+        #         cidx = line.strip().rindex(",")
+        #         k = line.strip()[:cidx]
+        #         v = line.strip()[cidx + 1:]
+        #         tfs[k] = int(v)
+        #
+        # total_terms = tfs["total_terms"]
+        # del tfs["total_terms"]
+        # self.background_termprob = {term: tfs[term]/total_terms for term in tfs}
 
         logger.debug("tokenizing documents")
         self.doc_tf = {}
         self.doc_len = {}
         for docid in docids:
             # TODO is anserini's tokenizer removing the same punctuation as spacy was?
+            # todo spacy tokenizer is added with some parameters... some of them should be cleaned  (see more in the tokenizer class)
             doc = self["tokenizer"].tokenize(self["index"].get_doc(docid))
-
             self.doc_tf[docid] = Counter(doc)
             self.doc_len[docid] = len(doc)
 
-        self.query_avg_doc_len = {}
-        with open(doclen_fn, "rt") as f:
-            for line in f:
-                qid, avglen = line.strip().split(",")
-                self.query_avg_doc_len[qid] = int(avglen)
+        # todo: I have removed "Fixed partner" and "(or with a ..)" from the profiles [locally] (this should be done in the data on the servers and before publishing the data)
 
-    def id2vec(self, qid, posid, negid=None, query=None):
+        #TODO: we have to calculate the avg doc len of the given query and documents eventually here (that's why O need qdocs as input) and here is the code but I disabled it for test:
+
+        self.query_avg_doc_len = {}
+        for qid, docs in qdocs.items():
+            doclen = 0
+            for docid in docs:
+                doclen += self.doc_len[docid]
+            self.query_avg_doc_len[qid] = doclen/len(docs)
+
+        #self.query_avg_doc_len = {}
+        #with open(doclen_fn, "rt") as f:
+        #    for line in f:
+        #        qid, avglen = line.strip().split(",")
+        #        self.query_avg_doc_len[qid] = int(avglen)
+
+        # todo (problem): the calculated avgdoclength and the one loaded are not matching: the reason is that that one is calculated from 100 docs, this one from 20 docs.
+        # shared_items = {k: list([self.query_avg_doc_len[k], query_avg_doc_len[k]]) for k in self.query_avg_doc_len if k in query_avg_doc_len and self.query_avg_doc_len[k] == query_avg_doc_len[k]}
+        # diff_items = {k: list([self.query_avg_doc_len[k], query_avg_doc_len[k]]) for k in self.query_avg_doc_len if k in query_avg_doc_len and self.query_avg_doc_len[k] != query_avg_doc_len[k]}
+        # print(len(shared_items), shared_items)
+        # print(len(diff_items), diff_items) ## there are very different
+
+    def background_idf(self, term):# TODO could be replaced by that: the index itself has a function for idf, but it has a +1...
+        df = self["backgroundindex"].get_df(term)
+        total_docs = self["backgroundindex"].numdocs
+        return np.log10((total_docs - df + 0.5) / (df + 0.5))
+
+    def background_termprob(self, term):
+        tf = self["backgroundindex"].get_tf(term)
+        total_terms = self["backgroundindex"].numterms
+        return tf/ total_terms
+
+    def id2vec(self, qid, posid, negid=None, query=None):#todo (ask) where is it used?
+        if query is not None:
+            if qid is None:
+                query = self["tokenizer"].tokenize(query)
+            else:
+                raise RuntimeError("received both a qid and query, but only one can be passed")
+        else:
+            query = self.qid2toks[qid]
+
+        return {"qid": qid, "posdocid": posid, "negdocid": negid}
+
+
+class DocStatsEmbedding(DocStats):
+    name = "docstatsembedding"
+    dependencies = {# TODO is this okay like this? if this is changed here, would the parent functions also use differently??
+        "index": Dependency(module="index", name="anserini", config_overrides={"indexstops": True, "stemmer": "none"}),
+        # "tokenizer": Dependency(module="tokenizer", name="anserini", config_overrides={"keepstops": False}),
+        "tokenizerquery": Dependency(module="tokenizer", name="spacy", config_overrides={"keepstops": False, 'removesmallerlen': 2}), #removesmallerlen is actually only used for user profile (not the short queries) but I cannot separate them
+        "tokenizer": Dependency(module="tokenizer", name="spacy", config_overrides={"keepstops": False}),
+    }
+
+    embed_names = {
+        "glove6b": "glove-wiki-gigaword-300",
+        "glove6b.50d": "glove-wiki-gigaword-50",
+        "w2vnews" : "word2vec-google-news-300",
+        "fasttext": "fasttext-wiki-news-subwords-300", #TODO: "Wikipedia 2017, UMBC webbase corpus and statmt.org news dataset (16B tokens)" is this model the same as one used with Magnitude?
+
+    }
+
+    def exist(self):
+        return hasattr(self, "similarity_matrix")
+
+    @staticmethod
+    def config():
+        embeddings = "w2vnews"
+
+    def _get_pretrained_emb(self):
+        gensim_cache = CACHE_BASE_PATH / "gensim/"
+        os.environ['GENSIM_DATA_DIR'] = str(gensim_cache.absolute())
+
+        import gensim
+        import gensim.downloader as api
+
+        model_path = api.load(self.embed_names[self.cfg["embeddings"]], return_path=True)
+        return gensim.models.KeyedVectors.load_word2vec_format(model_path, binary=True)
+
+    def create(self, qids, docids, topics, qdocs=None):
+        if self.exist():
+            return
+
+        super().create(qids, docids, topics, qdocs)
+
+        logger.debug("loading embedding")
+        self.emb_model = self._get_pretrained_emb()
+
+
+    def get_term_occurrence_probability(self, qterm, docterm, docid, threshold):
+        nu = self.emb_model.similarity(qterm, docterm) if (self.emb_model.__contains__(qterm) and self.emb_model.__contains__(docterm)) else 0
+        if nu < threshold:
+            return 0
+
+        de = 0
+        for term in self.doc_tf[docid].keys():#TODO could I precalc this? There is the threshold which is the reranker parameter... Should I make it the extractor parameter??
+            temp_sim = self.emb_model.similarity(term, docterm) if (self.emb_model.__contains__(term) and self.emb_model.__contains__(docterm)) else 0
+            de += temp_sim if temp_sim >= threshold else 0
+
+        return nu/de
+
+    def id2vec(self, qid, posid, negid=None, query=None):#todo change this later ...
         if query is not None:
             if qid is None:
                 query = self["tokenizer"].tokenize(query)
