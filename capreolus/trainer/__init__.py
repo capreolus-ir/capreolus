@@ -494,7 +494,7 @@ class TensorFlowTrainer(Trainer):
                 steps_per_epoch=self.cfg["itersize"],
                 callbacks=[trec_callback, tensorboard_callback],
                 workers=8,
-                use_multiprocessing=True
+                use_multiprocessing=True,
             )
             logger.info("Training took {}".format(time.time() - train_start_time))
 
@@ -575,14 +575,13 @@ class TensorFlowTrainer(Trainer):
                         sample["negdoc"],
                     )
                 )
-                
+
                 if len(tf_features) > 20000:
                     tf_record_filenames.append(self.write_tf_record_to_file(dir_name, tf_features))
                     tf_features = []
 
                 if sample_idx + 1 >= self.cfg["itersize"] * self.cfg["batch"]:
                     break
-
 
         # logger.info("Converting {} samples to tf records".format(total_samples))
         # for idx, sample in tqdm(enumerate(dataset.epoch_generator_func())):
