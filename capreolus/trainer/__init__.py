@@ -492,7 +492,7 @@ class TensorFlowTrainer(Trainer):
                 train_records.prefetch(tf.data.experimental.AUTOTUNE),
                 epochs=self.cfg["niters"],
                 steps_per_epoch=self.cfg["itersize"],
-                callbacks=[trec_callback, tensorboard_callback],
+                callbacks=[tensorboard_callback],
                 workers=8,
                 use_multiprocessing=True,
             )
@@ -652,13 +652,13 @@ class TensorFlowTrainer(Trainer):
 
         return tf_records_dataset
 
-    def load_cached_tf_records(self, dataset):
+    def load_cached_tf_records(self, dataset, batch_size):
         logger.info("Loading TF records from cache")
         cache_dir = self.get_tf_record_cache_path(dataset)
         filenames = tf.io.gfile.listdir(cache_dir)
         filenames = ["{0}/{1}".format(cache_dir, name) for name in filenames]
 
-        return self.load_tf_records_from_file(filenames)
+        return self.load_tf_records_from_file(filenames, batch_size)
 
     def get_tf_dev_records(self, dataset):
         """
@@ -666,7 +666,7 @@ class TensorFlowTrainer(Trainer):
         2. Else, converts the dataset into tf records, writes them to disk, and returns them
         """
         if self.cfg["usecache"] and self.cache_exists(dataset):
-            return self.load_cached_tf_records(dataset)
+            return self.load_cached_tf_records(dataset, 1)
         else:
             tf_record_filenames = self.convert_to_tf_dev_record(dataset)
             return self.load_tf_records_from_file(tf_record_filenames, 1)
@@ -678,7 +678,7 @@ class TensorFlowTrainer(Trainer):
         """
 
         if self.cfg["usecache"] and self.cache_exists(dataset):
-            return self.load_cached_tf_records(dataset)
+            return self.load_cached_tf_records(dataset, self.cfg["batch"])
         else:
             tf_record_filenames = self.convert_to_tf_train_record(dataset)
             return self.load_tf_records_from_file(tf_record_filenames, self.cfg["batch"])
