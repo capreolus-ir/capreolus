@@ -56,15 +56,21 @@ class AmbiverseNLU(EntityLinking):
 
         headers = {'accept': 'application/json', 'content-type': 'application/json'}
         data = {"docId": "{}".format(get_file_name(textid, benchmark_name, benchmark_querytype)), "text": "{}".format(text), "extractConcepts": "{}".format(str(self.cfg["extractConcepts"])), "language": "en"}#"annotatedMentions": [{"charLength": 7, "charOffset":5}, {"charLength": 4, "charOffset": 0}]
-        r = requests.post(url=self.server, data=json.dumps(data), headers=headers)
+        try:
+            r = requests.post(url=self.server, data=json.dumps(data), headers=headers)
+        except requests.exceptions.RequestException as e:
+            raise RuntimeError(e)
+
         #TODO: later maybe I could use the annotatedMentions to annotate the input??? since in the profile I know what's NE/C mainly????????
+        if r.status_code == 200:
+            with open(join(outdir, get_file_name(textid, benchmark_name, benchmark_querytype)), 'w') as f:
+                f.write(json.dumps(r.json(), sort_keys=True, indent=4))
 
-        with open(join(outdir, get_file_name(textid, benchmark_name, benchmark_querytype)), 'w') as f:
-            f.write(json.dumps(r.json(), sort_keys=True, indent=4))
-
-        if 'entities' in r.json():
-            for e in r.json()['entities']:
-                self.entity_descriptions[e['name']] = ""
+            if 'entities' in r.json():
+                for e in r.json()['entities']:
+                    self.entity_descriptions[e['name']] = ""
+        else:
+            raise RuntimeError(f"request status_code is {r.status_code}")
 
     def load_descriptions(self):
         if self['benchmark'].entity_strategy is None:
