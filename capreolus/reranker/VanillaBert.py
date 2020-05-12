@@ -43,7 +43,7 @@ class TFVanillaBert_Class(tf.keras.Model):
 class TFVanillaBERT(Reranker):
     name = "TFVanillaBERT"
     dependencies = {
-        "extractor": Dependency(module="extractor", name="embedtext"),
+        "extractor": Dependency(module="extractor", name="bert"),
         "trainer": Dependency(module="trainer", name="tensorflow"),
     }
 

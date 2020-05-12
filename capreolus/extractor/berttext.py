@@ -14,7 +14,7 @@ logger = get_logger(__name__)
 
 
 class Berttext(Extractor):
-    name = "embedtext"
+    name = "bert"
     dependencies = {
         "index": Dependency(module="index", name="anserini", config_overrides={"indexstops": True, "stemmer": "none"}),
         "tokenizer": Dependency(module="tokenizer", name="bert"),
