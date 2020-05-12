@@ -6,7 +6,7 @@ import torch
 from pymagnitude import Magnitude
 
 from capreolus.benchmark import DummyBenchmark
-from capreolus.extractor import EmbedText
+from capreolus.extractor import EmbedText, BertText
 from capreolus.reranker.PACRR import PACRR
 from capreolus.sampler import TrainDataset, PredDataset
 from capreolus.tests.common_fixtures import tmpdir_as_cache, dummy_index
@@ -18,7 +18,6 @@ from capreolus.reranker.TK import TK
 from capreolus.reranker.KNRM import KNRM
 from capreolus.reranker.TFKNRM import TFKNRM
 from capreolus.trainer import TensorFlowTrainer
-from capreolus.extractor.berttext import Berttext
 from capreolus.reranker.VanillaBert import TFVanillaBERT
 from capreolus.tokenizer.berttokenizer import BertTokenizer
 
@@ -424,7 +423,7 @@ def test_vanillabert_tf(dummy_index, tmpdir, tmpdir_as_cache, monkeypatch):
         }
     )
     reranker.modules["trainer"] = trainer
-    reranker.modules["extractor"] = Berttext({"_name": "berttext", "maxqlen": 4, "maxdoclen": 505, "usecache": False})
+    reranker.modules["extractor"] = BertText({"_name": "berttext", "maxqlen": 4, "maxdoclen": 505, "usecache": False})
     extractor = reranker.modules["extractor"]
     extractor.modules["index"] = dummy_index
     tok_cfg = {"_name": "bert", "pretrained": "bert-base-uncased"}
