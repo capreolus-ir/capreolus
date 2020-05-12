@@ -112,6 +112,7 @@ class PredDataset(torch.utils.data.IterableDataset):
     def __init__(self, qid_docid_to_rank, extractor):
         self.qid_docid_to_rank = qid_docid_to_rank
 
+        self.extractor = extractor
         def genf():
             for qid, docids in qid_docid_to_rank.items():
                 for docid in docids:

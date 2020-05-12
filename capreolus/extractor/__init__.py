@@ -253,9 +253,10 @@ class BertText(Extractor):
             self.load_state(qids, docids)
             logger.info("Vocabulary loaded from cache")
         else:
+            logger.info("Building bertext vocabulary")
             tokenize = self["tokenizer"].tokenize
-            self.qid2toks = {qid: tokenize(topics[qid]) for qid in qids}
-            self.docid2toks = {docid: tokenize(self["index"].get_doc(docid)) for docid in docids}
+            self.qid2toks = {qid: tokenize(topics[qid]) for qid in tqdm(qids, desc="querytoks")}
+            self.docid2toks = {docid: tokenize(self["index"].get_doc(docid)) for docid in tqdm(docids, desc="doctoks")}
             self.clsidx, self.sepidx = self["tokenizer"].convert_tokens_to_ids(["CLS", "SEP"])
 
             self.cache_state(qids, docids)
