@@ -28,21 +28,6 @@ def _verify_metric(metrics):
             raise ValueError(f"Unexpected evaluation metric: {metric}, should be one of { ' '.join(sorted(expected_metrics))}")
 
 
-def _transform_metric(metrics):
-    """
-    Remove the _NUM at the end of metric is applicable
-
-    Args:
-        metrics: a list of str
-
-    Returns:
-        a set of transformed metric
-    """
-    assert isinstance(metrics, list)
-    metrics = {"_".join(metric.split("_")[:-1]) if "_cut" in metric or "P_" in metric else metric for metric in metrics}
-    return metrics
-
-
 def _eval_runs(runs, qrels, metrics, dev_qids):
     assert isinstance(metrics, list)
     ### TODO double check: where the grades are mapped to binary for calculating precision? (1,2 -> 1, 0->0)
@@ -54,7 +39,7 @@ def _eval_runs(runs, qrels, metrics, dev_qids):
     #             ranking[d] = 1
 
     dev_qrels = {qid: labels for qid, labels in qrels.items() if qid in dev_qids}
-    evaluator = pytrec_eval.RelevanceEvaluator(dev_qrels, metrics)# TODO Is _transform_metric required? new version of pytrec_eval accepts custom cutoffs (example P_1)
+    evaluator = pytrec_eval.RelevanceEvaluator(dev_qrels, metrics)
 
     scores = [[metrics_dict.get(m, -100) for m in metrics] for metrics_dict in evaluator.evaluate(runs).values()]
     scores = np.array(scores).mean(axis=0).tolist()
