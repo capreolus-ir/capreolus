@@ -48,7 +48,7 @@ class BertTokenizer(Tokenizer):
 
     @staticmethod
     def config():
-        pass
+        pretrained = "bert-base-uncased"
 
     def __init__(self, cfg):
         super().__init__(cfg)
