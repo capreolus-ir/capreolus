@@ -47,7 +47,6 @@ dtype = torch.FloatTensor
 
 class DSSM(Reranker):
     description = """Po-Sen Huang, Xiaodong He, Jianfeng Gao, Li Deng, Alex Acero, and Larry Heck. 2013. Learning deep structured semantic models for web search using clickthrough data. In CIKM'13."""
-    EXTRACTORS = [BagOfWords]
     name = "DSSM"
 
     dependencies = {
