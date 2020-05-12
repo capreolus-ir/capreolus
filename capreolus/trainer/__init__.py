@@ -478,7 +478,7 @@ class TensorFlowTrainer(Trainer):
         with strategy_scope:
             train_records = self.get_tf_train_records(train_dataset)
             dev_records = self.get_tf_dev_records(dev_data)
-            trec_callback = TrecCheckpointCallback(qrels, dev_data, dev_records.batch(self.cfg["batch"]), train_output_path)
+            trec_callback = TrecCheckpointCallback(qrels, dev_data, dev_records, train_output_path)
             tensorboard_callback = tf.keras.callbacks.TensorBoard(
                 log_dir="{0}/capreolus_tensorboard/{1}".format(self.cfg["gcsbucket"], self.cfg["boardname"])
             )
@@ -489,7 +489,7 @@ class TensorFlowTrainer(Trainer):
 
             train_start_time = time.time()
             reranker.model.fit(
-                train_records.batch(self.cfg["batch"], drop_remainder=True).prefetch(tf.data.experimental.AUTOTUNE),
+                train_records.prefetch(tf.data.experimental.AUTOTUNE),
                 epochs=self.cfg["niters"],
                 steps_per_epoch=self.cfg["itersize"],
                 callbacks=[trec_callback, tensorboard_callback],
@@ -625,7 +625,7 @@ class TensorFlowTrainer(Trainer):
 
         return tf.io.gfile.isdir(cache_dir)
 
-    def load_tf_records_from_file(self, filenames):
+    def load_tf_records_from_file(self, filenames, batch_size):
         raw_dataset = tf.data.TFRecordDataset(filenames)
         feature_description = {
             "qid": tf.io.FixedLenFeature([], tf.string),
@@ -638,9 +638,8 @@ class TensorFlowTrainer(Trainer):
             "label": tf.io.FixedLenFeature([1], tf.float32, default_value=tf.zeros((1))),
         }
 
-        # @tf.function
-        def parse_single_example(example_proto):
-            single_example = tf.io.parse_single_example(example_proto, feature_description)
+        def parse_example(example_proto):
+            single_example = tf.io.parse_example(example_proto, feature_description)
             posdoc = single_example["posdoc"]
             negdoc = single_example["negdoc"]
             query = single_example["query"]
@@ -649,7 +648,7 @@ class TensorFlowTrainer(Trainer):
 
             return (posdoc, negdoc, query, query_idf), label
 
-        tf_records_dataset = raw_dataset.map(parse_single_example, num_parallel_calls=tf.data.experimental.AUTOTUNE)
+        tf_records_dataset = raw_dataset.batch(batch_size, drop_remainder=True).map(parse_example, num_parallel_calls=tf.data.experimental.AUTOTUNE)
 
         return tf_records_dataset
 
@@ -670,7 +669,7 @@ class TensorFlowTrainer(Trainer):
             return self.load_cached_tf_records(dataset)
         else:
             tf_record_filenames = self.convert_to_tf_dev_record(dataset)
-            return self.load_tf_records_from_file(tf_record_filenames)
+            return self.load_tf_records_from_file(tf_record_filenames, 1)
 
     def get_tf_train_records(self, dataset):
         """
@@ -682,7 +681,7 @@ class TensorFlowTrainer(Trainer):
             return self.load_cached_tf_records(dataset)
         else:
             tf_record_filenames = self.convert_to_tf_train_record(dataset)
-            return self.load_tf_records_from_file(tf_record_filenames)
+            return self.load_tf_records_from_file(tf_record_filenames, self.cfg["batch"])
 
     def predict(self, reranker, pred_data, pred_fn):
         """Predict query-document scores on `pred_data` using `model` and write a corresponding run file to `pred_fn`
@@ -700,7 +699,7 @@ class TensorFlowTrainer(Trainer):
         strategy_scope = self.strategy.scope()
         with strategy_scope:
             pred_records = self.get_tf_dev_records(pred_data)
-            predictions = reranker.model.predict(pred_records.batch(self.cfg["batch"]))
+            predictions = reranker.model.predict(pred_records)
             trec_preds = TrecCheckpointCallback.get_preds_in_trec_format(predictions, pred_data)
 
         os.makedirs(os.path.dirname(pred_fn), exist_ok=True)
