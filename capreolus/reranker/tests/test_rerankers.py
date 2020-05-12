@@ -19,7 +19,7 @@ from capreolus.reranker.KNRM import KNRM
 from capreolus.reranker.TFKNRM import TFKNRM
 from capreolus.trainer import TensorFlowTrainer
 from capreolus.reranker.VanillaBert import TFVanillaBERT
-from capreolus.tokenizer.berttokenizer import BertTokenizer
+from capreolus.tokenizer import BertTokenizer
 
 
 def test_knrm_pytorch(dummy_index, tmpdir, tmpdir_as_cache, monkeypatch):
