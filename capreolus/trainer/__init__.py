@@ -492,7 +492,7 @@ class TensorFlowTrainer(Trainer):
                 train_records.prefetch(tf.data.experimental.AUTOTUNE),
                 epochs=self.cfg["niters"],
                 steps_per_epoch=self.cfg["itersize"],
-                callbacks=[tensorboard_callback],
+                callbacks=[tensorboard_callback, trec_callback],
                 workers=8,
                 use_multiprocessing=True,
             )
