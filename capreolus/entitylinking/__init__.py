@@ -20,7 +20,7 @@ class EntityLinking(ModuleBase, metaclass=RegisterableModule):
 
 class AmbiverseNLU(EntityLinking):
     name = 'ambiversenlu'
-    server = open(PACKAGE_PATH / "data" / "ambiversenlu" / "server", 'r').read()  # TODO set the ambiverseNLU server here
+    server = open(PACKAGE_PATH / "data" / "ambiversenlu" / "server", 'r').read().replace("\n", "")  # TODO set the ambiverseNLU server here
     yagodescription_dir = '/GW/D5data-11/ghazaleh/search_ranking_data/yago_description_20180120/'
     #PACKAGE_PATH / 'data' / 'yago_descriptions' #TODO set YAGO description path
 

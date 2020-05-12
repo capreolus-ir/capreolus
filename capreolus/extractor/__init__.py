@@ -190,7 +190,7 @@ class DocStats(Extractor):
 #        "tokenizerquery": Dependency(module="tokenizer", name="spacy", config_overrides={"keepstops": False, 'removesmallerlen': 2}), #removesmallerlen is actually only used for user profile (not the short queries) but I cannot separate them
        # "tokenizer": Dependency(module="tokenizer", name="spacy", config_overrides={"keepstops": False}),
         "entitylinking": Dependency(module="entitylinking", name='ambiversenlu'),
-        "domainrelatedness": Dependency(module='entityutils', name='relatednesswiki2vec', config_overrides={"strategy": "domain-vector-100"})
+        "domainrelatedness": Dependency(module='entityutils', name='relatednesswiki2vec', config_overrides={"strategy": "centroid-k100"})
     }
 
     @staticmethod
@@ -332,8 +332,7 @@ class DocStats(Extractor):
         elif entity_strategy == 'all':
             return self['entitylinking'].get_all_entities(profile_id)
         elif entity_strategy == 'domain':
-            logger.debug(f"{entity_strategy}")
-            return self["domainrelatedness"].get_domain_related_entities(self['entitylinking'].get_all_entities(profile_id))
+            return self["domainrelatedness"].get_domain_related_entities(profile_id, self['entitylinking'].get_all_entities(profile_id))
         else:
             raise NotImplementedError("TODO implement other entity strategies (by first implementing measures)")
 
