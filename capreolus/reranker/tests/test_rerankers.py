@@ -18,7 +18,7 @@ from capreolus.reranker.TK import TK
 from capreolus.reranker.KNRM import KNRM
 from capreolus.reranker.TFKNRM import TFKNRM
 from capreolus.trainer import TensorFlowTrainer
-from capreolus.reranker.VanillaBert import TFVanillaBERT
+from capreolus.reranker.TFVanillaBert import TFVanillaBERT
 from capreolus.tokenizer import BertTokenizer
 
 
@@ -103,7 +103,7 @@ def test_knrm_tf(dummy_index, tmpdir, tmpdir_as_cache, monkeypatch):
             "usecache": False,
             "tpuname": None,
             "tpuzone": None,
-            "gcsbucket": None,
+            "storage": None,
             "boardname": "default",
         }
     )
@@ -418,7 +418,7 @@ def test_vanillabert_tf(dummy_index, tmpdir, tmpdir_as_cache, monkeypatch):
             "usecache": False,
             "tpuname": None,
             "tpuzone": None,
-            "gcsbucket": None,
+            "storage": None,
             "boardname": "default",
         }
     )

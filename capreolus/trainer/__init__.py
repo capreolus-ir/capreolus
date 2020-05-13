@@ -361,9 +361,10 @@ class TrecCheckpointCallback(tf.keras.callbacks.Callback):
         self.iter_start_time = time.time()
 
     def on_epoch_end(self, epoch, logs=None):
-        logger.info("Epoch {} took {}".format(epoch, time.time() - self.iter_start_time))
+        logger.debug("Epoch {} took {}".format(epoch, time.time() - self.iter_start_time))
         if (epoch + 1) % self.validate_freq == 0:
             predictions = self.model.predict(self.dev_records)
+            logger.debug("predictions shape is {}".format(predictions.shape))
             trec_preds = self.get_preds_in_trec_format(predictions, self.dev_data)
             metrics = evaluator.eval_runs(trec_preds, dict(self.qrels), ["ndcg_cut_20", "map", "P_20"])
             logger.info("dev metrics: %s", " ".join([f"{metric}={v:0.3f}" for metric, v in sorted(metrics.items())]))
@@ -418,10 +419,10 @@ class TensorFlowTrainer(Trainer):
         self.validate()
 
     def validate(self):
-        if self.tpu and any([self.cfg["gcsbucket"] is None, self.cfg["tpuname"] is None, self.cfg["tpuzone"] is None]):
-            raise ValueError("gcsbucket, tpuname and tpuzone configs must be provided when training on TPU")
-        if self.cfg["gcsbucket"] and not self.cfg["gcsbucket"].startswith("gs://"):
-            raise ValueError("The gcsbucket config should start with 'gs://'")
+        if self.tpu and any([self.cfg["storage"] is None, self.cfg["tpuname"] is None, self.cfg["tpuzone"] is None]):
+            raise ValueError("storage, tpuname and tpuzone configs must be provided when training on TPU")
+        if self.cfg["storage"] and not self.cfg["storage"].startswith("gs://"):
+            raise ValueError("The storage config should start with 'gs://'")
 
     @staticmethod
     def config():
@@ -441,7 +442,7 @@ class TensorFlowTrainer(Trainer):
         usecache = False
         tpuname = None
         tpuzone = None
-        gcsbucket = None
+        storage = None
         boardname = "default"
 
     def get_optimizer(self):
@@ -455,7 +456,7 @@ class TensorFlowTrainer(Trainer):
         # TODO: Do the train_output_path modification at one place?
         if self.tpu:
             train_output_path = "{0}/{1}/{2}".format(
-                self.cfg["gcsbucket"], "train_output", hashlib.md5(str(train_output_path).encode("utf-8")).hexdigest()
+                self.cfg["storage"], "train_output", hashlib.md5(str(train_output_path).encode("utf-8")).hexdigest()
             )
 
         reranker.model.load_weights("{0}/dev.best".format(train_output_path))
@@ -464,12 +465,12 @@ class TensorFlowTrainer(Trainer):
         self.optimizer.apply_gradients(zip(grads, weights))
 
     def train(self, reranker, train_dataset, train_output_path, dev_data, dev_output_path, qrels, metric):
-        # summary_writer = tf.summary.create_file_writer("{0}/capreolus_tensorboard/{1}".format(self.cfg["gcsbucket"], self.cfg["boardname"]))
+        # summary_writer = tf.summary.create_file_writer("{0}/capreolus_tensorboard/{1}".format(self.cfg["storage"], self.cfg["boardname"]))
 
         # Because TPUs can't work with local files
         if self.tpu:
             train_output_path = "{0}/{1}/{2}".format(
-                self.cfg["gcsbucket"], "train_output", hashlib.md5(str(train_output_path).encode("utf-8")).hexdigest()
+                self.cfg["storage"], "train_output", hashlib.md5(str(train_output_path).encode("utf-8")).hexdigest()
             )
 
         os.makedirs(dev_output_path, exist_ok=True)
@@ -482,7 +483,7 @@ class TensorFlowTrainer(Trainer):
             dev_records = self.get_tf_dev_records(dev_data)
             trec_callback = TrecCheckpointCallback(qrels, dev_data, dev_records, train_output_path, self.cfg["validatefreq"])
             tensorboard_callback = tf.keras.callbacks.TensorBoard(
-                log_dir="{0}/capreolus_tensorboard/{1}".format(self.cfg["gcsbucket"], self.cfg["boardname"])
+                log_dir="{0}/capreolus_tensorboard/{1}".format(self.cfg["storage"], self.cfg["boardname"])
             )
             reranker.build()
 
@@ -541,7 +542,7 @@ class TensorFlowTrainer(Trainer):
         return str(filename)
 
     def convert_to_tf_dev_record(self, dataset):
-        dir_name = "{0}/{1}/{2}".format(self.cfg["gcsbucket"], "capreolus_tfrecords", dataset.get_hash())
+        dir_name = "{0}/{1}/{2}".format(self.cfg["storage"], "capreolus_tfrecords", dataset.get_hash())
 
         tf_features = [
             self.create_tf_feature(
@@ -557,7 +558,7 @@ class TensorFlowTrainer(Trainer):
         Tensorflow works better if the input data is fed in as tfrecords
         Takes in a dataset,  iterates through it, and creates multiple tf records from it.
         """
-        dir_name = "{0}/{1}/{2}".format(self.cfg["gcsbucket"], "capreolus_tfrecords", dataset.get_hash())
+        dir_name = "{0}/{1}/{2}".format(self.cfg["storage"], "capreolus_tfrecords", dataset.get_hash())
 
         total_samples = dataset.get_total_samples()
         split_every = int(total_samples / 10) or 1
@@ -585,25 +586,6 @@ class TensorFlowTrainer(Trainer):
                 if sample_idx + 1 >= self.cfg["itersize"] * self.cfg["batch"]:
                     break
 
-        # logger.info("Converting {} samples to tf records".format(total_samples))
-        # for idx, sample in tqdm(enumerate(dataset.epoch_generator_func())):
-        #     tf_features.append(
-        #         self.create_tf_feature(
-        #             sample["qid"],
-        #             sample["query"],
-        #             sample["query_idf"],
-        #             sample["posdocid"],
-        #             sample["posdoc"],
-        #             sample["negdocid"],
-        #             sample["negdoc"],
-        #         )
-        #     )
-        #
-        #     # Spreads the dataset across 5 files since split_every is total_samples/5
-        #     if (idx + 1) % split_every == 0:
-        #         tf_record_filenames.append(self.write_tf_record_to_file(dir_name, tf_features))
-        #         tf_features = []
-
         if len(tf_features):
             tf_record_filenames.append(self.write_tf_record_to_file(dir_name, tf_features))
 
@@ -615,7 +597,7 @@ class TensorFlowTrainer(Trainer):
         If using TPUs, this will be a gcs path.
         """
         if self.tpu:
-            return "{0}/capreolus_tfrecords/{1}".format(self.cfg["gcsbucket"], dataset.get_hash())
+            return "{0}/capreolus_tfrecords/{1}".format(self.cfg["storage"], dataset.get_hash())
         else:
             base_path = self.get_cache_path()
             return "{0}/{1}".format(base_path, dataset.get_hash())
@@ -630,12 +612,9 @@ class TensorFlowTrainer(Trainer):
     def load_tf_records_from_file(self, filenames, batch_size):
         raw_dataset = tf.data.TFRecordDataset(filenames)
         feature_description = {
-            "qid": tf.io.FixedLenFeature([], tf.string),
             "query": tf.io.FixedLenFeature([self.cfg["maxqlen"]], tf.float32),
             "query_idf": tf.io.FixedLenFeature([self.cfg["maxqlen"]], tf.float32),
-            "posdoc_id": tf.io.FixedLenFeature([], tf.string),
             "posdoc": tf.io.FixedLenFeature([self.cfg["maxdoclen"]], tf.float32),
-            "negdoc_id": tf.io.FixedLenFeature([], tf.string, default_value=b"na"),
             "negdoc": tf.io.FixedLenFeature([self.cfg["maxdoclen"]], tf.float32, default_value=tf.zeros(self.cfg["maxdoclen"])),
             "label": tf.io.FixedLenFeature([1], tf.float32, default_value=tf.zeros((1))),
         }

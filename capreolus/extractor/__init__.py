@@ -204,6 +204,8 @@ class EmbedText(Extractor):
             "query": np.array(query, dtype=np.long),
             "posdoc": np.array(posdoc, dtype=np.long),
             "query_idf": np.array(idfs, dtype=np.float32),
+            "negdocid": None,
+            "negdoc": np.zeros(self.cfg["maxdoclen"])
         }
 
         if negid:
@@ -290,6 +292,8 @@ class BertText(Extractor):
             "query": np.array(query, dtype=np.long),
             "posdoc": np.array(posdoc, dtype=np.long),
             "query_idf": np.array(query, dtype=np.float32),
+            "negdocid": None,
+            "negdoc": np.zeros(self.cfg["maxdoclen"])
         }
 
         if negid:
