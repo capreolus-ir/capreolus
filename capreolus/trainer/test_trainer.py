@@ -42,7 +42,7 @@ def test_tf_get_tf_dataset(monkeypatch):
             "usecache": False,
             "tpuname": None,
             "tpuzone": None,
-            "gcsbucket": None,
+            "storage": None,
         }
     )
 
