@@ -23,6 +23,8 @@ class DomainRelatednessWiki2Vec(EntityUtils):
     dependencies = {
         "benchmark": Dependency(module="benchmark"),
     }
+    # this module probably should be dependent on entitylinking (semantically at least). Needs more thoughts.
+    # At the moment, it's not and the extractor is dependant on both of them. So there we would choose which entitylinking strategy and which entity-relatedness on top of that. which is okay I guess.
 
     embedding_dir = "/GW/PKB/nobackup/wikipedia2vec_pretrained/"
     domain_pages_dir = ''  # TODO
@@ -106,15 +108,16 @@ class DomainRelatednessWiki2Vec(EntityUtils):
             if m.group(1):
                 raise NotImplementedError("domain model as combination of entity neighbors and word neighbors is not implemented")
             else:
-                return self.load_domain_vector_by_neighbors(self.domain, k)
+                return self.load_domain_vector_by_neighbors(k)
 
-    def load_domain_vector_by_neighbors(self, domain, k):
-        domain_entity = "ENTITY/Book"
-        if domain == 'movie':
+    def load_domain_vector_by_neighbors(self, k):
+        if self.domain == "book":
+            domain_entity = "ENTITY/Book"
+        elif self.domain == "movie":
             domain_entity = "ENTITY/Film"
-        elif domain == 'travel':
+        elif self.domain == "travel_wikivoyage":
             domain_entity = "ENTITY/Travel"
-        elif domain == 'food':
+        elif self.domain == "food":
             domain_entity = "ENTITY/Food"
 
         domain_vec = self.wiki2vec.get_vector(domain_entity)
