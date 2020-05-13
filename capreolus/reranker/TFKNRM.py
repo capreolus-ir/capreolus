@@ -35,7 +35,7 @@ class TFKNRM_Class(tf.keras.Model):
         query_k = tf.reduce_sum(log_k, axis=2)
         scores = self.combine(query_k)
 
-        return scores
+        return tf.reshape(scores, [batch_size])
 
     def call(self, x, **kwargs):
         """

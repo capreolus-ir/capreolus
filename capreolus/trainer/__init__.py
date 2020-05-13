@@ -385,7 +385,7 @@ class TrecCheckpointCallback(tf.keras.callbacks.Callback):
 
         for i, (qid, docid) in enumerate(dev_data.get_qid_docid_pairs()):
             # Pytrec_eval has problems with high precision floats
-            pred_dict[qid][docid] = predictions[i][0].astype(np.float16).item()
+            pred_dict[qid][docid] = predictions[i].astype(np.float16).item()
 
         return dict(pred_dict)
 
@@ -421,8 +421,8 @@ class TensorFlowTrainer(Trainer):
     def validate(self):
         if self.tpu and any([self.cfg["storage"] is None, self.cfg["tpuname"] is None, self.cfg["tpuzone"] is None]):
             raise ValueError("storage, tpuname and tpuzone configs must be provided when training on TPU")
-        if self.cfg["storage"] and not self.cfg["storage"].startswith("gs://"):
-            raise ValueError("The storage config should start with 'gs://'")
+        if self.tpu and self.cfg["storage"] and not self.cfg["storage"].startswith("gs://"):
+            raise ValueError("For TPU utilization, the storage config should start with 'gs://'")
 
     @staticmethod
     def config():
