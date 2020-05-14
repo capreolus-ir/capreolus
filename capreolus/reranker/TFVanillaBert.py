@@ -37,8 +37,8 @@ class TFVanillaBert_Class(tf.keras.Model):
         query_posdoc_tokens_tensor = tf.concat([cls, query_toks, sep_1, pos_toks, sep_2], axis=1)
         query_negdoc_tokens_tensor = tf.concat([cls, query_toks, sep_1, neg_toks, sep_2], axis=1)
         ones = tf.ones([batch_size, 1])
-        query_posdoc_mask = tf.concat([ones, query_mask, ones, posdoc_mask, ones])
-        query_negdoc_mask = tf.concat([ones, query_mask, ones, negdoc_mask, ones])
+        query_posdoc_mask = tf.concat([ones, query_mask, ones, posdoc_mask, ones], axis=1)
+        query_negdoc_mask = tf.concat([ones, query_mask, ones, negdoc_mask, ones], axis=1)
         query_doc_segments_tensor = tf.concat([tf.zeros([batch_size, qlen + 2]), tf.zeros([batch_size, doclen + 1])], axis=1)
         posdoc_score = self.bert(
             query_posdoc_tokens_tensor, attention_mask=query_posdoc_mask, token_type_ids=query_doc_segments_tensor
