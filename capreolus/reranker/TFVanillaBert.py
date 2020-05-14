@@ -18,10 +18,14 @@ class TFVanillaBert_Class(tf.keras.Model):
         self.config = config
 
     def call(self, x, **kwargs):
-        pos_toks, neg_toks, query_toks, query_idf = x[0], x[1], x[2], x[3]
-        pos_toks = tf.cast(pos_toks, tf.int32)
-        neg_toks = tf.cast(neg_toks, tf.int32)
-        query_toks = tf.cast(query_toks, tf.int32)
+        """
+        During training, both posdoc and negdoc are passed
+        During eval, both posdoc and negdoc are passed but negdoc would be a zero tensor
+        Whether negdoc is a legit doc tensor or a dummy zero tensor is determined by which sampler is used
+        (eg: sampler.TrainDataset) as well as the extractor (eg: EmbedText)
+        """
+
+        pos_toks, posdoc_mask, neg_toks, negdoc_mask, query_toks = x[0], x[1], x[2], x[3], x[4]
         batch_size = tf.shape(pos_toks)[0]
         doclen = tf.shape(pos_toks)[1]
         qlen = tf.shape(query_toks)[1]
@@ -33,8 +37,12 @@ class TFVanillaBert_Class(tf.keras.Model):
         query_posdoc_tokens_tensor = tf.concat([cls, query_toks, sep_1, pos_toks, sep_2], axis=1)
         query_negdoc_tokens_tensor = tf.concat([cls, query_toks, sep_1, neg_toks, sep_2], axis=1)
         query_doc_segments_tensor = tf.concat([tf.zeros([batch_size, qlen + 2]), tf.zeros([batch_size, doclen + 1])], axis=1)
-        posdoc_score = self.bert(query_posdoc_tokens_tensor, token_type_ids=query_doc_segments_tensor)[0][:, 0]
-        negdoc_score = self.bert(query_negdoc_tokens_tensor, token_type_ids=query_doc_segments_tensor)[0][:, 0]
+        posdoc_score = self.bert(
+            query_posdoc_tokens_tensor, attention_mask=posdoc_mask, token_type_ids=query_doc_segments_tensor
+        )[0][:, 0]
+        negdoc_score = self.bert(
+            query_negdoc_tokens_tensor, attention_mask=negdoc_mask, token_type_ids=query_doc_segments_tensor
+        )[0][:, 0]
 
         # TODO: Verify that negdoc_score is indeed always zero whenever a zero negdoc tensor is passed into it
         return posdoc_score - negdoc_score

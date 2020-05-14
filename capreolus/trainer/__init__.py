@@ -479,8 +479,8 @@ class TensorFlowTrainer(Trainer):
 
         strategy_scope = self.strategy.scope()
         with strategy_scope:
-            train_records = self.get_tf_train_records(train_dataset)
-            dev_records = self.get_tf_dev_records(dev_data)
+            train_records = self.get_tf_train_records(reranker, train_dataset)
+            dev_records = self.get_tf_dev_records(reranker, dev_data)
             trec_callback = TrecCheckpointCallback(qrels, dev_data, dev_records, train_output_path, self.cfg["validatefreq"])
             tensorboard_callback = tf.keras.callbacks.TensorBoard(
                 log_dir="{0}/capreolus_tensorboard/{1}".format(self.cfg["storage"], self.cfg["boardname"])
@@ -541,43 +541,31 @@ class TensorFlowTrainer(Trainer):
 
         return str(filename)
 
-    def convert_to_tf_dev_record(self, dataset):
+    def convert_to_tf_dev_record(self, reranker, dataset):
+        """
+        Similar to self.convert_to_tf_train_record(), but won't result in multiple files
+        """
         dir_name = "{0}/{1}/{2}".format(self.cfg["storage"], "capreolus_tfrecords", dataset.get_hash())
 
-        tf_features = [
-            self.create_tf_feature(
-                sample["qid"], sample["query"], sample["query_idf"], sample["posdocid"], sample["posdoc"], None, None
-            )
-            for sample in dataset
-        ]
+        tf_features = [reranker["extractor"].create_tf_feature(sample) for sample in dataset]
 
         return [self.write_tf_record_to_file(dir_name, tf_features)]
 
-    def convert_to_tf_train_record(self, dataset):
+    def convert_to_tf_train_record(self, reranker, dataset):
         """
         Tensorflow works better if the input data is fed in as tfrecords
         Takes in a dataset,  iterates through it, and creates multiple tf records from it.
+        The exact structure of the tfrecords is defined by reranker.extractor. For example, see EmbedText.get_tf_feature()
         """
         dir_name = "{0}/{1}/{2}".format(self.cfg["storage"], "capreolus_tfrecords", dataset.get_hash())
 
         total_samples = dataset.get_total_samples()
-        split_every = int(total_samples / 10) or 1
         tf_features = []
         tf_record_filenames = []
 
         for niter in tqdm(range(0, self.cfg["niters"]), desc="Converting data to tf records"):
             for sample_idx, sample in enumerate(dataset):
-                tf_features.append(
-                    self.create_tf_feature(
-                        sample["qid"],
-                        sample["query"],
-                        sample["query_idf"],
-                        sample["posdocid"],
-                        sample["posdoc"],
-                        sample["negdocid"],
-                        sample["negdoc"],
-                    )
-                )
+                tf_features.append(reranker["extractor"].create_tf_feature(sample))
 
                 if len(tf_features) > 20000:
                     tf_record_filenames.append(self.write_tf_record_to_file(dir_name, tf_features))
@@ -609,60 +597,44 @@ class TensorFlowTrainer(Trainer):
 
         return tf.io.gfile.isdir(cache_dir)
 
-    def load_tf_records_from_file(self, filenames, batch_size):
+    def load_tf_records_from_file(self, reranker, filenames, batch_size):
         raw_dataset = tf.data.TFRecordDataset(filenames)
-        feature_description = {
-            "query": tf.io.FixedLenFeature([self.cfg["maxqlen"]], tf.float32),
-            "query_idf": tf.io.FixedLenFeature([self.cfg["maxqlen"]], tf.float32),
-            "posdoc": tf.io.FixedLenFeature([self.cfg["maxdoclen"]], tf.float32),
-            "negdoc": tf.io.FixedLenFeature([self.cfg["maxdoclen"]], tf.float32, default_value=tf.zeros(self.cfg["maxdoclen"])),
-            "label": tf.io.FixedLenFeature([1], tf.float32, default_value=tf.zeros((1))),
-        }
-
-        def parse_example(example_proto):
-            single_example = tf.io.parse_example(example_proto, feature_description)
-            posdoc = single_example["posdoc"]
-            negdoc = single_example["negdoc"]
-            query = single_example["query"]
-            query_idf = single_example["query_idf"]
-            label = single_example["label"]
-
-            return (posdoc, negdoc, query, query_idf), label
-
-        tf_records_dataset = raw_dataset.batch(batch_size, drop_remainder=True).map(parse_example, num_parallel_calls=tf.data.experimental.AUTOTUNE)
+        tf_records_dataset = raw_dataset.batch(batch_size, drop_remainder=True).map(
+            reranker["extractor"].parse_tf_example, num_parallel_calls=tf.data.experimental.AUTOTUNE
+        )
 
         return tf_records_dataset
 
-    def load_cached_tf_records(self, dataset, batch_size):
+    def load_cached_tf_records(self, reranker, dataset, batch_size):
         logger.info("Loading TF records from cache")
         cache_dir = self.get_tf_record_cache_path(dataset)
         filenames = tf.io.gfile.listdir(cache_dir)
         filenames = ["{0}/{1}".format(cache_dir, name) for name in filenames]
 
-        return self.load_tf_records_from_file(filenames, batch_size)
+        return self.load_tf_records_from_file(reranker, filenames, batch_size)
 
-    def get_tf_dev_records(self, dataset):
+    def get_tf_dev_records(self, reranker, dataset):
         """
         1. Returns tf records from cache (disk) if applicable
         2. Else, converts the dataset into tf records, writes them to disk, and returns them
         """
         if self.cfg["usecache"] and self.cache_exists(dataset):
-            return self.load_cached_tf_records(dataset, 1)
+            return self.load_cached_tf_records(reranker, dataset, 1)
         else:
-            tf_record_filenames = self.convert_to_tf_dev_record(dataset)
-            return self.load_tf_records_from_file(tf_record_filenames, 1)
+            tf_record_filenames = self.convert_to_tf_dev_record(reranker, dataset)
+            return self.load_tf_records_from_file(reranker, tf_record_filenames, 1)
 
-    def get_tf_train_records(self, dataset):
+    def get_tf_train_records(self, reranker, dataset):
         """
         1. Returns tf records from cache (disk) if applicable
         2. Else, converts the dataset into tf records, writes them to disk, and returns them
         """
 
         if self.cfg["usecache"] and self.cache_exists(dataset):
-            return self.load_cached_tf_records(dataset, self.cfg["batch"])
+            return self.load_cached_tf_records(reranker, dataset, self.cfg["batch"])
         else:
-            tf_record_filenames = self.convert_to_tf_train_record(dataset)
-            return self.load_tf_records_from_file(tf_record_filenames, self.cfg["batch"])
+            tf_record_filenames = self.convert_to_tf_train_record(reranker, dataset)
+            return self.load_tf_records_from_file(reranker, tf_record_filenames, self.cfg["batch"])
 
     def predict(self, reranker, pred_data, pred_fn):
         """Predict query-document scores on `pred_data` using `model` and write a corresponding run file to `pred_fn`
@@ -679,7 +651,7 @@ class TensorFlowTrainer(Trainer):
 
         strategy_scope = self.strategy.scope()
         with strategy_scope:
-            pred_records = self.get_tf_dev_records(pred_data)
+            pred_records = self.get_tf_dev_records(reranker, pred_data)
             predictions = reranker.model.predict(pred_records)
             trec_preds = TrecCheckpointCallback.get_preds_in_trec_format(predictions, pred_data)
 

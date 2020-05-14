@@ -1,5 +1,6 @@
 import pickle
 from collections import defaultdict
+import tensorflow as tf
 
 import os
 import numpy as np
@@ -111,6 +112,49 @@ class EmbedText(Extractor):
             state_dict = {"qid2toks": self.qid2toks, "docid2toks": self.docid2toks, "stoi": self.stoi, "itos": self.itos}
             pickle.dump(state_dict, f, protocol=-1)
 
+    def get_tf_feature_description(self):
+        feature_description = {
+            "query": tf.io.FixedLenFeature([self.cfg["maxqlen"]], tf.int64),
+            "query_idf": tf.io.FixedLenFeature([self.cfg["maxqlen"]], tf.float32),
+            "posdoc": tf.io.FixedLenFeature([self.cfg["maxdoclen"]], tf.int64),
+            "negdoc": tf.io.FixedLenFeature([self.cfg["maxdoclen"]], tf.int64),
+            "label": tf.io.FixedLenFeature([1], tf.float32, default_value=tf.zeros((1))),
+        }
+
+        return feature_description
+
+    def create_tf_feature(self, sample):
+        """
+        sample - output from self.id2vec()
+        return - a tensorflow feature
+        """
+        query, query_idf, posdoc, negdoc, negdoc_id = (
+            sample["query"],
+            sample["query_idf"],
+            sample["posdoc"],
+            sample["negdoc"],
+            sample["negdocid"],
+        )
+        feature = {
+            "query": tf.train.Feature(int64_list=tf.train.Int64List(value=query)),
+            "query_idf": tf.train.Feature(float_list=tf.train.FloatList(value=query_idf)),
+            "posdoc": tf.train.Feature(int64_list=tf.train.Int64List(value=posdoc)),
+            "negdoc": tf.train.Feature(int64_list=tf.train.Int64List(value=negdoc)),
+        }
+
+        return feature
+
+    def parse_tf_example(self, example_proto):
+        feature_description = self.get_tf_feature_description()
+        parsed_example = tf.io.parse_example(example_proto, feature_description)
+        posdoc = parsed_example["posdoc"]
+        negdoc = parsed_example["negdoc"]
+        query = parsed_example["query"]
+        query_idf = parsed_example["query_idf"]
+        label = parsed_example["label"]
+
+        return (posdoc, negdoc, query, query_idf), label
+
     def _build_vocab(self, qids, docids, topics):
         if self.is_state_cached(qids, docids) and self.cfg["usecache"]:
             self.load_state(qids, docids)
@@ -205,7 +249,7 @@ class EmbedText(Extractor):
             "posdoc": np.array(posdoc, dtype=np.long),
             "query_idf": np.array(idfs, dtype=np.float32),
             "negdocid": None,
-            "negdoc": np.zeros(self.cfg["maxdoclen"])
+            "negdoc": np.zeros(self.cfg["maxdoclen"], dtype=np.long),
         }
 
         if negid:
@@ -250,6 +294,50 @@ class BertText(Extractor):
             state_dict = {"qid2toks": self.qid2toks, "docid2toks": self.docid2toks, "clsidx": self.clsidx, "sepidx": self.sepidx}
             pickle.dump(state_dict, f, protocol=-1)
 
+    def get_tf_feature_description(self):
+        feature_description = {
+            "query": tf.io.FixedLenFeature([self.cfg["maxqlen"]], tf.int64),
+            "posdoc": tf.io.FixedLenFeature([self.cfg["maxdoclen"]], tf.int64),
+            "posdoc_mask": tf.io.FixedLenFeature([self.cfg["maxdoclen"]], tf.int64),
+            "negdoc": tf.io.FixedLenFeature([self.cfg["maxdoclen"]], tf.int64),
+            "negdoc_mask": tf.io.FixedLenFeature([self.cfg["maxdoclen"]], tf.int64),
+            "label": tf.io.FixedLenFeature([1], tf.float32, default_value=tf.zeros((1))),
+        }
+
+        return feature_description
+
+    def create_tf_feature(self, sample):
+        """
+        sample - output from self.id2vec()
+        return - a tensorflow feature
+        """
+        query, posdoc, negdoc, negdoc_id = sample["query"], sample["posdoc"], sample["negdoc"], sample["negdocid"]
+        posdoc_mask, negdoc_mask = sample["posdoc_mask"], sample["negdoc_mask"]
+
+        feature = {
+            "query": tf.train.Feature(int64_list=tf.train.Int64List(value=query)),
+            "posdoc": tf.train.Feature(int64_list=tf.train.Int64List(value=posdoc)),
+            "posdoc_mask": tf.train.Feature(int64_list=tf.train.Int64List(value=posdoc_mask)),
+        }
+
+        if negdoc_id:
+            feature["negdoc"] = tf.train.Feature(int64_list=tf.train.Int64List(value=negdoc))
+            feature["negdoc_mask"] = tf.train.Feature(int64_list=tf.train.Int64List(value=negdoc_mask))
+
+        return feature
+
+    def parse_tf_example(self, example_proto):
+        feature_description = self.get_tf_feature_description()
+        parsed_example = tf.io.parse_example(example_proto, feature_description)
+        posdoc = parsed_example["posdoc"]
+        posdoc_mask = parsed_example["posdoc_mask"]
+        negdoc = parsed_example["negdoc"]
+        negdoc_mask = parsed_example["negdoc_mask"]
+        query = parsed_example["query"]
+        label = parsed_example["label"]
+
+        return (posdoc, posdoc_mask, negdoc, negdoc_mask, query), label
+
     def _build_vocab(self, qids, docids, topics):
         if self.is_state_cached(qids, docids) and self.cfg["usecache"]:
             self.load_state(qids, docids)
@@ -283,7 +371,9 @@ class BertText(Extractor):
         qlen, doclen = self.cfg["maxqlen"], self.cfg["maxdoclen"]
 
         query = padlist(tokenizer.convert_tokens_to_ids(self.qid2toks[qid]), qlen)
-        posdoc = padlist(tokenizer.convert_tokens_to_ids(self.docid2toks[posid]), doclen)
+        posdoc_toks = tokenizer.convert_tokens_to_ids(self.docid2toks[posid])
+        posdoc_mask = self.get_mask(posdoc_toks, doclen)
+        posdoc = padlist(posdoc_toks, doclen)
 
         data = {
             "qid": qid,
@@ -291,17 +381,32 @@ class BertText(Extractor):
             "idfs": np.zeros(qlen, dtype=np.float32),
             "query": np.array(query, dtype=np.long),
             "posdoc": np.array(posdoc, dtype=np.long),
+            "posdoc_mask": np.array(posdoc_mask, dtype=np.long),
             "query_idf": np.array(query, dtype=np.float32),
             "negdocid": None,
-            "negdoc": np.zeros(self.cfg["maxdoclen"])
+            "negdoc": np.zeros(doclen),
+            "negdoc_mask": np.zeros(doclen),
         }
 
         if negid:
-            negdoc = padlist(tokenizer.convert_tokens_to_ids(self.docid2toks.get(negid, None)), doclen)
+            negdoc_toks = tokenizer.convert_tokens_to_ids(self.docid2toks.get(negid, None))
+            negdoc_mask = self.get_mask(negdoc_toks, doclen)
+            negdoc = padlist(negdoc_toks, doclen)
+
             if not negdoc:
                 raise MissingDocError(qid, negid)
 
             data["negdocid"] = negid
             data["negdoc"] = np.array(negdoc, dtype=np.long)
+            data["negdoc_mask"] = np.array(negdoc_mask, dtype=np.long)
 
         return data
+
+    def get_mask(self, doc, to_len):
+        """
+        Returns a mask where it is 1 for actual toks and 0 for pad toks
+        """
+        s = doc[:to_len]
+        padlen = to_len - len(s)
+        mask = [1 for _ in s] + [0 for _ in range(padlen)]
+        return mask

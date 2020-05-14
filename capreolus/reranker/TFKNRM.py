@@ -39,6 +39,11 @@ class TFKNRM_Class(tf.keras.Model):
 
     def call(self, x, **kwargs):
         """
+        During training, both posdoc and negdoc are passed
+        During eval, both posdoc and negdoc are passed but negdoc would be a zero tensor
+        Whether negdoc is a legit doc tensor or a dummy zero tensor is determined by which sampler is used
+        (eg: sampler.TrainDataset) as well as the extractor (eg: EmbedText)
+
         Unlike the pytorch KNRM model, KNRMTF accepts both the positive and negative document in its forward pass.
         It scores them separately and returns the score difference (i.e posdoc_score - negdoc_score).
         """
