@@ -30,9 +30,9 @@ class TFVanillaBert_Class(tf.keras.Model):
         doclen = tf.shape(pos_toks)[1]
         qlen = tf.shape(query_toks)[1]
 
-        cls = tf.fill([batch_size, 1], self.clsidx, name="clstoken")
-        sep_1 = tf.fill([batch_size, 1], self.sepidx, name="septoken1")
-        sep_2 = tf.fill([batch_size, 1], self.sepidx, name="septoken2")
+        cls = tf.cast(tf.fill([batch_size, 1], self.clsidx, name="clstoken"), tf.int64)
+        sep_1 = tf.cast(tf.fill([batch_size, 1], self.sepidx, name="septoken1"), tf.int64)
+        sep_2 = tf.cast(tf.fill([batch_size, 1], self.sepidx, name="septoken2"), tf.int64)
 
         query_posdoc_tokens_tensor = tf.concat([cls, query_toks, sep_1, pos_toks, sep_2], axis=1)
         query_negdoc_tokens_tensor = tf.concat([cls, query_toks, sep_1, neg_toks, sep_2], axis=1)
