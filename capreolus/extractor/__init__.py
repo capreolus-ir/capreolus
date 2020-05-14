@@ -389,8 +389,8 @@ class BertText(Extractor):
             "posdoc_mask": np.array(posdoc_mask, dtype=np.long),
             "query_idf": np.array(query, dtype=np.float32),
             "negdocid": None,
-            "negdoc": np.zeros(doclen),
-            "negdoc_mask": np.zeros(doclen),
+            "negdoc": np.zeros(doclen, dtype=np.long),
+            "negdoc_mask": np.zeros(doclen, dtype=np.long),
         }
 
         if negid:
