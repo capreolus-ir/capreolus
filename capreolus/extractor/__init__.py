@@ -320,11 +320,9 @@ class BertText(Extractor):
             "query_mask": tf.train.Feature(int64_list=tf.train.Int64List(value=query_mask)),
             "posdoc": tf.train.Feature(int64_list=tf.train.Int64List(value=posdoc)),
             "posdoc_mask": tf.train.Feature(int64_list=tf.train.Int64List(value=posdoc_mask)),
+            "negdoc": tf.train.Feature(int64_list=tf.train.Int64List(value=negdoc)),
+            "negdoc_mask": tf.train.Feature(int64_list=tf.train.Int64List(value=negdoc_mask))
         }
-
-        if negdoc_id:
-            feature["negdoc"] = tf.train.Feature(int64_list=tf.train.Int64List(value=negdoc))
-            feature["negdoc_mask"] = tf.train.Feature(int64_list=tf.train.Int64List(value=negdoc_mask))
 
         return feature
 
