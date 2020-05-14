@@ -297,6 +297,7 @@ class BertText(Extractor):
     def get_tf_feature_description(self):
         feature_description = {
             "query": tf.io.FixedLenFeature([self.cfg["maxqlen"]], tf.int64),
+            "query_mask": tf.io.FixedLenFeature([self.cfg["maxqlen"]], tf.int64),
             "posdoc": tf.io.FixedLenFeature([self.cfg["maxdoclen"]], tf.int64),
             "posdoc_mask": tf.io.FixedLenFeature([self.cfg["maxdoclen"]], tf.int64),
             "negdoc": tf.io.FixedLenFeature([self.cfg["maxdoclen"]], tf.int64),
@@ -312,10 +313,11 @@ class BertText(Extractor):
         return - a tensorflow feature
         """
         query, posdoc, negdoc, negdoc_id = sample["query"], sample["posdoc"], sample["negdoc"], sample["negdocid"]
-        posdoc_mask, negdoc_mask = sample["posdoc_mask"], sample["negdoc_mask"]
+        query_mask, posdoc_mask, negdoc_mask = sample["query_mask"], sample["posdoc_mask"], sample["negdoc_mask"]
 
         feature = {
             "query": tf.train.Feature(int64_list=tf.train.Int64List(value=query)),
+            "query_mask": tf.train.Feature(int64_list=tf.train.Int64List(value=query_mask)),
             "posdoc": tf.train.Feature(int64_list=tf.train.Int64List(value=posdoc)),
             "posdoc_mask": tf.train.Feature(int64_list=tf.train.Int64List(value=posdoc_mask)),
         }
@@ -334,9 +336,10 @@ class BertText(Extractor):
         negdoc = parsed_example["negdoc"]
         negdoc_mask = parsed_example["negdoc_mask"]
         query = parsed_example["query"]
+        query_mask = parsed_example["query_mask"]
         label = parsed_example["label"]
 
-        return (posdoc, posdoc_mask, negdoc, negdoc_mask, query), label
+        return (posdoc, posdoc_mask, negdoc, negdoc_mask, query, query_mask), label
 
     def _build_vocab(self, qids, docids, topics):
         if self.is_state_cached(qids, docids) and self.cfg["usecache"]:
@@ -370,7 +373,10 @@ class BertText(Extractor):
         tokenizer = self["tokenizer"]
         qlen, doclen = self.cfg["maxqlen"], self.cfg["maxdoclen"]
 
-        query = padlist(tokenizer.convert_tokens_to_ids(self.qid2toks[qid]), qlen)
+        query_toks = tokenizer.convert_tokens_to_ids(self.qid2toks[qid])
+        query_mask = self.get_mask(query_toks, qlen)
+        query = padlist(query_toks, qlen)
+
         posdoc_toks = tokenizer.convert_tokens_to_ids(self.docid2toks[posid])
         posdoc_mask = self.get_mask(posdoc_toks, doclen)
         posdoc = padlist(posdoc_toks, doclen)
@@ -380,6 +386,7 @@ class BertText(Extractor):
             "posdocid": posid,
             "idfs": np.zeros(qlen, dtype=np.float32),
             "query": np.array(query, dtype=np.long),
+            "query_mask": np.array(query_mask, dtype=np.long),
             "posdoc": np.array(posdoc, dtype=np.long),
             "posdoc_mask": np.array(posdoc_mask, dtype=np.long),
             "query_idf": np.array(query, dtype=np.float32),
