@@ -4,6 +4,7 @@ from transformers import TFBertForSequenceClassification
 from capreolus.registry import Dependency
 from capreolus.reranker import Reranker
 from capreolus.utils.loginit import get_logger
+from reranker.DRMM import dtype
 
 logger = get_logger(__name__)
 
@@ -36,7 +37,7 @@ class TFVanillaBert_Class(tf.keras.Model):
 
         query_posdoc_tokens_tensor = tf.concat([cls, query_toks, sep_1, pos_toks, sep_2], axis=1)
         query_negdoc_tokens_tensor = tf.concat([cls, query_toks, sep_1, neg_toks, sep_2], axis=1)
-        ones = tf.ones([batch_size, 1])
+        ones = tf.ones([batch_size, 1], dtype=tf.int64)
         query_posdoc_mask = tf.concat([ones, query_mask, ones, posdoc_mask, ones], axis=1)
         query_negdoc_mask = tf.concat([ones, query_mask, ones, negdoc_mask, ones], axis=1)
         query_doc_segments_tensor = tf.concat([tf.zeros([batch_size, qlen + 2]), tf.zeros([batch_size, doclen + 1])], axis=1)
