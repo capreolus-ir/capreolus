@@ -4,7 +4,6 @@ from transformers import TFBertForSequenceClassification
 from capreolus.registry import Dependency
 from capreolus.reranker import Reranker
 from capreolus.utils.loginit import get_logger
-from reranker.DRMM import dtype
 
 logger = get_logger(__name__)
 
