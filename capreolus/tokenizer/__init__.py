@@ -43,6 +43,7 @@ class AnseriniTokenizer(Tokenizer):
 
         return [self._tokenize(s) for s in sentences]
 
+
 class BertTokenizer(Tokenizer):
     name = "berttokenizer"
 
