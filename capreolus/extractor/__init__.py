@@ -128,13 +128,7 @@ class EmbedText(Extractor):
         sample - output from self.id2vec()
         return - a tensorflow feature
         """
-        query, query_idf, posdoc, negdoc, negdoc_id = (
-            sample["query"],
-            sample["query_idf"],
-            sample["posdoc"],
-            sample["negdoc"],
-            sample["negdocid"],
-        )
+        query, query_idf, posdoc, negdoc = (sample["query"], sample["query_idf"], sample["posdoc"], sample["negdoc"])
         feature = {
             "query": tf.train.Feature(int64_list=tf.train.Int64List(value=query)),
             "query_idf": tf.train.Feature(float_list=tf.train.FloatList(value=query_idf)),
@@ -248,7 +242,7 @@ class EmbedText(Extractor):
             "query": np.array(query, dtype=np.long),
             "posdoc": np.array(posdoc, dtype=np.long),
             "query_idf": np.array(idfs, dtype=np.float32),
-            "negdocid": None,
+            "negdocid": "",
             "negdoc": np.zeros(self.cfg["maxdoclen"], dtype=np.long),
         }
 
@@ -321,7 +315,7 @@ class BertText(Extractor):
             "posdoc": tf.train.Feature(int64_list=tf.train.Int64List(value=posdoc)),
             "posdoc_mask": tf.train.Feature(int64_list=tf.train.Int64List(value=posdoc_mask)),
             "negdoc": tf.train.Feature(int64_list=tf.train.Int64List(value=negdoc)),
-            "negdoc_mask": tf.train.Feature(int64_list=tf.train.Int64List(value=negdoc_mask))
+            "negdoc_mask": tf.train.Feature(int64_list=tf.train.Int64List(value=negdoc_mask)),
         }
 
         return feature
@@ -388,7 +382,7 @@ class BertText(Extractor):
             "posdoc": np.array(posdoc, dtype=np.long),
             "posdoc_mask": np.array(posdoc_mask, dtype=np.long),
             "query_idf": np.array(query, dtype=np.float32),
-            "negdocid": None,
+            "negdocid": "",
             "negdoc": np.zeros(doclen, dtype=np.long),
             "negdoc_mask": np.zeros(doclen, dtype=np.long),
         }
