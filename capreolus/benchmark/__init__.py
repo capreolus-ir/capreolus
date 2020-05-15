@@ -50,7 +50,7 @@ class PES20(Benchmark):
         if querytype not in ["query", "basicprofile", "entityprofile"]:
             raise ValueError(f"invalid querytype: {querytype}")
 
-        if entity_strategy not in [None, 'all', 'domain']: #TODO add strategies
+        if entity_strategy not in [None, 'all', 'domain', 'specific_domainrel']: #TODO add strategies
             raise ValueError(f"invalid entity usage strategy (or not implemented): {entity_strategy}")
 
         if querytype == 'entityprofile' and entity_strategy is not None:
@@ -102,7 +102,7 @@ class KITT(Benchmark):
         if domain not in ["book", "travel_wikivoyage", "movie", "food"]:
             raise ValueError(f"invalid domain: {domain}")
 
-        if entity_strategy not in [None, 'all', 'domain']: #TODO add strategies
+        if entity_strategy not in [None, 'all', 'domain', 'specific_domainrel']: #TODO add strategies
             raise ValueError(f"invalid entity usage strategy (or not implemented): {entity_strategy}")
 
         KITT.qrel_file = KITT.DATA_DIR / "{}_judgements".format(domain)

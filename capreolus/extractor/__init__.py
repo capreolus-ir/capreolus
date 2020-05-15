@@ -190,7 +190,8 @@ class DocStats(Extractor):
 #        "tokenizerquery": Dependency(module="tokenizer", name="spacy", config_overrides={"keepstops": False, 'removesmallerlen': 2}), #removesmallerlen is actually only used for user profile (not the short queries) but I cannot separate them
        # "tokenizer": Dependency(module="tokenizer", name="spacy", config_overrides={"keepstops": False}),
         "entitylinking": Dependency(module="entitylinking", name='ambiversenlu'),
-        "domainrelatedness": Dependency(module='entityutils', name='relatednesswiki2vec', config_overrides={"strategy": "centroid-k100"})
+        "domainrelatedness": Dependency(module='entityutilswiki2vec', name='domainrelatedness', config_overrides={"strategy": "centroid-k100"},),
+        "entityspecificity": Dependency(module='entityutilswiki2vec', name='specificityhighermean', config_overrides={"return_top": 10,"k": 100, 'ranking_strategy': 'greedy_most_outlinks_withrm'}),
     }
 
     @staticmethod
@@ -235,6 +236,7 @@ class DocStats(Extractor):
             qdesc = []
 
             qentities = self.get_entities(qid, entity_strategy) # returns empty array if the entity_strategy is None
+            logger.debug(f"{entity_strategy}: {qentities}")
             for e in qentities:
                 qdesc.append(self["entitylinking"].get_entity_description(e))
 
@@ -333,6 +335,10 @@ class DocStats(Extractor):
             return self['entitylinking'].get_all_entities(profile_id)
         elif entity_strategy == 'domain':
             return self["domainrelatedness"].get_domain_related_entities(profile_id, self['entitylinking'].get_all_entities(profile_id))
+        elif entity_strategy == 'specific_domainrel':
+            return self['entityspecificity'].top_specific_entities(
+                self["domainrelatedness"].get_domain_related_entities(profile_id, self['entitylinking'].get_all_entities(profile_id))
+            )
         else:
             raise NotImplementedError("TODO implement other entity strategies (by first implementing measures)")
 
