@@ -45,16 +45,9 @@ class PES20(Benchmark):
     @staticmethod
     def config():
         querytype = "query"  # one of: query, basicprofile, entityprofile
-        entity_strategy = None
 
         if querytype not in ["query", "basicprofile", "entityprofile"]:
             raise ValueError(f"invalid querytype: {querytype}")
-
-        if entity_strategy not in [None, 'all', 'domain', 'specific_domainrel']: #TODO add strategies
-            raise ValueError(f"invalid entity usage strategy (or not implemented): {entity_strategy}")
-
-        if querytype == 'entityprofile' and entity_strategy is not None:
-            raise ValueError(f"wrong usage of incorporate entities. We cannot use it with querytype 'entityprofile'")
 
     @property
     def topics(self):
@@ -73,10 +66,6 @@ class PES20(Benchmark):
         return False if self.cfg["entity_strategy"] is None else True
 
     @property
-    def entity_strategy(self):
-        return self.cfg['entity_strategy']
-
-    @property
     def topic_file(self):
         fn = f"topics.{self.query_type}.txt"
         return self.PES20_DIR / fn
@@ -92,7 +81,6 @@ class KITT(Benchmark):
     def config():
         querytype = "query"
         domain = "book"
-        entity_strategy = None ##TODO: I don't like that this is a string, and will be used in other modules... how can this be handled better though?
 
         if querytype not in ["query", "basicprofile", "chatprofile",
                              "basicprofile_general", 'basicprofile_food', 'basicprofile_travel', 'basicprofile_book_movie',
@@ -101,9 +89,6 @@ class KITT(Benchmark):
 
         if domain not in ["book", "travel_wikivoyage", "movie", "food"]:
             raise ValueError(f"invalid domain: {domain}")
-
-        if entity_strategy not in [None, 'all', 'domain', 'specific_domainrel']: #TODO add strategies
-            raise ValueError(f"invalid entity usage strategy (or not implemented): {entity_strategy}")
 
         KITT.qrel_file = KITT.DATA_DIR / "{}_judgements".format(domain)
         KITT.fold_file = KITT.DATA_DIR / "{}_splits.json".format(domain)
@@ -123,10 +108,6 @@ class KITT(Benchmark):
     @property
     def domain(self):
         return self.cfg["domain"]
-
-    @property
-    def entity_strategy(self):
-        return self.cfg['entity_strategy']
 
     @property
     def topic_file(self):

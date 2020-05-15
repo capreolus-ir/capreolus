@@ -39,13 +39,12 @@ class AmbiverseNLU(EntityLinking):
         return self.get_cache_path() / 'entities'
 
     def extract_entities(self, textid, text):
-        if self['benchmark'].entity_strategy is None:
-            return
-
         benchmark_name = self['benchmark'].name
         benchmark_querytype = self['benchmark'].query_type
 
-        logger.debug("extracting entities from queries(user profiles)")
+        if benchmark_querytype == 'entityprofile':
+            raise ValueError("wrong usage of incorporate entities. Do not use it with querytype 'entityprofile'")
+
         outdir = self.get_extracted_entities_cache_path()
         if exists(join(outdir, get_file_name(textid, benchmark_name, benchmark_querytype))):
             for e in self.get_all_entities(textid):
@@ -74,10 +73,6 @@ class AmbiverseNLU(EntityLinking):
             raise RuntimeError(f"request status_code is {r.status_code}")
 
     def load_descriptions(self):
-        if self['benchmark'].entity_strategy is None:
-            return
-
-        logger.debug("loading entity descriptions")
         if self.cfg["descriptions"] == "YAGO_long_short":
             self.load_YAGOdescriptions()
         else:
