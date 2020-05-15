@@ -81,21 +81,6 @@ class TrainDataset(torch.utils.data.IterableDataset):
                         "skipping training pair with missing features: qid=%s posid=%s negid=%s", qid, posdocid, negdocid
                     )
 
-    def epoch_generator_func(self):
-        """
-        Generates all unique training triplets for the dataset
-        """
-        all_qids = sorted(self.qid_to_reldocs)
-        for qid in all_qids:
-            for posdoc_id in self.qid_to_reldocs[qid]:
-                for negdoc_id in self.qid_to_negdocs[qid]:
-                    try:
-                        yield self.extractor.id2vec(qid, posdoc_id, negdoc_id)
-                    except MissingDocError:
-                        logger.warning(
-                            "skipping training pair with missing features: qid=%s posid=%s negid=%s", qid, posdoc_id, negdoc_id
-                        )
-
     def __iter__(self):
         """
         Returns: Triplets of the form (query_feature, posdoc_feature, negdoc_feature)
