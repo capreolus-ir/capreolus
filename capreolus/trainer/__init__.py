@@ -335,7 +335,7 @@ class TrecCheckpointCallback(tf.keras.callbacks.Callback):
     Also saves the best model to disk
     """
 
-    def __init__(self, qrels, dev_data, dev_records, output_path, validate_freq=1, *args, **kwargs):
+    def __init__(self, qrels, dev_data, dev_records, output_path, validate_freq=1, steps=64, *args, **kwargs):
         super(TrecCheckpointCallback, self).__init__(*args, **kwargs)
         """
         qrels - a qrels dict
@@ -349,6 +349,7 @@ class TrecCheckpointCallback(tf.keras.callbacks.Callback):
         self.output_path = output_path
         self.iter_start_time = time.time()
         self.validate_freq = validate_freq
+        self.steps = steps
 
     def save_model(self):
         self.model.save_weights("{0}/dev.best".format(self.output_path))
@@ -359,7 +360,7 @@ class TrecCheckpointCallback(tf.keras.callbacks.Callback):
     def on_epoch_end(self, epoch, logs=None):
         logger.debug("Epoch {} took {}".format(epoch, time.time() - self.iter_start_time))
         if (epoch + 1) % self.validate_freq == 0:
-            predictions = self.model.predict(self.dev_records)
+            predictions = self.model.predict(self.dev_records, steps=self.steps)
             logger.debug("predictions shape is {}".format(predictions.shape))
             trec_preds = self.get_preds_in_trec_format(predictions, self.dev_data)
             metrics = evaluator.eval_runs(trec_preds, dict(self.qrels), ["ndcg_cut_20", "map", "P_20"])
