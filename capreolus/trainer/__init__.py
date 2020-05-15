@@ -360,8 +360,7 @@ class TrecCheckpointCallback(tf.keras.callbacks.Callback):
     def on_epoch_end(self, epoch, logs=None):
         logger.debug("Epoch {} took {}".format(epoch, time.time() - self.iter_start_time))
         if (epoch + 1) % self.validate_freq == 0:
-            predictions = self.model.predict(self.dev_records, steps=self.steps)
-            logger.debug("predictions shape is {}".format(predictions.shape))
+            predictions = self.model.predict(self.dev_records, verbose=1, steps=self.steps, workers=8, use_multiprocessing=True)
             trec_preds = self.get_preds_in_trec_format(predictions, self.dev_data)
             metrics = evaluator.eval_runs(trec_preds, dict(self.qrels), ["ndcg_cut_20", "map", "P_20"])
             logger.info("dev metrics: %s", " ".join([f"{metric}={v:0.3f}" for metric, v in sorted(metrics.items())]))
