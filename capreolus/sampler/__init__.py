@@ -133,4 +133,6 @@ class PredDataset(torch.utils.data.IterableDataset):
         Returns a generator for the (qid, docid) pairs. Useful if you want to sequentially access the pred pairs without
         extracting the actual content
         """
-        return (pair for k, v in zip(self.qid_docid_to_rank.keys(), self.qid_docid_to_rank.values()) for pair in product([k], v))
+        for qid in self.qid_docid_to_rank:
+            for docid in self.qid_docid_to_rank[qid]:
+                yield qid, docid
