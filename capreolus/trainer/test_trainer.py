@@ -1,10 +1,10 @@
 import numpy as np
 import os
 import tensorflow as tf
-from benchmark import DummyBenchmark
-from extractor import EmbedText
-from sampler import TrainDataset
-from trainer import TensorFlowTrainer
+from capreolus.benchmark import DummyBenchmark
+from capreolus.extractor import EmbedText
+from capreolus.sampler import TrainDataset
+from capreolus.trainer import TensorFlowTrainer
 
 
 def test_tf_get_tf_dataset(monkeypatch):
