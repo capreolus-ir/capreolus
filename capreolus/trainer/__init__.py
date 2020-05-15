@@ -614,7 +614,7 @@ class TensorFlowTrainer(Trainer):
             return self.load_cached_tf_records(reranker, dataset, 1)
         else:
             tf_record_filenames = self.convert_to_tf_dev_record(reranker, dataset)
-            return self.load_tf_records_from_file(reranker, tf_record_filenames, 1)
+            return self.load_tf_records_from_file(reranker, tf_record_filenames, self.cfg["batch"])
 
     def get_tf_train_records(self, reranker, dataset):
         """

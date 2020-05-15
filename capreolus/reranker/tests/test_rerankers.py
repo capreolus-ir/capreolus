@@ -91,7 +91,7 @@ def test_knrm_tf(dummy_index, tmpdir, tmpdir_as_cache, monkeypatch):
             "_name": "tensorflow",
             "maxdoclen": 800,
             "maxqlen": 4,
-            "batch": 16,
+            "batch": 2,
             "niters": 1,
             "itersize": 64,
             "gradacc": 1,
