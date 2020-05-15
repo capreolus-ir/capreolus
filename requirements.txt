@@ -1,4 +1,5 @@
 # install pytorch 1.2 from conda
+
 cython
 pre-commit
 PyYAML==5.1.1
@@ -36,3 +37,4 @@ keras
 google-api-python-client
 oauth2client
 tensorflow==2.1
+transformers
