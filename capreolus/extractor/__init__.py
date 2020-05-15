@@ -224,9 +224,6 @@ class DocStats(Extractor):
         logger.debug("Openning background index")
         self["backgroundindex"].open()
 
-        ##TODO: I could pass the entity_strategy from reranker to the extractor, and then here call the entity extraction IF it was using entities.
-        ## But what I did was that I called the extract_entities anyways, but I will check whether to extract or just return null inside the entitylinking component
-        ## I would definately prefer to use the former approach which is cleaner in a reader's perspective, but I think we want to keep the reranker free of entity-related parameters
         if self.entity_strategy is not None:
             logger.debug("extracting entities from queries(user profiles)")
             for qid in qids:
