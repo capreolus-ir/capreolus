@@ -1,92 +1,85 @@
-import json
 from os.path import join, exists
-import re
-import os
-
-import numpy as np
-from capreolus.utils.common import get_file_name
-
-from capreolus.utils.loginit import get_logger
 
 from capreolus.registry import ModuleBase, RegisterableModule, Dependency
 
+from capreolus.utils.loginit import get_logger
+
 logger = get_logger(__name__)
 
-# in this module I want to implement entity specificity, domain relatedness, and popularity. I could have 3 different modules for them also. What's be best way?
 class EntityUtils(ModuleBase, metaclass=RegisterableModule):
-    """the module base class"""
+    "the module base class"
 
     module_type = "entityutils"
 
-class DomainRelatednessWiki2Vec(EntityUtils):
-    name = 'relatednesswiki2vec'
-    dependencies = {
-        "benchmark": Dependency(module="benchmark"),
-    }
-    # this module probably should be dependent on entitylinking (semantically at least). Needs more thoughts.
-    # At the moment, it's not and the extractor is dependant on both of them. So there we would choose which entitylinking strategy and which entity-relatedness on top of that. which is okay I guess.
 
-    embedding_dir = "/GW/PKB/nobackup/wikipedia2vec_pretrained/"
-    domain_pages_dir = ''  # TODO
+class EntityUtilsWiki2vec(EntityUtils):
+    name = "wiki2vec"
 
-    @staticmethod
-    def config():
-        embedding = 'enwiki_20180420_300d'
-        strategy = 'domain-vector-100'
-        domain_relatedness_threshold = 0.3
+    embedding_file = "/GW/PKB/nobackup/wikipedia2vec_pretrained/enwiki_20180420_300d"
+    wiki2vec = None
 
-        if not re.match(r"^centroid-(?:entity-word-(\d+(?:\.\d+)?)-)?k(\d+)$", strategy):
-            raise ValueError(f"invalid domain embedding strategy: {strategy}")
-
-    def initialize(self, domain):
-        if hasattr(self, "domain"):
+    def load_pretrained_emb(self):
+        if self.wiki2vec is not None:
             return
 
-        self.domain = domain
-        logger.debug("loading wiki2vec embeddings")
-
-        self.wiki2vec = self.get_pretrained_emb()
-        logger.debug(f"getting domain representative {self.cfg['strategy']}")
-        self.domain_rep = self.get_domain_rep()
-
-    def get_domain_related_entities(self, entities):
-        entities = ["ENTITY/{}".format(e.replace(" ", "_")) for e in entities]
-        entity_vectors = [self.wiki2vec.word_vec(e) for e in entities]
-        entity_similarities = self.wiki2vec.cosine_similarities(self.domain_rep, entity_vectors)
-        similarities = {entities[i]: entity_similarities[i] for i in range(0, len(entities))}
-        sorted_sim = {k: v for k, v in sorted(similarities.items(), key=lambda item: item[1], reverse = True)}
-        logger.debug(f"Domain: {self.domain}, Strategy: {self.cfg['strategy']}, similarities:")
-        logger.debug(sorted_sim)
-        ret = [k for k, v in similarities.items() if v >= self.cfg['domain_relatedness_threshold']]
-        return ret
-
-    def get_pretrained_emb(self):
         import gensim
+        logger.debug("loading wikipedia2vec pretrained embedding")
 
-        model_path = join(self.embedding_dir, f"{self.cfg['embedding']}.txt")
-        return gensim.models.KeyedVectors.load_word2vec_format(model_path)
+        if exists(self.embedding_file + "-normed.bin"):
+            self.wiki2vec = gensim.models.KeyedVectors.load(self.embedding_file + "-normed.bin", mmap='r')
+            # self.wiki2vec.syn0norm = self.wiki2vec.syn0  # prevent recalc of normed vectors DEPRICATED
+            self.wiki2vec.vector_norm = self.wiki2vec.vectors
+        else:
+            self.wiki2vec = gensim.models.KeyedVectors.load_word2vec_format(self.embedding_file + ".txt")
+            self.wiki2vec.init_sims(replace=True)
+            self.wiki2vec.save(self.embedding_file + "-normed.bin")
 
-    def get_domain_rep(self):
-        m = re.match(r"^centroid-(?:entity-word-(\d+(?:\.\d+)?)-)?k(\d+)$", self.cfg['strategy'])
-        if m:
-            k = int(m.group(2))
-            if m.group(1):
-                raise NotImplementedError("domain model as combination of entity neighbors and word neighbors is not implemented")
-            else:
-                return self.load_domain_vector_by_neighbors(k)
+class EntityUtilsWikiLinks(EntityUtils):
+    name = "wikilinks"
 
-    def load_domain_vector_by_neighbors(self, k):
-        if self.domain == "book":
-            domain_entity = "ENTITY/Book"
-        elif self.domain == "movie":
-            domain_entity = "ENTITY/Film"
-        elif self.domain == "travel_wikivoyage":
-            domain_entity = "ENTITY/Travel"
-        elif self.domain == "food":
-            domain_entity = "ENTITY/Food"
+    wplinks_file = "/GW/PKB/work/data_personalization/entity_expansion/wikipediaInfoNeedsTypeCheck_en_20200101.tsv"
+    outlinks = {}
+    inlinks = {}
+    total_nodes = set()
 
-        domain_vec = self.wiki2vec.get_vector(domain_entity)
-        domain_neighborhood = self.wiki2vec.most_similar(positive=[domain_vec], topn=k)
-        domain_neighbors = [n[0] for n in domain_neighborhood]
-        domain_rep = np.mean(self.wiki2vec[domain_neighbors], axis=0)
-        return domain_rep
+    def load_wp_links(self):
+        if len(self.total_nodes) != 0:
+            return
+        logger.debug("Loading wikilink graph")
+        with open(join(self.wplinks_file), 'r') as f:
+            for line in f:
+                split = line.split('\t')
+                if len(split) < 4:
+                    continue
+                if split[2] != "<linksTo>":
+                    continue
+
+                e1 = split[1]
+                e2 = split[3]
+
+                if e1.startswith("<Category:") or e1.startswith("<Wikipedia:") or e1.startswith("<File:") or e1.startswith("<List_of"):
+                    continue
+                if e2.startswith("<Category:") or e2.startswith("<Wikipedia:") or e2.startswith("<File:") or e2.startswith("<List_of"):
+                    continue
+
+                self.total_nodes.add(e1)
+                self.total_nodes.add(e2)
+
+                if e1 not in self.outlinks:
+                    self.outlinks[e1] = []
+                self.outlinks[e1].append(e2)
+
+                if e2 not in self.inlinks:
+                    self.inlinks[e2] = []
+                self.inlinks[e2].append(e1)
+
+    def get_outlinks(self, e):
+        return self.outlinks[e]
+
+    def get_inlinks(self, e):
+        return self.inlinks[e]
+
+    @property
+    def total_nodes_count(self):
+        return len(self.total_nodes)
+

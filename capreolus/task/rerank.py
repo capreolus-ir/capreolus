@@ -47,7 +47,7 @@ def train(config, modules):
 
     docids = set(docid for querydocs in best_search_run.values() for docid in querydocs)
     qdocs = {k: v.keys() for k, v in best_search_run.items()}  # todo: to calc avgdoclen
-    reranker["extractor"].create(qids=best_search_run.keys(), docids=docids, topics=benchmark.topics[benchmark.query_type], qdocs=qdocs, entity_strategy=benchmark.entity_strategy)
+    reranker["extractor"].create(qids=best_search_run.keys(), docids=docids, topics=benchmark.topics[benchmark.query_type], qdocs=qdocs)
     reranker.build()
 
     train_run = {qid: docs for qid, docs in best_search_run.items() if qid in benchmark.folds[fold]["train_qids"]}
@@ -83,7 +83,7 @@ def evaluate(config, modules):
 
         docids = set(docid for querydocs in best_search_run.values() for docid in querydocs)
         qdocs = {k:v.keys() for k,v in best_search_run.items()} #todo: to calc avgdoclen
-        reranker["extractor"].create(qids=best_search_run.keys(), docids=docids, topics=benchmark.topics[benchmark.query_type], qdocs=qdocs, entity_strategy=benchmark.entity_strategy)
+        reranker["extractor"].create(qids=best_search_run.keys(), docids=docids, topics=benchmark.topics[benchmark.query_type], qdocs=qdocs)
         reranker.build()
 
         reranker["trainer"].load_best_model(reranker, train_output_path)
