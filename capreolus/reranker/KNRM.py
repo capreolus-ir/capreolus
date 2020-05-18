@@ -1,9 +1,9 @@
 import torch
-
 from torch import nn
+import matplotlib.pyplot as plt
 
 from capreolus.reranker import Reranker
-from capreolus.reranker.common import create_emb_layer, SimilarityMatrix, RbfKernel, RbfKernelBank
+from capreolus.reranker.common import create_emb_layer, SimilarityMatrix, RbfKernelBank
 from capreolus.utils.loginit import get_logger
 
 logger = get_logger(__name__)  # pylint: disable=invalid-name
@@ -69,9 +69,19 @@ class KNRM(Reranker):
         singlefc = True  # use single fully connected layer as in paper (True) or 2 fully connected layers (False)
         finetune = False  # Fine tune the embedding
 
+    def add_summary(self, summary_writer, niter):
+        super(KNRM, self).add_summary(summary_writer, niter)
+        if self.cfg["singlefc"]:
+            fig = plt.figure()
+            ax = fig.add_subplot(1, 1, 1)
+            ax.matshow(self.model.combine[0].weight.data.cpu())
+            summary_writer.add_figure("combine_steps weight", fig, niter)
+        else:
+            pass
+
     def build(self):
-        if not hasattr(self, "model"):
-            self.model = KNRM_class(self["extractor"], self.cfg)
+        self.model = KNRM_class(self["extractor"], self.cfg)
+
         return self.model
 
     def score(self, d):
@@ -87,4 +97,5 @@ class KNRM(Reranker):
         query_idf = d["query_idf"]
         query_sentence = d["query"]
         pos_sentence = d["posdoc"]
+
         return self.model(pos_sentence, query_sentence, query_idf).view(-1)
