@@ -1,4 +1,6 @@
 import random
+from itertools import product
+import hashlib
 import torch.utils.data
 
 from capreolus.utils.exceptions import MissingDocError
@@ -24,6 +26,7 @@ class TrainDataset(torch.utils.data.IterableDataset):
                 logger.warning("skipping qid=%s that was missing from the qrels", qid)
                 del qid_docid_to_rank[qid]
 
+        self.qid_docid_to_rank = qid_docid_to_rank
         self.qid_to_reldocs = {
             qid: [docid for docid in docids if qrels[qid].get(docid, 0) > 0] for qid, docids in qid_docid_to_rank.items()
         }
@@ -32,15 +35,30 @@ class TrainDataset(torch.utils.data.IterableDataset):
             qid: [docid for docid in docids if qrels[qid].get(docid, 0) <= 0] for qid, docids in qid_docid_to_rank.items()
         }
 
-        # remove any qids that do not have both relevant and non-relevant documents for training
+        # remove any ids that do not have both relevant and non-relevant documents for training
+        total_samples = 1  # keep tracks of the total possible number of unique training triples for this dataset
         for qid in qid_docid_to_rank:
             posdocs = len(self.qid_to_reldocs[qid])
             negdocs = len(self.qid_to_negdocs[qid])
-
+            total_samples += posdocs * negdocs
             if posdocs == 0 or negdocs == 0:
                 logger.warning("removing training qid=%s with %s positive docs and %s negative docs", qid, posdocs, negdocs)
                 del self.qid_to_reldocs[qid]
                 del self.qid_to_negdocs[qid]
+
+        self.total_samples = total_samples
+
+    def __hash__(self):
+        return self.get_hash()
+
+    def get_hash(self):
+        sorted_rep = sorted([(qid, docids) for qid, docids in self.qid_docid_to_rank.items()])
+        key_content = "{0}{1}".format(self.extractor.name, str(sorted_rep))
+        key = hashlib.md5(key_content.encode("utf-8")).hexdigest()
+        return "train_{0}".format(key)
+
+    def get_total_samples(self):
+        return self.total_samples
 
     def generator_func(self):
         # Convert each query and doc id to the corresponding feature/embedding and yield
@@ -77,6 +95,10 @@ class PredDataset(torch.utils.data.IterableDataset):
     """
 
     def __init__(self, qid_docid_to_rank, extractor):
+        self.qid_docid_to_rank = qid_docid_to_rank
+
+        self.extractor = extractor
+
         def genf():
             for qid, docids in qid_docid_to_rank.items():
                 for docid in docids:
@@ -89,9 +111,28 @@ class PredDataset(torch.utils.data.IterableDataset):
 
         self.generator_func = genf
 
+    def __hash__(self):
+        return self.get_hash()
+
+    def get_hash(self):
+        sorted_rep = sorted([(qid, docids) for qid, docids in self.qid_docid_to_rank.items()])
+        key_content = "{0}{1}".format(self.extractor.name, str(sorted_rep))
+        key = hashlib.md5(key_content.encode("utf-8")).hexdigest()
+
+        return "dev_{0}".format(key)
+
     def __iter__(self):
         """
         Returns: Tuples of the form (query_feature, posdoc_feature)
         """
 
         return iter(self.generator_func())
+
+    def get_qid_docid_pairs(self):
+        """
+        Returns a generator for the (qid, docid) pairs. Useful if you want to sequentially access the pred pairs without
+        extracting the actual content
+        """
+        for qid in self.qid_docid_to_rank:
+            for docid in self.qid_docid_to_rank[qid]:
+                yield qid, docid

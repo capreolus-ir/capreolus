@@ -111,18 +111,10 @@ class BagOfWords(Extractor):
 
         self._build_vocab(qids, docids, topics)
 
-    def id2vec(self, q_id, posdoc_id, negdoc_id=None, query=None):
-        # TODO: Get rid of this if check. Standardize the interface
-        if query is not None:
-            if q_id is None:
-                query_toks = self["tokenizer"].tokenize(query)
-                pass
-            else:
-                raise RuntimeError("received both a qid and query, but only one can be passed")
-
-        else:
-            query_toks = self.qid2toks[q_id]
+    def id2vec(self, q_id, posdoc_id, negdoc_id=None):
+        query_toks = self.qid2toks[q_id]
         posdoc_toks = self.docid2toks.get(posdoc_id)
+
         if not posdoc_toks:
             logger.debug("missing docid %s", posdoc_id)
             return None
