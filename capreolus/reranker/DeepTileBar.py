@@ -7,6 +7,7 @@ import torch.nn.functional as F
 from capreolus.extractor.deeptileextractor import DeepTileExtractor
 from capreolus.reranker import Reranker
 from capreolus.utils.loginit import get_logger
+from capreolus.registry import Dependency
 
 logger = get_logger(__name__)  # pylint: disable=invalid-name
 
@@ -142,7 +143,8 @@ class DeepTileBar_class(nn.Module):
         linear_hidden_dim1 = config["linearhiddendim1"]
         linear_hidden_dim2 = config["linearhiddendim2"]
         config = dict(config)
-        config = config.update(dict(extractor.cfg))
+        config.update(dict(extractor.cfg))
+
         self.DeepTileBar1 = DeepTileBar_nn(
             config, batch_size, number_filter, lstm_hidden_dim, linear_hidden_dim1, linear_hidden_dim2
         )
@@ -170,6 +172,10 @@ class DeepTileBar(Reranker):
     description = """Zhiwen Tang and Grace Hui Yang. 2019. DeepTileBars: Visualizing Term Distribution for Neural Information Retrieval. In AAAI'19."""
     EXTRACTORS = [DeepTileExtractor]
     name = "DeepTileBar"
+    dependencies = {
+        "extractor": Dependency(module="extractor", name="deeptiles"),
+        "trainer": Dependency(module="trainer", name="pytorch"),
+    }
 
     @staticmethod
     def config():
