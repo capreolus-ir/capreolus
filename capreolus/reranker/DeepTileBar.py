@@ -142,7 +142,7 @@ class DeepTileBar_class(nn.Module):
         linear_hidden_dim1 = config["linearhiddendim1"]
         linear_hidden_dim2 = config["linearhiddendim2"]
         config = dict(config)
-        config.update(dict(extractor.cfg))
+        config = config.update(dict(extractor.cfg))
         self.DeepTileBar1 = DeepTileBar_nn(
             config, batch_size, number_filter, lstm_hidden_dim, linear_hidden_dim1, linear_hidden_dim2
         )
