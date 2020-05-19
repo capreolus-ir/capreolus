@@ -1,4 +1,4 @@
-from os.path import join
+from os.path import join, exists
 
 from capreolus.registry import ModuleBase, RegisterableModule, Dependency
 
@@ -15,7 +15,8 @@ class EntityUtils(ModuleBase, metaclass=RegisterableModule):
 class EntityUtilsWiki2vec(EntityUtils):
     name = "wiki2vec"
 
-    embedding_file = "/GW/PKB/nobackup/wikipedia2vec_pretrained/enwiki_20180420_300d.txt"
+    embedding_file = "/GW/PKB/nobackup/wikipedia2vec_pretrained/enwiki_20180420_300d"
+    @staticpro
     wiki2vec = None
 
     def load_pretrained_emb(self):
@@ -25,8 +26,14 @@ class EntityUtilsWiki2vec(EntityUtils):
         import gensim
         logger.debug("loading wikipedia2vec pretrained embedding")
 
-        self.wiki2vec = gensim.models.KeyedVectors.load_word2vec_format(self.embedding_file)
-
+        if exists(self.embedding_file + "-normed.bin"):
+            self.wiki2vec = gensim.models.KeyedVectors.load(self.embedding_file + "-normed.bin", mmap='r')
+            # self.wiki2vec.syn0norm = self.wiki2vec.syn0  # prevent recalc of normed vectors DEPRICATED
+            self.wiki2vec.vector_norm = self.wiki2vec.vectors
+        else:
+            self.wiki2vec = gensim.models.KeyedVectors.load_word2vec_format(self.embedding_file + ".txt")
+            self.wiki2vec.init_sims(replace=True)
+            self.wiki2vec.save(self.embedding_file + "-normed.bin")
 
 class EntityUtilsWikiLinks(EntityUtils):
     name = "wikilinks"
