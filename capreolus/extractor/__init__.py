@@ -190,8 +190,10 @@ class DocStats(Extractor):
 #        "tokenizerquery": Dependency(module="tokenizer", name="spacy", config_overrides={"keepstops": False, 'removesmallerlen': 2}), #removesmallerlen is actually only used for user profile (not the short queries) but I cannot separate them
        # "tokenizer": Dependency(module="tokenizer", name="spacy", config_overrides={"keepstops": False}),
         "entitylinking": Dependency(module="entitylinking", name='ambiversenlu'),
-        "domainrelatedness": Dependency(module='entityutilswiki2vec', name='domainrelatedness', config_overrides={"strategy": "centroid-k100"},),
-        "entityspecificity": Dependency(module='entityutilswiki2vec', name='specificityhighermean', config_overrides={"return_top": 10,"k": 100, 'ranking_strategy': 'greedy_most_outlinks_withrm'}),
+        "domainrelatedness": Dependency(module='entitydomainrelatedness', name='wiki2vecrepresentative', config_overrides={"strategy": "centroid-k100"},),
+        "entityspecificity": Dependency(module='entityspecificity', name='higherneighborhoodmean', config_overrides={"return_top": 10, "k": 100, 'ranking_strategy': 'greedy_most_outlinks_withrm'}),
+        # "entityspecificity": Dependency(module='entityspecificity', name='twohoppath', config_overrides={"return_top": 10, 'ranking_strategy': 'greedy_most_outlinks_withrm'}),
+
     }
 
     @staticmethod
