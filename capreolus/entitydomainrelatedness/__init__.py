@@ -42,7 +42,6 @@ class DomainRelatedness(EntityDomainRelatedness):
         if hasattr(self, "domain"):
             return
         self.domain = self["benchmark"].domain
-        logger.debug("loading wikipedia2vec pretrained embedding")
         self['utils'].load_pretrained_emb()
         logger.debug(f"getting domain representative {self.cfg['strategy']}")
         self.domain_rep = self.get_domain_rep()
