@@ -218,6 +218,8 @@ class DeepTileExtractor(Extractor):
                 doc_id: self.clean_segments(self.extract_segment(doc_toks, ttt, slicelen=self.cfg["slicelen"]))
                 for doc_id, doc_toks in tqdm(self.docid2toks.items(), desc="Extracting segments")
             }
+            if self.cfg["usecache"]:
+                self.cache_state(qids, docids)
 
     def exist(self):
         return hasattr(self, "embeddings") and self.embeddings is not None and len(self.stoi) > 0
