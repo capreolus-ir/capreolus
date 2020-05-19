@@ -47,6 +47,8 @@ class DeepTileExtractor(Extractor):
         embeddings = "glove6b"
         passagelen = 20
         usecache = False
+        maxqlen = 8
+        maxdoclen = 800
 
     def _get_pretrained_emb(self):
         magnitude_cache = CACHE_BASE_PATH / "magnitude/"
