@@ -16,7 +16,6 @@ class EntityUtilsWiki2vec(EntityUtils):
     name = "wiki2vec"
 
     embedding_file = "/GW/PKB/nobackup/wikipedia2vec_pretrained/enwiki_20180420_300d"
-    @staticpro
     wiki2vec = None
 
     def load_pretrained_emb(self):
