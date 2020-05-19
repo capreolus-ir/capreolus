@@ -236,6 +236,12 @@ class DocStats(Extractor):
             logger.debug("loading entity descriptions")
             self["entitylinking"].load_descriptions()
 
+        if self.entity_strategy == 'domain':
+            self["domainrelatedness"].initialize()
+        elif self.entity_strategy == 'specific_domainrel':
+            self["domainrelatedness"].initialize()
+            self["entityspecificity"].initialize()
+
         logger.debug("tokenizing queries [+entity descriptions]")
         self.qid2toks = {}
         self.qid_termprob = {}
@@ -342,10 +348,14 @@ class DocStats(Extractor):
         elif self.entity_strategy == 'all':
             return self['entitylinking'].get_all_entities(profile_id)
         elif self.entity_strategy == 'domain':
-            return self["domainrelatedness"].get_domain_related_entities(profile_id, self['entitylinking'].get_all_entities(profile_id))
+            return self["domainrelatedness"].get_domain_related_entities(
+                profile_id, self['entitylinking'].get_all_entities(profile_id)
+            )
         elif self.entity_strategy == 'specific_domainrel':
             return self['entityspecificity'].top_specific_entities(
-                self["domainrelatedness"].get_domain_related_entities(profile_id, self['entitylinking'].get_all_entities(profile_id))
+                self["domainrelatedness"].get_domain_related_entities(
+                    profile_id, self['entitylinking'].get_all_entities(profile_id)
+                )
             )
         else:
             raise NotImplementedError("TODO implement other entity strategies (by first implementing measures)")

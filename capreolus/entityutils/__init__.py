@@ -23,6 +23,7 @@ class EntityUtilsWiki2vec(EntityUtils):
             return
 
         import gensim
+        logger.debug("loading wikipedia2vec pretrained embedding")
 
         self.wiki2vec = gensim.models.KeyedVectors.load_word2vec_format(self.embedding_file)
 

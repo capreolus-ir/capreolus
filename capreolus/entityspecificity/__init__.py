@@ -7,6 +7,7 @@ from capreolus.utils.loginit import get_logger
 
 logger = get_logger(__name__)
 
+
 class EntitySpecificity(ModuleBase, metaclass=RegisterableModule):
     "the module base class"
 
