@@ -22,6 +22,7 @@ from capreolus.extractor.deeptileextractor import DeepTileExtractor
 from capreolus.reranker.DeepTileBar import DeepTileBar
 from capreolus.reranker.HINT import HINT
 from capreolus.reranker.POSITDRMM import POSITDRMM
+from capreolus.reranker.CDSSM import CDSSM
 
 
 def test_knrm_pytorch(dummy_index, tmpdir, tmpdir_as_cache, monkeypatch):
@@ -578,3 +579,57 @@ def test_POSITDRMM(dummy_index, tmpdir, tmpdir_as_cache, monkeypatch):
     )
 
     assert os.path.exists(Path(tmpdir) / "train" / "dev.best")
+
+
+def test_CDSSM(dummy_index, tmpdir, tmpdir_as_cache, monkeypatch):
+    def fake_magnitude_embedding(*args, **kwargs):
+        return Magnitude(None)
+
+    monkeypatch.setattr(EmbedText, "_get_pretrained_emb", fake_magnitude_embedding)
+
+    reranker = CDSSM({"nkernel": 3, "nfilter": 1, "nhiddens": 30, "windowsize": 3, "dropoutrate": 0})
+    trainer = PytorchTrainer(
+        {
+            "maxdoclen": 800,
+            "maxqlen": 8,
+            "batch": 32,
+            "niters": 1,
+            "itersize": 512,
+            "gradacc": 1,
+            "lr": 0.001,
+            "softmaxloss": True,
+            "interactive": False,
+            "fastforward": True,
+            "validatefreq": 1,
+            "boardname": "default",
+        }
+    )
+    reranker.modules["trainer"] = trainer
+    reranker.modules["extractor"] = EmbedText(
+        {
+            "_name": "embedtext",
+            "embeddings": "glove6b",
+            "zerounk": False,
+            "calcidf": True,
+            "maxqlen": 4,
+            "maxdoclen": 800,
+            "usecache": False,
+        }
+    )
+    extractor = reranker.modules["extractor"]
+    extractor.modules["index"] = dummy_index
+    tok_cfg = {"_name": "anserini", "keepstops": True, "stemmer": "none"}
+    tokenizer = AnseriniTokenizer(tok_cfg)
+    extractor.modules["tokenizer"] = tokenizer
+    metric = "map"
+    benchmark = DummyBenchmark({"fold": "s1", "rundocsonly": True})
+
+    extractor.create(["301"], ["LA010189-0001", "LA010189-0002"], benchmark.topics[benchmark.query_type])
+    reranker.build()
+    reranker.bm25_scores = {"301": {"LA010189-0001": 2, "LA010189-0002": 1}}
+    train_run = {"301": ["LA010189-0001", "LA010189-0002"]}
+    train_dataset = TrainDataset(qid_docid_to_rank=train_run, qrels=benchmark.qrels, extractor=extractor)
+    dev_dataset = PredDataset(qid_docid_to_rank=train_run, extractor=extractor)
+    reranker["trainer"].train(
+        reranker, train_dataset, Path(tmpdir) / "train", dev_dataset, Path(tmpdir) / "dev", benchmark.qrels, metric
+    )

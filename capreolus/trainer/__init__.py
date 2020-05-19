@@ -89,7 +89,7 @@ class PytorchTrainer(Trainer):
 
         iter_loss = []
         batches_since_update = 0
-        batches_per_epoch = self.cfg["itersize"] // self.cfg["batch"]
+        batches_per_epoch = (self.cfg["itersize"] // self.cfg["batch"]) or 1
         batches_per_step = self.cfg["gradacc"]
 
         for bi, batch in tqdm(enumerate(train_dataloader), desc="Iter progression"):
