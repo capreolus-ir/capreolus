@@ -1,4 +1,5 @@
 import hashlib
+import math
 import os
 import sys
 import time
@@ -315,6 +316,9 @@ class PytorchTrainer(Trainer):
         pred_dataloader = torch.utils.data.DataLoader(pred_data, batch_size=self.cfg["batch"], pin_memory=True, num_workers=0)
         with torch.autograd.no_grad():
             for batch in tqdm(pred_dataloader, desc="Predicting on dev"):
+                if len(batch["qid"]) != self.cfg["batch"]:
+                    batch = self.fill_incomplete_batch(batch)
+
                 batch = {k: v.to(self.device) if not isinstance(v, list) else v for k, v in batch.items()}
                 scores = reranker.test(batch)
                 scores = scores.view(-1).cpu().numpy()
@@ -326,6 +330,21 @@ class PytorchTrainer(Trainer):
         Searcher.write_trec_run(preds, pred_fn)
 
         return preds
+
+    def fill_incomplete_batch(self, batch):
+        repeat_times = math.ceil(self.cfg["batch"] / len(batch["qid"]))
+        diff = self.cfg["batch"] - len(batch["qid"])
+
+        def pad(v):
+            if isinstance(v, np.ndarray) or torch.is_tensor(v):
+                _v = v.repeat((repeat_times, ) + tuple([1 for x in range(len(v.shape) -1)]))
+            else:
+                _v = v + [v[0]] * diff
+
+            return _v[:self.cfg["batch"]]
+
+        batch = {k: pad(v) for k, v in batch.items()}
+        return batch
 
 
 class TrecCheckpointCallback(tf.keras.callbacks.Callback):

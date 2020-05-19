@@ -536,7 +536,7 @@ def test_POSITDRMM(dummy_index, tmpdir, tmpdir_as_cache, monkeypatch):
         {
             "maxdoclen": 800,
             "maxqlen": 4,
-            "batch": 2,
+            "batch": 32,
             "niters": 1,
             "itersize": 4,
             "gradacc": 1,
