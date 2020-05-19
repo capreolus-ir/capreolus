@@ -49,6 +49,7 @@ def train(config, modules):
     docids = set(docid for querydocs in best_search_run.values() for docid in querydocs)
     reranker["extractor"].create(qids=best_search_run.keys(), docids=docids, topics=benchmark.topics[benchmark.query_type])
     reranker.build()
+    reranker.bm25_scores = best_search_run
 
     train_run = {qid: docs for qid, docs in best_search_run.items() if qid in benchmark.folds[fold]["train_qids"]}
     dev_run = {qid: docs for qid, docs in best_search_run.items() if qid in benchmark.folds[fold]["predict"]["dev"]}

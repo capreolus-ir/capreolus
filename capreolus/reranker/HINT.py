@@ -151,9 +151,9 @@ class HiNT(nn.Module):
             Y_j_passage[number_window] = Y_j[:, (number_window * 100) : ((number_window + 1) * 100)]  # (P, BAT, 100)
             X_i_passage[number_window] = X_i  # (P, BAT, 100)
 
-        S_cos = torch.randn(self.passagelen, self.batch_size, self.p["maxqlen"], 100, 3).type(
-            torch.FloatTensor
-        ).to(device)  # (P, BAT, Q, 100, 3)
+        S_cos = (
+            torch.randn(self.passagelen, self.batch_size, self.p["maxqlen"], 100, 3).type(torch.FloatTensor).to(device)
+        )  # (P, BAT, Q, 100, 3)
         S_xor = torch.randn(self.passagelen, self.batch_size, self.p["maxqlen"], 100, 3).type(torch.FloatTensor).to(device)
         S_cos[:, :, :, :, 0] = X_i_passage.reshape(self.passagelen, self.batch_size, self.p["maxqlen"], 1).expand(
             self.passagelen, self.batch_size, self.p["maxqlen"], 100
