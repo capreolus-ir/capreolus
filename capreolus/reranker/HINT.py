@@ -4,6 +4,7 @@ import math
 import torch.nn.functional as F
 from torch.autograd import Variable
 from capreolus.reranker import Reranker
+from capreolus.reranker.common import create_emb_layer
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
@@ -87,7 +88,7 @@ class HiNT(nn.Module):
         embedding_dim = weights_matrix.shape[1]
         self.batch_size, self.lstm_hidden_dim = p["batch"], self.p["LSTMdim"]
 
-        self.embedding = self.create_emb_layer(weights_matrix, non_trainable=True)
+        self.embedding = create_emb_layer(weights_matrix, non_trainable=True)
 
         self.Ws = nn.Linear(embedding_dim, Ws_dim)
         self.GRU2d1 = GRUModel2d(3, self.p["spatialGRU"]).to(device)
@@ -97,17 +98,6 @@ class HiNT(nn.Module):
         self.Wv = nn.Linear((4 * self.p["spatialGRU"]), self.lstm_hidden_dim, bias=True)
         self.fc = nn.Linear(self.lstm_hidden_dim * self.p["kmax"], 1)
         self.hidden = self.init_hidden()
-
-    def create_emb_layer(self, weights, non_trainable=True):
-        layer = torch.nn.Embedding(*weights.shape)
-        layer.load_state_dict({"weight": torch.tensor(weights)})
-
-        if non_trainable:
-            layer.weight.requires_grad = False
-        else:
-            layer.weight.requires_grad = True
-
-        return layer
 
     def init_hidden(self):
         device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")

@@ -4,6 +4,7 @@ import torch.nn.functional as F
 from torch.autograd import Variable
 from capreolus.reranker import Reranker
 from capreolus.utils.loginit import get_logger
+from capreolus.reranker.common import create_emb_layer
 
 logger = get_logger(__name__)  # pylint: disable=invalid-name
 
@@ -29,24 +30,12 @@ class POSITDRMM_basic(nn.Module):
             dropout=0.3,
         )
         self.pad_token = extractor.pad
-        self.embedding = self.create_emb_layer(weights_matrix, non_trainable=True)
+        self.embedding = create_emb_layer(weights_matrix, non_trainable=True)
         self.m = nn.Dropout(p=0.2)
         self.Q1 = nn.Linear(6, 1, bias=True)
         self.Wg = nn.Linear(5, 1)
         self.activation = nn.LeakyReLU()
         self.hidden = self.init_hidden()
-
-    # TODO: Move this to reranker.common since it's used by more than one reranker
-    def create_emb_layer(self, weights, non_trainable=True):
-        layer = torch.nn.Embedding(*weights.shape)
-        layer.load_state_dict({"weight": torch.tensor(weights)})
-
-        if non_trainable:
-            layer.weight.requires_grad = False
-        else:
-            layer.weight.requires_grad = True
-
-        return layer
 
     def init_hidden(self):
 
@@ -187,6 +176,8 @@ class POSITDRMM(Reranker):
     def get_bm25_scores(self, qids, doc_ids):
         scores = torch.zeros((len(doc_ids)))
         for i, doc_id in enumerate(doc_ids):
+            # The bm25_scores attribute is set from RerankTask.train()
+            # TODO: Remove this temporary hack and figure out a way to pass these kind of features cleanly
             scores[i] = self.bm25_scores[qids[i]][doc_id]
 
         return scores.reshape(len(doc_ids), 1)
