@@ -338,6 +338,7 @@ class PytorchTrainer(Trainer):
         If the values are just a simple list, use the first element of the list to pad the batch
         If the values are tensors/numpy arrays, use repeat() along the batch dimension
         """
+        logger.info("Filling in an incomplete batch")
         repeat_times = math.ceil(self.cfg["batch"] / len(batch["qid"]))
         diff = self.cfg["batch"] - len(batch["qid"])
 
