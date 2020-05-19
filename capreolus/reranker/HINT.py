@@ -5,6 +5,8 @@ import torch.nn.functional as F
 from torch.autograd import Variable
 from capreolus.reranker import Reranker
 
+device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+
 
 class GRUCell2d(nn.Module):
     def __init__(self, input_size, hidden_size, bias=True):
@@ -55,7 +57,7 @@ class GRUModel2d(nn.Module):
     def __init__(self, input_dim, hidden_dim, bias=True):
         super(GRUModel2d, self).__init__()
         self.hidden_dim = hidden_dim
-        self.gru_cell = GRUCell2d(input_dim, hidden_dim)
+        self.gru_cell = GRUCell2d(input_dim, hidden_dim).to(device)
 
     def forward(self, x):
         B, T1, T2, H = x.size()
@@ -88,8 +90,8 @@ class HiNT(nn.Module):
         self.embedding = self.create_emb_layer(weights_matrix, non_trainable=True)
 
         self.Ws = nn.Linear(embedding_dim, Ws_dim)
-        self.GRU2d1 = GRUModel2d(3, self.p["spatialGRU"])
-        self.GRU2d3 = GRUModel2d(3, self.p["spatialGRU"])
+        self.GRU2d1 = GRUModel2d(3, self.p["spatialGRU"]).to(device)
+        self.GRU2d3 = GRUModel2d(3, self.p["spatialGRU"]).to(device)
 
         self.lstm = nn.LSTM(input_size=(4 * self.p["spatialGRU"]), hidden_size=self.lstm_hidden_dim, bidirectional=True)
         self.Wv = nn.Linear((4 * self.p["spatialGRU"]), self.lstm_hidden_dim, bias=True)
@@ -221,7 +223,7 @@ class HiNT(nn.Module):
 class HiNT_main(nn.Module):
     def __init__(self, extractor, config):
         super(HiNT_main, self).__init__()
-        self.HiNT1 = HiNT(extractor.embeddings, config)
+        self.HiNT1 = HiNT(extractor.embeddings, config).to(device)
         self.batch_size = config["batch"]
 
     def init_hidden(self):
