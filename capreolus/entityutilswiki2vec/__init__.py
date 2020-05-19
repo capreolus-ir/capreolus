@@ -106,11 +106,6 @@ class DomainRelatedness(EntityUtilsWiki2vec):
         ret = [k for k, v in similarities.items() if v >= self.cfg['domain_relatedness_threshold']]
         return ret
 
-    def get_pretrained_emb(self):
-        import gensim
-
-        model_path = join(self.embedding_dir, f"{self.cfg['embedding']}.txt")
-        return gensim.models.KeyedVectors.load_word2vec_format(model_path)
 
     def get_domain_rep(self):
         m = re.match(r"^centroid-(?:entity-word-(\d+(?:\.\d+)?)-)?k(\d+)$", self.cfg['strategy'])
@@ -162,6 +157,10 @@ class EntitySpecificityHigherMean(EntityUtilsWiki2vec):
 
         specificity_graph = {}
         reversed_specificity_graph = {}
+        if len(entities) <= self.cfg['return_top']:
+            logger.debug(f"number of entities less than top-specific-entity cut {len(entities)} <= {self.cfg['return_top']}")
+            return entities
+        
         logger.debug(f"number of entities: {len(entities)}")
         for i in range(0, len(entities)):
             for j in range(i+1, len(entities)):
@@ -193,8 +192,9 @@ class EntitySpecificityHigherMean(EntityUtilsWiki2vec):
             outlink_counts[s] = -1
 
             if remove:
-                for n in reversed_graph[s]:
-                    outlink_counts[n] -= 1
+                if s in reversed_graph:
+                    for n in reversed_graph[s]:
+                        outlink_counts[n] -= 1
 
         return result[:self.cfg['return_top']]
 
