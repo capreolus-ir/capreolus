@@ -61,9 +61,9 @@ class GRUModel2d(nn.Module):
 
     def forward(self, x):
         B, T1, T2, H = x.size()
-        last_outs = [(torch.zeros(x.size(0), self.hidden_dim)) for _ in range(T2 + 1)]
+        last_outs = [(torch.zeros(x.size(0), self.hidden_dim).to(device)) for _ in range(T2 + 1)]
         for seq in range(T1):
-            outs_row = [(torch.zeros(x.size(0), self.hidden_dim))]
+            outs_row = [(torch.zeros(x.size(0), self.hidden_dim).to(device))]
             for seq1 in range(1, T2 + 1):
                 hn = last_outs[seq1 - 1]
                 hn_top = last_outs[seq1]
@@ -117,7 +117,7 @@ class HiNT(nn.Module):
         )
 
     def matrix_inv(self, A):
-        A1 = torch.randn(self.passagelen * self.batch_size, self.p["maxqlen"], 100, 3).type(torch.FloatTensor)
+        A1 = torch.randn(self.passagelen * self.batch_size, self.p["maxqlen"], 100, 3).type(torch.FloatTensor).to(device)
         for i in range(self.p["maxqlen"]):
             for j in range(100):
                 A1[:, i, j, :] = A[:, self.p["maxqlen"] - i - 1, 99 - j, :]
@@ -128,20 +128,20 @@ class HiNT(nn.Module):
             M_XOR or M_cos: (B, Q, D)
             masks: (B, Q, D) have 0 on non-pad positions and 1 on pad positions
         """
-        sentence, query_sentence = sentence, query_sentence
+        sentence, query_sentence = sentence.to(device), query_sentence.to(device)
 
         x, query_x = self.embedding(sentence), self.embedding(query_sentence)
 
         X_i = self.Ws(query_x).view(self.batch_size, -1)
         Y_j = self.Ws(x).view(self.batch_size, -1)
 
-        total_passage_level = torch.randn(self.passagelen, self.batch_size, 8).type(torch.FloatTensor)
-        M_cos_passage = torch.randn(self.passagelen, self.batch_size, self.p["maxqlen"], 100).type(torch.FloatTensor)
-        M_XOR_passage = torch.randn(self.passagelen, self.batch_size, self.p["maxqlen"], 100).type(torch.FloatTensor)
-        Y_j_passage = torch.randn(self.passagelen, self.batch_size, 100).type(torch.FloatTensor)
-        X_i_passage = torch.randn(self.passagelen, self.batch_size, self.p["maxqlen"]).type(torch.FloatTensor)
+        total_passage_level = torch.randn(self.passagelen, self.batch_size, 8).type(torch.FloatTensor).to(device)
+        M_cos_passage = torch.randn(self.passagelen, self.batch_size, self.p["maxqlen"], 100).type(torch.FloatTensor).to(device)
+        M_XOR_passage = torch.randn(self.passagelen, self.batch_size, self.p["maxqlen"], 100).type(torch.FloatTensor).to(device)
+        Y_j_passage = torch.randn(self.passagelen, self.batch_size, 100).type(torch.FloatTensor).to(device)
+        X_i_passage = torch.randn(self.passagelen, self.batch_size, self.p["maxqlen"]).type(torch.FloatTensor).to(device)
 
-        mask_passage = torch.randn(self.passagelen, self.batch_size, self.p["maxqlen"], 100).type(torch.FloatTensor)
+        mask_passage = torch.randn(self.passagelen, self.batch_size, self.p["maxqlen"], 100).type(torch.FloatTensor).to(device)
 
         for number_window in range(self.passagelen):
             mask_passage[number_window] = masks[:, :, (number_window * 100) : ((number_window + 1) * 100)]  # (P, BAT, Q, 100)
@@ -153,8 +153,8 @@ class HiNT(nn.Module):
 
         S_cos = torch.randn(self.passagelen, self.batch_size, self.p["maxqlen"], 100, 3).type(
             torch.FloatTensor
-        )  # (P, BAT, Q, 100, 3)
-        S_xor = torch.randn(self.passagelen, self.batch_size, self.p["maxqlen"], 100, 3).type(torch.FloatTensor)
+        ).to(device)  # (P, BAT, Q, 100, 3)
+        S_xor = torch.randn(self.passagelen, self.batch_size, self.p["maxqlen"], 100, 3).type(torch.FloatTensor).to(device)
         S_cos[:, :, :, :, 0] = X_i_passage.reshape(self.passagelen, self.batch_size, self.p["maxqlen"], 1).expand(
             self.passagelen, self.batch_size, self.p["maxqlen"], 100
         )
