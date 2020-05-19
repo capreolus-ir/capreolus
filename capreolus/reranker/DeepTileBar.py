@@ -62,12 +62,13 @@ class DeepTileBar_nn(nn.Module):
         # first is the hidden h
         # second is the cell c
         # if self.use_gpu:
+        device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
         l = []
         for j in range(10):
             l.append(
                 (
-                    Variable(torch.zeros(1, self.batch_size, self.lstm_hidden_dim)),
-                    Variable(torch.zeros(1, self.batch_size, self.lstm_hidden_dim)),
+                    Variable(torch.zeros(1, self.batch_size, self.lstm_hidden_dim).to(device)),
+                    Variable(torch.zeros(1, self.batch_size, self.lstm_hidden_dim).to(device)),
                 )
             )
         return l
