@@ -478,11 +478,11 @@ def test_HINT(dummy_index, tmpdir, tmpdir_as_cache, monkeypatch):
     reranker = HINT({"spatialGRU": 2, "LSTMdim": 6, "kmax": 10})
     trainer = PytorchTrainer(
         {
-            "maxdoclen": 800,
+            "maxdoclen": 20,
             "maxqlen": 4,
             "batch": 2,
             "niters": 1,
-            "itersize": 512,
+            "itersize": 64,
             "gradacc": 1,
             "lr": 0.001,
             "softmaxloss": True,
