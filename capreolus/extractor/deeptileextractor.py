@@ -136,6 +136,8 @@ class DeepTileExtractor(Extractor):
         :param q_tok: List of tokens in a query
         :param topic_segment: A single segment. String. (A document can have multiple segments)
         """
+        pad = self["extractor"].pad
+
         channels = []
         if q_tok != self.pad_tok and topic_segment != self.pad_tok:
             segment_toks = topic_segment.split(" ")
@@ -146,7 +148,7 @@ class DeepTileExtractor(Extractor):
 
             channels.append(self.idf.get(q_tok, 0) if tf else 0)
             sim = max(
-                self.gaussian(embeddings_matrix[self.stoi[segment_toks[i]]], embeddings_matrix[self.stoi[q_tok]])
+                self.gaussian(embeddings_matrix[self.stoi.get(segment_toks[i], pad)], embeddings_matrix.get(self.stoi[q_tok], pad))
                 if segment_toks[i] != self.pad_tok
                 else 0
                 for i in range(len(segment_toks))
