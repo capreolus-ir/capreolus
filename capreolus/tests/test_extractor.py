@@ -544,6 +544,7 @@ def test_deeptiles_create(monkeypatch, tmpdir, dummy_index):
         "slicelen": 20,
         "tfchannel": True,
         "embeddings": "glove6b",
+        "usecache": False
     }
     extractor = DeepTileExtractor(extractor_config)
     extractor.modules["index"] = dummy_index
