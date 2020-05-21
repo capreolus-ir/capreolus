@@ -147,7 +147,9 @@ class DeepTileExtractor(Extractor):
 
             channels.append(self.idf.get(q_tok, 0) if tf else 0)
             sim = max(
-                self.gaussian(embeddings_matrix[self.stoi.get(segment_toks[i], self.pad)], embeddings_matrix[self.stoi.get(q_tok, self.pad)])
+                self.gaussian(
+                    embeddings_matrix[self.stoi.get(segment_toks[i], self.pad)], embeddings_matrix[self.stoi.get(q_tok, self.pad)]
+                )
                 if segment_toks[i] != self.pad_tok
                 else 0
                 for i in range(len(segment_toks))

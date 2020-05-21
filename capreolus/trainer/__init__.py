@@ -344,11 +344,11 @@ class PytorchTrainer(Trainer):
 
         def pad(v):
             if isinstance(v, np.ndarray) or torch.is_tensor(v):
-                _v = v.repeat((repeat_times, ) + tuple([1 for x in range(len(v.shape) -1)]))
+                _v = v.repeat((repeat_times,) + tuple([1 for x in range(len(v.shape) - 1)]))
             else:
                 _v = v + [v[0]] * diff
 
-            return _v[:self.cfg["batch"]]
+            return _v[: self.cfg["batch"]]
 
         batch = {k: pad(v) for k, v in batch.items()}
         return batch
