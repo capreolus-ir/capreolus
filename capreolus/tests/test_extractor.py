@@ -1,5 +1,7 @@
 from collections import defaultdict
 
+import nltk
+from nltk import TextTilingTokenizer
 from pymagnitude import Magnitude, MagnitudeUtils
 import numpy as np
 
@@ -12,6 +14,7 @@ from capreolus.tests.common_fixtures import tmpdir_as_cache, dummy_index
 
 from capreolus.utils.exceptions import MissingDocError
 from capreolus.extractor.bagofwords import BagOfWords
+from capreolus.extractor.deeptileextractor import DeepTileExtractor
 
 MAXQLEN = 8
 MAXDOCLEN = 7
@@ -419,3 +422,157 @@ def test_bagofwords_caching(dummy_index, monkeypatch):
 
     assert new_extractor.is_state_cached(qids, docids)
     new_extractor._build_vocab(qids, docids, benchmark.topics[benchmark.query_type])
+
+
+nltk.download("stopwords")
+
+
+def test_deeptiles_extract_segment_long_text(tmpdir, monkeypatch):
+    def fake_magnitude_embedding(*args, **kwargs):
+        return Magnitude(None)
+
+    monkeypatch.setattr(DeepTileExtractor, "_get_pretrained_emb", fake_magnitude_embedding)
+    # nltk.TextTilingTokenizer only works with large blobs of text
+    ttt = TextTilingTokenizer(k=6)
+    extractor_config = {
+        "_name": "deeptiles",
+        "embeddings": "glove6b",
+        "tilechannels": 3,
+        "passagelen": 30,
+        "slicelen": 20,
+        "tfchannel": True,
+    }
+    extractor = DeepTileExtractor(extractor_config)
+
+    # blob of text with Shakespeare and Shangri La. Should split into two topics
+    s = (
+        "O that we now had here but one ten thousand of those men in England That do no work to-day. Whats he that "
+        "wishes so? My cousin, Westmorland? No, my fair cousin. If we are marked to die, we are enough To do our "
+        "country loss; and if to live, The fewer men, the greater share of honour. Gods will! I pray thee, wish"
+        " not one man more. Shangri-La is a fictional place described in the 1933 novel Lost Horizon "
+        "by British author James Hilton. Hilton describes Shangri-La as a mystical, harmonious valley, gently guided "
+        "from a lamasery, enclosed in the western end of the Kunlun Mountains. Shangri-La has become synonymous with "
+        "any earthly paradise, particularly a mythical Himalayan utopia – a permanently happy land, isolated from "
+        "the world"
+    )
+    doc_toks = s.split(" ")
+    segments = extractor.extract_segment(doc_toks, ttt)
+    assert len(segments) == 2
+
+    # The split was determined by nltk.TextTilingTokenizer. Far from perfect
+    assert segments == [
+        "O that we now had here but one ten thousand of those men in England That do no work to-day. Whats he that wishes so? My cousin, Westmorland? No, my fair cousin. If we are marked to die, we are",
+        " enough To do our country loss; and if to live, The fewer men, the greater share of honour. Gods will! I pray thee, wish not one man more. Shangri-La is a fictional place described in the 1933 novel Lost Horizon by British author James Hilton. Hilton describes Shangri-La as a mystical, harmonious valley, gently guided from a lamasery, enclosed in the western end of the Kunlun Mountains. Shangri-La has become synonymous with any earthly paradise, particularly a mythical Himalayan utopia – a permanently happy land, isolated from the world",
+    ]
+
+
+def test_deeptiles_extract_segment_short_text(tmpdir, monkeypatch):
+    def fake_magnitude_embedding(*args, **kwargs):
+        return Magnitude(None)
+
+    monkeypatch.setattr(DeepTileExtractor, "_get_pretrained_emb", fake_magnitude_embedding)
+    # The text is too short for TextTilingTokenizer. Test if the fallback works
+    ttt = TextTilingTokenizer(k=6)
+    pipeline_config = {"_name": "deeptiles", "passagelen": 30, "slicelen": 20, "tfchannel": True, "tilechannels": 3}
+    extractor = DeepTileExtractor(pipeline_config)
+    s = "But we in it shall be rememberèd We few, we happy few, we band of brothers"
+    doc_toks = s.split(" ")
+    segments = extractor.extract_segment(doc_toks, ttt)
+    assert len(segments) == 1
+    # N.B - segments are in all lowercase, special chars (comma) have been removed
+    assert segments == ["But we in it shall be rememberèd We few, we happy few, we band of brothers"]
+
+    s = (
+        "But we in it shall be rememberèd We few, we happy few, we band of brothers. For he to-day that sheds his "
+        "blood with me Shall be my brother"
+    )
+    doc_toks = s.split(" ")
+
+    segments = extractor.extract_segment(doc_toks, ttt)
+    assert len(segments) == 2
+    assert segments == [
+        "But we in it shall be rememberèd We few, we happy few, we band of brothers. For he to-day that",
+        "sheds his blood with me Shall be my brother",
+    ]
+
+
+def test_deeptiles_clean_segments(tmpdir):
+    pipeline_config = {"_name": "deeptiles", "passagelen": 30, "slicelen": 20, "tfchannel": True, "tilechannels": 3}
+    extractor = DeepTileExtractor(pipeline_config)
+    assert extractor.clean_segments(["hello world", "foo bar"], p_len=4) == [
+        "hello world",
+        "foo bar",
+        extractor.pad_tok,
+        extractor.pad_tok,
+    ]
+    assert extractor.clean_segments(["hello world", "foo bar", "alice", "bob"], p_len=3) == ["hello world", "foo bar", "alicebob"]
+
+
+def test_deeptiles_create_visualization_matrix(monkeypatch, tmpdir):
+    def fake_magnitude_embedding(*args, **kwargs):
+        return Magnitude(None)
+
+    monkeypatch.setattr(DeepTileExtractor, "_get_pretrained_emb", fake_magnitude_embedding)
+    pipeline_config = {"_name": "deeptiles", "tilechannels": 3, "maxqlen": 5, "passagelen": 3, "slicelen": 20, "tfchannel": True}
+    extractor = DeepTileExtractor(pipeline_config)
+    extractor.stoi = {"<pad>": 0, "hello": 1, "world": 2, "foo": 3, "bar": 4, "alice": 5, "bob": 6}
+    extractor.idf = defaultdict(lambda: 0)
+
+    extractor._build_embedding_matrix()
+    embeddings_matrix = extractor.embeddings
+    level = extractor.create_visualization_matrix(
+        ["hello", extractor.pad_tok, extractor.pad_tok, extractor.pad_tok, extractor.pad_tok],
+        ["hello world", "foo bar", "alice bob"],
+        embeddings_matrix,
+    )
+    assert level.shape == (1, 5, 3, 3)
+
+
+def test_deeptiles_create(monkeypatch, tmpdir, dummy_index):
+    def fake_magnitude_embedding(*args, **kwargs):
+        return Magnitude(None)
+
+    monkeypatch.setattr(DeepTileExtractor, "_get_pretrained_emb", fake_magnitude_embedding)
+    benchmark = DummyBenchmark({})
+    tok_cfg = {"_name": "anserini", "keepstops": True, "stemmer": "none"}
+    tokenizer = AnseriniTokenizer(tok_cfg)
+    extractor_config = {
+        "_name": "deeptiles",
+        "tilechannels": 3,
+        "maxqlen": 5,
+        "passagelen": 3,
+        "slicelen": 20,
+        "tfchannel": True,
+        "embeddings": "glove6b",
+        "usecache": False,
+    }
+    extractor = DeepTileExtractor(extractor_config)
+    extractor.modules["index"] = dummy_index
+    extractor.modules["tokenizer"] = tokenizer
+    extractor.create(["301"], ["LA010189-0001", "LA010189-0002"], benchmark.topics["title"])
+    assert extractor.stoi == {
+        "<pad>": 0,
+        "dummy": 1,
+        "doc": 2,
+        "hello": 3,
+        "world": 4,
+        "greetings": 5,
+        "from": 6,
+        "outer": 7,
+        "space": 8,
+        "lessdummy": 9,
+    }
+
+    assert extractor.itos == {v: k for k, v in extractor.stoi.items()}
+    assert extractor.stoi == {
+        "<pad>": 0,
+        "dummy": 1,
+        "doc": 2,
+        "hello": 3,
+        "world": 4,
+        "greetings": 5,
+        "from": 6,
+        "outer": 7,
+        "space": 8,
+        "lessdummy": 9,
+    }
