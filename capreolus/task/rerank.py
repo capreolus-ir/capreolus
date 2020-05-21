@@ -85,6 +85,7 @@ def evaluate(config, modules):
         docids = set(docid for querydocs in best_search_run.values() for docid in querydocs)
         reranker["extractor"].create(qids=best_search_run.keys(), docids=docids, topics=benchmark.topics[benchmark.query_type])
         reranker.build()
+        reranker.bm25_scores = best_search_run
 
         reranker["trainer"].load_best_model(reranker, train_output_path)
 
