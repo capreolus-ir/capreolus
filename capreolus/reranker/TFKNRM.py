@@ -12,15 +12,18 @@ class TFKNRM_Class(tf.keras.Model):
         self.extractor = extractor
         mus = [-0.9, -0.7, -0.5, -0.3, -0.1, 0.1, 0.3, 0.5, 0.7, 0.9, 1.0]
         sigmas = [0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.001]
-        self.embedding = tf.keras.layers.Embedding(
-            len(self.extractor.stoi), self.extractor.embeddings.shape[1], weights=[self.extractor.embeddings], trainable=False
-        )
+        # self.embedding = tf.keras.layers.Embedding(
+        #     len(self.extractor.stoi), self.extractor.embeddings.shape[1], weights=[self.extractor.embeddings], trainable=False
+        # )
         self.kernels = RbfKernelBankTF(mus, sigmas, dim=1, requires_grad=config["gradkernels"])
         self.combine = tf.keras.layers.Dense(1, input_shape=(self.kernels.count(),))
 
-    def get_score(self, doc_tok, query_tok, query_idf):
-        query = self.embedding(query_tok)
-        doc = self.embedding(doc_tok)
+    def get_score(self, doc_tok, query_tok):
+        # query = self.embedding(query_tok)
+        # doc = self.embedding(doc_tok)
+        query = self.extractor.query_embeddings[query_tok]
+        doc = self.extractor.doc_embeddings[doc_tok]
+
         batch_size, qlen, doclen = tf.shape(query)[0], tf.shape(query)[1], tf.shape(doc)[1]
 
         simmat = similarity_matrix_tf(query, doc, query_tok, doc_tok, self.extractor.pad)
@@ -47,9 +50,8 @@ class TFKNRM_Class(tf.keras.Model):
         Unlike the pytorch KNRM model, KNRMTF accepts both the positive and negative document in its forward pass.
         It scores them separately and returns the score difference (i.e posdoc_score - negdoc_score).
         """
-        posdoc, negdoc, query, query_idf = x[0], x[1], x[2], x[3]
-        posdoc_score, negdoc_score = self.get_score(posdoc, query, query_idf), self.get_score(negdoc, query, query_idf)
-
+        posdoc, negdoc, query = x[0], x[1], x[2]
+        posdoc_score, negdoc_score = self.get_score(posdoc, query), self.get_score(negdoc, query)
         # During eval, the negdoc_score would be a zero tensor
         # TODO: Verify that negdoc_score is indeed always zero whenever a zero negdoc tensor is passed into it
         return posdoc_score - negdoc_score
@@ -58,7 +60,7 @@ class TFKNRM_Class(tf.keras.Model):
 class TFKNRM(Reranker):
     name = "TFKNRM"
     dependencies = {
-        "extractor": Dependency(module="extractor", name="embedtext"),
+        "extractor": Dependency(module="extractor", name="tfembedtext"),
         "trainer": Dependency(module="trainer", name="tensorflow"),
     }
 

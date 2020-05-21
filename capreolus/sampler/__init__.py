@@ -81,6 +81,24 @@ class TrainDataset(torch.utils.data.IterableDataset):
                         "skipping training pair with missing features: qid=%s posid=%s negid=%s", qid, posdocid, negdocid
                     )
 
+    def generate_all_training_triplets(self):
+        """
+        Generates all possible unique combinations of training triplets
+        """
+
+        all_qids = sorted(self.qid_to_reldocs)
+
+        for qid in all_qids:
+            for posdoc_id in self.qid_to_reldocs[qid]:
+                for negdoc_id in self.qid_to_negdocs[qid]:
+                    try:
+                        yield self.extractor.id2vec(qid, posdoc_id, negdoc_id)
+                    except MissingDocError:
+                        logger.warning(
+                            "skipping training pair with missing features: qid=%s posid=%s negid=%s", qid, posdoc_id,
+                            negdoc_id
+                        )
+
     def __iter__(self):
         """
         Returns: Triplets of the form (query_feature, posdoc_feature, negdoc_feature)
@@ -127,6 +145,14 @@ class PredDataset(torch.utils.data.IterableDataset):
         """
 
         return iter(self.generator_func())
+
+    def generate_all_pred_pairs(self):
+        for qid in self.qid_docid_to_rank:
+            for docid in self.qid_docid_to_rank[qid]:
+                try:
+                    yield self.extractor.id2vec(qid, docid)
+                except MissingDocError:
+                    logger.error("got none features for prediction: qid=%s posid=%s", qid, docid)
 
     def get_qid_docid_pairs(self):
         """

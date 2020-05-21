@@ -6,7 +6,7 @@ import torch
 from pymagnitude import Magnitude
 
 from capreolus.benchmark import DummyBenchmark
-from capreolus.extractor import EmbedText
+from capreolus.extractor import EmbedText, TFEmbedText
 from capreolus.reranker.PACRR import PACRR
 from capreolus.sampler import TrainDataset, PredDataset
 from capreolus.tests.common_fixtures import tmpdir_as_cache, dummy_index
@@ -86,7 +86,7 @@ def test_knrm_tf(dummy_index, tmpdir, tmpdir_as_cache, monkeypatch):
     def fake_magnitude_embedding(*args, **kwargs):
         return Magnitude(None)
 
-    monkeypatch.setattr(EmbedText, "_get_pretrained_emb", fake_magnitude_embedding)
+    monkeypatch.setattr(TFEmbedText, "_get_pretrained_emb", fake_magnitude_embedding)
 
     reranker = TFKNRM({"gradkernels": True, "finetune": False})
     trainer = TensorFlowTrainer(
@@ -111,9 +111,9 @@ def test_knrm_tf(dummy_index, tmpdir, tmpdir_as_cache, monkeypatch):
         }
     )
     reranker.modules["trainer"] = trainer
-    reranker.modules["extractor"] = EmbedText(
+    reranker.modules["extractor"] = TFEmbedText(
         {
-            "_name": "embedtext",
+            "_name": "tfembedtext",
             "embeddings": "glove6b",
             "zerounk": False,
             "calcidf": True,

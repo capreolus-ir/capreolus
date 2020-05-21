@@ -106,53 +106,17 @@ class EmbedText(Extractor):
             self.stoi = state_dict["stoi"]
             self.itos = state_dict["itos"]
 
+        logger.info("Vocabulary loaded from cache")
+
     def cache_state(self, qids, docids):
         os.makedirs(self.get_cache_path(), exist_ok=True)
         with open(self.get_state_cache_file_path(qids, docids), "wb") as f:
             state_dict = {"qid2toks": self.qid2toks, "docid2toks": self.docid2toks, "stoi": self.stoi, "itos": self.itos}
             pickle.dump(state_dict, f, protocol=-1)
 
-    def get_tf_feature_description(self):
-        feature_description = {
-            "query": tf.io.FixedLenFeature([self.cfg["maxqlen"]], tf.int64),
-            "query_idf": tf.io.FixedLenFeature([self.cfg["maxqlen"]], tf.float32),
-            "posdoc": tf.io.FixedLenFeature([self.cfg["maxdoclen"]], tf.int64),
-            "negdoc": tf.io.FixedLenFeature([self.cfg["maxdoclen"]], tf.int64),
-            "label": tf.io.FixedLenFeature([1], tf.float32, default_value=tf.zeros((1))),
-        }
-
-        return feature_description
-
-    def create_tf_feature(self, sample):
-        """
-        sample - output from self.id2vec()
-        return - a tensorflow feature
-        """
-        query, query_idf, posdoc, negdoc = (sample["query"], sample["query_idf"], sample["posdoc"], sample["negdoc"])
-        feature = {
-            "query": tf.train.Feature(int64_list=tf.train.Int64List(value=query)),
-            "query_idf": tf.train.Feature(float_list=tf.train.FloatList(value=query_idf)),
-            "posdoc": tf.train.Feature(int64_list=tf.train.Int64List(value=posdoc)),
-            "negdoc": tf.train.Feature(int64_list=tf.train.Int64List(value=negdoc)),
-        }
-
-        return feature
-
-    def parse_tf_example(self, example_proto):
-        feature_description = self.get_tf_feature_description()
-        parsed_example = tf.io.parse_example(example_proto, feature_description)
-        posdoc = parsed_example["posdoc"]
-        negdoc = parsed_example["negdoc"]
-        query = parsed_example["query"]
-        query_idf = parsed_example["query_idf"]
-        label = parsed_example["label"]
-
-        return (posdoc, negdoc, query, query_idf), label
-
     def _build_vocab(self, qids, docids, topics):
         if self.is_state_cached(qids, docids) and self.cfg["usecache"]:
             self.load_state(qids, docids)
-            logger.info("Vocabulary loaded from cache")
         else:
             tokenize = self["tokenizer"].tokenize
             self.qid2toks = {qid: tokenize(topics[qid]) for qid in qids}
@@ -161,8 +125,7 @@ class EmbedText(Extractor):
             self._extend_stoi(self.docid2toks.values(), calc_idf=self.cfg["calcidf"])
             self.itos = {i: s for s, i in self.stoi.items()}
             logger.info(f"vocabulary constructed, with {len(self.itos)} terms in total")
-            if self.cfg["usecache"]:
-                self.cache_state(qids, docids)
+            self.cache_state(qids, docids)
 
     def _get_idf(self, toks):
         return [self.idf.get(tok, 0) for tok in toks]
@@ -199,6 +162,47 @@ class EmbedText(Extractor):
             and 0 < len(self.stoi) == self.embeddings.shape[0]
         )
 
+    def build_query_embedding_matrix(self, qids, docids, topics):
+        magnitude_emb = self._get_pretrained_emb()
+        emb_dim = magnitude_emb.dim
+        embed_vocab = set(term for term, _ in magnitude_emb)
+        query_embed_matrix = np.zeros(len(qids), self.cfg["maxqlen"], emb_dim)
+        doc_embed_matrix = np.zeros(len(docids), self.cfg["maxdoclen", emb_dim])
+
+        n_missed = 0
+        for qid, idx in self.qid2idx.items():
+            query_terms = padlist(self["tokenizer"].tokenize(topics[qid]), self.cfg["maxqlen"], pad_token=self.pad_tok)
+            query_term_embeds = []
+            for term in query_terms:
+                if term in embed_vocab:
+                    term_embed = magnitude_emb.query(term)
+                elif term == self.pad_tok:
+                    term_embed = np.zeros(emb_dim)
+                else:
+                    n_missed += 1
+                    term_embed = np.zeros(emb_dim) if self.cfg["zerounk"] else np.random.normal(scale=0.5,
+                                                                                                   size=emb_dim)
+                query_term_embeds.append(term_embed)
+
+            query_embed = np.stack(query_term_embeds)
+            query_embed_matrix[idx] = query_embed
+
+        for docid, idx in self.docid2idx.items():
+            doc_terms = padlist(self["tokenizer"].tokenize(self["index"].get_doc(docid)), self.cfg["maxdoclen"], pad_token=self.pad_tok)
+            doc_term_embeds = []
+            for term in doc_terms:
+                if term in embed_vocab:
+                    term_embed = magnitude_emb.query(term)
+                elif term == self.pad_tok:
+                    term_embed = np.zeros(emb_dim)
+                else:
+                    n_missed += 1
+                    term_embed = np.zeros(emb_dim) if self.cfg["zerounk"] else np.random.normal(scale=0.5,
+                                                                                                   size=emb_dim)
+                doc_term_embeds.append(term_embed)
+            doc_embed = np.stack(doc_term_embeds)
+            doc_embed_matrix[idx] = doc_embed
+
     def create(self, qids, docids, topics):
 
         if self.exist():
@@ -208,6 +212,8 @@ class EmbedText(Extractor):
 
         self.itos = {self.pad: self.pad_tok}
         self.stoi = {self.pad_tok: self.pad}
+        self.qid2idx = {}
+        self.docid2idx = {}
         self.qid2toks = defaultdict(list)
         self.docid2toks = defaultdict(list)
         self.idf = defaultdict(lambda: 0)
@@ -258,6 +264,163 @@ class EmbedText(Extractor):
         return data
 
 
+class TFEmbedText(Extractor):
+    name = "tfembedtext"
+    dependencies = {
+        "index": Dependency(module="index", name="anserini", config_overrides={"indexstops": True, "stemmer": "none"}),
+        "tokenizer": Dependency(module="tokenizer", name="anserini"),
+    }
+
+    pad = 0
+    pad_tok = "<pad>"
+    embed_paths = {
+        "glove6b": "glove/light/glove.6B.300d",
+        "glove6b.50d": "glove/light/glove.6B.50d",
+        "w2vnews": "word2vec/light/GoogleNews-vectors-negative300",
+        "fasttext": "fasttext/light/wiki-news-300d-1M-subword",
+    }
+
+    @staticmethod
+    def config():
+        embeddings = "glove6b"
+        zerounk = False
+        calcidf = True
+        maxqlen = 4
+        maxdoclen = 800
+        usecache = False
+
+    def _get_pretrained_emb(self):
+        magnitude_cache = CACHE_BASE_PATH / "magnitude/"
+        return Magnitude(
+            MagnitudeUtils.download_model(self.embed_paths[self.cfg["embeddings"]], download_dir=magnitude_cache))
+
+    def load_state(self, qids, docids):
+        with open(self.get_state_cache_file_path(qids, docids), "rb") as f:
+            state_dict = pickle.load(f)
+            self.docid2idx = state_dict["docid2idx"]
+            self.qid2idx = state_dict["qid2idx"]
+            self.query_embeddings = state_dict["query_embeddings"]
+            self.doc_embeddings = state_dict["doc_embeddings"]
+
+        logger.info("Embeddings loaded from cache")
+
+    def cache_state(self, qids, docids):
+        os.makedirs(self.get_cache_path(), exist_ok=True)
+        with open(self.get_state_cache_file_path(qids, docids), "wb") as f:
+            state_dict = {
+                "docid2idx": self.docid2idx,
+                "qid2idx": self.qid2idx,
+                "query_embeddings": self.query_embeddings,
+                "doc_embeddings": self.doc_embeddings
+            }
+            pickle.dump(state_dict, f, protocol=-1)
+
+    def get_tf_feature_description(self):
+        feature_description = {
+            "query": tf.io.FixedLenFeature([1], tf.int64),
+            "posdoc": tf.io.FixedLenFeature([1], tf.int64),
+            "negdoc": tf.io.FixedLenFeature([1], tf.int64),
+            "label": tf.io.FixedLenFeature([1], tf.float32, default_value=tf.zeros((1))),
+        }
+
+        return feature_description
+
+    def create_tf_feature(self, sample):
+        """
+        sample - output from self.id2vec()
+        return - a tensorflow feature
+        """
+        query, posdoc, negdoc = sample["query"], sample["posdoc"], sample["negdoc"]
+        feature = {
+            "query": tf.train.Feature(int64_list=tf.train.Int64List(value=query)),
+            "posdoc": tf.train.Feature(int64_list=tf.train.Int64List(value=posdoc)),
+            "negdoc": tf.train.Feature(int64_list=tf.train.Int64List(value=negdoc)),
+        }
+
+        return feature
+
+    def parse_tf_example(self, example_proto):
+        feature_description = self.get_tf_feature_description()
+        parsed_example = tf.io.parse_example(example_proto, feature_description)
+        posdoc = parsed_example["posdoc"]
+        negdoc = parsed_example["negdoc"]
+        query = parsed_example["query"]
+        label = parsed_example["label"]
+
+        return (posdoc, negdoc, query), label
+
+    def _build_vocab(self, qids, docids, topics):
+        if self.is_state_cached(qids, docids) and self.cfg["usecache"]:
+            self.load_state(qids, docids)
+        else:
+            # So that the generated indices would be deterministic
+            qids = sorted(qids)
+            docids = sorted(docids)
+
+            self.qid2idx = {qid: idx for idx, qid in enumerate(qids)}
+            self.docid2idx = {docid: idx for idx, docid in enumerate(docids)}
+            self.query_embeddings = self.build_embedding_matrix(self.qid2idx, self.cfg["maxqlen"], topics.get)
+            self.doc_embeddings = self.build_embedding_matrix(self.docid2idx, self.cfg["maxdoclen"], self["index"].get_doc)
+            self.cache_state(qids, docids)
+
+    def build_embedding_matrix(self, id2idx, doclen, getter):
+        magnitude_emb = self._get_pretrained_emb()
+        embed_vocab = set(term for term, _ in magnitude_emb)
+        embed_matrix = np.zeros((len(id2idx), doclen, magnitude_emb.emb_dim), dtype=np.float)
+
+        for record_id, idx in tqdm(id2idx.items(), desc="Embedding matrix"):
+            terms = padlist(self["tokenizer"].tokenize(getter(record_id)), doclen, pad_token=self.pad_tok)
+            term_embeds = [self.get_term_embed(term, embed_vocab, magnitude_emb) for term in terms]
+            record_embed = np.stack(term_embeds)
+            embed_matrix[idx] = record_embed
+
+        return embed_matrix
+
+    def get_term_embed(self, term, embed_vocab, magnitude_emb):
+        emb_dim = magnitude_emb.emb_dim
+        if term in embed_vocab:
+            term_embed = magnitude_emb.query(term)
+        elif term == self.pad_tok:
+            term_embed = np.zeros(emb_dim)
+        else:
+            term_embed = np.zeros(emb_dim) if self.cfg["zerounk"] else np.random.normal(scale=0.5, size=emb_dim)
+
+        return term_embed
+
+    def exist(self):
+        return (
+            hasattr(self, "query_embeddings")
+            and hasattr(self, "doc_embeddings")
+            and self.query_embeddings is not None
+            and self.doc_embeddings is not None
+        )
+
+    def create(self, qids, docids, topics):
+        if self.exist():
+            return
+
+        self["index"].create_index()
+
+        self.qid2idx = {}
+        self.docid2idx = {}
+        self.query_embeddings = None
+        self.doc_embeddings = None
+
+        self._build_vocab(qids, docids, topics)
+
+    def id2vec(self, qid, posid, negid=None):
+        data = {
+            "query": np.array([self.qid2idx[qid]], dtype=np.long),
+            "posdoc": np.array([self.docid2idx[posid]], dtype=np.long),
+            "negdoc": np.array([-1], dtype=np.long)
+        }
+
+        if negid:
+            data["negdoc"] = np.array([self.docid2idx[negid]], dtype=np.long)
+
+        return data
+
+
 class BertText(Extractor):
     name = "berttext"
     dependencies = {
@@ -281,6 +444,8 @@ class BertText(Extractor):
             self.docid2toks = state_dict["docid2toks"]
             self.clsidx = state_dict["clsidx"]
             self.sepidx = state_dict["sepidx"]
+
+        logger.info("Vocabulary loaded from cache")
 
     def cache_state(self, qids, docids):
         os.makedirs(self.get_cache_path(), exist_ok=True)
@@ -336,7 +501,6 @@ class BertText(Extractor):
     def _build_vocab(self, qids, docids, topics):
         if self.is_state_cached(qids, docids) and self.cfg["usecache"]:
             self.load_state(qids, docids)
-            logger.info("Vocabulary loaded from cache")
         else:
             logger.info("Building bertext vocabulary")
             tokenize = self["tokenizer"].tokenize

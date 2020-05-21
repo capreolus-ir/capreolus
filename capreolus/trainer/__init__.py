@@ -521,24 +521,6 @@ class TensorFlowTrainer(Trainer):
 
             # Skipping dumping metrics and plotting loss since that should be done through tensorboard
 
-    def create_tf_feature(self, qid, query, query_idf, posdoc_id, posdoc, negdoc_id, negdoc):
-        """
-        Creates a single tf.train.Feature instance (i.e, a single sample)
-        """
-        feature = {
-            "qid": tf.train.Feature(bytes_list=tf.train.BytesList(value=[qid.encode("utf-8")])),
-            "query": tf.train.Feature(float_list=tf.train.FloatList(value=query)),
-            "query_idf": tf.train.Feature(float_list=tf.train.FloatList(value=query_idf)),
-            "posdoc_id": tf.train.Feature(bytes_list=tf.train.BytesList(value=[posdoc_id.encode("utf-8")])),
-            "posdoc": tf.train.Feature(float_list=tf.train.FloatList(value=posdoc)),
-        }
-
-        if negdoc_id:
-            feature["negdoc_id"] = (tf.train.Feature(bytes_list=tf.train.BytesList(value=[negdoc_id.encode("utf-8")])),)
-            feature["negdoc"] = tf.train.Feature(float_list=tf.train.FloatList(value=negdoc))
-
-        return feature
-
     def write_tf_record_to_file(self, dir_name, tf_features):
         """
         Actually write the tf record to file. The destination can also be a gcs bucket.
@@ -565,35 +547,21 @@ class TensorFlowTrainer(Trainer):
         """
         dir_name = "{0}/{1}/{2}".format(self.cfg["storage"], "capreolus_tfrecords", dataset.get_hash())
 
-        tf_features = [reranker["extractor"].create_tf_feature(sample) for sample in dataset]
+        tf_features = [reranker["extractor"].create_tf_feature(sample) for sample in dataset.generate_all_pred_pairs()]
 
         return [self.write_tf_record_to_file(dir_name, tf_features)]
 
-    def convert_to_tf_train_record(self, reranker, dataset):
+    def convert_to_tf_train_record(self, reranker, train_dataset):
         """
         Tensorflow works better if the input data is fed in as tfrecords
         Takes in a dataset,  iterates through it, and creates multiple tf records from it.
         The exact structure of the tfrecords is defined by reranker.extractor. For example, see EmbedText.get_tf_feature()
         """
-        dir_name = "{0}/{1}/{2}".format(self.cfg["storage"], "capreolus_tfrecords", dataset.get_hash())
+        dir_name = "{0}/{1}/{2}".format(self.cfg["storage"], "capreolus_tfrecords", train_dataset.get_hash())
+        extractor = reranker["extractor"]
 
-        total_samples = dataset.get_total_samples()
-        tf_features = []
-        tf_record_filenames = []
-
-        for niter in tqdm(range(0, self.cfg["niters"]), desc="Converting data to tf records"):
-            for sample_idx, sample in enumerate(dataset):
-                tf_features.append(reranker["extractor"].create_tf_feature(sample))
-
-                if len(tf_features) > 20000:
-                    tf_record_filenames.append(self.write_tf_record_to_file(dir_name, tf_features))
-                    tf_features = []
-
-                if sample_idx + 1 >= self.cfg["itersize"] * self.cfg["batch"]:
-                    break
-
-        if len(tf_features):
-            tf_record_filenames.append(self.write_tf_record_to_file(dir_name, tf_features))
+        tf_features = [extractor.create_tf_feature(sample) for sample in train_dataset.generate_all_training_triplets()]
+        tf_record_filenames = [self.write_tf_record_to_file(dir_name, tf_features)]
 
         return tf_record_filenames
 
@@ -615,8 +583,11 @@ class TensorFlowTrainer(Trainer):
 
         return tf.io.gfile.isdir(cache_dir)
 
-    def load_tf_records_from_file(self, reranker, filenames, batch_size):
+    def load_tf_records_from_file(self, reranker, filenames, batch_size, should_repeat=True):
         raw_dataset = tf.data.TFRecordDataset(filenames)
+        if should_repeat:
+            raw_dataset = raw_dataset.repeat()
+
         tf_records_dataset = raw_dataset.batch(batch_size, drop_remainder=True).map(
             reranker["extractor"].parse_tf_example, num_parallel_calls=tf.data.experimental.AUTOTUNE
         )
@@ -640,7 +611,7 @@ class TensorFlowTrainer(Trainer):
             return self.load_cached_tf_records(reranker, dataset, 1)
         else:
             tf_record_filenames = self.convert_to_tf_dev_record(reranker, dataset)
-            return self.load_tf_records_from_file(reranker, tf_record_filenames, self.cfg["batch"])
+            return self.load_tf_records_from_file(reranker, tf_record_filenames, self.cfg["batch"], should_repeat=False)
 
     def get_tf_train_records(self, reranker, dataset):
         """
