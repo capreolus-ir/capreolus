@@ -20,12 +20,12 @@ class TFKNRM_Class(tf.keras.Model):
         # The extractor passed in MUST be a TFEmbedText for this to work
         self.query_embeddings = extractor.query_embeddings
         self.doc_embeddings = extractor.doc_embeddings
-        
+
         self.kernels = RbfKernelBankTF(mus, sigmas, dim=1, requires_grad=config["gradkernels"])
         self.combine = tf.keras.layers.Dense(1, input_shape=(self.kernels.count(),))
 
     def get_score(self, doc_tok, query_tok):
-        query = embedding_lookup(self.query_embeddings, query_tok[:,0])
+        query = embedding_lookup(self.query_embeddings, query_tok[:, 0])
         doc = embedding_lookup(self.doc_embeddings, doc_tok[:, 0])
         batch_size, qlen, doclen = tf.shape(query)[0], tf.shape(query)[1], tf.shape(doc)[1]
 

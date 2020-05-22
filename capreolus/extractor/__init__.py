@@ -1,3 +1,4 @@
+import math
 import pickle
 from collections import defaultdict
 import tensorflow as tf
@@ -369,6 +370,8 @@ class TFEmbedText(Extractor):
         embed_vocab = set(term for term, _ in magnitude_emb)
         embed_matrix = np.zeros((len(id2idx), doclen, magnitude_emb.emb_dim), dtype=np.float)
 
+        embed_matrix[0] = np.zeros((doclen, magnitude_emb.emb_dim), dtype=np.float)
+
         for record_id, idx in tqdm(id2idx.items(), desc="Embedding matrix"):
             if idx == 0:
                 # The zero index is reserved for an empty record. Handle it separately
@@ -379,9 +382,21 @@ class TFEmbedText(Extractor):
             record_embed = np.stack(term_embeds)
             embed_matrix[idx] = record_embed
 
-        embed_matrix[0] = np.zeros((doclen, magnitude_emb.emb_dim), dtype=float)
+        # Cost of each value in the matrix in megabytes, assume float32
+        unit_cost = (doclen * magnitude_emb.emb_dim * 32) / (1024 * 1024)
+        logger.info("Unit cost is {}".format(unit_cost))
+        # Each tensor should be less than 2GB in memory
+        limit = 2000
 
-        return embed_matrix
+        # Make a list of matrices, each less than 2GB in memory.
+        # tf.python.ops.embedding_ops.embedding_lookup() can make use of shards
+        step = math.floor(limit / unit_cost)
+        logger.info("{} indices would fit into a single matrix".format(step))
+        matrices = []
+        for i in range(0, len(id2idx), step):
+            matrices.append(tf.identity(embed_matrix[i:i+step]))
+
+        return matrices
 
     def get_term_embed(self, term, embed_vocab, magnitude_emb):
         emb_dim = magnitude_emb.emb_dim
