@@ -3,6 +3,9 @@ import tensorflow as tf
 from capreolus.reranker.common import RbfKernelBankTF, similarity_matrix_tf
 from capreolus.reranker import Reranker
 from capreolus.registry import Dependency
+from capreolus.utils.loginit import get_logger
+
+logger = get_logger(__name__)
 
 
 class TFKNRM_Class(tf.keras.Model):
@@ -21,12 +24,12 @@ class TFKNRM_Class(tf.keras.Model):
     def get_score(self, doc_tok, query_tok):
         # query = self.embedding(query_tok)
         # doc = self.embedding(doc_tok)
-        query = self.extractor.query_embeddings[query_tok]
-        doc = self.extractor.doc_embeddings[doc_tok]
+        query = tf.gather(self.extractor.query_embeddings, query_tok[:, 0])
+        doc = tf.gather(self.extractor.doc_embeddings, doc_tok[:, 0])
 
         batch_size, qlen, doclen = tf.shape(query)[0], tf.shape(query)[1], tf.shape(doc)[1]
 
-        simmat = similarity_matrix_tf(query, doc, query_tok, doc_tok, self.extractor.pad)
+        simmat = similarity_matrix_tf(query, doc)
 
         k = self.kernels(simmat)
         doc_k = tf.reduce_sum(k, axis=3)  # sum over document

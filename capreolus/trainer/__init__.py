@@ -25,6 +25,7 @@ from capreolus.registry import RESULTS_BASE_PATH
 logger = get_logger(__name__)  # pylint: disable=invalid-name
 
 
+
 class Trainer(ModuleBase, metaclass=RegisterableModule):
     module_type = "trainer"
 
@@ -510,7 +511,7 @@ class TensorFlowTrainer(Trainer):
 
             train_start_time = time.time()
             reranker.model.fit(
-                train_records.prefetch(tf.data.experimental.AUTOTUNE),
+                train_records.batch(self.cfg["batch"]),
                 epochs=self.cfg["niters"],
                 steps_per_epoch=self.cfg["itersize"],
                 callbacks=[tensorboard_callback, trec_callback],
@@ -585,11 +586,9 @@ class TensorFlowTrainer(Trainer):
 
     def load_tf_records_from_file(self, reranker, filenames, batch_size, should_repeat=True):
         raw_dataset = tf.data.TFRecordDataset(filenames)
-        if should_repeat:
-            raw_dataset = raw_dataset.repeat()
 
-        tf_records_dataset = raw_dataset.batch(batch_size, drop_remainder=True).map(
-            reranker["extractor"].parse_tf_example, num_parallel_calls=tf.data.experimental.AUTOTUNE
+        tf_records_dataset = raw_dataset.map(
+            reranker["extractor"].parse_tf_example
         )
 
         return tf_records_dataset
@@ -641,7 +640,7 @@ class TensorFlowTrainer(Trainer):
         strategy_scope = self.strategy.scope()
         with strategy_scope:
             pred_records = self.get_tf_dev_records(reranker, pred_data)
-            predictions = reranker.model.predict(pred_records)
+            predictions = reranker.model.predict(pred_records, steps=self.cfg["itersize"])
             trec_preds = TrecCheckpointCallback.get_preds_in_trec_format(predictions, pred_data)
 
         os.makedirs(os.path.dirname(pred_fn), exist_ok=True)

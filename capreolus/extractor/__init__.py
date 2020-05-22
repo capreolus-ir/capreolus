@@ -283,7 +283,6 @@ class TFEmbedText(Extractor):
     @staticmethod
     def config():
         embeddings = "glove6b"
-        zerounk = False
         calcidf = True
         maxqlen = 4
         maxdoclen = 800
@@ -341,7 +340,7 @@ class TFEmbedText(Extractor):
 
     def parse_tf_example(self, example_proto):
         feature_description = self.get_tf_feature_description()
-        parsed_example = tf.io.parse_example(example_proto, feature_description)
+        parsed_example = tf.io.parse_single_example(example_proto, feature_description)
         posdoc = parsed_example["posdoc"]
         negdoc = parsed_example["negdoc"]
         query = parsed_example["query"]
@@ -357,8 +356,10 @@ class TFEmbedText(Extractor):
             qids = sorted(qids)
             docids = sorted(docids)
 
-            self.qid2idx = {qid: idx for idx, qid in enumerate(qids)}
-            self.docid2idx = {docid: idx for idx, docid in enumerate(docids)}
+            self.qid2idx = {qid: idx + 1 for idx, qid in enumerate(qids)}
+            self.qid2idx['empty_query'] = 0
+            self.docid2idx = {docid: idx+1 for idx, docid in enumerate(docids)}
+            self.docid2idx['empty_doc'] = 0  # Special doc that is just zeros
             self.query_embeddings = self.build_embedding_matrix(self.qid2idx, self.cfg["maxqlen"], topics.get)
             self.doc_embeddings = self.build_embedding_matrix(self.docid2idx, self.cfg["maxdoclen"], self["index"].get_doc)
             self.cache_state(qids, docids)
@@ -369,10 +370,16 @@ class TFEmbedText(Extractor):
         embed_matrix = np.zeros((len(id2idx), doclen, magnitude_emb.emb_dim), dtype=np.float)
 
         for record_id, idx in tqdm(id2idx.items(), desc="Embedding matrix"):
+            if idx == 0:
+                # The zero index is reserved for an empty record. Handle it separately
+                continue
+
             terms = padlist(self["tokenizer"].tokenize(getter(record_id)), doclen, pad_token=self.pad_tok)
             term_embeds = [self.get_term_embed(term, embed_vocab, magnitude_emb) for term in terms]
             record_embed = np.stack(term_embeds)
             embed_matrix[idx] = record_embed
+
+        embed_matrix[0] = np.zeros((doclen, magnitude_emb.emb_dim), dtype=float)
 
         return embed_matrix
 
@@ -383,7 +390,8 @@ class TFEmbedText(Extractor):
         elif term == self.pad_tok:
             term_embed = np.zeros(emb_dim)
         else:
-            term_embed = np.zeros(emb_dim) if self.cfg["zerounk"] else np.random.normal(scale=0.5, size=emb_dim)
+            # Warning: Do not set unknown terms as np.zero - that would break similarity matrix calculation
+            term_embed = np.random.normal(scale=0.5, size=emb_dim)
 
         return term_embed
 
@@ -412,7 +420,7 @@ class TFEmbedText(Extractor):
         data = {
             "query": np.array([self.qid2idx[qid]], dtype=np.long),
             "posdoc": np.array([self.docid2idx[posid]], dtype=np.long),
-            "negdoc": np.array([-1], dtype=np.long)
+            "negdoc": np.array([0], dtype=np.long)
         }
 
         if negid:
