@@ -396,6 +396,8 @@ class TFEmbedText(Extractor):
         for i in range(0, len(id2idx), step):
             matrices.append(tf.identity(embed_matrix[i:i+step]))
 
+        logger.info("Number of shards: {}".format(len(matrices)))
+
         return matrices
 
     def get_term_embed(self, term, embed_vocab, magnitude_emb):
