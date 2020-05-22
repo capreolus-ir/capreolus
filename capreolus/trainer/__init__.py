@@ -511,7 +511,7 @@ class TensorFlowTrainer(Trainer):
 
             train_start_time = time.time()
             reranker.model.fit(
-                train_records.batch(self.cfg["batch"]),
+                train_records,
                 epochs=self.cfg["niters"],
                 steps_per_epoch=self.cfg["itersize"],
                 callbacks=[tensorboard_callback, trec_callback],
@@ -587,7 +587,10 @@ class TensorFlowTrainer(Trainer):
     def load_tf_records_from_file(self, reranker, filenames, batch_size, should_repeat=True):
         raw_dataset = tf.data.TFRecordDataset(filenames)
 
-        tf_records_dataset = raw_dataset.map(
+        if should_repeat:
+            raw_dataset = raw_dataset.repeat()
+
+        tf_records_dataset = raw_dataset.batch(batch_size).map(
             reranker["extractor"].parse_tf_example
         )
 

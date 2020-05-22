@@ -340,7 +340,7 @@ class TFEmbedText(Extractor):
 
     def parse_tf_example(self, example_proto):
         feature_description = self.get_tf_feature_description()
-        parsed_example = tf.io.parse_single_example(example_proto, feature_description)
+        parsed_example = tf.io.parse_example(example_proto, feature_description)
         posdoc = parsed_example["posdoc"]
         negdoc = parsed_example["negdoc"]
         query = parsed_example["query"]
