@@ -1,4 +1,5 @@
 import tensorflow as tf
+from tensorflow.python.ops.embedding_ops import embedding_lookup
 
 from capreolus.reranker.common import RbfKernelBankTF, similarity_matrix_tf
 from capreolus.reranker import Reranker
@@ -15,18 +16,17 @@ class TFKNRM_Class(tf.keras.Model):
         self.extractor = extractor
         mus = [-0.9, -0.7, -0.5, -0.3, -0.1, 0.1, 0.3, 0.5, 0.7, 0.9, 1.0]
         sigmas = [0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.001]
-        # self.embedding = tf.keras.layers.Embedding(
-        #     len(self.extractor.stoi), self.extractor.embeddings.shape[1], weights=[self.extractor.embeddings], trainable=False
-        # )
+
+        # The extractor passed in MUST be a TFEmbedText for this to work
+        self.query_embeddings = extractor.query_embeddings
+        self.doc_embeddings = extractor.doc_embeddings
+        
         self.kernels = RbfKernelBankTF(mus, sigmas, dim=1, requires_grad=config["gradkernels"])
         self.combine = tf.keras.layers.Dense(1, input_shape=(self.kernels.count(),))
 
     def get_score(self, doc_tok, query_tok):
-        # query = self.embedding(query_tok)
-        # doc = self.embedding(doc_tok)
-        query = tf.gather(self.extractor.query_embeddings, query_tok[:, 0])
-        doc = tf.gather(self.extractor.doc_embeddings, doc_tok[:, 0])
-
+        query = embedding_lookup(self.query_embeddings, query_tok[:,0])
+        doc = embedding_lookup(self.doc_embeddings, doc_tok[:, 0])
         batch_size, qlen, doclen = tf.shape(query)[0], tf.shape(query)[1], tf.shape(doc)[1]
 
         simmat = similarity_matrix_tf(query, doc)
