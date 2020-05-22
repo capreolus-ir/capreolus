@@ -46,9 +46,7 @@ def train(config, modules):
     best_search_run_path = results["path"][fold]
     best_search_run = searcher.load_trec_run(best_search_run_path)
 
-    docids_in_search = set(docid for querydocs in best_search_run.values() for docid in querydocs)
-    docids_in_qrels = set([docid for qid in benchmark.qrels for docid in benchmark.qrels[qid]])
-    docids = docids_in_qrels | docids_in_search
+    docids = set(docid for querydocs in best_search_run.values() for docid in querydocs)
     reranker["extractor"].create(qids=best_search_run.keys(), docids=docids, topics=benchmark.topics[benchmark.query_type])
     reranker.build()
     reranker.bm25_scores = best_search_run
