@@ -25,8 +25,8 @@ class TFKNRM_Class(tf.keras.Model):
         self.combine = tf.keras.layers.Dense(1, input_shape=(self.kernels.count(),))
 
     def get_score(self, doc_tok, query_tok):
-        query = embedding_lookup(self.query_embeddings, query_tok[:, 0])
-        doc = embedding_lookup(self.doc_embeddings, doc_tok[:, 0])
+        query = embedding_lookup(self.query_embeddings, query_tok[:, 0], partition_strategy="div")
+        doc = embedding_lookup(self.doc_embeddings, doc_tok[:, 0], partition_strategy="div")
         batch_size, qlen, doclen = tf.shape(query)[0], tf.shape(query)[1], tf.shape(doc)[1]
 
         simmat = similarity_matrix_tf(query, doc)
