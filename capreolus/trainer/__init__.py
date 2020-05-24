@@ -542,13 +542,13 @@ class TensorFlowTrainer(Trainer):
 
         return str(filename)
 
-    def convert_to_tf_dev_record(self, reranker, dataset):
+    def convert_to_tf_dev_record(self, reranker, dev_dataset):
         """
         Similar to self.convert_to_tf_train_record(), but won't result in multiple files
         """
-        dir_name = "{0}/{1}/{2}".format(self.cfg["storage"], "capreolus_tfrecords", dataset.get_hash())
+        dir_name = self.get_tf_record_cache_path(dev_dataset)
 
-        tf_features = [reranker["extractor"].create_tf_feature(sample) for sample in dataset.generate_all_pred_pairs()]
+        tf_features = [reranker["extractor"].create_tf_feature(sample) for sample in dev_dataset.generate_all_pred_pairs()]
 
         return [self.write_tf_record_to_file(dir_name, tf_features)]
 
@@ -558,7 +558,7 @@ class TensorFlowTrainer(Trainer):
         Takes in a dataset,  iterates through it, and creates multiple tf records from it.
         The exact structure of the tfrecords is defined by reranker.extractor. For example, see EmbedText.get_tf_feature()
         """
-        dir_name = "{0}/{1}/{2}".format(self.cfg["storage"], "capreolus_tfrecords", train_dataset.get_hash())
+        dir_name = self.get_tf_record_cache_path(train_dataset)
         extractor = reranker["extractor"]
 
         tf_features = [extractor.create_tf_feature(sample) for sample in train_dataset.generate_all_training_triplets()]
