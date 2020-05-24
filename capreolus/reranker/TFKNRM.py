@@ -1,6 +1,5 @@
 import tensorflow as tf
-from tensorflow.python.ops.embedding_ops import embedding_lookup
-
+from tensorflow.python.ops.gen_data_flow_ops import dynamic_partition
 from capreolus.reranker.common import RbfKernelBankTF, similarity_matrix_tf
 from capreolus.reranker import Reranker
 from capreolus.registry import Dependency
@@ -24,9 +23,31 @@ class TFKNRM_Class(tf.keras.Model):
         self.kernels = RbfKernelBankTF(mus, sigmas, dim=1, requires_grad=config["gradkernels"])
         self.combine = tf.keras.layers.Dense(1, input_shape=(self.kernels.count(),))
 
+    def _naive_embedding_lookup(self, embeddings, indices):
+        """
+        Looks up tensors from partitioned embeddings according to the supplied indices
+
+        embeddings - A list of tensors. Each tensor in the list must occuppy less than 2GB in memory
+        indices - a set of indices into the tensors. The values in indices are as if a single tensor was formed
+        by stacking `embeddings` together along axis=0
+        """
+
+        num_partitions = len(embeddings)
+        indices = tf.cast(indices, tf.int32)
+        partition_size = tf.shape(embeddings[0])[0]
+        partition_assignments = tf.cast((indices // partition_size), tf.int32)
+        partition_offsets = indices % partition_size
+        partition_to_offsets = dynamic_partition(partition_offsets, partition_assignments, num_partitions)
+        lookups = []
+        for i in range(num_partitions):
+            offsets = partition_to_offsets[i]
+            lookups.append(tf.gather(embeddings[i], offsets))
+
+        return tf.concat(lookups, 0)
+
     def get_score(self, doc_tok, query_tok):
-        query = embedding_lookup(self.query_embeddings, query_tok[:, 0], partition_strategy="div")
-        doc = embedding_lookup(self.doc_embeddings, doc_tok[:, 0], partition_strategy="div")
+        query = self._naive_embedding_lookup(self.query_embeddings, query_tok[:, 0])
+        doc = self._naive_embedding_lookup(self.doc_embeddings, doc_tok[:, 0])
         batch_size, qlen, doclen = tf.shape(query)[0], tf.shape(query)[1], tf.shape(doc)[1]
 
         simmat = similarity_matrix_tf(query, doc)
