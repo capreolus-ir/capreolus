@@ -95,8 +95,7 @@ class TrainDataset(torch.utils.data.IterableDataset):
                         yield self.extractor.id2vec(qid, posdoc_id, negdoc_id)
                     except MissingDocError:
                         logger.warning(
-                            "skipping training pair with missing features: qid=%s posid=%s negid=%s", qid, posdoc_id,
-                            negdoc_id
+                            "skipping training pair with missing features: qid=%s posid=%s negid=%s", qid, posdoc_id, negdoc_id
                         )
 
     def __iter__(self):

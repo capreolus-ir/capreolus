@@ -181,15 +181,16 @@ class EmbedText(Extractor):
                     term_embed = np.zeros(emb_dim)
                 else:
                     n_missed += 1
-                    term_embed = np.zeros(emb_dim) if self.cfg["zerounk"] else np.random.normal(scale=0.5,
-                                                                                                   size=emb_dim)
+                    term_embed = np.zeros(emb_dim) if self.cfg["zerounk"] else np.random.normal(scale=0.5, size=emb_dim)
                 query_term_embeds.append(term_embed)
 
             query_embed = np.stack(query_term_embeds)
             query_embed_matrix[idx] = query_embed
 
         for docid, idx in self.docid2idx.items():
-            doc_terms = padlist(self["tokenizer"].tokenize(self["index"].get_doc(docid)), self.cfg["maxdoclen"], pad_token=self.pad_tok)
+            doc_terms = padlist(
+                self["tokenizer"].tokenize(self["index"].get_doc(docid)), self.cfg["maxdoclen"], pad_token=self.pad_tok
+            )
             doc_term_embeds = []
             for term in doc_terms:
                 if term in embed_vocab:
@@ -198,8 +199,7 @@ class EmbedText(Extractor):
                     term_embed = np.zeros(emb_dim)
                 else:
                     n_missed += 1
-                    term_embed = np.zeros(emb_dim) if self.cfg["zerounk"] else np.random.normal(scale=0.5,
-                                                                                                   size=emb_dim)
+                    term_embed = np.zeros(emb_dim) if self.cfg["zerounk"] else np.random.normal(scale=0.5, size=emb_dim)
                 doc_term_embeds.append(term_embed)
             doc_embed = np.stack(doc_term_embeds)
             doc_embed_matrix[idx] = doc_embed
@@ -291,8 +291,7 @@ class TFEmbedText(Extractor):
 
     def _get_pretrained_emb(self):
         magnitude_cache = CACHE_BASE_PATH / "magnitude/"
-        return Magnitude(
-            MagnitudeUtils.download_model(self.embed_paths[self.cfg["embeddings"]], download_dir=magnitude_cache))
+        return Magnitude(MagnitudeUtils.download_model(self.embed_paths[self.cfg["embeddings"]], download_dir=magnitude_cache))
 
     def load_state(self, qids, docids):
         with open(self.get_state_cache_file_path(qids, docids), "rb") as f:
@@ -311,7 +310,7 @@ class TFEmbedText(Extractor):
                 "docid2idx": self.docid2idx,
                 "qid2idx": self.qid2idx,
                 "query_embeddings": self.query_embeddings,
-                "doc_embeddings": self.doc_embeddings
+                "doc_embeddings": self.doc_embeddings,
             }
             pickle.dump(state_dict, f, protocol=-1)
 
@@ -358,9 +357,9 @@ class TFEmbedText(Extractor):
             docids = sorted(docids)
 
             self.qid2idx = {qid: idx + 1 for idx, qid in enumerate(qids)}
-            self.qid2idx['empty_query'] = 0
-            self.docid2idx = {docid: idx+1 for idx, docid in enumerate(docids)}
-            self.docid2idx['empty_doc'] = 0  # Special doc that is just zeros
+            self.qid2idx["empty_query"] = 0
+            self.docid2idx = {docid: idx + 1 for idx, docid in enumerate(docids)}
+            self.docid2idx["empty_doc"] = 0  # Special doc that is just zeros
             self.query_embeddings = self.build_embedding_matrix(self.qid2idx, self.cfg["maxqlen"], topics.get)
             self.doc_embeddings = self.build_embedding_matrix(self.docid2idx, self.cfg["maxdoclen"], self["index"].get_doc)
             self.cache_state(qids, docids)
@@ -394,7 +393,7 @@ class TFEmbedText(Extractor):
         logger.info("{} indices would fit into a single matrix".format(step))
         matrices = []
         for i in range(0, len(id2idx), step):
-            matrices.append(tf.identity(embed_matrix[i:i+step]))
+            matrices.append(tf.identity(embed_matrix[i : i + step]))
 
         logger.info("Number of shards: {}".format(len(matrices)))
 
@@ -437,7 +436,7 @@ class TFEmbedText(Extractor):
         data = {
             "query": np.array([self.qid2idx[qid]], dtype=np.long),
             "posdoc": np.array([self.docid2idx[posid]], dtype=np.long),
-            "negdoc": np.array([0], dtype=np.long)
+            "negdoc": np.array([0], dtype=np.long),
         }
 
         if negid:
