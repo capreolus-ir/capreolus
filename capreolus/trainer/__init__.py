@@ -7,7 +7,7 @@ import uuid
 from collections import defaultdict
 from copy import copy
 import tensorflow as tf
-
+import tensorflow_ranking as tfr
 import numpy as np
 import torch
 from keras import Sequential, layers
@@ -406,7 +406,7 @@ class TrecCheckpointCallback(tf.keras.callbacks.Callback):
 
         for i, (qid, docid) in enumerate(dev_data.get_qid_docid_pairs()):
             # Pytrec_eval has problems with high precision floats
-            pred_dict[qid][docid] = predictions[i].astype(np.float16).item()
+            pred_dict[qid][docid] = predictions[i][0].astype(np.float16).item()
 
         return dict(pred_dict)
 
@@ -463,6 +463,9 @@ class TensorFlowTrainer(Trainer):
         storage = None
         boardname = "default"
 
+        # Must be one of tfr.losses.RankingLossKey
+        loss = "pairwise_hinge_loss"
+
     def get_optimizer(self):
         return tf.keras.optimizers.Adam(learning_rate=self.cfg["lr"])
 
@@ -506,7 +509,8 @@ class TensorFlowTrainer(Trainer):
             reranker.build()
 
             self.optimizer = self.get_optimizer()
-            reranker.model.compile(optimizer=self.optimizer, loss=tf_pair_hinge_loss)
+            loss = tfr.keras.losses.get(self.cfg["loss"])
+            reranker.model.compile(optimizer=self.optimizer, loss=loss)
 
             train_start_time = time.time()
             reranker.model.fit(

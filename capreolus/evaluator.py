@@ -27,8 +27,8 @@ def mrr(qrels, runs, qids=None):
         pos_docids, pos_doc_ranks = [d for d in rundocs if qrels[q].get(d, 0) > 0], []
         for d in pos_docids:
             if d in rundocs:
-                pos_doc_ranks.append(rundocs.index(d)+1)
-        ranks.append(1/min(pos_doc_ranks)) if len(pos_doc_ranks) > 0 else 0
+                pos_doc_ranks.append(rundocs.index(d) + 1)
+        ranks.append(1 / min(pos_doc_ranks)) if len(pos_doc_ranks) > 0 else 0
     return sum(ranks) / len(ranks)
 
 

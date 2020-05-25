@@ -30,4 +30,3 @@ def test_csn_downloadifmissing():
 
         index.create_index()
         assert index.exists()
-
