@@ -1,5 +1,10 @@
+import json
 import operator
+import os
+from os.path import join, exists
+
 import numpy as np
+from capreolus.utils.common import get_file_name
 
 from capreolus.registry import ModuleBase, RegisterableModule, Dependency
 
@@ -13,61 +18,99 @@ class EntitySpecificity(ModuleBase, metaclass=RegisterableModule):
 
     module_type = "entityspecificity"
 
-    def top_specific_entities(self, entities):# TODO this function is extactly repeated in another module... maybe write them in a better way or write them in a common utils...
-        specificity_graph = {}
-        reversed_specificity_graph = {}
+    def top_specific_entities(self, tid, entities):
+        benchmark_name = self['benchmark'].name
+        benchmark_querytype = self['benchmark'].query_type
+        os.makedirs(self.get_selected_entities_cache_path(), exist_ok=True)
+        cache_file = join(self.get_selected_entities_cache_path(), "{}_{}".format(get_file_name(tid, benchmark_name, benchmark_querytype), len(entities)))
+        if exists(cache_file):
+            return json.loads(open(cache_file, 'r').read())
+
         if len(entities) <= self.cfg['return_top']:
             logger.debug(f"number of entities less than top-specific-entity cut {len(entities)} <= {self.cfg['return_top']}")
+            with open(cache_file, 'w') as f:
+                f.write(json.dumps(entities))
             return entities
         logger.debug(f"number of entities: {len(entities)}")
-        for i in range(0, len(entities)):
+
+        counts_of_win = {}
+        for i in range(0, len(entities)):#TODO: this is very slow, when we have like 40 ich entities.... let's do sth
             for j in range(i+1, len(entities)):
-                temp = self.rank_entity_pair_by_specificity(entities[i], entities[j])
-                if len(temp) == 2:
-                    if temp[0] not in specificity_graph:
-                        specificity_graph[temp[0]] = []
-                    specificity_graph[temp[0]].append(temp[1])
+                ranked_pair = self.rank_entity_pair_by_specificity(entities[i], entities[j])
+                if entities[i] not in counts_of_win:
+                    counts_of_win[entities[i]] = 0
+                if entities[j] not in counts_of_win:
+                    counts_of_win[entities[j]] = 0
 
-                    if temp[1] not in reversed_specificity_graph:
-                        reversed_specificity_graph[temp[1]] = []
-                    reversed_specificity_graph[temp[1]].append(temp[0])
-        if self.cfg['ranking_strategy'] == 'greedy_most_outlinks_withrm':
-            return self.rank_by_most_outlinks(specificity_graph, reversed_specificity_graph, True)
-        elif self.cfg['ranking_strategy'] == 'greedy_most_outlinks_withoutrm':
-            return self.rank_by_most_outlinks(specificity_graph, reversed_specificity_graph, False)
-        else:
-            raise NotImplementedError(f"ranking strategy {self.cfg['ranking_strategy']} to rank specific nodes not implemented")
+                if len(ranked_pair) != 0:
+                    counts_of_win[ranked_pair[0]] += 1
+                
 
-    def rank_by_most_outlinks(self, graph, reversed_graph, remove):
-        outlink_counts = {}
-        for n in graph:
-            outlink_counts[n] = len(graph[n])
+        result = [k for k,v in sorted(counts_of_win.items(), key=lambda item: item[1], reverse=True)]
 
-        result = []
-        while len(result) < len(graph):
-            s = max(outlink_counts.items(), key=operator.itemgetter(1))[0]
-            result.append(s)
-            outlink_counts[s] = -1
-
-            if remove:
-                if s in reversed_graph:
-                    for n in reversed_graph[s]:
-                        outlink_counts[n] -= 1
+        with open(cache_file, 'w') as f:
+            f.write(json.dumps(result[:self.cfg['return_top']]))
 
         return result[:self.cfg['return_top']]
+    # def top_specific_entities(self, entities):# TODO this function is extactly repeated in another module... maybe write them in a better way or write them in a common utils...
+    #     specificity_graph = {}
+    #     reversed_specificity_graph = {}
+    #     if len(entities) <= self.cfg['return_top']:
+    #         logger.debug(f"number of entities less than top-specific-entity cut {len(entities)} <= {self.cfg['return_top']}")
+    #         return entities
+    #     logger.debug(f"number of entities: {len(entities)}")
+    #     for i in range(0, len(entities)):
+    #         for j in range(i+1, len(entities)):
+    #             temp = self.rank_entity_pair_by_specificity(entities[i], entities[j])
+    #             if len(temp) == 2:
+    #                 if temp[0] not in specificity_graph:
+    #                     specificity_graph[temp[0]] = []
+    #                 specificity_graph[temp[0]].append(temp[1])
+
+    #                 if temp[1] not in reversed_specificity_graph:
+    #                     reversed_specificity_graph[temp[1]] = []
+    #                 reversed_specificity_graph[temp[1]].append(temp[0])
+    #     if self.cfg['ranking_strategy'] == 'greedy_most_outlinks_withrm':
+    #         return self.rank_by_most_outlinks(specificity_graph, reversed_specificity_graph, True)
+    #     elif self.cfg['ranking_strategy'] == 'greedy_most_outlinks_withoutrm':
+    #         return self.rank_by_most_outlinks(specificity_graph, reversed_specificity_graph, False)
+    #     else:
+    #         raise NotImplementedError(f"ranking strategy {self.cfg['ranking_strategy']} to rank specific nodes not implemented")
+
+    # def rank_by_most_outlinks(self, graph, reversed_graph, remove):
+    #     outlink_counts = {}
+    #     for n in graph:
+    #         outlink_counts[n] = len(graph[n])
+
+    #     result = []
+    #     while len(result) < len(graph):
+    #         s = max(outlink_counts.items(), key=operator.itemgetter(1))[0]
+    #         result.append(s)
+    #         outlink_counts[s] = -1
+
+    #         if remove:
+    #             if s in reversed_graph:
+    #                 for n in reversed_graph[s]:
+    #                     outlink_counts[n] -= 1
+
+    #     return result[:self.cfg['return_top']]
 
 class EntitySpecificityBy2HopPath(EntitySpecificity):
     name = "twohoppath"
 
     dependencies = {
         "popularity": Dependency(module="entitypopularity", name='centralitydegree', config_overrides={'direction': 'in'}),
-        'utils': Dependency(module="entityutils", name="wikilinks")
+        'utils': Dependency(module="entityutils", name="wikilinks"),
+        "benchmark": Dependency(module="benchmark"),
     }
 
     @staticmethod
     def config():
         ranking_strategy = 'greedy_most_outlinks_withrm'
         return_top = 10
+
+    def get_selected_entities_cache_path(self):
+        return self.get_cache_path() / "selectedentities"
 
     def initialize(self):
         self['utils'].load_wp_links()
@@ -84,6 +127,8 @@ class EntitySpecificityBy2HopPath(EntitySpecificity):
         elif p_e2_e1 > p_e1_e2:
             return [e2, e1]
         else:
+            if p_e1_e2 == 0:
+                return []
             logger.warning(f"equal probabilities p({e1}|{e2}) == p({e2}|{e1}).")  # this would almost never happen.
             # then return alphabetically:
             if e1 <= e2:
@@ -95,7 +140,15 @@ class EntitySpecificityBy2HopPath(EntitySpecificity):
     def prob_A_given_B_and_popA(self, A, B, popA):
         A = "<{}>".format(A).replace(" ", "_")
         B = "<{}>".format(B).replace(" ", "_")
+        if A not in self['utils'].total_nodes:
+            return 0
+        if B not in self['utils'].total_nodes:
+            return 0
+
         nu = self.nodes_in_2_hop_path_from_e1_to_e2(B, A)
+        if nu == 0:
+            logger.debug("no 2-hop path from {} to {}".format(B, A))
+            return 0
 
         B_2_hop_neighbors = self.get_2_hop_neighbors_of(B)
         de = 0
@@ -128,7 +181,8 @@ class EntitySpecificityBy2HopPath(EntitySpecificity):
 class EntitySpecificityHigherMean(EntitySpecificity):
     name = 'higherneighborhoodmean'
     dependencies = {
-        'utils': Dependency(module="entityutils", name="wiki2vec")
+        'utils': Dependency(module="entityutils", name="wiki2vec"),
+        "benchmark": Dependency(module="benchmark"),
     }
 
     embedding_dir = "/GW/PKB/nobackup/wikipedia2vec_pretrained/"
@@ -138,6 +192,9 @@ class EntitySpecificityHigherMean(EntitySpecificity):
         k = 100
         ranking_strategy = 'greedy_most_outlinks_withrm'
         return_top = 10
+
+    def get_selected_entities_cache_path(self):
+        return self.get_cache_path() / "selectedentities"
 
     def initialize(self):
         logger.debug("loading wikipedia2vec pretrained embedding")

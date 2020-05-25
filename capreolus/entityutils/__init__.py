@@ -74,9 +74,13 @@ class EntityUtilsWikiLinks(EntityUtils):
                 self.inlinks[e2].append(e1)
 
     def get_outlinks(self, e):
+        if e not in self.outlinks:
+            return []
         return self.outlinks[e]
 
     def get_inlinks(self, e):
+        if e not in self.inlinks:
+            return []
         return self.inlinks[e]
 
     @property

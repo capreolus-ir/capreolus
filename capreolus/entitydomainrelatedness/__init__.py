@@ -5,6 +5,7 @@ import json
 
 import numpy as np
 
+from capreolus.entitylinking import EntityLinking
 from capreolus.registry import ModuleBase, RegisterableModule, Dependency
 from capreolus.utils.common import get_file_name
 
@@ -31,17 +32,19 @@ class DomainRelatedness(EntityDomainRelatedness):
     def config():
         strategy = 'centroid-k100'
         domain_relatedness_threshold = 0.4
+        return_top = -1
 
         if not re.match(r"^centroid-(?:entity-word-(\d+(?:\.\d+)?)-)?k(\d+)$", strategy):
             raise ValueError(f"invalid domain embedding strategy: {strategy}")
 
     def get_similarities_cache_path(self):
-        return self.get_cache_path() / "similarities"
+        return self.entity_linking_cache_path / "similarities"
 
-    def initialize(self):
+    def initialize(self, el_cache_path):
         if hasattr(self, "domain"):
             return
         self.domain = self["benchmark"].domain
+        self.entity_linking_cache_path = el_cache_path
         self['utils'].load_pretrained_emb()
         logger.debug(f"getting domain representative {self.cfg['strategy']}")
         self.domain_rep = self.get_domain_rep()
@@ -79,15 +82,20 @@ class DomainRelatedness(EntityDomainRelatedness):
             similarities = self.calculate_domain_entity_similarities(entities)
             os.makedirs(outdir, exist_ok=True)
             with open(join(outdir, get_file_name(tid, benchmark_name, benchmark_querytype)), 'w') as f:
-                f.write(json.dumps(similarities, sort_keys=True, indent=4))
+                sorted_sim = {k: v for k, v in sorted(similarities.items(), key=lambda item: item[1], reverse=True)} #TODO: could be removed later, to make the files nicer for observation
+                f.write(json.dumps(sorted_sim, sort_keys=True, indent=4))
 
         # just for logging:
         #sorted_sim = {k: v for k, v in sorted(similarities.items(), key=lambda item: item[1], reverse=True)}
         #logger.debug(f"Domain: {self.domain}, Strategy: {self.cfg['strategy']}")
         #logger.debug(f"Similarities: {sorted_sim}")
 
-        ret = [k for k, v in similarities.items() if v >= self.cfg['domain_relatedness_threshold']]
-        return ret
+        if self.cfg['return_top'] == -1:
+            return [k for k, v in similarities.items() if v >= self.cfg['domain_relatedness_threshold']]
+
+        thresholded = {k:v for k, v in similarities.items() if v >= self.cfg['domain_relatedness_threshold']}
+        ret = [k for k,v in sorted(thresholded.items(), key=lambda item: item[1], reverse=True)]
+        return ret[:self.cfg['return_top']]
 
     def get_domain_rep(self):
         m = re.match(r"^centroid-(?:entity-word-(\d+(?:\.\d+)?)-)?k(\d+)$", self.cfg['strategy'])

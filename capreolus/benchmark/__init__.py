@@ -46,7 +46,9 @@ class PES20(Benchmark):
     def config():
         querytype = "query"  # one of: query, basicprofile, entityprofile
 
-        if querytype not in ["query", "basicprofile", "entityprofile"]:
+        if querytype not in ["query", "basicprofile", "entityprofile",
+                             'basicprofile_demog_hobbies', 'basicprofile_minus_books',
+                             'entityprofile_demog_hobbies', 'entityprofile_minus_books']:
             raise ValueError(f"invalid querytype: {querytype}")
 
     @property

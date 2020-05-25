@@ -1,12 +1,15 @@
+import json
+import logging
 import os
 from collections import defaultdict, Counter
+from os.path import join, exists
 
 import numpy as np
 from pymagnitude import Magnitude, MagnitudeUtils
 
 from capreolus.registry import ModuleBase, RegisterableModule, Dependency, CACHE_BASE_PATH
 from capreolus.utils.loginit import get_logger
-from capreolus.utils.common import padlist
+from capreolus.utils.common import padlist, get_file_name
 from capreolus.utils.exceptions import MissingDocError
 
 logger = get_logger(__name__)
@@ -192,7 +195,7 @@ class DocStats(Extractor):
         "entitylinking": Dependency(module="entitylinking", name='ambiversenlu'),
         "domainrelatedness": Dependency(module='entitydomainrelatedness', name='wiki2vecrepresentative', config_overrides={"strategy": "centroid-k100"},),
         "entityspecificity": Dependency(module='entityspecificity', name='higherneighborhoodmean', config_overrides={"return_top": 10, "k": 100, 'ranking_strategy': 'greedy_most_outlinks_withrm'}),
-        # "entityspecificity": Dependency(module='entityspecificity', name='twohoppath', config_overrides={"return_top": 10, 'ranking_strategy': 'greedy_most_outlinks_withrm'}),
+#        "entityspecificity": Dependency(module='entityspecificity', name='twohoppath'),
 
     }
 
@@ -210,7 +213,14 @@ class DocStats(Extractor):
     def exist(self):
         return hasattr(self, "doc_tf")
 
+    def get_profile_term_prob_cache_path(self):
+        return self.get_cache_path() / 'profiletermprobs'
+
+    def get_selected_entities_cache_path(self):
+        return self.get_cache_path() / 'selectedentities'
+
     def create(self, qids, docids, topics, qdocs=None):
+        logger.debug(f"cache path: {self.get_cache_path()}")
         #todo where can I check this: is here good?
         if "nostem" in self["backgroundindex"].cfg["indexcorpus"]:
             if 'stemmer' in self["tokenizer"].cfg and self["tokenizer"].cfg['stemmer'] != "none":
@@ -237,20 +247,32 @@ class DocStats(Extractor):
             self["entitylinking"].load_descriptions()
 
         if self.entity_strategy == 'domain':
-            self["domainrelatedness"].initialize()
+            self["domainrelatedness"].initialize(self["entitylinking"].get_cache_path())
         elif self.entity_strategy == 'specific_domainrel':
-            self["domainrelatedness"].initialize()
+            self["domainrelatedness"].initialize(self["entitylinking"].get_cache_path())
             self["entityspecificity"].initialize()
 
         logger.debug("tokenizing queries [+entity descriptions]")
+        if logger.level in [logging.DEBUG, logging.NOTSET]:
+            os.makedirs(self.get_profile_term_prob_cache_path(), exist_ok=True)
+        os.makedirs(self.get_selected_entities_cache_path(), exist_ok=True)
+
         self.qid2toks = {}
         self.qid_termprob = {}
         for qid in qids:
             qtext = topics[qid]
             qdesc = []
+            
+            entoutf = join(self.get_selected_entities_cache_path(), get_file_name(qid, self["entitylinking"].get_benchmark_name(), self["entitylinking"].get_benchmark_querytype()))
+            if exists(entoutf):
+                with open(entoutf, 'r') as f:
+                    qentities = json.loads(f.read())
+            else:
+                qentities = self.get_entities(qid) # returns empty array if the entity_strategy is None
+                with open(entoutf, 'w') as f:
+                    f.write(json.dumps(qentities, indent=4))
 
-            qentities = self.get_entities(qid) # returns empty array if the entity_strategy is None
-            logger.debug(f"{self.entity_strategy}: {qentities}")
+#            logger.debug(f"{self.entity_strategy}: {qentities}")
             for e in qentities:
                 qdesc.append(self["entitylinking"].get_entity_description(e))
 
@@ -260,6 +282,12 @@ class DocStats(Extractor):
             self.qid2toks[qid] = query
             q_count = Counter(query)
             self.qid_termprob[qid] = {k: (v/len(query)) for k, v in q_count.items()}
+            if logger.level in [logging.DEBUG, logging.NOTSET]:#since I just wanted to use this as a debug step, I didn't read from it when it was available
+                tfoutf = join(self.get_profile_term_prob_cache_path(), get_file_name(qid, self["entitylinking"].get_benchmark_name(), self["entitylinking"].get_benchmark_querytype()))
+                if not exists(tfoutf):
+                    with open(tfoutf, 'w') as f:
+                        sortedTP = {k: v for k, v in sorted(self.qid_termprob[qid].items(), key=lambda item: item[1], reverse=True)}
+                        f.write(json.dumps(sortedTP, indent=4))
 
         # TODO hardcoded paths
         #df_fn, freq_fn = "/GW/NeuralIR/work/PES20/counts_IDF_stemmed.txt", "/GW/NeuralIR/work/PES20/counts_LM_stemmed.txt"
@@ -313,13 +341,15 @@ class DocStats(Extractor):
 
         #TODO: we have to calculate the avg doc len of the given query and documents eventually here (that's why O need qdocs as input) and here is the code but I disabled it for test:
 
+        logger.debug("calculating average document length")
         self.query_avg_doc_len = {}
         for qid, docs in qdocs.items():
             doclen = 0
             for docid in docs:
                 doclen += self.doc_len[docid]
             self.query_avg_doc_len[qid] = doclen/len(docs)
-
+        
+        logger.debug("extractor DONE")
         #self.query_avg_doc_len = {}
         #with open(doclen_fn, "rt") as f:
         #    for line in f:
@@ -353,7 +383,7 @@ class DocStats(Extractor):
             )
         elif self.entity_strategy == 'specific_domainrel':
             return self['entityspecificity'].top_specific_entities(
-                self["domainrelatedness"].get_domain_related_entities(
+                profile_id, self["domainrelatedness"].get_domain_related_entities(
                     profile_id, self['entitylinking'].get_all_entities(profile_id)
                 )
             )
@@ -374,12 +404,6 @@ class DocStats(Extractor):
 
 class DocStatsEmbedding(DocStats):
     name = "docstatsembedding"
-    dependencies = {# TODO is this okay like this? if this is changed here, would the parent functions also use differently??
-        "index": Dependency(module="index", name="anserini", config_overrides={"indexstops": True, "stemmer": "none"}),
-        # "tokenizer": Dependency(module="tokenizer", name="anserini", config_overrides={"keepstops": False}),
-        "tokenizerquery": Dependency(module="tokenizer", name="spacy", config_overrides={"keepstops": False, 'removesmallerlen': 2}), #removesmallerlen is actually only used for user profile (not the short queries) but I cannot separate them
-        "tokenizer": Dependency(module="tokenizer", name="spacy", config_overrides={"keepstops": False}),
-    }
 
     embed_names = {
         "glove6b": "glove-wiki-gigaword-300",
@@ -394,7 +418,11 @@ class DocStatsEmbedding(DocStats):
 
     @staticmethod
     def config():
-        super().config()#TODO does this work??
+        entity_strategy = None
+
+        if entity_strategy not in [None, 'all', 'domain', 'specific_domainrel']:  # TODO add strategies
+            raise ValueError(f"invalid entity usage strategy (or not implemented): {entity_strategy}")
+        
         embeddings = "w2vnews"
 
     def _get_pretrained_emb(self):
@@ -429,7 +457,7 @@ class DocStatsEmbedding(DocStats):
 
         return nu/de
 
-    def id2vec(self, qid, posid, negid=None, query=None):#todo change this later ...
+    def id2vec(self, qid, posid, negid=None, query=None):#todo change this later or delete it...
         if query is not None:
             if qid is None:
                 query = self["tokenizer"].tokenize(query)
