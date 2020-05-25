@@ -1,20 +1,16 @@
 import hashlib
 import math
 import os
-import sys
 import time
 import uuid
 from collections import defaultdict
-from copy import copy
 import tensorflow as tf
 
 import numpy as np
 import torch
-from keras import Sequential, layers
-from keras.layers import Dense
 from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
-from capreolus.registry import ModuleBase, RegisterableModule, Dependency, MAX_THREADS
+from capreolus.registry import ModuleBase, RegisterableModule
 from capreolus.reranker.common import pair_hinge_loss, pair_softmax_loss, tf_pair_hinge_loss
 from capreolus.searcher import Searcher
 from capreolus.utils.loginit import get_logger
