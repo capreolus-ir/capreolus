@@ -1,5 +1,9 @@
+import json
 import operator
+from os.path import join, exists
+
 import numpy as np
+from capreolus.utils.common import get_file_name
 
 from capreolus.registry import ModuleBase, RegisterableModule, Dependency
 
@@ -13,7 +17,13 @@ class EntitySpecificity(ModuleBase, metaclass=RegisterableModule):
 
     module_type = "entityspecificity"
 
-    def top_specific_entities(self, entities):
+    def top_specific_entities(self, tid, entities):
+        benchmark_name = self['benchmark'].name
+        benchmark_querytype = self['benchmark'].query_type
+        cache_file = join(self.get_selected_entities_cache_path(), "{}_{}".format(get_file_name(tid, benchmark_name, benchmark_querytype), len(entities)))
+        if exists(cache_file):
+            return json.loads(open(cache_file, 'r').read())
+
         if len(entities) <= self.cfg['return_top']:
             logger.debug(f"number of entities less than top-specific-entity cut {len(entities)} <= {self.cfg['return_top']}")
             return entities
@@ -33,6 +43,10 @@ class EntitySpecificity(ModuleBase, metaclass=RegisterableModule):
                 
 
         result = [k for k,v in sorted(counts_of_win.items(), key=lambda item: item[1], reverse=True)]
+
+        with open(cache_file, 'w') as f:
+            f.write(json.dumps(result[:self.cfg['return_top']]))
+
         return result[:self.cfg['return_top']]
     # def top_specific_entities(self, entities):# TODO this function is extactly repeated in another module... maybe write them in a better way or write them in a common utils...
     #     specificity_graph = {}
@@ -82,13 +96,17 @@ class EntitySpecificityBy2HopPath(EntitySpecificity):
 
     dependencies = {
         "popularity": Dependency(module="entitypopularity", name='centralitydegree', config_overrides={'direction': 'in'}),
-        'utils': Dependency(module="entityutils", name="wikilinks")
+        'utils': Dependency(module="entityutils", name="wikilinks"),
+        "benchmark": Dependency(module="benchmark"),
     }
 
     @staticmethod
     def config():
         ranking_strategy = 'greedy_most_outlinks_withrm'
         return_top = 10
+
+    def get_selected_entities_cache_path(self):
+        return self.get_cache_path() + "selectedentities"
 
     def initialize(self):
         self['utils'].load_wp_links()
@@ -159,7 +177,8 @@ class EntitySpecificityBy2HopPath(EntitySpecificity):
 class EntitySpecificityHigherMean(EntitySpecificity):
     name = 'higherneighborhoodmean'
     dependencies = {
-        'utils': Dependency(module="entityutils", name="wiki2vec")
+        'utils': Dependency(module="entityutils", name="wiki2vec"),
+        "benchmark": Dependency(module="benchmark"),
     }
 
     embedding_dir = "/GW/PKB/nobackup/wikipedia2vec_pretrained/"
@@ -169,6 +188,9 @@ class EntitySpecificityHigherMean(EntitySpecificity):
         k = 100
         ranking_strategy = 'greedy_most_outlinks_withrm'
         return_top = 10
+
+    def get_selected_entities_cache_path(self):
+        return self.get_cache_path() + "selectedentities"
 
     def initialize(self):
         logger.debug("loading wikipedia2vec pretrained embedding")

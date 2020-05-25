@@ -353,7 +353,7 @@ class DocStats(Extractor):
             )
         elif self.entity_strategy == 'specific_domainrel':
             return self['entityspecificity'].top_specific_entities(
-                self["domainrelatedness"].get_domain_related_entities(
+                profile_id, self["domainrelatedness"].get_domain_related_entities(
                     profile_id, self['entitylinking'].get_all_entities(profile_id)
                 )
             )
