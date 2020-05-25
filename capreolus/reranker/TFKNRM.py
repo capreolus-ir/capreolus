@@ -22,6 +22,16 @@ class TFKNRM_Class(tf.keras.Model):
         self.kernels = RbfKernelBankTF(mus, sigmas, dim=1, requires_grad=config["gradkernels"])
         self.combine = tf.keras.layers.Dense(1, input_shape=(self.kernels.count(),))
 
+    def dynamic_partition(self, offsets, assignments, num_partitions):
+        """
+        See tf.dynamic_partition. Re-implementing here because TPU does not support the dynamic_partition op yet
+        """
+        partitions = []
+        for partition_id in range(num_partitions):
+            partitions.append(offsets[assignments == partition_id])
+
+        return partitions
+
     def _naive_embedding_lookup(self, embeddings, indices):
         """
         Looks up tensors from partitioned embeddings according to the supplied indices
@@ -36,7 +46,7 @@ class TFKNRM_Class(tf.keras.Model):
         partition_size = tf.shape(embeddings[0])[0]
         partition_assignments = tf.cast((indices // partition_size), tf.int32)
         partition_offsets = tf.cast(indices % partition_size, tf.int32)
-        partition_to_offsets = tf.dynamic_partition(partition_offsets, partition_assignments, num_partitions)
+        partition_to_offsets = self.dynamic_partition(partition_offsets, partition_assignments, num_partitions)
         lookups = []
         for i in range(num_partitions):
             offsets = partition_to_offsets[i]
