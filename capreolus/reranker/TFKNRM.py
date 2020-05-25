@@ -1,5 +1,4 @@
 import tensorflow as tf
-from tensorflow.python.ops.gen_data_flow_ops import dynamic_partition
 from capreolus.reranker.common import RbfKernelBankTF, similarity_matrix_tf
 from capreolus.reranker import Reranker
 from capreolus.registry import Dependency
@@ -37,7 +36,7 @@ class TFKNRM_Class(tf.keras.Model):
         partition_size = tf.shape(embeddings[0])[0]
         partition_assignments = tf.cast((indices // partition_size), tf.int32)
         partition_offsets = tf.cast(indices % partition_size, tf.int32)
-        partition_to_offsets = dynamic_partition(partition_offsets, partition_assignments, num_partitions)
+        partition_to_offsets = tf.dynamic_partition(partition_offsets, partition_assignments, num_partitions)
         lookups = []
         for i in range(num_partitions):
             offsets = partition_to_offsets[i]
