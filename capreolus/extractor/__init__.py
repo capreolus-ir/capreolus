@@ -191,8 +191,8 @@ class DocStats(Extractor):
        # "tokenizer": Dependency(module="tokenizer", name="spacy", config_overrides={"keepstops": False}),
         "entitylinking": Dependency(module="entitylinking", name='ambiversenlu'),
         "domainrelatedness": Dependency(module='entitydomainrelatedness', name='wiki2vecrepresentative', config_overrides={"strategy": "centroid-k100"},),
-        "entityspecificity": Dependency(module='entityspecificity', name='higherneighborhoodmean', config_overrides={"return_top": 10, "k": 100, 'ranking_strategy': 'greedy_most_outlinks_withrm'}),
-        # "entityspecificity": Dependency(module='entityspecificity', name='twohoppath', config_overrides={"return_top": 10, 'ranking_strategy': 'greedy_most_outlinks_withrm'}),
+#        "entityspecificity": Dependency(module='entityspecificity', name='higherneighborhoodmean', config_overrides={"return_top": 10, "k": 100, 'ranking_strategy': 'greedy_most_outlinks_withrm'}),
+        "entityspecificity": Dependency(module='entityspecificity', name='twohoppath'),
 
     }
 
@@ -237,9 +237,9 @@ class DocStats(Extractor):
             self["entitylinking"].load_descriptions()
 
         if self.entity_strategy == 'domain':
-            self["domainrelatedness"].initialize()
+            self["domainrelatedness"].initialize(self["entitylinking"].get_cache_path())
         elif self.entity_strategy == 'specific_domainrel':
-            self["domainrelatedness"].initialize()
+            self["domainrelatedness"].initialize(self["entitylinking"].get_cache_path())
             self["entityspecificity"].initialize()
 
         logger.debug("tokenizing queries [+entity descriptions]")
