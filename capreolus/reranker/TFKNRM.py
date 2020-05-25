@@ -36,7 +36,7 @@ class TFKNRM_Class(tf.keras.Model):
         indices = tf.cast(indices, tf.int32)
         partition_size = tf.shape(embeddings[0])[0]
         partition_assignments = tf.cast((indices // partition_size), tf.int32)
-        partition_offsets = indices % partition_size
+        partition_offsets = tf.cast(indices % partition_size, tf.int32)
         partition_to_offsets = dynamic_partition(partition_offsets, partition_assignments, num_partitions)
         lookups = []
         for i in range(num_partitions):
