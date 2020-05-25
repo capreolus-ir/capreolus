@@ -12,6 +12,26 @@ VALID_METRICS = {"P", "map", "map_cut", "ndcg_cut", "Rprec", "recip_rank", "set_
 CUT_POINTS = [5, 10, 15, 20, 30, 100, 200, 500, 1000]
 
 
+def mrr(qrels, runs, qids=None):
+    if qids:
+        qrels = {q: v for q, v in qrels.items() if q in qids}
+        runs = {q: v for q, v in runs.items() if q in qids}
+
+    ranks = []
+    for q, rundocs in runs.items():
+        if q not in qrels:
+            continue
+
+        rundocs = sorted(rundocs.items(), key=lambda k_v: float(k_v[1]), reverse=True)
+        rundocs = [d for d, i in rundocs]
+        pos_docids, pos_doc_ranks = [d for d in rundocs if qrels[q].get(d, 0) > 0], []
+        for d in pos_docids:
+            if d in rundocs:
+                pos_doc_ranks.append(rundocs.index(d)+1)
+        ranks.append(1/min(pos_doc_ranks)) if len(pos_doc_ranks) > 0 else 0
+    return sum(ranks) / len(ranks)
+
+
 def _verify_metric(metrics):
     """
     Verify if the metrics is in the returned list of TREC eval
@@ -45,12 +65,23 @@ def _transform_metric(metrics):
 
 def _eval_runs(runs, qrels, metrics, dev_qids):
     assert isinstance(metrics, list)
+    calc_mrr = "mrr" in metrics
+    if calc_mrr:
+        metrics.remove("mrr")
+        mrr_score = mrr(qrels, runs, dev_qids)
+
+    _verify_metric(metrics)
+
     dev_qrels = {qid: labels for qid, labels in qrels.items() if qid in dev_qids}
     evaluator = pytrec_eval.RelevanceEvaluator(dev_qrels, _transform_metric(metrics))
 
     scores = [[metrics_dict.get(m, -1) for m in metrics] for metrics_dict in evaluator.evaluate(runs).values()]
     scores = np.array(scores).mean(axis=0).tolist()
     scores = dict(zip(metrics, scores))
+
+    if calc_mrr:
+        scores["mrr"] = mrr_score
+
     return scores
 
 
@@ -67,7 +98,6 @@ def eval_runs(runs, qrels, metrics):
         a dict with format {metric: score}, containing the evaluation score of specified metrics
     """
     metrics = [metrics] if isinstance(metrics, str) else list(metrics)
-    _verify_metric(metrics)
     return _eval_runs(runs, qrels, metrics, dev_qids=list(qrels.keys()))
 
 
@@ -84,7 +114,6 @@ def eval_runfile(runfile, qrels, metrics):
         a dict with format {metric: score}, containing the evaluation score of specified metrics
     """
     metrics = [metrics] if isinstance(metrics, str) else list(metrics)
-    _verify_metric(metrics)
     runs = Searcher.load_trec_run(runfile)
     return _eval_runs(runs, qrels, metrics, dev_qids=list(qrels.keys()))
 
@@ -106,7 +135,6 @@ def search_best_run(runfile_dir, benchmark, primary_metric, metrics=None, folds=
     metrics = [] if not metrics else ([metrics] if isinstance(metrics, str) else list(metrics))
     if primary_metric not in metrics:
         metrics = [primary_metric] + metrics
-    _verify_metric(metrics)
 
     folds = {s: benchmark.folds[s] for s in [folds]} if folds else benchmark.folds
     runfiles = [

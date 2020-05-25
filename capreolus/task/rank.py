@@ -27,10 +27,9 @@ def evaluate(config, modules):
     benchmark = modules["benchmark"]
 
     metric = config["optimize"]
-    all_metric = ["ndcg_cut_20", "ndcg_cut_10", "map", "P_20", "P_10", "set_recall"]
+    all_metric = ["mrr", "ndcg_cut_20", "ndcg_cut_10", "map", "P_20", "P_10", "set_recall"]
     output_dir = searcher.get_cache_path() / benchmark.name
     best_results = evaluator.search_best_run(output_dir, benchmark, primary_metric=metric, metrics=all_metric)
-
     pathes = [f"\t{s}: {path}" for s, path in best_results["path"].items()]
     print("path for each split: \n", "\n".join(pathes))
 
