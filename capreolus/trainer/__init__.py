@@ -567,7 +567,7 @@ class TensorFlowTrainer(Trainer):
         """
         Similar to self.convert_to_tf_train_record(), but won't result in multiple files
         """
-        dir_name = "{0}/{1}/{2}".format(self.cfg["storage"], "capreolus_tfrecords", dataset.get_hash())
+        dir_name = self.get_tf_record_cache_path(dataset)
 
         tf_features = [reranker["extractor"].create_tf_feature(sample) for sample in dataset]
 
@@ -579,7 +579,7 @@ class TensorFlowTrainer(Trainer):
         Takes in a dataset,  iterates through it, and creates multiple tf records from it.
         The exact structure of the tfrecords is defined by reranker.extractor. For example, see EmbedText.get_tf_feature()
         """
-        dir_name = "{0}/{1}/{2}".format(self.cfg["storage"], "capreolus_tfrecords", dataset.get_hash())
+        dir_name = self.get_tf_record_cache_path(dataset)
 
         total_samples = dataset.get_total_samples()
         tf_features = []
