@@ -257,7 +257,7 @@ class CodeSearchNet(Collection):
     def download_if_missing(self):
         cachedir = self.get_cache_path()
         document_dir = cachedir / "documents"
-        coll_filename = document_dir / ("csn-"+self.cfg["lang"]+"-collection.txt")
+        coll_filename = document_dir / ("csn-" + self.cfg["lang"] + "-collection.txt")
 
         if coll_filename.exists():
             return document_dir
