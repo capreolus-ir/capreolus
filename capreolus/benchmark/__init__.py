@@ -178,8 +178,10 @@ class CodeSearchNetCorpus(Benchmark):
                 docstring = remove_newline(" ".join(doc["docstring_tokens"]))
                 n_words_in_docstring = len(docstring.split())
                 if n_words_in_docstring >= 1024:
-                    logger.warning(f"chunk query to first 1000 words otherwise TooManyClause would be triggered "
-                                   f"at lucene at search stage, ")
+                    logger.warning(
+                        f"chunk query to first 1000 words otherwise TooManyClause would be triggered "
+                        f"at lucene at search stage, "
+                    )
                     docstring = " ".join(docstring.split()[:1020])  # for TooManyClause
 
                 docid = self.get_docid(doc["url"], code)
@@ -197,10 +199,10 @@ class CodeSearchNetCorpus(Benchmark):
         # write to qid_map.json, docid_map, fold.json
         json.dump(self._qid_map, open(self.qid_map_file, "w"))
         json.dump(self._docid_map, open(self.docid_map_file, "w"))
-        json.dump({"s1": {
-            "train_qids": qids["train"],
-            "predict": {"dev": qids["valid"], "test": qids["test"]}
-        }}, open(self.fold_file, "w"))
+        json.dump(
+            {"s1": {"train_qids": qids["train"], "predict": {"dev": qids["valid"], "test": qids["test"]}}},
+            open(self.fold_file, "w"),
+        )
 
     def _prep_docid_map(self, doc_objs):
         """
@@ -241,6 +243,7 @@ class CodeSearchNetChallenge(Benchmark):
     """
     CodeSearchNetChallenge can only be used for training but not for evaluation since qrels is not provided
     """
+
     name = "codesearchnet_challenge"
     url = "https://raw.githubusercontent.com/github/CodeSearchNet/master/resources/queries.csv"
     query_type = "title"
