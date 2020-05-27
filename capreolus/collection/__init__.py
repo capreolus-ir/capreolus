@@ -292,3 +292,40 @@ class CodeSearchNet(Collection):
             doc = remove_newline(" ".join(code["function_tokens"]))
             fout.write(document_to_trectxt(docno, doc))
         fout.close()
+
+
+class COVID(Collection):
+    name = "covid"
+    url = ""
+    collection_type = None
+    generator_type = "Cord19Generator"
+
+    @staticmethod
+    def config():
+        coll_type = "full-text"  # options: abstract, full-text, paragraph
+        round = 3  # 3 / 2 / 1
+
+    def __init__(self, cfg):
+        super().__init__(cfg)
+        coll_type, round = cfg["coll_type"], cfg["round"]
+        type2coll = {
+            "abstract": "Cord19AbstractCollection",
+            "full-text": "Cord19FullTextCollection",
+            "paragraph": "Cord19ParagraphCollection",
+        }
+        dates = ["2020-04-10", "2020-05-01", "2020-05-19"]
+
+        if coll_type not in type2coll:
+            raise ValueError(f"Unexpected coll_type: {coll_type}; expeced one of: {' '.join(type2coll.keys())}")
+        if round > len(dates):
+            raise ValueError(f"Unexpected round number: {round}; only {len(dates)} number of rounds are provided")
+
+        self.collection_type = type2coll[coll_type]
+        self.date = dates[round - 1]
+
+    def download_if_missing(self):
+        cachedir = self.get_cache_path()
+        document_dir = cachedir / "documents"
+
+        # TODO: do a real downloading
+        return document_dir

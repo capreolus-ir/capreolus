@@ -57,6 +57,7 @@ class AnseriniIndex(Index):
 
     def _create_index(self):
         outdir = self.get_index_path()
+        print("index dir: ", outdir)
         stops = "-keepStopwords" if self.cfg["indexstops"] else ""
 
         collection_path, document_type, generator_type = self["collection"].get_path_and_types()
