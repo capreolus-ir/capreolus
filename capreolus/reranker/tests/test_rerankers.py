@@ -10,7 +10,7 @@ from capreolus.extractor import EmbedText, BertText
 from capreolus.reranker.PACRR import PACRR
 from capreolus.sampler import TrainDataset, PredDataset
 from capreolus.tests.common_fixtures import tmpdir_as_cache, dummy_index
-from capreolus.tokenizer import AnseriniTokenizer
+from capreolus.tokenizer import AnseriniTokenizer, BertTokenizer
 from capreolus.trainer import PytorchTrainer
 from capreolus.extractor.bagofwords import BagOfWords
 from capreolus.reranker.DSSM import DSSM
@@ -672,8 +672,8 @@ def test_bertmaxp(dummy_index, tmpdir, tmpdir_as_cache, monkeypatch):
     )
     extractor = reranker.modules["extractor"]
     extractor.modules["index"] = dummy_index
-    tok_cfg = {"_name": "anserini", "keepstops": True, "stemmer": "none"}
-    tokenizer = AnseriniTokenizer(tok_cfg)
+    tok_cfg = {"_name": "berttokenizer", "pretrained": "bert-base-uncased"}
+    tokenizer = BertTokenizer(tok_cfg)
     extractor.modules["tokenizer"] = tokenizer
     metric = "map"
     benchmark = DummyBenchmark({"fold": "s1", "rundocsonly": True})
