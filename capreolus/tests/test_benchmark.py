@@ -12,7 +12,7 @@ logger = get_logger(__name__)
 
 
 def test_csn_corpus_benchmark_downloadifmissing():
-    for lang in ["python", "java", "javascript", "go", "ruby", "php"]:
+    for lang in ["ruby"]:
         logger.info(f"testing {lang}")
         cfg = {"_name": "codesearchnet_corpus", "lang": lang}
         benchmark = CodeSearchNetCodeSearchNetCorpusBenchmark(cfg)
@@ -55,7 +55,7 @@ def _load_trec_doc(fn):
 
 
 def test_csn_coll_benchmark_consistency():
-    for lang in ["python", "java", "javascript", "go", "ruby", "php"]:
+    for lang in ["ruby"]:
         cfg = {"_name": "codesearchnet_corpus", "lang": lang}
         benchmark = CodeSearchNetCodeSearchNetCorpusBenchmark(cfg)
         collection = CodeSearchNetCollection(cfg)
