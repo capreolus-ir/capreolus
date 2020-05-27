@@ -261,17 +261,13 @@ class BM25Filter(BM25, FilterMixin):
 
     def query_from_file(self, topicsfn, output_path):
         qrel_fn = "/home/xinyu1zhang/cikm/capreolus-covid/capreolus/data/covid/round2.ignore.qrel.txt"
-
-        runfile_path = super().query_from_file(topicsfn, output_path)
         qrels = load_qrels(qrel_fn)
         docs_to_remove = {q: list(d.keys()) for q, d in qrels.items()}
-        filtered_runfile_path = super().filter(runfile_path, docs_to_remove=docs_to_remove, topn=self.cfg["topn"])
 
-        donefn = os.path.join(filtered_runfile_path, "done")
-        with open(donefn, "wt") as donef:
-            print("done", file=donef)
+        output_path = super().query_from_file(topicsfn, output_path)
+        output_path = super().filter(output_path, docs_to_remove=docs_to_remove, topn=self.cfg["topn"])
 
-        return filtered_runfile_path
+        return output_path
 
 
 class StaticBM25RM3Rob04Yang19(Searcher):
