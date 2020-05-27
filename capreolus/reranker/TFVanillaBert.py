@@ -48,7 +48,7 @@ class TFVanillaBert_Class(tf.keras.Model):
         )[0][:, 0]
 
         # TODO: Verify that negdoc_score is indeed always zero whenever a zero negdoc tensor is passed into it
-        return posdoc_score - negdoc_score
+        return tf.stack([posdoc_score, negdoc_score], axis=1)
 
 
 class TFVanillaBERT(Reranker):

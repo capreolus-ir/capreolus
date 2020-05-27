@@ -19,7 +19,7 @@ def test_antique_downloadifmissing():
 
 
 def test_csn_downloadifmissing():
-    for lang in ["python", "java", "javascript", "go", "ruby", "php"]:
+    for lang in ["ruby"]:
         cfg = {"_name": "codesearchnet", "lang": lang}
         col = CodeSearchNet(cfg)
 
@@ -30,4 +30,3 @@ def test_csn_downloadifmissing():
 
         index.create_index()
         assert index.exists()
-

@@ -17,17 +17,6 @@ def pair_hinge_loss(pos_neg_scores):
     return _hinge_loss(pos_neg_scores[0], pos_neg_scores[1], label)
 
 
-def tf_pair_hinge_loss(labels, scores):
-    """
-    Labels - a dummy zero tensor.
-    Scores - A tensor of the shape (batch_size, diff), where diff = posdoc_score - negdoc_score
-    """
-    ones = tf.ones_like(scores)
-    zeros = tf.ones_like(scores)
-
-    return K.sum(K.maximum(zeros, ones - scores))
-
-
 def similarity_matrix_tf(query_embed, doc_embed, query_tok, doc_tok, padding):
     batch_size, qlen, doclen = tf.shape(query_embed)[0], tf.shape(query_embed)[1], tf.shape(doc_embed)[1]
     q_denom = tf.broadcast_to(tf.reshape(tf.norm(query_embed, axis=2), (batch_size, qlen, 1)), (batch_size, qlen, doclen)) + 1e-9
