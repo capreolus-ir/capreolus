@@ -6,7 +6,7 @@ import torch
 from pymagnitude import Magnitude
 
 from capreolus.benchmark import DummyBenchmark
-from capreolus.extractor import EmbedText
+from capreolus.extractor import EmbedText, BertText
 from capreolus.reranker.PACRR import PACRR
 from capreolus.sampler import TrainDataset, PredDataset
 from capreolus.tests.common_fixtures import tmpdir_as_cache, dummy_index
@@ -23,6 +23,7 @@ from capreolus.reranker.DeepTileBar import DeepTileBar
 from capreolus.reranker.HINT import HINT
 from capreolus.reranker.POSITDRMM import POSITDRMM
 from capreolus.reranker.CDSSM import CDSSM
+from capreolus.reranker.TFBERTMaxP import TFBERTMaxP
 
 
 def test_knrm_pytorch(dummy_index, tmpdir, tmpdir_as_cache, monkeypatch):
@@ -612,6 +613,58 @@ def test_CDSSM(dummy_index, tmpdir, tmpdir_as_cache, monkeypatch):
             "embeddings": "glove6b",
             "zerounk": False,
             "calcidf": True,
+            "maxqlen": 4,
+            "maxdoclen": 800,
+            "usecache": False,
+        }
+    )
+    extractor = reranker.modules["extractor"]
+    extractor.modules["index"] = dummy_index
+    tok_cfg = {"_name": "anserini", "keepstops": True, "stemmer": "none"}
+    tokenizer = AnseriniTokenizer(tok_cfg)
+    extractor.modules["tokenizer"] = tokenizer
+    metric = "map"
+    benchmark = DummyBenchmark({"fold": "s1", "rundocsonly": True})
+
+    extractor.create(["301"], ["LA010189-0001", "LA010189-0002"], benchmark.topics[benchmark.query_type])
+    reranker.build()
+    reranker.bm25_scores = {"301": {"LA010189-0001": 2, "LA010189-0002": 1}}
+    train_run = {"301": ["LA010189-0001", "LA010189-0002"]}
+    train_dataset = TrainDataset(qid_docid_to_rank=train_run, qrels=benchmark.qrels, extractor=extractor)
+    dev_dataset = PredDataset(qid_docid_to_rank=train_run, extractor=extractor)
+    reranker["trainer"].train(
+        reranker, train_dataset, Path(tmpdir) / "train", dev_dataset, Path(tmpdir) / "dev", benchmark.qrels, metric
+    )
+
+
+def test_bertmaxp(dummy_index, tmpdir, tmpdir_as_cache, monkeypatch):
+    reranker = TFBERTMaxP({"pretrained": "bert-base-uncased", "passagelen": 80, "overlap": 20, "mode": "maxp"})
+    trainer = TensorFlowTrainer(
+        {
+            "_name": "tensorflow",
+            "maxdoclen": 800,
+            "maxqlen": 4,
+            "batch": 2,
+            "niters": 1,
+            "itersize": 64,
+            "gradacc": 1,
+            "lr": 0.001,
+            "softmaxloss": True,
+            "interactive": False,
+            "fastforward": True,
+            "validatefreq": 1,
+            "usecache": False,
+            "tpuname": None,
+            "tpuzone": None,
+            "storage": None,
+            "boardname": "default",
+            "loss": "approx_ndcg_loss",
+        }
+    )
+    reranker.modules["trainer"] = trainer
+    reranker.modules["extractor"] = BertText(
+        {
+            "_name": "berttext",
             "maxqlen": 4,
             "maxdoclen": 800,
             "usecache": False,
