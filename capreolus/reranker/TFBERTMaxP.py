@@ -62,8 +62,9 @@ class TFBERTMaxP_Class(tf.keras.Model):
             pos_passage_scores.append(pos_passage_score)
             neg_passage_scores.append(neg_passage_score)
 
-        posdoc_score = self.aggregate_fn(pos_passage_scores, axis=1)
-        negdoc_score = self.aggregate_fn(neg_passage_scores, axis=1)
+        posdoc_score = tf.math.reduce_max(pos_passage_scores, axis=1)
+        negdoc_score = tf.math.reduce_max(neg_passage_scores, axis=1)
+
 
         return tf.stack([posdoc_score, negdoc_score], axis=1)
 
