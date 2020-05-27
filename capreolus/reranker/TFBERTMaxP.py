@@ -58,12 +58,12 @@ class TFBERTMaxP_Class(tf.keras.Model):
             )[0][:, 0]
             neg_passage_score = self.bert(
                 query_neg_passage_tokens_tensor, attention_mask=query_neg_passage_mask, token_type_ids=query_passage_segments_tensor
-            )
+            )[0][:, 0]
             pos_passage_scores.append(pos_passage_score)
             neg_passage_scores.append(neg_passage_score)
 
-        posdoc_score = self.aggregate_fn(tf.stack(pos_passage_scores, axis=1), axis=1)
-        negdoc_score = self.aggregate_fn(tf.stack(neg_passage_scores, axis=1), axis=1)
+        posdoc_score = self.aggregate_fn(pos_passage_scores, axis=1)
+        negdoc_score = self.aggregate_fn(neg_passage_scores, axis=1)
 
         return tf.stack([posdoc_score, negdoc_score], axis=1)
 
