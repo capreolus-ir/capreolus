@@ -42,7 +42,15 @@ class TFBERTMaxP_Class(tf.keras.Model):
         pos_passage_scores = tf.TensorArray(tf.float32, size=0, dynamic_size=True)
         neg_passage_scores = tf.TensorArray(tf.float32, size=0, dynamic_size=True)
 
-        for idx, i in enumerate(range(0, doclen, passagelen - overlap)):
+
+        def condition(idx):
+            tf.less(idx * (passagelen-overlap), doclen)
+
+        idx = tf.constant(0)
+        loop_vars = (idx,)
+
+        def body(_idx):
+            i = _idx * (passagelen - overlap)
             pos_passage = pos_toks[:, i: i+passagelen]
             pos_passage_mask = posdoc_mask[:, i: i+passagelen]
             neg_passage = neg_toks[:, i:i+passagelen]
@@ -61,6 +69,10 @@ class TFBERTMaxP_Class(tf.keras.Model):
             )[0][:, 0]
             pos_passage_scores.write(idx, pos_passage_score)
             neg_passage_scores.write(idx, neg_passage_score)
+
+            return tf.add(_idx, 1)
+
+        tf.while_loop(condition, body, loop_vars)
 
         posdoc_score = tf.math.reduce_max(pos_passage_scores, axis=1)
         negdoc_score = tf.math.reduce_max(neg_passage_scores, axis=1)
