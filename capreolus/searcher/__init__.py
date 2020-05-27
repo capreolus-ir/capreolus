@@ -6,6 +6,7 @@ import numpy as np
 
 from pyserini.search import pysearch
 from capreolus.registry import ModuleBase, RegisterableModule, Dependency, MAX_THREADS, PACKAGE_PATH
+from capreolus.utils.trec import load_qrels
 from capreolus.utils.common import Anserini
 from capreolus.utils.loginit import get_logger
 
@@ -81,6 +82,53 @@ class AnseriniSearcherMixIn:
 
         with open(donefn, "wt") as donef:
             print("done", file=donef)
+
+
+class FilterMixin:
+    def filter(self, run_dir, docs_to_remove=None, docs_to_keep=None, topn=None):
+        if (not docs_to_keep) and (not docs_to_remove):
+            raise
+
+        run_dir = str(run_dir)
+        outp_dir = f"{run_dir}_filtered"
+        os.makedirs(outp_dir, exist_ok=True)
+        for fn in os.listdir(run_dir):
+            if fn == "done":
+                continue
+            # run_fn, outp_fn = os.path.join(run_dir, fn), os.path.join(outp_dir, fn)
+            run_fn = os.path.join(run_dir, fn)
+            self._filter(run_fn, docs_to_remove, docs_to_keep, topn)
+        return outp_dir
+
+    def _filter(self, runfile, docs_to_remove, docs_to_keep, topn):
+        runs = Searcher.load_trec_run(runfile)
+
+        # filtering
+        if docs_to_remove:  # prioritize docs_to_remove
+            if isinstance(docs_to_remove, list):
+                docs_to_remove = {q: docs_to_remove for q in runs}
+            runs = {
+                q: {d: v for d, v in docs.items() if d not in docs_to_remove.get(q, [])}
+                for q, docs in runs.items()}
+        elif docs_to_keep:
+            if isinstance(docs_to_keep, list):
+                docs_to_keep = {q: docs_to_keep for q in runs}
+            runs = {
+                q: {d: v for d, v in docs.items() if d in docs_to_keep[q]}
+                for q, docs in runs.items()}
+
+        # keep the top k
+        if not topn:
+            Searcher.write_trec_run(runs, runfile)  # overwrite runfile
+
+        queries = sorted(list(runs.keys()))
+        for q in queries:
+            docs = runs[q]
+            if len(docs) <= topn:
+                continue
+            docs = sorted(docs.items(), key=lambda kv: kv[1], reverse=True)[:topn]
+            runs[q] = {k: v for k, v in docs}
+        Searcher.write_trec_run(runs, runfile)  # overwrite runfile
 
 
 class BM25(Searcher, AnseriniSearcherMixIn):
@@ -201,6 +249,31 @@ class BM25RM3(Searcher, AnseriniSearcherMixIn):
         return OrderedDict({hit.docid: hit.score for hit in hits})
 
 
+class BM25Filter(BM25, FilterMixin):
+    name = "BM25Filter"
+
+    @staticmethod
+    def config():
+        b = 0.4  # controls document length normalization
+        k1 = 0.9  # controls term saturation
+        hits = 1000
+        topn = 1000
+
+    def query_from_file(self, topicsfn, output_path):
+        qrel_fn = "/home/xinyu1zhang/cikm/capreolus-covid/capreolus/data/covid/round2.ignore.qrel.txt"
+
+        runfile_path = super().query_from_file(topicsfn, output_path)
+        qrels = load_qrels(qrel_fn)
+        docs_to_remove = {q: list(d.keys()) for q, d in qrels.items()}
+        filtered_runfile_path = super().filter(runfile_path, docs_to_remove=docs_to_remove, topn=self.cfg["topn"])
+
+        donefn = os.path.join(filtered_runfile_path, "done")
+        with open(donefn, "wt") as donef:
+            print("done", file=donef)
+
+        return filtered_runfile_path
+
+
 class StaticBM25RM3Rob04Yang19(Searcher):
     """ Tuned BM25+RM3 run used by Yang et al. in [1]. This should be used only with a benchmark using the same folds and queries.
 
@@ -258,3 +331,4 @@ class DirichletQL(Searcher, AnseriniSearcherMixIn):
 
         hits = searcher.search(query)
         return OrderedDict({hit.docid: hit.score for hit in hits})
+
