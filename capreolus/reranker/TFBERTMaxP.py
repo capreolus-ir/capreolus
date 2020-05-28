@@ -39,8 +39,8 @@ class TFBERTMaxP_Class(tf.keras.Model):
 
         passagelen = self.config["passagelen"]
         # overlap = self.config["overlap"]
-        # pos_passage_scores = tf.TensorArray(tf.float32, size=0, dynamic_size=True)
-        # neg_passage_scores = tf.TensorArray(tf.float32, size=0, dynamic_size=True)
+        pos_passage_scores = tf.TensorArray(tf.float32, size=0, dynamic_size=True)
+        neg_passage_scores = tf.TensorArray(tf.float32, size=0, dynamic_size=True)
 
 
         # def condition(idx, ta1, ta2):
@@ -99,7 +99,36 @@ class TFBERTMaxP_Class(tf.keras.Model):
             token_type_ids=query_passage_segments_tensor
         )[0][:, 0]
 
-        return tf.stack([pos_passage_score, neg_passage_score], axis=1)
+        pos_passage_scores = pos_passage_scores.write(0, pos_passage_score)
+        neg_passage_scores = neg_passage_scores.write(0, neg_passage_score)
+
+        i = passagelen
+        pos_passage = pos_toks[:, i: i + passagelen]
+        pos_passage_mask = posdoc_mask[:, i: i + passagelen]
+        neg_passage = neg_toks[:, i:i + passagelen]
+        neg_passage_mask = negdoc_mask[:, i: i + passagelen]
+
+        query_pos_passage_tokens_tensor = tf.concat([cls, query_toks, sep_1, pos_passage, sep_2], axis=1)
+        query_pos_passage_mask = tf.concat([ones, query_mask, ones, pos_passage_mask, ones], axis=1)
+        query_neg_passage_tokens_tensor = tf.concat([cls, query_toks, sep_1, neg_passage, sep_2], axis=1)
+        query_neg_passage_mask = tf.concat([ones, query_mask, ones, neg_passage_mask, ones], axis=1)
+        query_passage_segments_tensor = tf.concat(
+            [tf.zeros([batch_size, qlen + 2]), tf.ones([batch_size, passagelen + 1])], axis=1)
+        pos_passage_score = self.bert(
+            query_pos_passage_tokens_tensor, attention_mask=query_pos_passage_mask,
+            token_type_ids=query_passage_segments_tensor
+        )[0][:, 0]
+        neg_passage_score = self.bert(
+            query_neg_passage_tokens_tensor, attention_mask=query_neg_passage_mask,
+            token_type_ids=query_passage_segments_tensor
+        )[0][:, 0]
+
+        pos_passage_scores = pos_passage_scores.write(1, pos_passage_score)
+        neg_passage_scores = neg_passage_scores.write(1, neg_passage_score)
+
+        posdoc_scores = tf.transpose(pos_passage_scores.stack(), perm=[1, 2, 0])
+        negdoc_scores = tf.transpose(neg_passage_scores.stack(), perm=[1, 2, 0])
+        return tf.stack([posdoc_scores, negdoc_scores], axis=1)
 
 
 class TFBERTMaxP(Reranker):
