@@ -67,15 +67,17 @@ class TFBERTMaxP_Class(tf.keras.Model):
             neg_passage_score = self.bert(
                 query_neg_passage_tokens_tensor, attention_mask=query_neg_passage_mask, token_type_ids=query_passage_segments_tensor
             )[0][:, 0]
-            pos_passage_scores.write(idx, pos_passage_score)
-            neg_passage_scores.write(idx, neg_passage_score)
+            pos_passage_scores = pos_passage_scores.write(idx, tf.reshape(pos_passage_score, [batch_size]))
+            neg_passage_scores = neg_passage_scores.write(idx, tf.reshape(neg_passage_score, [batch_size]))
 
             return (tf.add(_idx, 1), )
 
         tf.while_loop(condition, body, loop_vars)
 
-        posdoc_score = tf.math.reduce_max(tf.transpose(pos_passage_scores.stack(), perm=[1, 2, 0]), axis=1)
-        negdoc_score = tf.math.reduce_max(tf.transpose(neg_passage_scores.stack(), perm=[1, 2, 0]), axis=1)
+        pos_passage_scores = tf.reshape(pos_passage_scores.stack(), [batch_size, -1])
+        neg_passage_scores = tf.reshape(neg_passage_scores.stack(), [batch_size, -1])
+        posdoc_score = tf.math.reduce_max(pos_passage_scores, axis=1)
+        negdoc_score = tf.math.reduce_max(neg_passage_scores, axis=1)
 
         return tf.stack([posdoc_score, negdoc_score], axis=1)
 
