@@ -39,8 +39,8 @@ class TFBERTMaxP_Class(tf.keras.Model):
 
         passagelen = self.config["passagelen"]
         overlap = self.config["overlap"]
-        pos_passage_scores = tf.TensorArray(tf.float32, size=8, dynamic_size=False)
-        neg_passage_scores = tf.TensorArray(tf.float32, size=8, dynamic_size=False)
+        pos_passage_scores = tf.TensorArray(tf.float32, size=9, dynamic_size=False)
+        neg_passage_scores = tf.TensorArray(tf.float32, size=9, dynamic_size=False)
 
         # Beginning of hand-crafted loop
         # Loop iter 1 start
