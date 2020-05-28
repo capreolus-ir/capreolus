@@ -107,15 +107,11 @@ class FilterMixin:
         if docs_to_remove:  # prioritize docs_to_remove
             if isinstance(docs_to_remove, list):
                 docs_to_remove = {q: docs_to_remove for q in runs}
-            runs = {
-                q: {d: v for d, v in docs.items() if d not in docs_to_remove.get(q, [])}
-                for q, docs in runs.items()}
+            runs = {q: {d: v for d, v in docs.items() if d not in docs_to_remove.get(q, [])} for q, docs in runs.items()}
         elif docs_to_keep:
             if isinstance(docs_to_keep, list):
                 docs_to_keep = {q: docs_to_keep for q in runs}
-            runs = {
-                q: {d: v for d, v in docs.items() if d in docs_to_keep[q]}
-                for q, docs in runs.items()}
+            runs = {q: {d: v for d, v in docs.items() if d in docs_to_keep[q]} for q, docs in runs.items()}
 
         # keep the top k
         if not topn:
@@ -327,4 +323,3 @@ class DirichletQL(Searcher, AnseriniSearcherMixIn):
 
         hits = searcher.search(query)
         return OrderedDict({hit.docid: hit.score for hit in hits})
-
