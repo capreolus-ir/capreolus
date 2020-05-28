@@ -47,7 +47,7 @@ class TFBERTMaxP_Class(tf.keras.Model):
         i = 0
         idx = 0
 
-        while idx < 10:
+        while idx < 9:
             pos_passage = pos_toks[:, i: i + passagelen]
             pos_passage_mask = posdoc_mask[:, i: i + passagelen]
             neg_passage = neg_toks[:, i:i + passagelen]
