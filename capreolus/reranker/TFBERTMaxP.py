@@ -64,7 +64,7 @@ class TFBERTMaxP_Class(tf.keras.Model):
             token_type_ids=query_passage_segments_tensor
         )[0][:, 0]
         pos_passage_scores = pos_passage_scores.write(idx, pos_passage_score)
-        neg_passage_scores = neg_passage_score.write(idx, neg_passage_score)
+        neg_passage_scores = neg_passage_scores.write(idx, neg_passage_score)
 
         i += passagelen - overlap
         idx = 1
@@ -88,7 +88,7 @@ class TFBERTMaxP_Class(tf.keras.Model):
             token_type_ids=query_passage_segments_tensor
         )[0][:, 0]
         pos_passage_scores = pos_passage_scores.write(idx, pos_passage_score)
-        neg_passage_scores = neg_passage_score.write(idx, neg_passage_score)
+        neg_passage_scores = neg_passage_scores.write(idx, neg_passage_score)
 
         i += passagelen - overlap
         idx = 2
@@ -112,7 +112,7 @@ class TFBERTMaxP_Class(tf.keras.Model):
             token_type_ids=query_passage_segments_tensor
         )[0][:, 0]
         pos_passage_scores = pos_passage_scores.write(idx, pos_passage_score)
-        neg_passage_scores = neg_passage_score.write(idx, neg_passage_score)
+        neg_passage_scores = neg_passage_scores.write(idx, neg_passage_score)
 
         i += passagelen - overlap
         idx = 3
@@ -136,7 +136,7 @@ class TFBERTMaxP_Class(tf.keras.Model):
             token_type_ids=query_passage_segments_tensor
         )[0][:, 0]
         pos_passage_scores = pos_passage_scores.write(idx, pos_passage_score)
-        neg_passage_scores = neg_passage_score.write(idx, neg_passage_score)
+        neg_passage_scores = neg_passage_scores.write(idx, neg_passage_score)
 
         i += passagelen - overlap
         idx = 4
@@ -160,7 +160,7 @@ class TFBERTMaxP_Class(tf.keras.Model):
             token_type_ids=query_passage_segments_tensor
         )[0][:, 0]
         pos_passage_scores = pos_passage_scores.write(idx, pos_passage_score)
-        neg_passage_scores = neg_passage_score.write(idx, neg_passage_score)
+        neg_passage_scores = neg_passage_scores.write(idx, neg_passage_score)
 
         i += passagelen - overlap
         idx = 5
@@ -184,7 +184,7 @@ class TFBERTMaxP_Class(tf.keras.Model):
             token_type_ids=query_passage_segments_tensor
         )[0][:, 0]
         pos_passage_scores = pos_passage_scores.write(idx, pos_passage_score)
-        neg_passage_scores = neg_passage_score.write(idx, neg_passage_score)
+        neg_passage_scores = neg_passage_scores.write(idx, neg_passage_score)
 
         i += passagelen - overlap
         idx = 6
@@ -208,7 +208,7 @@ class TFBERTMaxP_Class(tf.keras.Model):
             token_type_ids=query_passage_segments_tensor
         )[0][:, 0]
         pos_passage_scores = pos_passage_scores.write(idx, pos_passage_score)
-        neg_passage_scores = neg_passage_score.write(idx, neg_passage_score)
+        neg_passage_scores = neg_passage_scores.write(idx, neg_passage_score)
 
         i += passagelen - overlap
         idx = 7
@@ -232,7 +232,7 @@ class TFBERTMaxP_Class(tf.keras.Model):
             token_type_ids=query_passage_segments_tensor
         )[0][:, 0]
         pos_passage_scores = pos_passage_scores.write(idx, pos_passage_score)
-        neg_passage_scores = neg_passage_score.write(idx, neg_passage_score)
+        neg_passage_scores = neg_passage_scores.write(idx, neg_passage_score)
 
         posdoc_scores = tf.math.reduce_max(pos_passage_scores.stack(), axis=0)
         negdoc_scores = tf.math.reduce_max(neg_passage_scores.stack(), axis=0)
