@@ -14,7 +14,7 @@ class TFBERTMaxP_Class(tf.keras.Model):
         self.bert = TFBertForSequenceClassification.from_pretrained(config["pretrained"])
         self.config = config
         self.aggregate_fn = self.get_aggregate_fn()
-        
+
     def get_aggregate_fn(self):
         if self.config["mode"] == "maxp":
             return tf.math.reduce_max
@@ -39,8 +39,8 @@ class TFBERTMaxP_Class(tf.keras.Model):
 
         passagelen = self.config["passagelen"]
         overlap = self.config["overlap"]
-        pos_passage_scores = tf.TensorArray(tf.float32, size=9, dynamic_size=False)
-        neg_passage_scores = tf.TensorArray(tf.float32, size=9, dynamic_size=False)
+        pos_passage_scores = tf.TensorArray(tf.float32, size=doclen//passagelen, dynamic_size=False)
+        neg_passage_scores = tf.TensorArray(tf.float32, size=doclen//passagelen, dynamic_size=False)
 
         # Beginning of hand-crafted loop
         # Loop iter 1 start
