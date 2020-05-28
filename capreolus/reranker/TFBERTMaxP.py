@@ -43,13 +43,13 @@ class TFBERTMaxP_Class(tf.keras.Model):
         neg_passage_scores = tf.TensorArray(tf.float32, size=0, dynamic_size=True)
 
 
-        def condition(idx):
+        def condition(idx, ta1, ta2):
             return tf.less(idx * (passagelen-overlap), doclen)
 
         idx = tf.constant(0)
         loop_vars = (idx,)
 
-        def body(_idx):
+        def body(_idx, _pos_passage_scores, _neg_passage_scores):
             i = _idx * (passagelen - overlap)
             pos_passage = pos_toks[:, i: i+passagelen]
             pos_passage_mask = posdoc_mask[:, i: i+passagelen]
@@ -67,10 +67,10 @@ class TFBERTMaxP_Class(tf.keras.Model):
             neg_passage_score = self.bert(
                 query_neg_passage_tokens_tensor, attention_mask=query_neg_passage_mask, token_type_ids=query_passage_segments_tensor
             )[0][:, 0]
-            pos_passage_scores = pos_passage_scores.write(idx, tf.reshape(pos_passage_score, [batch_size]))
-            neg_passage_scores = neg_passage_scores.write(idx, tf.reshape(neg_passage_score, [batch_size]))
+            _pos_passage_scores = _pos_passage_scores.write(idx, tf.reshape(pos_passage_score, [batch_size]))
+            _neg_passage_scores = _neg_passage_scores.write(idx, tf.reshape(neg_passage_score, [batch_size]))
 
-            return (tf.add(_idx, 1), )
+            return (tf.add(_idx, 1), _pos_passage_scores, _neg_passage_scores)
 
         tf.while_loop(condition, body, loop_vars)
 
