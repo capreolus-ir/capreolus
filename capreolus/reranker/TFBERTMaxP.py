@@ -47,7 +47,7 @@ class TFBERTMaxP_Class(tf.keras.Model):
             return tf.less(idx * (passagelen-overlap), doclen)
 
         idx = tf.constant(0)
-        loop_vars = (idx,)
+        loop_vars = (idx, pos_passage_scores, neg_passage_scores)
 
         def body(_idx, _pos_passage_scores, _neg_passage_scores):
             i = _idx * (passagelen - overlap)
