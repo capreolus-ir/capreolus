@@ -126,8 +126,8 @@ class TFBERTMaxP_Class(tf.keras.Model):
         pos_passage_scores = pos_passage_scores.write(1, pos_passage_score)
         neg_passage_scores = neg_passage_scores.write(1, neg_passage_score)
 
-        posdoc_scores = tf.transpose(pos_passage_scores.stack(), perm=[1, 2, 0])
-        negdoc_scores = tf.transpose(neg_passage_scores.stack(), perm=[1, 2, 0])
+        posdoc_scores = tf.reshape(pos_passage_scores.stack(), [batch_size, -1])
+        negdoc_scores = tf.reshape(neg_passage_scores.stack(), [batch_size, -1])
         return tf.stack([posdoc_scores, negdoc_scores], axis=1)
 
 
