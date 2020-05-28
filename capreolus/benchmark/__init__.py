@@ -302,8 +302,7 @@ class COVID(Benchmark):
         self.download_if_missing()
 
     def download_if_missing(self):
-        if all([os.path.exists(fn) for fn in
-                [self.qrel_file, self.qrel_ignore, self.topic_file, self.fold_file]]):
+        if all([os.path.exists(fn) for fn in [self.qrel_file, self.qrel_ignore, self.topic_file, self.fold_file]]):
             return
 
         rnd_i = self.cfg["round"]
@@ -335,22 +334,19 @@ class COVID(Benchmark):
 
         # folds: use all labeled query for train, valid, and use all of them for test set
         labeled_qids = list(load_qrels(self.qrel_file).keys())
-        folds = {"s1": {
-            "train_qids": labeled_qids,
-            "predict": {"dev": labeled_qids, "test": all_qids}
-        }}
+        folds = {"s1": {"train_qids": labeled_qids, "predict": {"dev": labeled_qids, "test": all_qids}}}
         json.dump(folds, open(self.fold_file, "w"))
 
     def xml2trectopic(self, xmlfile):
-        with open(xmlfile, 'r') as f:
+        with open(xmlfile, "r") as f:
             topic = f.read()
 
         all_qids = []
-        soup = BeautifulSoup(topic, 'lxml')
-        topics = soup.find_all('topic')
+        soup = BeautifulSoup(topic, "lxml")
+        topics = soup.find_all("topic")
         with open(self.topic_file, "w") as fout:
             for topic in topics:
-                qid = topic['number']
+                qid = topic["number"]
                 title = topic.find_all("query")[0].text.strip()
                 desc = topic.find_all("question")[0].text.strip()
                 narr = topic.find_all("narrative")[0].text.strip()
