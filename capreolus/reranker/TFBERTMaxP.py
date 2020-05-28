@@ -20,13 +20,6 @@ class TFBERTMaxP_Class(tf.keras.Model):
             return tf.math.reduce_max
 
     def call(self, x, **kwargs):
-        """
-        During training, both posdoc and negdoc are passed
-        During eval, both posdoc and negdoc are passed but negdoc would be a zero tensor
-        Whether negdoc is a legit doc tensor or a dummy zero tensor is determined by which sampler is used
-        (eg: sampler.TrainDataset) as well as the extractor (eg: EmbedText)
-        """
-
         pos_toks, posdoc_mask, neg_toks, negdoc_mask, query_toks, query_mask = x[0], x[1], x[2], x[3], x[4], x[5]
         batch_size = tf.shape(pos_toks)[0]
         doclen = self.extractor.cfg["maxdoclen"]
@@ -39,33 +32,44 @@ class TFBERTMaxP_Class(tf.keras.Model):
 
         passagelen = self.config["passagelen"]
         overlap = self.config["overlap"]
-        pos_passage_scores = tf.TensorArray(tf.float32, size=doclen//passagelen, dynamic_size=False)
-        neg_passage_scores = tf.TensorArray(tf.float32, size=doclen//passagelen, dynamic_size=False)
+
+        # The passage level scores will be stored in these arrays
+        pos_passage_scores = tf.TensorArray(tf.float32, size=doclen // passagelen, dynamic_size=False)
+        neg_passage_scores = tf.TensorArray(tf.float32, size=doclen // passagelen, dynamic_size=False)
 
         # Beginning of hand-crafted loop
         # Loop iter 1 start
         i = 0
         idx = 0
 
-        while idx < (doclen//passagelen):
-            pos_passage = pos_toks[:, i: i + passagelen]
-            pos_passage_mask = posdoc_mask[:, i: i + passagelen]
-            neg_passage = neg_toks[:, i:i + passagelen]
-            neg_passage_mask = negdoc_mask[:, i: i + passagelen]
+        # TODO: Bugfix - We do not make use of the whole document
+        # Since the step size is (passagelen - overlap), the termination condition (i.e doclen // passagelen) will always terminate early
+        while idx < (doclen // passagelen):
+            # Get a passage and the corresponding mask
+            pos_passage = pos_toks[:, i : i + passagelen]
+            pos_passage_mask = posdoc_mask[:, i : i + passagelen]
+            neg_passage = neg_toks[:, i : i + passagelen]
+            neg_passage_mask = negdoc_mask[:, i : i + passagelen]
 
+            # Prepare the input to bert
             query_pos_passage_tokens_tensor = tf.concat([cls, query_toks, sep_1, pos_passage, sep_2], axis=1)
             query_pos_passage_mask = tf.concat([ones, query_mask, ones, pos_passage_mask, ones], axis=1)
             query_neg_passage_tokens_tensor = tf.concat([cls, query_toks, sep_1, neg_passage, sep_2], axis=1)
             query_neg_passage_mask = tf.concat([ones, query_mask, ones, neg_passage_mask, ones], axis=1)
             query_passage_segments_tensor = tf.concat(
-                [tf.zeros([batch_size, qlen + 2]), tf.ones([batch_size, passagelen + 1])], axis=1)
+                [tf.zeros([batch_size, qlen + 2]), tf.ones([batch_size, passagelen + 1])], axis=1
+            )
+
+            # Actual bert scoring
             pos_passage_score = self.bert(
-                query_pos_passage_tokens_tensor, attention_mask=query_pos_passage_mask,
-                token_type_ids=query_passage_segments_tensor
+                query_pos_passage_tokens_tensor,
+                attention_mask=query_pos_passage_mask,
+                token_type_ids=query_passage_segments_tensor,
             )[0][:, 0]
             neg_passage_score = self.bert(
-                query_neg_passage_tokens_tensor, attention_mask=query_neg_passage_mask,
-                token_type_ids=query_passage_segments_tensor
+                query_neg_passage_tokens_tensor,
+                attention_mask=query_neg_passage_mask,
+                token_type_ids=query_passage_segments_tensor,
             )[0][:, 0]
             pos_passage_scores = pos_passage_scores.write(idx, pos_passage_score)
             neg_passage_scores = neg_passage_scores.write(idx, neg_passage_score)
