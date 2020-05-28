@@ -39,11 +39,11 @@ class TFBERTMaxP_Class(tf.keras.Model):
 
         passagelen = self.config["passagelen"]
         overlap = self.config["overlap"]
-        pos_passage_scores = tf.TensorArray(tf.float32, size=doclen//passagelen)
-        neg_passage_scores = tf.TensorArray(tf.float32, size=doclen//passagelen)
+        pos_passage_scores = tf.TensorArray(tf.float32, size=doclen//passagelen, dynamic_size=False)
+        neg_passage_scores = tf.TensorArray(tf.float32, size=doclen//passagelen, dynamic_size=False)
 
         def condition(idx, _pos_passage_scores, _neg_passage_scores):
-            return tf.less(idx * (passagelen - overlap), doclen - passagelen)
+            return tf.less(idx, doclen//passagelen)
 
         def body(idx, _pos_passage_scores, _neg_passage_scores):
             i = idx * (passagelen - overlap)
@@ -66,7 +66,6 @@ class TFBERTMaxP_Class(tf.keras.Model):
                 query_neg_passage_tokens_tensor, attention_mask=query_neg_passage_mask,
                 token_type_ids=query_passage_segments_tensor
             )[0][:, 0]
-
             return tf.add(idx, 1), _pos_passage_scores.write(idx, pos_passage_score), _neg_passage_scores.write(idx, neg_passage_score)
 
         initial_idx = tf.constant(0)
