@@ -38,3 +38,5 @@ google-api-python-client
 oauth2client
 tensorflow==2.1
 transformers
+beautifulsoup4
+lxml
