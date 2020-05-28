@@ -73,8 +73,8 @@ class TFBERTMaxP_Class(tf.keras.Model):
         loop_variables = (initial_idx, pos_passage_scores, neg_passage_scores)
         final_idx, pos_passage_scores, neg_passage_scores = tf.while_loop(condition, body, loop_variables)
 
-        posdoc_scores = tf.math.reduce_max(pos_passage_scores, axis=0)
-        negdoc_scores = tf.math.reduce_max(neg_passage_scores, axis=0)
+        posdoc_scores = tf.math.reduce_max(pos_passage_scores.stack(), axis=0)
+        negdoc_scores = tf.math.reduce_max(neg_passage_scores.stack(), axis=0)
         return tf.stack([posdoc_scores, negdoc_scores], axis=1)
 
 
