@@ -14,7 +14,7 @@ class TFBERTMaxP_Class(tf.keras.Model):
         self.bert = TFBertForSequenceClassification.from_pretrained(config["pretrained"])
         self.config = config
         self.aggregate_fn = self.get_aggregate_fn()
-
+        
     def get_aggregate_fn(self):
         if self.config["mode"] == "maxp":
             return tf.math.reduce_max
@@ -29,8 +29,8 @@ class TFBERTMaxP_Class(tf.keras.Model):
 
         pos_toks, posdoc_mask, neg_toks, negdoc_mask, query_toks, query_mask = x[0], x[1], x[2], x[3], x[4], x[5]
         batch_size = tf.shape(pos_toks)[0]
-        doclen = tf.shape(pos_toks)[1]
-        qlen = tf.shape(query_toks)[1]
+        doclen = self.extractor.cfg["maxdoclen"]
+        qlen = self.extractor.cfg["maxqlen"]
 
         cls = tf.cast(tf.fill([batch_size, 1], self.clsidx, name="clstoken"), tf.int64)
         sep_1 = tf.cast(tf.fill([batch_size, 1], self.sepidx, name="septoken1"), tf.int64)
@@ -47,7 +47,7 @@ class TFBERTMaxP_Class(tf.keras.Model):
         i = 0
         idx = 0
 
-        while idx < 9:
+        while idx < (doclen//passagelen):
             pos_passage = pos_toks[:, i: i + passagelen]
             pos_passage_mask = posdoc_mask[:, i: i + passagelen]
             neg_passage = neg_toks[:, i:i + passagelen]
