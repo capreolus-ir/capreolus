@@ -80,7 +80,7 @@ class TFBERTMaxP_Class(tf.keras.Model):
         # negdoc_score = tf.math.reduce_max(neg_passage_scores, axis=1)transpose
 
         def condition(idx, _pos_passage_scores, _neg_passage_scores):
-            return tf.less(idx * (passagelen - overlap), doclen)
+            return tf.less(idx * (passagelen - overlap), doclen - passagelen)
 
         def body(idx, _pos_passage_scores, _neg_passage_scores):
             i = idx * (passagelen - overlap)
