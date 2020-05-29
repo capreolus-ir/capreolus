@@ -99,7 +99,6 @@ class TFDocuBERT_Class(tf.keras.Model):
         return tf.stack([pos_score, neg_score], axis=1)
 
 
-
 class TFDocuBERT(Reranker):
     name = "TFDocuBERT"
     dependencies = {

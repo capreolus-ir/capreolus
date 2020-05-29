@@ -3,6 +3,9 @@ from transformers import TFBertForSequenceClassification
 
 from capreolus.registry import Dependency
 from capreolus.reranker import Reranker
+from capreolus.utils.loginit import get_logger
+
+logger = get_logger(__name__)
 
 
 class TFBERTMaxP_Class(tf.keras.Model):
@@ -63,6 +66,7 @@ class TFBERTMaxP_Class(tf.keras.Model):
                 attention_mask=query_pos_passage_mask,
                 token_type_ids=query_passage_segments_tensor,
             )[0][:, 0]
+            logger.info("pos_passage_score is {}".format(pos_passage_score))
             neg_passage_score = self.bert(
                 query_neg_passage_tokens_tensor,
                 attention_mask=query_neg_passage_mask,
@@ -74,6 +78,7 @@ class TFBERTMaxP_Class(tf.keras.Model):
             idx += 1
             i += stride
 
+        logger.info("pos_passage score array is {}".format(pos_passage_scores))
         posdoc_scores = tf.math.reduce_max(pos_passage_scores.stack(), axis=0)
         negdoc_scores = tf.math.reduce_max(neg_passage_scores.stack(), axis=0)
         return tf.stack([posdoc_scores, negdoc_scores], axis=1)
