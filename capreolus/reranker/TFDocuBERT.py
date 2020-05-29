@@ -25,7 +25,6 @@ class TFDocuBERT_Class(tf.keras.Model):
         self.num_passages = (self.extractor.cfg["maxdoclen"] - config["passagelen"]) // self.config["stride"]
         self.linear = tf.keras.layers.Dense(1, input_shape=(self.num_passages + 1, self.bert.config.hidden_size))
 
-    @tf.function
     def call(self, x, **kwargs):
         pos_toks, posdoc_mask, neg_toks, negdoc_mask, query_toks, query_mask = x[0], x[1], x[2], x[3], x[4], x[5]
 
