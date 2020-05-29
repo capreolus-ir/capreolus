@@ -40,3 +40,5 @@ tensorflow==2.1
 transformers
 beautifulsoup4
 lxml
+scispacy
+spacy
