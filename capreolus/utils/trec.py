@@ -109,7 +109,7 @@ def topic_to_trectxt(qno, title, desc=None, narr=None):
     return (
         f"<top>\n\n"
         f"<num> Number: {qno}\n"
-        f"<title>{title}\n\n"
+        f"<title> {title}\n\n"
         f"<desc> Description:\n{desc or title}\n\n"
         f"<narr> Narrative:\n{narr or title}\n\n"
         f"</top>\n\n\n"
