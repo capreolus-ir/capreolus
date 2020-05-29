@@ -30,37 +30,12 @@ class TFDocuBERT_Class(tf.keras.Model):
         if self.config["mode"] == "maxp":
             return tf.math.reduce_max
 
-    def get_passage_cls_embedding(self, i, doc_toks, doc_mask, query_toks, query_mask, cls, sep_1, sep_2, ones):
-        """
-        Returns the score for the ith pos passage and the ith neg passage
-        """
-        batch_size = tf.shape(doc_toks)[0]
-        stride = self.config["stride"]
-        passagelen = self.config["passagelen"]
-        qlen = self.extractor.cfg["maxqlen"]
-
-        p_start = i * stride
-
-        passage = doc_toks[:, p_start : p_start + passagelen]
-        passage_mask = doc_mask[:, p_start : p_start + passagelen]
-
-        # Prepare the input to bert
-        query_passage_tokens_tensor = tf.concat([cls, query_toks, sep_1, passage, sep_2], axis=1)
-        query_passage_mask = tf.concat([ones, query_mask, ones, passage_mask, ones], axis=1)
-        query_passage_segments_tensor = tf.concat(
-            [tf.zeros([batch_size, qlen + 2]), tf.ones([batch_size, passagelen + 1])], axis=1
-        )
-
-        # Actual bert scoring
-        last_hidden_state, pooler_output = self.bert(
-            query_passage_tokens_tensor, attention_mask=query_passage_mask, token_type_ids=query_passage_segments_tensor
-        )[0][:, 0]
-
-        return last_hidden_state[0]
-
     def get_doc_score(self, doc_toks, doc_mask, query_toks, query_mask):
         batch_size = tf.shape(doc_toks)[0]
         num_passages = self.config["numpassages"]
+        stride = self.config["stride"]
+        passagelen = self.config["passagelen"]
+        qlen = self.extractor.cfg["maxqlen"]
 
         # CLS and SEP tokens of shape (batch_size, 1)
         cls = tf.cast(tf.fill([batch_size, 1], self.clsidx, name="clstoken"), tf.int64)
@@ -76,7 +51,24 @@ class TFDocuBERT_Class(tf.keras.Model):
         # Get the contextual [CLS] embedding for each passage in the doc and add it to a list
         i = 0
         while i < num_passages:
-            cls_embedding = self.get_passage_cls_embedding(i, doc_toks, doc_mask, query_toks, query_mask, cls, sep_1, sep_2, ones)
+            p_start = i * stride
+            passage = doc_toks[:, p_start: p_start + passagelen]
+            passage_mask = doc_mask[:, p_start: p_start + passagelen]
+
+            # Prepare the input to bert
+            query_passage_tokens_tensor = tf.concat([cls, query_toks, sep_1, passage, sep_2], axis=1)
+            query_passage_mask = tf.concat([ones, query_mask, ones, passage_mask, ones], axis=1)
+            query_passage_segments_tensor = tf.concat(
+                [tf.zeros([batch_size, qlen + 2]), tf.ones([batch_size, passagelen + 1])], axis=1
+            )
+
+            # Actual bert scoring
+            last_hidden_state, pooler_output = self.bert(
+                query_passage_tokens_tensor, attention_mask=query_passage_mask,
+                token_type_ids=query_passage_segments_tensor
+            )[0][:, 0]
+
+            cls_embedding = last_hidden_state[0]
             cls_token_embeddings = cls_token_embeddings.write(i + 1, cls_embedding)
             i += 1
 
