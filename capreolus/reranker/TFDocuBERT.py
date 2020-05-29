@@ -25,8 +25,11 @@ class TFDocuBERT_Class(tf.keras.Model):
         self.transformer_layers = TFBertEncoder(duplicate_config)
         self.linear = tf.keras.layers.Dense(1, input_shape=(self.config["numpassages"] + 1, self.bert.config.hidden_size))
 
-    def get_doc_score(self, doc_toks, doc_mask, query_toks, query_mask):
-        batch_size = tf.shape(doc_toks)[0]
+    @tf.function
+    def call(self, x, **kwargs):
+        pos_toks, posdoc_mask, neg_toks, negdoc_mask, query_toks, query_mask = x[0], x[1], x[2], x[3], x[4], x[5]
+
+        batch_size = tf.shape(pos_toks)[0]
         num_passages = self.config["numpassages"]
         stride = self.config["stride"]
         passagelen = self.config["passagelen"]
@@ -40,46 +43,58 @@ class TFDocuBERT_Class(tf.keras.Model):
 
         # Get the [CLS] token embedding, and add it to a list
         intial_cls_embedding = tf.gather(self.bert.get_input_embeddings().word_embeddings, [self.clsidx])
-        cls_token_embeddings = tf.TensorArray(tf.float32, size=num_passages + 1, dynamic_size=False)
-        cls_token_embeddings = cls_token_embeddings.write(0, intial_cls_embedding)
-        i = 0
+        pos_passage_scores = tf.TensorArray(tf.float32, size=num_passages + 1, dynamic_size=False)
+        pos_passage_scores = pos_passage_scores.write(0, intial_cls_embedding)
+        neg_passage_scores = tf.TensorArray(tf.float32, size=num_passages + 1, dynamic_size=False)
+        neg_passage_scores = neg_passage_scores.write(0, intial_cls_embedding)
 
-        p_start = i * stride
-        passage = doc_toks[:, p_start: p_start + passagelen]
-        passage_mask = doc_mask[:, p_start: p_start + passagelen]
+        idx = 0
+        while idx < num_passages:
+            i = idx * stride
+            # Get a passage and the corresponding mask
+            pos_passage = pos_toks[:, i : i + passagelen]
+            pos_passage_mask = posdoc_mask[:, i : i + passagelen]
+            neg_passage = neg_toks[:, i : i + passagelen]
+            neg_passage_mask = negdoc_mask[:, i : i + passagelen]
 
-        # Prepare the input to bert
-        query_passage_tokens_tensor = tf.concat([cls, query_toks, sep_1, passage, sep_2], axis=1)
-        query_passage_mask = tf.concat([ones, query_mask, ones, passage_mask, ones], axis=1)
-        query_passage_segments_tensor = tf.concat(
-            [tf.zeros([batch_size, qlen + 2]), tf.ones([batch_size, passagelen + 1])], axis=1
-        )
+            # Prepare the input to bert
+            query_pos_passage_tokens_tensor = tf.concat([cls, query_toks, sep_1, pos_passage, sep_2], axis=1)
+            query_pos_passage_mask = tf.concat([ones, query_mask, ones, pos_passage_mask, ones], axis=1)
+            query_neg_passage_tokens_tensor = tf.concat([cls, query_toks, sep_1, neg_passage, sep_2], axis=1)
+            query_neg_passage_mask = tf.concat([ones, query_mask, ones, neg_passage_mask, ones], axis=1)
+            query_passage_segments_tensor = tf.concat(
+                [tf.zeros([batch_size, qlen + 2]), tf.ones([batch_size, passagelen + 1])], axis=1
+            )
 
-        # Actual bert scoring
-        last_hidden_state, pooler_output = self.bert(
-            query_passage_tokens_tensor, attention_mask=query_passage_mask,
-            token_type_ids=query_passage_segments_tensor
-        )[:, 0, :]
+            # Actual bert scoring
+            pos_passage_score = self.bert(
+                query_pos_passage_tokens_tensor,
+                attention_mask=query_pos_passage_mask,
+                token_type_ids=query_passage_segments_tensor,
+            )[0][:, 0]
+            neg_passage_score = self.bert(
+                query_neg_passage_tokens_tensor,
+                attention_mask=query_neg_passage_mask,
+                token_type_ids=query_passage_segments_tensor,
+            )[0][:, 0]
+            pos_passage_scores = pos_passage_scores.write(idx, pos_passage_score)
+            neg_passage_scores = neg_passage_scores.write(idx, neg_passage_score)
 
-        cls_embedding = last_hidden_state[0]
+            idx += 1
 
-        cls_token_embeddings = cls_token_embeddings.write(i + 1, cls_embedding)
-        logger.info("cls_token_embeddings array shape is {}".format(cls_token_embeddings.stack()))
-        final_hstates, all_hstates, all_att = self.transformer_layers(cls_token_embeddings.stack())
-        logger.info("Final hstates shape is {}".format(final_hstates))
-        final_cls_embedding = final_hstates[:, 0]
+        logger.info("cls_token_embeddings array shape is {}".format(pos_passage_scores.stack()))
+        pos_final_hstates, all_pos_hstates, all_pos_att = self.transformer_layers(pos_passage_scores.stack())
+        neg_final_hstates, all_neg_hstates, all_neg_att = self.transformer_layers(neg_passage_scores.stack())
+        logger.info("Final hstates shape is {}".format(pos_final_hstates))
 
-        score = self.linear(final_cls_embedding)
+        pos_final_cls_embedding = pos_final_hstates[:, 0]
+        neg_final_cls_embedding = neg_final_hstates[:, 0]
 
-        return score
+        pos_score = self.linear(pos_final_cls_embedding)
+        neg_score = self.linear(neg_final_cls_embedding)
 
-    @tf.function
-    def call(self, x, **kwargs):
-        pos_toks, posdoc_mask, neg_toks, negdoc_mask, query_toks, query_mask = x[0], x[1], x[2], x[3], x[4], x[5]
-        posdoc_scores = self.get_doc_score(pos_toks, posdoc_mask, query_toks, query_mask)
-        negdoc_scores = self.get_doc_score(neg_toks, negdoc_mask, query_toks, query_mask)
+        return tf.stack([pos_score, neg_score], axis=1)
 
-        return tf.stack([posdoc_scores, negdoc_scores], axis=1)
 
 
 class TFDocuBERT(Reranker):
