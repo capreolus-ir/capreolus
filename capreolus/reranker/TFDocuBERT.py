@@ -74,11 +74,11 @@ class TFDocuBERT_Class(tf.keras.Model):
         cls_token_embeddings = cls_token_embeddings.write(0, intial_cls_embedding)
 
         # Get the contextual [CLS] embedding for each passage in the doc and add it to a list
-        idx = 0
-        while idx < num_passages:
-            cls_embedding = self.get_passage_cls_embedding(doc_toks, doc_mask, query_toks, query_mask, cls, sep_1, sep_2, ones)
-            cls_token_embeddings = cls_token_embeddings.write(idx + 1, cls_embedding)
-            idx += 1
+        i = 0
+        while i < num_passages:
+            cls_embedding = self.get_passage_cls_embedding(i, doc_toks, doc_mask, query_toks, query_mask, cls, sep_1, sep_2, ones)
+            cls_token_embeddings = cls_token_embeddings.write(i + 1, cls_embedding)
+            i += 1
 
         logger.info("cls_token_embeddings array shape is {}".format(cls_token_embeddings.stack()))
         final_hstates, all_hstates, all_att = self.transformer_layers(cls_token_embeddings.stack())
