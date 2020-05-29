@@ -31,20 +31,17 @@ class TFBERTMaxP_Class(tf.keras.Model):
         ones = tf.ones([batch_size, 1], dtype=tf.int64)
 
         passagelen = self.config["passagelen"]
-        overlap = self.config["overlap"]
-
+        stride = self.config["stride"]
+        # TODO: Integer division would mean that we round down - the last passage would be lost
+        num_passages = (doclen - passagelen) // stride
         # The passage level scores will be stored in these arrays
         pos_passage_scores = tf.TensorArray(tf.float32, size=doclen // passagelen, dynamic_size=False)
         neg_passage_scores = tf.TensorArray(tf.float32, size=doclen // passagelen, dynamic_size=False)
 
-        # Beginning of hand-crafted loop
-        # Loop iter 1 start
         i = 0
         idx = 0
 
-        # TODO: Bugfix - We do not make use of the whole document
-        # Since the step size is (passagelen - overlap), the termination condition (i.e doclen // passagelen) will always terminate early
-        while idx < (doclen // passagelen):
+        while idx < num_passages:
             # Get a passage and the corresponding mask
             pos_passage = pos_toks[:, i : i + passagelen]
             pos_passage_mask = posdoc_mask[:, i : i + passagelen]
@@ -75,7 +72,7 @@ class TFBERTMaxP_Class(tf.keras.Model):
             neg_passage_scores = neg_passage_scores.write(idx, neg_passage_score)
 
             idx += 1
-            i += passagelen - overlap
+            i += stride
 
         posdoc_scores = tf.math.reduce_max(pos_passage_scores.stack(), axis=0)
         negdoc_scores = tf.math.reduce_max(neg_passage_scores.stack(), axis=0)
@@ -93,7 +90,7 @@ class TFBERTMaxP(Reranker):
     def config():
         pretrained = "bert-base-uncased"
         passagelen = 100
-        overlap = 20
+        stride = 20
         mode = "maxp"
 
     def build(self):
