@@ -76,7 +76,7 @@ class TFDocuBERT_Class(tf.keras.Model):
 
             return tf.add(i, 1), _array.write(i + 1, cls_embedding)
 
-        final_i, cls_token_embeddings = tf.while_loop(condition, loop_vars, body)
+        final_i, cls_token_embeddings = tf.while_loop(condition, body, loop_vars)
         logger.info("cls_token_embeddings array shape is {}".format(cls_token_embeddings.stack()))
         final_hstates, all_hstates, all_att = self.transformer_layers(cls_token_embeddings.stack())
         logger.info("Final hstates shape is {}".format(final_hstates))
