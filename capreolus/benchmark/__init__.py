@@ -360,7 +360,7 @@ class COVID(Benchmark):
                 f = open(self.qrel_file, "w")
                 f.close()
             else:
-                with open(tmp_dir/f"qrel-{rnd_i}") as fin, open(self.qrel_file, "w") as fout:
+                with open(tmp_dir / f"qrel-{rnd_i}") as fin, open(self.qrel_file, "w") as fout:
                     for line in fin:
                         fout.write(line)
 
