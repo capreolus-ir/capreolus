@@ -47,10 +47,14 @@ class TFDocuBERT_Class(tf.keras.Model):
         intial_cls_embedding = tf.gather(self.bert.get_input_embeddings().word_embeddings, [self.clsidx])
         cls_token_embeddings = tf.TensorArray(tf.float32, size=num_passages + 1, dynamic_size=False)
         cls_token_embeddings = cls_token_embeddings.write(0, intial_cls_embedding)
+        initial_i = tf.constant(0)
 
-        # Get the contextual [CLS] embedding for each passage in the doc and add it to a list
-        i = 0
-        while i < num_passages:
+        def condition(i, _array):
+            return tf.less(i, num_passages)
+
+        loop_vars = (initial_i, cls_token_embeddings)
+
+        def body(i, _array):
             p_start = i * stride
             passage = doc_toks[:, p_start: p_start + passagelen]
             passage_mask = doc_mask[:, p_start: p_start + passagelen]
@@ -69,9 +73,10 @@ class TFDocuBERT_Class(tf.keras.Model):
             )[0][:, 0]
 
             cls_embedding = last_hidden_state[0]
-            cls_token_embeddings = cls_token_embeddings.write(i + 1, cls_embedding)
-            i += 1
 
+            return tf.add(i, 1), _array.write(i + 1, cls_embedding)
+
+        final_i, cls_token_embeddings = tf.while_loop(condition, loop_vars, body)
         logger.info("cls_token_embeddings array shape is {}".format(cls_token_embeddings.stack()))
         final_hstates, all_hstates, all_att = self.transformer_layers(cls_token_embeddings.stack())
         logger.info("Final hstates shape is {}".format(final_hstates))
