@@ -693,7 +693,7 @@ def test_bertmaxp(dummy_index, tmpdir, tmpdir_as_cache, monkeypatch):
 
 def test_docubert(dummy_index, tmpdir, tmpdir_as_cache, monkeypatch):
     reranker = TFDocuBERT(
-        {"pretrained": "bert-base-uncased", "passagelen": 150, "stride": 50, "mode": "transformer", "numpassages": 1}
+        {"pretrained": "bert-base-uncased", "passagelen": 150, "stride": 50, "mode": "transformer"}
     )
     trainer = TensorFlowTrainer(
         {

@@ -22,14 +22,15 @@ class TFDocuBERT_Class(tf.keras.Model):
         self.bert = TFBertModel.from_pretrained(config["pretrained"])
         self.transformer_layer_1 = TFBertLayer(self.bert.config)
         self.transformer_layer_2 = TFBertLayer(self.bert.config)
-        self.linear = tf.keras.layers.Dense(1, input_shape=(self.config["numpassages"] + 1, self.bert.config.hidden_size))
+        self.num_passages = (self.extractor.cfg["maxdoclen"] - config["passagelen"]) // self.config["stride"]
+        self.linear = tf.keras.layers.Dense(1, input_shape=(self.num_passages + 1, self.bert.config.hidden_size))
 
     @tf.function
     def call(self, x, **kwargs):
         pos_toks, posdoc_mask, neg_toks, negdoc_mask, query_toks, query_mask = x[0], x[1], x[2], x[3], x[4], x[5]
 
         batch_size = tf.shape(pos_toks)[0]
-        num_passages = self.config["numpassages"]
+        num_passages = self.num_passages
         stride = self.config["stride"]
         passagelen = self.config["passagelen"]
         qlen = self.extractor.cfg["maxqlen"]
@@ -118,7 +119,6 @@ class TFDocuBERT(Reranker):
 
         # Corresponding to maxdoclen of 800. Original paper uses 16 passages
         # TODO: Talk to Canjia and see if maxdoclen should be 950
-        numpassages = 13
         passagelen = 150
         stride = 50
         mode = "transformer"
