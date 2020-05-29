@@ -122,7 +122,7 @@ class FilterMixin:
         if not topn:
             Searcher.write_trec_run(runs, runfile)  # overwrite runfile
 
-        queries = sorted(list(runs.keys()))
+        queries = sorted(list(runs.keys()), key=lambda k: int(k))
         for q in queries:
             docs = runs[q]
             if len(docs) <= topn:
@@ -265,13 +265,13 @@ class BM25Filter(BM25, FilterMixin):
         fields = "title"
 
     def query_from_file(self, topicsfn, output_path):
-        qrel_fn = "/home/xinyu1zhang/cikm/capreolus-covid/capreolus/data/covid/round2.ignore.qrel.txt"
+        qrel_fn = "/home/xinyu1zhang/cikm/capreolus-covid/capreolus/data/covid/round=3_udelqexpand=False/ignore.qrel.txt"
         qrels = load_qrels(qrel_fn)
         docs_to_remove = {q: list(d.keys()) for q, d in qrels.items()}
 
         output_path = super().query_from_file(topicsfn, output_path)
-        output_path = super().filter(output_path, docs_to_remove=docs_to_remove, topn=self.cfg["topn"])
-
+        if docs_to_remove:
+            output_path = super().filter(output_path, docs_to_remove=docs_to_remove, topn=self.cfg["topn"])
         return output_path
 
 
