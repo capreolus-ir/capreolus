@@ -24,11 +24,6 @@ class TFDocuBERT_Class(tf.keras.Model):
         duplicate_config.num_hidden_layers = 2
         self.transformer_layers = TFBertEncoder(duplicate_config)
         self.linear = tf.keras.layers.Dense(1, input_shape=(self.config["numpassages"] + 1, self.bert.config.hidden_size))
-        self.aggregate_fn = self.get_aggregate_fn()
-
-    def get_aggregate_fn(self):
-        if self.config["mode"] == "maxp":
-            return tf.math.reduce_max
 
     def get_doc_score(self, doc_toks, doc_mask, query_toks, query_mask):
         batch_size = tf.shape(doc_toks)[0]
@@ -86,6 +81,7 @@ class TFDocuBERT_Class(tf.keras.Model):
 
         return score
 
+    @tf.function
     def call(self, x, **kwargs):
         pos_toks, posdoc_mask, neg_toks, negdoc_mask, query_toks, query_mask = x[0], x[1], x[2], x[3], x[4], x[5]
         posdoc_scores = self.get_doc_score(pos_toks, posdoc_mask, query_toks, query_mask)
