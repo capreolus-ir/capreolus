@@ -82,22 +82,21 @@ class TFDocuBERT_Class(tf.keras.Model):
 
             idx += 1
 
-        logger.info("cls_token_embeddings array shape is {}".format(pos_passage_scores.stack()))
-        pos_layer_out_1, pos_attn_out_1 = self.transformer_layer_1(pos_passage_scores.stack())
-        pos_layer_out_2, pos_attn_out_2 = self.transformer_layer_2(pos_layer_out_1)
+        pos_layer_out_1, = self.transformer_layer_1((tf.transpose(pos_passage_scores.stack(), perm=[1, 0, 2]), None, None))
+        pos_layer_out_2, = self.transformer_layer_2((pos_layer_out_1, None, None))
 
-        neg_layer_out_1, neg_attn_out_1 = self.transformer_layer_1(neg_passage_scores.stack())
-        neg_layer_out_2, neg_attn_out_2 = self.transformer_layer_2(neg_layer_out_1)
+        neg_layer_out_1, = self.transformer_layer_1((tf.transpose(neg_passage_scores.stack(), perm=[1, 0, 2]), None, None))
+        neg_layer_out_2, = self.transformer_layer_2((neg_layer_out_1, None, None))
 
-        logger.info("Final hstates shape is {}".format(pos_layer_out_2))
 
-        pos_final_cls_embedding = pos_layer_out_2[:, 0]
-        neg_final_cls_embedding = neg_layer_out_2[:, 0]
+        pos_final_cls_embedding = tf.reshape(pos_layer_out_2[:, 0], [batch_size, self.bert.config.hidden_size])
+        neg_final_cls_embedding = tf.reshape(neg_layer_out_2[:, 0], [batch_size, self.bert.config.hidden_size])
 
-        pos_score = self.linear(pos_final_cls_embedding)
-        neg_score = self.linear(neg_final_cls_embedding)
+        pos_score = tf.reshape(self.linear(pos_final_cls_embedding), [batch_size])
+        neg_score = tf.reshape(self.linear(neg_final_cls_embedding), [batch_size])
 
         return tf.stack([pos_score, neg_score], axis=1)
+        
 
 
 class TFDocuBERT(Reranker):
