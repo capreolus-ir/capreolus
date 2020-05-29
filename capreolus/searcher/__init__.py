@@ -71,10 +71,12 @@ class AnseriniSearcherMixIn:
 
         index_path = self["index"].get_index_path()
         anserini_fat_jar = Anserini.get_fat_jar()
-        cmd = f"java -classpath {anserini_fat_jar} " \
-              f"-Xms512M -Xmx31G -Dapp.name=SearchCollection io.anserini.search.SearchCollection " \
-              f"-topicreader Trec -index {index_path} {indexopts} -topics {topicsfn} -output {output_path} " \
-              f"-topicfield {topicfield} -inmem -threads {MAX_THREADS} {anserini_param_str}"
+        cmd = (
+            f"java -classpath {anserini_fat_jar} "
+            f"-Xms512M -Xmx31G -Dapp.name=SearchCollection io.anserini.search.SearchCollection "
+            f"-topicreader Trec -index {index_path} {indexopts} -topics {topicsfn} -output {output_path} "
+            f"-topicfield {topicfield} -inmem -threads {MAX_THREADS} {anserini_param_str}"
+        )
         logger.info("Anserini writing runs to %s", output_path)
         logger.debug(cmd)
 
@@ -265,7 +267,7 @@ class BM25Filter(BM25, FilterMixin):
         fields = "title"
 
     def query_from_file(self, topicsfn, output_path):
-        qrel_fn = "/home/xinyu1zhang/cikm/capreolus-covid/capreolus/data/covid/round=3_udelqexpand=False/ignore.qrel.txt"
+        qrel_fn = "/home/xinyu1zhang/cikm/capreolus-covid/capreolus/data/covid/round=3_udelqexpand=False_excludeknown=True/ignore.qrel.txt"
         qrels = load_qrels(qrel_fn)
         docs_to_remove = {q: list(d.keys()) for q, d in qrels.items()}
 
