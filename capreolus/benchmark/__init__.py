@@ -12,7 +12,7 @@ from bs4 import BeautifulSoup
 from capreolus.registry import ModuleBase, RegisterableModule, PACKAGE_PATH
 from capreolus.utils.loginit import get_logger
 from capreolus.utils.trec import load_qrels, load_trec_topics, topic_to_trectxt
-from capreolus.utils.common import download_file, hash_file, remove_newline
+from capreolus.utils.common import download_file, remove_newline, get_udel_query_expander
 
 logger = get_logger(__name__)
 
@@ -283,21 +283,24 @@ class COVID(Benchmark):
     data_dir = PACKAGE_PATH / "data" / "covid"
     topic_url = "https://ir.nist.gov/covidSubmit/data/topics-rnd%d.xml"
     qrel_url = "https://ir.nist.gov/covidSubmit/data/qrels-rnd%d.txt"
+    lastest_round = 3
 
     @staticmethod
     def config():
         round = 3
-        query_type = "title"
+        udelqexpand = False
 
     def __init__(self, cfg):
         super().__init__(cfg)
-        data_prefix = self.data_dir / ("round" + str(cfg["round"]))
-        data_prefix.parent.mkdir(exist_ok=True)
-        self.qrel_ignore = f"{data_prefix}.ignore.qrel.txt"
-        self.qrel_file = f"{data_prefix}.qrel.txt"
-        self.topic_file = f"{data_prefix}.topic.txt"
-        self.fold_file = f"{data_prefix}.fold.json"
-        self.query_type = cfg["query_type"]
+
+        cfg_string = "_".join([f"{k}={v}" for k, v in cfg.items() if k != "_name"])
+        data_dir = self.data_dir / cfg_string
+        data_dir.mkdir(exist_ok=True)
+
+        self.qrel_ignore = f"{data_dir}/ignore.qrel.txt"
+        self.qrel_file = f"{data_dir}/qrel.txt"
+        self.topic_file = f"{data_dir}/topic.txt"
+        self.fold_file = f"{data_dir}/fold.json"
 
         self.download_if_missing()
 
@@ -306,34 +309,46 @@ class COVID(Benchmark):
             return
 
         rnd_i = self.cfg["round"]
+        if rnd_i > self.lastest_round:
+            raise ValueError(f"round {rnd_i} is unavailable")
+
         logger.info(f"Preparing files for covid round-{rnd_i}")
 
         topic_url = self.topic_url % rnd_i
         qrel_ignore_urls = [self.qrel_url % i for i in range(1, rnd_i)]  # download all the qrels before current run
-        qrel_cur_url = self.qrel_url % rnd_i if rnd_i < 3 else None
+        if rnd_i < self.lastest_round:
+            qrel_cur_url = self.qrel_url % rnd_i
+        elif rnd_i == self.lastest_round:
+            qrel_cur_url = self.qrel_url % (self.lastest_round - 1)
 
         # topic file
         tmp_dir = Path("/tmp")
         topic_tmp = tmp_dir / f"topic.round.{rnd_i}.xml"
-        download_file(topic_url, topic_tmp)
-        all_qids = self.xml2trectopic(topic_tmp)  # will upate self.topic_file
+        if not os.path.exists(topic_tmp):
+            download_file(topic_url, topic_tmp)
+        all_qids = self.xml2trectopic(topic_tmp)  # will update self.topic_file
 
         # qrels ignore
-        qrel_fn = open(self.qrel_ignore, "w")
+        qrel_fn = open(self.qrel_ignore, "w") if rnd_i != self.lastest_round else open(self.qrel_file, "w")
         for i, qrel_url in enumerate(qrel_ignore_urls):
-            qrel_tmp = tmp_dir / f"qrel-{i}"
-            download_file(qrel_url, qrel_tmp)
+            qrel_tmp = tmp_dir / f"qrel-{i+1}"  # round_id = (i + 1)
+            if not os.path.exists(qrel_tmp):
+                download_file(qrel_url, qrel_tmp)
             with open(qrel_tmp) as f:
                 for line in f:
                     qrel_fn.write(line)
         qrel_fn.close()
 
-        # qrels current
-        if qrel_cur_url:
-            download_file(qrel_cur_url, self.qrel_file)
+        if rnd_i != self.lastest_round:
+            with open(tmp_dir/f"qrel-{rnd_i}") as fin, open(self.qrel_file, "w") as fout:
+                for line in fin:
+                    fout.write(line)
+        else:
+            fn = open(self.qrel_ignore, "w")
+            fn.close()
 
         # folds: use all labeled query for train, valid, and use all of them for test set
-        labeled_qids = list(load_qrels(self.qrel_file).keys())
+        labeled_qids = list(load_qrels(self.qrel_ignore).keys())
         folds = {"s1": {"train_qids": labeled_qids, "predict": {"dev": labeled_qids, "test": all_qids}}}
         json.dump(folds, open(self.fold_file, "w"))
 
@@ -344,6 +359,8 @@ class COVID(Benchmark):
         all_qids = []
         soup = BeautifulSoup(topic, "lxml")
         topics = soup.find_all("topic")
+        expand_query = get_udel_query_expander()
+
         with open(self.topic_file, "w") as fout:
             for topic in topics:
                 qid = topic["number"]
@@ -351,7 +368,14 @@ class COVID(Benchmark):
                 desc = topic.find_all("question")[0].text.strip()
                 narr = topic.find_all("narrative")[0].text.strip()
 
-                topic_line = topic_to_trectxt(qid, title, desc, narr)
+                if self.cfg["udelqexpand"]:
+                    title = expand_query(title, rm_sw=True)
+                    desc = expand_query(desc, rm_sw=False)
+
+                    title = title + " " + desc
+                    desc = " "
+
+                topic_line = topic_to_trectxt(qid, title, desc=desc, narr=narr)
                 fout.write(topic_line)
                 all_qids.append(qid)
         return all_qids
