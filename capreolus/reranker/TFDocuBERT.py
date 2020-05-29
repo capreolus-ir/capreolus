@@ -59,7 +59,7 @@ class TFDocuBERT_Class(tf.keras.Model):
         last_hidden_state, pooler_output = self.bert(
             query_passage_tokens_tensor, attention_mask=query_passage_mask,
             token_type_ids=query_passage_segments_tensor
-        )[0][:, 0]
+        )[:, 0, :]
 
         cls_embedding = last_hidden_state[0]
 
