@@ -41,11 +41,12 @@ class TFDocuBERT_Class(tf.keras.Model):
         ones = tf.ones([batch_size, 1], dtype=tf.int64)
 
         # Get the [CLS] token embedding, and add it to a list
-        intial_cls_embedding = tf.gather(self.bert.get_input_embeddings().word_embeddings, [self.clsidx])
+        initial_cls_embedding = tf.gather(self.bert.get_input_embeddings().word_embeddings, [self.clsidx])
+        initial_cls_embeddings = tf.tile(initial_cls_embedding, [batch_size, ] + [1 for x in range(1, len(initial_cls_embedding.shape))])
         pos_passage_scores = tf.TensorArray(tf.float32, size=num_passages + 1, dynamic_size=False)
-        pos_passage_scores = pos_passage_scores.write(0, intial_cls_embedding)
+        pos_passage_scores = pos_passage_scores.write(0, initial_cls_embeddings)
         neg_passage_scores = tf.TensorArray(tf.float32, size=num_passages + 1, dynamic_size=False)
-        neg_passage_scores = neg_passage_scores.write(0, intial_cls_embedding)
+        neg_passage_scores = neg_passage_scores.write(0, initial_cls_embeddings)
 
         idx = 0
         while idx < num_passages:
