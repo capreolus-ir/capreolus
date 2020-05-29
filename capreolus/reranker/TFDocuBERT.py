@@ -42,36 +42,28 @@ class TFDocuBERT_Class(tf.keras.Model):
         intial_cls_embedding = tf.gather(self.bert.get_input_embeddings().word_embeddings, [self.clsidx])
         cls_token_embeddings = tf.TensorArray(tf.float32, size=num_passages + 1, dynamic_size=False)
         cls_token_embeddings = cls_token_embeddings.write(0, intial_cls_embedding)
-        initial_i = tf.constant(0)
+        i = 0
 
-        def condition(i, _array):
-            return tf.less(i, num_passages)
+        p_start = i * stride
+        passage = doc_toks[:, p_start: p_start + passagelen]
+        passage_mask = doc_mask[:, p_start: p_start + passagelen]
 
-        loop_vars = (initial_i, cls_token_embeddings)
+        # Prepare the input to bert
+        query_passage_tokens_tensor = tf.concat([cls, query_toks, sep_1, passage, sep_2], axis=1)
+        query_passage_mask = tf.concat([ones, query_mask, ones, passage_mask, ones], axis=1)
+        query_passage_segments_tensor = tf.concat(
+            [tf.zeros([batch_size, qlen + 2]), tf.ones([batch_size, passagelen + 1])], axis=1
+        )
 
-        def body(i, _array):
-            p_start = i * stride
-            passage = doc_toks[:, p_start: p_start + passagelen]
-            passage_mask = doc_mask[:, p_start: p_start + passagelen]
+        # Actual bert scoring
+        last_hidden_state, pooler_output = self.bert(
+            query_passage_tokens_tensor, attention_mask=query_passage_mask,
+            token_type_ids=query_passage_segments_tensor
+        )[0][:, 0]
 
-            # Prepare the input to bert
-            query_passage_tokens_tensor = tf.concat([cls, query_toks, sep_1, passage, sep_2], axis=1)
-            query_passage_mask = tf.concat([ones, query_mask, ones, passage_mask, ones], axis=1)
-            query_passage_segments_tensor = tf.concat(
-                [tf.zeros([batch_size, qlen + 2]), tf.ones([batch_size, passagelen + 1])], axis=1
-            )
+        cls_embedding = last_hidden_state[0]
 
-            # Actual bert scoring
-            last_hidden_state, pooler_output = self.bert(
-                query_passage_tokens_tensor, attention_mask=query_passage_mask,
-                token_type_ids=query_passage_segments_tensor
-            )[0][:, 0]
-
-            cls_embedding = last_hidden_state[0]
-
-            return tf.add(i, 1), _array.write(i + 1, cls_embedding)
-
-        final_i, cls_token_embeddings = tf.while_loop(condition, body, loop_vars)
+        cls_token_embeddings = cls_token_embeddings.write(i + 1, cls_embedding)
         logger.info("cls_token_embeddings array shape is {}".format(cls_token_embeddings.stack()))
         final_hstates, all_hstates, all_att = self.transformer_layers(cls_token_embeddings.stack())
         logger.info("Final hstates shape is {}".format(final_hstates))

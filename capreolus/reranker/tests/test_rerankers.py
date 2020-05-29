@@ -693,7 +693,7 @@ def test_CDSSM(dummy_index, tmpdir, tmpdir_as_cache, monkeypatch):
 
 def test_docubert(dummy_index, tmpdir, tmpdir_as_cache, monkeypatch):
     reranker = TFDocuBERT(
-        {"pretrained": "bert-base-uncased", "passagelen": 150, "stride": 50, "mode": "transformer", "numpassages": 13}
+        {"pretrained": "bert-base-uncased", "passagelen": 150, "stride": 50, "mode": "transformer", "numpassages": 1}
     )
     trainer = TensorFlowTrainer(
         {
