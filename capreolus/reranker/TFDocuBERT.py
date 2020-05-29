@@ -41,13 +41,14 @@ class TFDocuBERT_Class(tf.keras.Model):
         ones = tf.ones([batch_size, 1], dtype=tf.int64)
 
         # Get the [CLS] token embedding, and add it to a list
-        initial_cls_embedding = tf.gather(self.bert.get_input_embeddings().word_embeddings, [self.clsidx])
-        initial_cls_embeddings = tf.tile(initial_cls_embedding, [batch_size, ] + [1 for x in range(1, len(initial_cls_embedding.shape))])
-        pos_passage_scores = tf.TensorArray(tf.float32, size=num_passages + 1, dynamic_size=False)
-        pos_passage_scores = pos_passage_scores.write(0, initial_cls_embeddings)
-        neg_passage_scores = tf.TensorArray(tf.float32, size=num_passages + 1, dynamic_size=False)
-        neg_passage_scores = neg_passage_scores.write(0, initial_cls_embeddings)
+        single_cls_embedding = tf.gather(self.bert.get_input_embeddings().word_embeddings, [self.clsidx])
+        cls_embedding_batch = tf.tile(single_cls_embedding, [batch_size, ] + [1 for x in range(1, len(single_cls_embedding.shape))])
+        pos_passage_cls_list = tf.TensorArray(tf.float32, size=num_passages + 1, dynamic_size=False)
+        pos_passage_cls_list = pos_passage_cls_list.write(0, cls_embedding_batch)
+        neg_passage_cls_list = tf.TensorArray(tf.float32, size=num_passages + 1, dynamic_size=False)
+        neg_passage_cls_list = neg_passage_cls_list.write(0, cls_embedding_batch)
 
+        # Get the [CLS] embedding corresponding to each passage in the doc and add it to the list
         idx = 0
         while idx < num_passages:
             i = idx * stride
@@ -67,31 +68,36 @@ class TFDocuBERT_Class(tf.keras.Model):
             )
 
             # Actual bert scoring
-            pos_passage_score = self.bert(
+            pos_passage_cls = self.bert(
                 query_pos_passage_tokens_tensor,
                 attention_mask=query_pos_passage_mask,
                 token_type_ids=query_passage_segments_tensor,
             )[0][:, 0]
-            neg_passage_score = self.bert(
+            neg_passage_cls = self.bert(
                 query_neg_passage_tokens_tensor,
                 attention_mask=query_neg_passage_mask,
                 token_type_ids=query_passage_segments_tensor,
             )[0][:, 0]
-            pos_passage_scores = pos_passage_scores.write(idx, pos_passage_score)
-            neg_passage_scores = neg_passage_scores.write(idx, neg_passage_score)
+            pos_passage_cls_list = pos_passage_cls_list.write(idx, pos_passage_cls)
+            neg_passage_cls_list = neg_passage_cls_list.write(idx, neg_passage_cls)
 
             idx += 1
 
-        pos_layer_out_1, = self.transformer_layer_1((tf.transpose(pos_passage_scores.stack(), perm=[1, 0, 2]), None, None))
+        # pos_passage_cls_list.stack() gives tensor of shape (num_passages, batch_size, hidden_size)
+        # We need to permute it to (batch_size, num_passages, hidden_size)
+        # self.transformer_layer_1 also requires attention_mask and head_mask, which are explicitly passed as None here
+        pos_layer_out_1, = self.transformer_layer_1((tf.transpose(pos_passage_cls_list.stack(), perm=[1, 0, 2]), None, None))
         pos_layer_out_2, = self.transformer_layer_2((pos_layer_out_1, None, None))
 
-        neg_layer_out_1, = self.transformer_layer_1((tf.transpose(neg_passage_scores.stack(), perm=[1, 0, 2]), None, None))
+        neg_layer_out_1, = self.transformer_layer_1((tf.transpose(neg_passage_cls_list.stack(), perm=[1, 0, 2]), None, None))
         neg_layer_out_2, = self.transformer_layer_2((neg_layer_out_1, None, None))
 
-
+        # Obtain the [CLS] embedding of transformer_layer_2 (i.e the hidden state corresponding to the first element
+        # in the input sequence) and reshape it to get a a tensor of shape (batch_size, hidden_size)
         pos_final_cls_embedding = tf.reshape(pos_layer_out_2[:, 0], [batch_size, self.bert.config.hidden_size])
         neg_final_cls_embedding = tf.reshape(neg_layer_out_2[:, 0], [batch_size, self.bert.config.hidden_size])
 
+        # Obtain logits of the shape [batch_size]
         pos_score = tf.reshape(self.linear(pos_final_cls_embedding), [batch_size])
         neg_score = tf.reshape(self.linear(neg_final_cls_embedding), [batch_size])
 
