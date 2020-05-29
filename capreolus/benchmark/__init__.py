@@ -289,9 +289,12 @@ class COVID(Benchmark):
     def config():
         round = 3
         udelqexpand = False
+        excludeknown = True
 
     def __init__(self, cfg):
         super().__init__(cfg)
+        if cfg["round"] == self.lastest_round and not cfg["excludeknown"]:
+            logger.warning(f"No evaluation can be done for the lastest round in exclude-known mode")
 
         cfg_string = "_".join([f"{k}={v}" for k, v in cfg.items() if k != "_name"])
         data_dir = self.data_dir / cfg_string
@@ -308,7 +311,7 @@ class COVID(Benchmark):
         if all([os.path.exists(fn) for fn in [self.qrel_file, self.qrel_ignore, self.topic_file, self.fold_file]]):
             return
 
-        rnd_i = self.cfg["round"]
+        rnd_i, excludeknown = self.cfg["round"], self.cfg["excludeknown"]
         if rnd_i > self.lastest_round:
             raise ValueError(f"round {rnd_i} is unavailable")
 
@@ -316,10 +319,10 @@ class COVID(Benchmark):
 
         topic_url = self.topic_url % rnd_i
         qrel_ignore_urls = [self.qrel_url % i for i in range(1, rnd_i)]  # download all the qrels before current run
-        if rnd_i < self.lastest_round:
-            qrel_cur_url = self.qrel_url % rnd_i
-        elif rnd_i == self.lastest_round:
-            qrel_cur_url = self.qrel_url % (self.lastest_round - 1)
+        # if rnd_i < self.lastest_round:
+        #     qrel_cur_url = self.qrel_url % rnd_i
+        # elif rnd_i == self.lastest_round:
+        #     qrel_cur_url = self.qrel_url % (self.lastest_round - 1)
 
         # topic file
         tmp_dir = Path("/tmp")
@@ -328,24 +331,38 @@ class COVID(Benchmark):
             download_file(topic_url, topic_tmp)
         all_qids = self.xml2trectopic(topic_tmp)  # will update self.topic_file
 
-        # qrels ignore
-        qrel_fn = open(self.qrel_ignore, "w") if rnd_i != self.lastest_round else open(self.qrel_file, "w")
-        for i, qrel_url in enumerate(qrel_ignore_urls):
-            qrel_tmp = tmp_dir / f"qrel-{i+1}"  # round_id = (i + 1)
-            if not os.path.exists(qrel_tmp):
-                download_file(qrel_url, qrel_tmp)
-            with open(qrel_tmp) as f:
-                for line in f:
-                    qrel_fn.write(line)
-        qrel_fn.close()
+        # qrel_fn = open(self.qrel_ignore, "w") if rnd_i != self.lastest_round else open(self.qrel_file, "w")
+        if excludeknown:
+            qrel_fn = open(self.qrel_file, "w")
+            for i, qrel_url in enumerate(qrel_ignore_urls):
+                qrel_tmp = tmp_dir / f"qrel-{i+1}"  # round_id = (i + 1)
+                if not os.path.exists(qrel_tmp):
+                    download_file(qrel_url, qrel_tmp)
+                with open(qrel_tmp) as f:
+                    for line in f:
+                        qrel_fn.write(line)
+            qrel_fn.close()
 
-        if rnd_i != self.lastest_round:
-            with open(tmp_dir/f"qrel-{rnd_i}") as fin, open(self.qrel_file, "w") as fout:
-                for line in fin:
-                    fout.write(line)
+            f = open(self.qrel_ignore, "w")  # empty ignore file
+            f.close()
         else:
-            fn = open(self.qrel_ignore, "w")
-            fn.close()
+            qrel_fn = open(self.qrel_ignore, "w")
+            for i, qrel_url in enumerate(qrel_ignore_urls):
+                qrel_tmp = tmp_dir / f"qrel-{i+1}"  # round_id = (i + 1)
+                if not os.path.exists(qrel_tmp):
+                    download_file(qrel_url, qrel_tmp)
+                with open(qrel_tmp) as f:
+                    for line in f:
+                        qrel_fn.write(line)
+            qrel_fn.close()
+
+            if rnd_i == self.lastest_round:
+                f = open(self.qrel_file, "w")
+                f.close()
+            else:
+                with open(tmp_dir/f"qrel-{rnd_i}") as fin, open(self.qrel_file, "w") as fout:
+                    for line in fin:
+                        fout.write(line)
 
         # folds: use all labeled query for train, valid, and use all of them for test set
         labeled_qids = list(load_qrels(self.qrel_ignore).keys())
