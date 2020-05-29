@@ -15,6 +15,7 @@ logger = get_logger(__name__)
 class TFDocuBERT_Class(tf.keras.Model):
     def __init__(self, extractor, config, *args, **kwargs):
         super(TFDocuBERT_Class, self).__init__(*args, **kwargs)
+        self.config = config
         self.clsidx = extractor.clsidx  # The index of the CLS token
         self.sepidx = extractor.sepidx  # The index of the SEP token
         self.extractor = extractor
@@ -23,7 +24,6 @@ class TFDocuBERT_Class(tf.keras.Model):
         duplicate_config.num_hidden_layers = 2
         self.transformer_layers = TFBertEncoder(duplicate_config)
         self.linear = tf.keras.layers.Dense(1, input_shape=(self.config["numpassages"] + 1, self.bert.config.hidden_size))
-        self.config = config
         self.aggregate_fn = self.get_aggregate_fn()
 
     def get_aggregate_fn(self):
