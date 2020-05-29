@@ -19,7 +19,8 @@ class TFDocuBERT_Class(tf.keras.Model):
         self.clsidx = extractor.clsidx  # The index of the CLS token
         self.sepidx = extractor.sepidx  # The index of the SEP token
         self.extractor = extractor
-        self.bert = TFBertModel.from_pretrained(config["pretrained"])
+        from_pt = config["pretrained"] != "bert-base-uncased"
+        self.bert = TFBertModel.from_pretrained(config["pretrained"], from_pt=from_pt)
         self.transformer_layer_1 = TFBertLayer(self.bert.config)
         self.transformer_layer_2 = TFBertLayer(self.bert.config)
         self.num_passages = (self.extractor.cfg["maxdoclen"] - config["passagelen"]) // self.config["stride"]
