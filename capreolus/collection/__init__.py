@@ -379,37 +379,37 @@ class COVID(Collection):
                 continue
 
             tar_fn = root_path / f"{fn}.tar.gz"
-            assert tar_fn.exists()
+            if not tar_fn.exists():
+                continue
+
             with tarfile.open(str(tar_fn)) as f:
                 f.extractall(path=root_path)
                 os.remove(tar_fn)
 
         metadata = pd.read_csv(metadata_csv, header=0)
         columns = metadata.columns.values
-        assert all(
-            columns
-            == [
-                "cord_uid",
-                "sha",
-                "source_x",
-                "title",
-                "doi",
-                "pmcid",
-                "pubmed_id",
-                "license",
-                "abstract",
-                "publish_time",
-                "authors",
-                "journal",
-                "Microsoft Academic Paper ID",
-                "WHO #Covidence",
-                "arxiv_id",
-                "has_pdf_parse",
-                "has_pmc_xml_parse",
-                "full_text_file",
-                "url",
-            ]
-        )
+        cols_before = [
+            "cord_uid",
+            "sha",
+            "source_x",
+            "title",
+            "doi",
+            "pmcid",
+            "pubmed_id",
+            "license",
+            "abstract",
+            "publish_time",
+            "authors",
+            "journal",
+            "Microsoft Academic Paper ID",
+            "WHO #Covidence",
+            "arxiv_id",
+            "has_pdf_parse",
+            "has_pmc_xml_parse",
+            "full_text_file",
+            "url",
+        ]
+        assert all(columns == cols_before)
 
         # step 1: rename column
         cols_to_rename = {"Microsoft Academic Paper ID": "mag_id", "WHO #Covidence": "who_covidence_id"}
@@ -448,13 +448,12 @@ class COVID(Collection):
                     name = sha.strip() + ".json"
                     ori_fn = root_path / dir / "pdf_json" / name
                     pdf_fn = f"document_parses/pdf_json/{name}"
-                    pdf_fn_final = f"{pdf_fn_final};{pdf_fn}"
+                    pdf_fn_final = f"{pdf_fn_final};{pdf_fn}" if pdf_fn_final else pdf_fn
                     pdf_fn = root_path / pdf_fn
                     if not pdf_fn.exists():
                         os.rename(ori_fn, pdf_fn)  # check
                     else:
                         if ori_fn.exists():
-                            print(pdf_fn, ori_fn)
                             assert filecmp.cmp(ori_fn, pdf_fn)
                             os.remove(ori_fn)
 
@@ -475,7 +474,6 @@ class COVID(Collection):
                 os.rmdir(dir / subdir)  # since we are supposed to move away all the files
             os.rmdir(dir)
 
-        print(len(metadata.columns), metadata.columns)
         # assert len(metadata.columns) == 19
         # step 4: save back
         metadata.to_csv(metadata_csv, index=False)

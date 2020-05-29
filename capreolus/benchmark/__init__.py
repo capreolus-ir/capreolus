@@ -319,10 +319,6 @@ class COVID(Benchmark):
 
         topic_url = self.topic_url % rnd_i
         qrel_ignore_urls = [self.qrel_url % i for i in range(1, rnd_i)]  # download all the qrels before current run
-        # if rnd_i < self.lastest_round:
-        #     qrel_cur_url = self.qrel_url % rnd_i
-        # elif rnd_i == self.lastest_round:
-        #     qrel_cur_url = self.qrel_url % (self.lastest_round - 1)
 
         # topic file
         tmp_dir = Path("/tmp")
@@ -331,7 +327,6 @@ class COVID(Benchmark):
             download_file(topic_url, topic_tmp)
         all_qids = self.xml2trectopic(topic_tmp)  # will update self.topic_file
 
-        # qrel_fn = open(self.qrel_ignore, "w") if rnd_i != self.lastest_round else open(self.qrel_file, "w")
         if excludeknown:
             qrel_fn = open(self.qrel_file, "w")
             for i, qrel_url in enumerate(qrel_ignore_urls):
