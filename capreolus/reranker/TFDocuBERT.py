@@ -2,7 +2,7 @@ import copy
 
 import tensorflow as tf
 from transformers import TFBertModel
-from transformers.modeling_tf_bert import TFBertEncoder
+from transformers.modeling_tf_bert import TFBertLayer
 
 from capreolus.registry import Dependency
 from capreolus.reranker import Reranker
@@ -20,9 +20,8 @@ class TFDocuBERT_Class(tf.keras.Model):
         self.sepidx = extractor.sepidx  # The index of the SEP token
         self.extractor = extractor
         self.bert = TFBertModel.from_pretrained(config["pretrained"])
-        duplicate_config = copy.copy(self.bert.config)
-        duplicate_config.num_hidden_layers = 2
-        self.transformer_layers = TFBertEncoder(duplicate_config)
+        self.transformer_layer_1 = TFBertLayer(self.bert.config)
+        self.transformer_layer_2 = TFBertLayer(self.bert.config)
         self.linear = tf.keras.layers.Dense(1, input_shape=(self.config["numpassages"] + 1, self.bert.config.hidden_size))
 
     @tf.function
@@ -83,12 +82,16 @@ class TFDocuBERT_Class(tf.keras.Model):
             idx += 1
 
         logger.info("cls_token_embeddings array shape is {}".format(pos_passage_scores.stack()))
-        pos_final_hstates, all_pos_hstates, all_pos_att = self.transformer_layers(pos_passage_scores.stack())
-        neg_final_hstates, all_neg_hstates, all_neg_att = self.transformer_layers(neg_passage_scores.stack())
-        logger.info("Final hstates shape is {}".format(pos_final_hstates))
+        pos_layer_out_1, pos_attn_out_1 = self.transformer_layer_1(pos_passage_scores.stack())
+        pos_layer_out_2, pos_attn_out_2 = self.transformer_layer_2(pos_layer_out_1)
 
-        pos_final_cls_embedding = pos_final_hstates[:, 0]
-        neg_final_cls_embedding = neg_final_hstates[:, 0]
+        neg_layer_out_1, neg_attn_out_1 = self.transformer_layer_1(neg_passage_scores.stack())
+        neg_layer_out_2, neg_attn_out_2 = self.transformer_layer_2(neg_layer_out_1)
+
+        logger.info("Final hstates shape is {}".format(pos_layer_out_2))
+
+        pos_final_cls_embedding = pos_layer_out_2[:, 0]
+        neg_final_cls_embedding = neg_layer_out_2[:, 0]
 
         pos_score = self.linear(pos_final_cls_embedding)
         neg_score = self.linear(neg_final_cls_embedding)
