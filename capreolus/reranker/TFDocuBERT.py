@@ -37,7 +37,7 @@ class TFDocuBERT_Class(tf.keras.Model):
         batch_size = tf.shape(doc_toks)[0]
         stride = self.config["stride"]
         passagelen = self.config["passagelen"]
-        qlen = self.config["maxqlen"]
+        qlen = self.extractor.cfg["maxqlen"]
 
         p_start = i * stride
 
