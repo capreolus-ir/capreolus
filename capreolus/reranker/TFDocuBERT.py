@@ -43,7 +43,7 @@ class TFDocuBERT_Class(tf.keras.Model):
 
         # Get the [CLS] token embedding, and add it to a list
         single_cls_embedding = tf.gather(self.bert.get_input_embeddings().word_embeddings, [self.clsidx])
-        cls_embedding_batch = tf.tile(single_cls_embedding, [batch_size, ] + [1 for x in range(1, len(single_cls_embedding.shape))])
+        cls_embedding_batch = tf.tile(single_cls_embedding, [batch_size] + [1 for x in range(1, len(single_cls_embedding.shape))])
         pos_passage_cls_list = tf.TensorArray(tf.float32, size=num_passages + 1, dynamic_size=False)
         pos_passage_cls_list = pos_passage_cls_list.write(0, cls_embedding_batch)
         neg_passage_cls_list = tf.TensorArray(tf.float32, size=num_passages + 1, dynamic_size=False)
@@ -103,7 +103,6 @@ class TFDocuBERT_Class(tf.keras.Model):
         neg_score = tf.reshape(self.linear(neg_final_cls_embedding), [batch_size])
 
         return tf.stack([pos_score, neg_score], axis=1)
-        
 
 
 class TFDocuBERT(Reranker):
