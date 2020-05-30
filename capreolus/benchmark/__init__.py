@@ -391,3 +391,67 @@ class COVID(Benchmark):
                 fout.write(topic_line)
                 all_qids.append(qid)
         return all_qids
+
+
+class CovidQA(Benchmark):
+    name = "covidqa"
+    url = "https://raw.githubusercontent.com/castorini/pygaggle/master/data/kaggle-lit-review-%s.json"
+    available_versions = ["0.1", "0.2"]
+
+    datadir = PACKAGE_PATH / "data" / "covidqa"
+
+    @staticmethod
+    def config():
+        version = "0.1+0.2"
+
+    def __init__(self, cfg):
+        super(CovidQA, self).__init__(cfg)
+        os.makedirs(self.datadir, exist_ok=True)
+
+        version = cfg["version"]
+        self.qrel_file = self.datadir / f"qrels.v{version}.txt"
+        self.topic_file = self.datadir / f"topics.v{version}.txt"
+        self.fold_file = self.datadir / f"v{version}.json"  # HOW TO SPLIT THE FOLD HERE?
+
+        self.download_if_missing()
+
+    def download_if_missing(self):
+        if all([os.path.exists(f) for f in [self.qrel_file, self.topic_file, self.fold_file]]):
+            return
+
+        tmp_dir = Path("/tmp")
+        topic_f = open(self.topic_file, "w", encoding="utf-8")
+        qrel_f = open(self.qrel_file, "w", encoding="utf-8")
+
+        all_qids = []
+        qid = 2001  # to distingsuish queries here from queries in TREC-covid
+        versions = self.cfg["version"].split("+") if isinstance(self.cfg["version"], str) else str(self.cfg["version"])
+        for v in versions:
+            if v not in self.available_versions:
+                vs = " ".join(self.available_versions)
+                logger.warning(f"Invalid version {v}, should be one of {vs}")
+                continue
+
+            url = self.url % v
+            target_fn = tmp_dir / f"covidqa-v{v}.json"
+            download_file(url, target_fn)
+            qa = json.load(open(target_fn))
+            for subcate in qa["categories"]:
+                name = subcate["name"]
+
+                for qa in subcate["sub_categories"]:
+                    nq_name, kq_name = qa["nq_name"], qa["kq_name"]
+                    query_line = topic_to_trectxt(qid, kq_name, nq_name)  # kq_name == "query", nq_name == "question"
+                    topic_f.write(query_line)
+                    for ans in qa["answers"]:
+                        docid = ans["id"]
+                        qrel_f.write(f"{qid} Q0 {docid} 1\n")
+                    all_qids.append(qid)
+                    qid += 1
+
+        json.dump(
+            {"s1": {"train_qids": all_qids, "predict": {"dev": all_qids, "test": all_qids}}},
+            open(self.fold_file, "w"))
+        topic_f.close()
+        qrel_f.close()
+
