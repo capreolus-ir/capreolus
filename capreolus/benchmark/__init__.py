@@ -434,7 +434,8 @@ class CovidQA(Benchmark):
 
             url = self.url % v
             target_fn = tmp_dir / f"covidqa-v{v}.json"
-            download_file(url, target_fn)
+            if not os.path.exists(target_fn):
+                download_file(url, target_fn)
             qa = json.load(open(target_fn))
             for subcate in qa["categories"]:
                 name = subcate["name"]
@@ -452,3 +453,4 @@ class CovidQA(Benchmark):
         json.dump({"s1": {"train_qids": all_qids, "predict": {"dev": all_qids, "test": all_qids}}}, open(self.fold_file, "w"))
         topic_f.close()
         qrel_f.close()
+
