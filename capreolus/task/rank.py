@@ -31,7 +31,7 @@ def evaluate(config, modules):
     benchmark_dirname = benchmark.name + "_".join([f"{k}={v}" for k, v in benchmark.cfg.items() if k != "_name"])
 
     metric = config["optimize"]
-    all_metric = ["mrr", "ndcg_cut_20", "ndcg_cut_10", "map", "P_20", "P_10", "set_recall"]
+    all_metric = ["mrr", "P_1", "ndcg_cut_20", "ndcg_cut_10", "map", "P_20", "P_10", "set_recall"]
     output_dir = searcher.get_cache_path() / benchmark_dirname
     best_results = evaluator.search_best_run(output_dir, benchmark, primary_metric=metric, metrics=all_metric)
     pathes = [f"\t{s}: {path}" for s, path in best_results["path"].items()]
