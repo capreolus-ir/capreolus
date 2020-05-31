@@ -1,6 +1,7 @@
 import os
 from capreolus.task import Task
 from capreolus.registry import RESULTS_BASE_PATH
+from capreolus.utils.trec import load_qrels
 
 from capreolus import evaluator
 
@@ -20,7 +21,14 @@ def train(config, modules):
 
     benchmark_dirname = benchmark.name + "_".join([f"{k}={v}" for k, v in benchmark.cfg.items() if k != "_name"])
     output_dir = searcher.get_cache_path() / benchmark_dirname
-    search_results_folder = searcher.query_from_file(topics_fn, output_dir)
+
+    if config["filter"]:
+        qrels = load_qrels(benchmark.qrel_ignore)
+        docs_to_remove = {q: list(d.keys()) for q, d in qrels.items()}
+        search_results_folder = searcher.query_from_file(topics_fn, output_dir, docs_to_remove)
+    else:
+        search_results_folder = searcher.query_from_file(topics_fn, output_dir)
+
     print(f"Search results are at: {search_results_folder}")
 
 
@@ -62,6 +70,7 @@ class RankTask(Task):
         seed = 123_456
         # eval_metrics = {"map", "ndcg_cut_20", "ndcg_cut_10", "P_20"}
         optimize = "map"  # metric to maximize on the dev set
+        filter = False
 
     name = "rank"
     module_order = ["collection", "searcher", "benchmark"]
