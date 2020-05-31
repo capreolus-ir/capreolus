@@ -483,12 +483,13 @@ class BertPassage(Extractor):
     def parse_tf_example(self, example_proto):
         feature_description = self.get_tf_feature_description()
         parsed_example = tf.io.parse_example(example_proto, feature_description)
-        posdoc = tf.io.parse_tensor(parsed_example["posdoc"], tf.string)
-        posdoc_mask = tf.io.parse_tensor(parsed_example["posdoc_mask"], tf.string)
-        posdoc_seg = tf.io.parse_tensor(parsed_example["posdoc_seg"], tf.string)
-        negdoc = tf.io.parse_tensor(parsed_example["negdoc"], tf.string)
-        negdoc_mask = tf.io.parse_tensor(parsed_example["negdoc_mask"], tf.string)
-        negdoc_seg = tf.io.parse_tensor(parsed_example["negdoc_seg"], tf.string)
+        posdoc = tf.io.parse_tensor(parsed_example["posdoc"][0], tf.int64)
+        posdoc_mask = tf.io.parse_tensor(parsed_example["posdoc_mask"][0], tf.int64)
+        posdoc_seg = tf.io.parse_tensor(parsed_example["posdoc_seg"][0], tf.int64)
+        negdoc = tf.io.parse_tensor(parsed_example["negdoc"][0], tf.int64)
+        negdoc_mask = tf.io.parse_tensor(parsed_example["negdoc_mask"][0], tf.int64)
+        negdoc_seg = tf.io.parse_tensor(parsed_example["negdoc_seg"][0], tf.int64)
+
         label = parsed_example["label"]
 
         return (posdoc, posdoc_mask, posdoc_seg, negdoc, negdoc_mask, negdoc_seg), label
@@ -558,8 +559,6 @@ class BertPassage(Extractor):
             pos_bert_segs.append([0] * (len(query_toks) + 2) + [1] * (len(padded_input_line) - len(query_toks) - 2))
             pos_bert_inputs.append(tokenizer.convert_tokens_to_ids(padded_input_line))
 
-
-        logger.info("pos_bert_masks are {}".format([len(x) for x in pos_bert_masks]))
 
         # TODO: Rename the posdoc key in the below dict to 'pos_bert_input'
         data = {
