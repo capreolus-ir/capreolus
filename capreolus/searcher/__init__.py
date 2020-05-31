@@ -1,4 +1,5 @@
 import os
+import math
 import subprocess
 from collections import defaultdict, OrderedDict
 
@@ -6,7 +7,6 @@ import numpy as np
 
 from pyserini.search import pysearch
 from capreolus.registry import ModuleBase, RegisterableModule, Dependency, MAX_THREADS, PACKAGE_PATH
-from capreolus.utils.trec import load_qrels
 from capreolus.utils.common import Anserini
 from capreolus.utils.loginit import get_logger
 
@@ -33,7 +33,8 @@ class Searcher(ModuleBase, metaclass=RegisterableModule):
     def write_trec_run(preds, outfn):
         count = 0
         with open(outfn, "wt") as outf:
-            for qid in sorted(preds):
+            qids = sorted(preds.keys(), key=lambda k: int(k))
+            for qid in qids:
                 rank = 1
                 for docid, score in sorted(preds[qid].items(), key=lambda x: x[1], reverse=True):
                     print(f"{qid} Q0 {docid} {rank} {score} capreolus", file=outf)
@@ -75,8 +76,7 @@ class AnseriniSearcherMixIn:
             f"java -classpath {anserini_fat_jar} "
             f"-Xms512M -Xmx31G -Dapp.name=SearchCollection io.anserini.search.SearchCollection "
             f"-topicreader Trec -index {index_path} {indexopts} -topics {topicsfn} -output {output_path} "
-            f"-topicfield {topicfield} -inmem -threads {MAX_THREADS} {anserini_param_str}"
-        )
+            f"-topicfield {topicfield} -inmem -threads {MAX_THREADS} {anserini_param_str}")
         logger.info("Anserini writing runs to %s", output_path)
         logger.debug(cmd)
 
@@ -94,7 +94,17 @@ class AnseriniSearcherMixIn:
             print("done", file=donef)
 
 
-class FilterMixin:
+class PostprocessMixin:
+    def _keep_topn(self, runs, topn):
+        queries = sorted(list(runs.keys()), key=lambda k: int(k))
+        for q in queries:
+            docs = runs[q]
+            if len(docs) <= topn:
+                continue
+            docs = sorted(docs.items(), key=lambda kv: kv[1], reverse=True)[:topn]
+            runs[q] = {k: v for k, v in docs}
+        return runs
+
     def filter(self, run_dir, docs_to_remove=None, docs_to_keep=None, topn=None):
         if (not docs_to_keep) and (not docs_to_remove):
             raise
@@ -120,18 +130,32 @@ class FilterMixin:
                 docs_to_keep = {q: docs_to_keep for q in runs}
             runs = {q: {d: v for d, v in docs.items() if d in docs_to_keep[q]} for q, docs in runs.items()}
 
-        # keep the top k
-        if not topn:
-            Searcher.write_trec_run(runs, runfile)  # overwrite runfile
-
-        queries = sorted(list(runs.keys()), key=lambda k: int(k))
-        for q in queries:
-            docs = runs[q]
-            if len(docs) <= topn:
-                continue
-            docs = sorted(docs.items(), key=lambda kv: kv[1], reverse=True)[:topn]
-            runs[q] = {k: v for k, v in docs}
+        if topn:
+            runs = self._keep_topn(runs, topn)
         Searcher.write_trec_run(runs, runfile)  # overwrite runfile
+
+    def dedup(self, run_dir, topn=None):
+        for fn in os.listdir(run_dir):
+            if fn == "done":
+                continue
+            run_fn = os.path.join(run_dir, fn)
+            self._dedup(run_fn, topn)
+        return run_dir
+
+    def _dedup(self, runfile, topn):
+        runs = Searcher.load_trec_run(runfile)
+        new_runs = {q: {} for q in runs}
+
+        # use the sum of each passage score as the document score, no sorting is done here
+        for q, psg in runs.items():
+            for pid, score in psg.items():
+                docid = pid.split(".")[0]
+                new_runs[q][docid] = max(new_runs[q].get(docid, -math.inf), score)
+        runs = new_runs
+
+        if topn:
+            runs = self._keep_topn(runs, topn)
+        Searcher.write_trec_run(runs, runfile)
 
 
 class BM25(Searcher, AnseriniSearcherMixIn):
@@ -230,7 +254,6 @@ class BM25RM3(Searcher, AnseriniSearcherMixIn):
         return "-".join(str(x) for x in l)
 
     def query_from_file(self, topicsfn, output_path):
-        # paras = {k: self.list2str(self.cfg[k]) for k in ["k1", "b", "fbTerms", "fbDocs", "originalQueryWeight"]}
         paras = {k: " ".join(self.cfg[k].split("-")) for k in ["k1", "b", "fbTerms", "fbDocs", "originalQueryWeight"]}
         hits = str(self.cfg["hits"])
 
@@ -255,8 +278,8 @@ class BM25RM3(Searcher, AnseriniSearcherMixIn):
         return OrderedDict({hit.docid: hit.score for hit in hits})
 
 
-class BM25Filter(BM25, FilterMixin):
-    name = "BM25Filter"
+class BM25PostProcess(BM25, PostprocessMixin):
+    name = "BM25Postprocess"
 
     @staticmethod
     def config():
@@ -265,15 +288,20 @@ class BM25Filter(BM25, FilterMixin):
         hits = 1000
         topn = 1000
         fields = "title"
+        dedup = False
 
-    def query_from_file(self, topicsfn, output_path):
-        qrel_fn = "/home/xinyu1zhang/cikm/capreolus-covid/capreolus/data/covid/round=2_udelqexpand=False_excludeknown=True/ignore.qrel.txt"
-        qrels = load_qrels(qrel_fn)
-        docs_to_remove = {q: list(d.keys()) for q, d in qrels.items()}
+    def query_from_file(self, topicsfn, output_path, docs_to_remove=None):
+        # qrel_fn = "/home/xinyu1zhang/cikm/capreolus-covid/capreolus/data/covid/round=2_udelqexpand=False_excludeknown=True/ignore.qrel.txt"
+        # qrels = load_qrels(qrel_fn)
+        # docs_to_remove = {q: list(d.keys()) for q, d in qrels.items()}
 
         output_path = super().query_from_file(topicsfn, output_path)
+
         if docs_to_remove:
-            output_path = super().filter(output_path, docs_to_remove=docs_to_remove, topn=self.cfg["topn"])
+            output_path = self.filter(output_path, docs_to_remove=docs_to_remove, topn=self.cfg["topn"])
+        if self.cfg["dedup"]:
+            output_path = self.dedup(output_path, topn=self.cfg["topn"])
+
         return output_path
 
 
