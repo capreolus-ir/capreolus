@@ -419,7 +419,7 @@ class BertPassage(Extractor):
     }
 
     pad = 0
-    pad_tok = "<pad>"
+    pad_tok = " "
 
     @staticmethod
     def config():
@@ -462,6 +462,8 @@ class BertPassage(Extractor):
         """
         posdoc, negdoc, negdoc_id = sample["posdoc"], sample["negdoc"], sample["negdocid"]
         posdoc_mask, posdoc_seg, negdoc_mask, negdoc_seg = sample["posdoc_mask"], sample["posdoc_seg"], sample["negdoc_mask"], sample["negdoc_seg"]
+
+        logger.info("posdoc is {}".format(posdoc))
 
         feature = {
             "posdoc": tf.train.Feature(int64_list=tf.train.Int64List(value=posdoc)),
@@ -550,12 +552,15 @@ class BertPassage(Extractor):
             padded_input_line = padlist(input_line, padlen=self.cfg["maxseqlen"], pad_token=self.pad_tok)
             pos_bert_masks.append([1] * len(input_line) + [0] * (len(padded_input_line) - len(input_line)))
             pos_bert_segs.append([0] * (len(query_toks) + 2) + [1] * (len(padded_input_line) - len(query_toks) - 2))
-            pos_bert_inputs.append(tokenizer.convert_tokens_to_ids(input_line))
+            pos_bert_inputs.append(tokenizer.convert_tokens_to_ids(padded_input_line))
 
 
+        logger.info("pos_bert_masks are {}".format([len(x) for x in pos_bert_masks]))
+
+        # TODO: Rename the posdoc key in the below dict to 'pos_bert_input'
         data = {
             "posdocid": posid,
-            "pos_bert_input": np.array(pos_bert_inputs, dtype=np.long),
+            "posdoc": np.array(pos_bert_inputs, dtype=np.long),
             "posdoc_mask": np.array(pos_bert_masks, dtype=np.long),
             "posdoc_seg": np.array(pos_bert_segs, dtype=np.long),
             "negdocid": "",
@@ -576,7 +581,7 @@ class BertPassage(Extractor):
                 padded_input_line = padlist(input_line, padlen=self.cfg["maxseqlen"], pad_token=self.pad_tok)
                 neg_bert_masks.append([1] * len(input_line) + [0] * (len(padded_input_line) - len(input_line)))
                 neg_bert_segs.append([0] * (len(query_toks) + 2) + [1] * (len(padded_input_line) - len(query_toks) - 2))
-                neg_bert_inputs.append(tokenizer.convert_tokens_to_ids(input_line))
+                neg_bert_inputs.append(tokenizer.convert_tokens_to_ids(padded_input_line))
 
             if not neg_bert_inputs:
                 raise MissingDocError(qid, negid)

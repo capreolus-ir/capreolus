@@ -15,8 +15,6 @@ class TFDocuBERT_Class(tf.keras.Model):
     def __init__(self, extractor, config, *args, **kwargs):
         super(TFDocuBERT_Class, self).__init__(*args, **kwargs)
         self.config = config
-        self.clsidx = extractor.clsidx  # The index of the CLS token
-        self.sepidx = extractor.sepidx  # The index of the SEP token
         self.extractor = extractor
         self.bert = TFBertModel.from_pretrained(config["pretrained"])
         self.transformer_layer_1 = TFBertLayer(self.bert.config)
