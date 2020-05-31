@@ -444,12 +444,12 @@ class BertPassage(Extractor):
 
     def get_tf_feature_description(self):
         feature_description = {
-            "posdoc": tf.io.FixedLenFeature([self.cfg["maxseqlen"]], tf.int64),
-            "posdoc_mask": tf.io.FixedLenFeature([self.cfg["maxseqlen"]], tf.int64),
-            "posdoc_seg": tf.io.FixedLenFeature([self.cfg["maxseqlen"]], tf.int64),
-            "negdoc": tf.io.FixedLenFeature([self.cfg["maxseqlen"]], tf.int64),
-            "negdoc_mask": tf.io.FixedLenFeature([self.cfg["maxseqlen"]], tf.int64),
-            "negdoc_seg": tf.io.FixedLenFeature([self.cfg["maxseqlen"]], tf.int64),
+            "posdoc": tf.io.FixedLenFeature([], tf.string),
+            "posdoc_mask": tf.io.FixedLenFeature([], tf.string),
+            "posdoc_seg": tf.io.FixedLenFeature([], tf.string),
+            "negdoc": tf.io.FixedLenFeature([], tf.string),
+            "negdoc_mask": tf.io.FixedLenFeature([], tf.string),
+            "negdoc_seg": tf.io.FixedLenFeature([], tf.string),
             "label": tf.io.FixedLenFeature([2], tf.float32, default_value=tf.convert_to_tensor([1, 0], dtype=tf.float32)),
         }
 
@@ -463,15 +463,13 @@ class BertPassage(Extractor):
         posdoc, negdoc, negdoc_id = sample["posdoc"], sample["negdoc"], sample["negdocid"]
         posdoc_mask, posdoc_seg, negdoc_mask, negdoc_seg = sample["posdoc_mask"], sample["posdoc_seg"], sample["negdoc_mask"], sample["negdoc_seg"]
 
-        logger.info("posdoc is {}".format(posdoc))
-
         feature = {
-            "posdoc": tf.train.Feature(int64_list=tf.train.Int64List(value=posdoc)),
-            "posdoc_mask": tf.train.Feature(int64_list=tf.train.Int64List(value=posdoc_mask)),
-            "posdoc_seg": tf.train.Feature(int64_list=tf.train.Int64List(value=posdoc_seg)),
-            "negdoc": tf.train.Feature(int64_list=tf.train.Int64List(value=negdoc)),
-            "negdoc_mask": tf.train.Feature(int64_list=tf.train.Int64List(value=negdoc_mask)),
-            "negdoc_seg": tf.train.Feature(int64_list=tf.train.Int64List(value=negdoc_seg))
+            "posdoc": tf.train.Feature(bytes_list=tf.train.BytesList(value=[tf.io.serialize_tensor(posdoc)])),
+            "posdoc_mask": tf.train.Feature(bytes_list=tf.train.BytesList(value=[tf.io.serialize_tensor(posdoc_mask)])),
+            "posdoc_seg": tf.train.Feature(bytes_list=tf.train.BytesList(value=[tf.io.serialize_tensor(posdoc_seg)])),
+            "negdoc": tf.train.Feature(bytes_list=tf.train.BytesList(value=[tf.io.serialize_tensor(negdoc)])),
+            "negdoc_mask": tf.train.Feature(bytes_list=tf.train.BytesList(value=[tf.io.serialize_tensor(negdoc_mask)])),
+            "negdoc_seg": tf.train.Feature(bytes_list=tf.train.BytesList(value=[tf.io.serialize_tensor(negdoc_seg)])),
         }
 
         return feature
@@ -479,12 +477,12 @@ class BertPassage(Extractor):
     def parse_tf_example(self, example_proto):
         feature_description = self.get_tf_feature_description()
         parsed_example = tf.io.parse_example(example_proto, feature_description)
-        posdoc = parsed_example["posdoc"]
-        posdoc_mask = parsed_example["posdoc_mask"]
-        posdoc_seg = parsed_example["posdoc_seg"]
-        negdoc = parsed_example["negdoc"]
-        negdoc_mask = parsed_example["negdoc_mask"]
-        negdoc_seg = parsed_example["negdoc_seg"]
+        posdoc = tf.io.parse_tensor(parsed_example["posdoc"], tf.string)
+        posdoc_mask = tf.io.parse_tensor(parsed_example["posdoc_mask"], tf.string)
+        posdoc_seg = tf.io.parse_tensor(parsed_example["posdoc_seg"], tf.string)
+        negdoc = tf.io.parse_tensor(parsed_example["negdoc"], tf.string)
+        negdoc_mask = tf.io.parse_tensor(parsed_example["negdoc_mask"], tf.string)
+        negdoc_seg = tf.io.parse_tensor(parsed_example["negdoc_seg"], tf.string)
         label = parsed_example["label"]
 
         return (posdoc, posdoc_mask, posdoc_seg, negdoc, negdoc_mask, negdoc_seg), label
