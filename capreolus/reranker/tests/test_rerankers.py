@@ -6,7 +6,7 @@ import torch
 from pymagnitude import Magnitude
 
 from capreolus.benchmark import DummyBenchmark
-from capreolus.extractor import EmbedText, BertText
+from capreolus.extractor import EmbedText, BertText, BertPassage
 from capreolus.reranker.PACRR import PACRR
 from capreolus.sampler import TrainDataset, PredDataset
 from capreolus.tests.common_fixtures import tmpdir_as_cache, dummy_index
@@ -690,49 +690,49 @@ def test_CDSSM(dummy_index, tmpdir, tmpdir_as_cache, monkeypatch):
 #         reranker, train_dataset, Path(tmpdir) / "train", dev_dataset, Path(tmpdir) / "dev", benchmark.qrels, metric
 #     )
 #
-#
-# def test_docubert(dummy_index, tmpdir, tmpdir_as_cache, monkeypatch):
-#     reranker = TFDocuBERT(
-#         {"pretrained": "bert-base-uncased", "passagelen": 150, "stride": 50, "mode": "transformer"}
-#     )
-#     trainer = TensorFlowTrainer(
-#         {
-#             "_name": "tensorflow",
-#             "maxdoclen": 800,
-#             "maxqlen": 4,
-#             "batch": 1,
-#             "niters": 1,
-#             "itersize": 2,
-#             "gradacc": 1,
-#             "lr": 0.001,
-#             "softmaxloss": True,
-#             "interactive": False,
-#             "fastforward": True,
-#             "validatefreq": 1,
-#             "usecache": False,
-#             "tpuname": None,
-#             "tpuzone": None,
-#             "storage": None,
-#             "boardname": "default",
-#             "loss": "approx_ndcg_loss",
-#         }
-#     )
-#     reranker.modules["trainer"] = trainer
-#     reranker.modules["extractor"] = BertText({"_name": "berttext", "maxqlen": 4, "maxdoclen": 800, "usecache": False})
-#     extractor = reranker.modules["extractor"]
-#     extractor.modules["index"] = dummy_index
-#     tok_cfg = {"_name": "berttokenizer", "pretrained": "bert-base-uncased"}
-#     tokenizer = BertTokenizer(tok_cfg)
-#     extractor.modules["tokenizer"] = tokenizer
-#     metric = "map"
-#     benchmark = DummyBenchmark({"fold": "s1", "rundocsonly": True})
-#
-#     extractor.create(["301"], ["LA010189-0001", "LA010189-0002"], benchmark.topics[benchmark.query_type])
-#     reranker.build()
-#     reranker.bm25_scores = {"301": {"LA010189-0001": 2, "LA010189-0002": 1}}
-#     train_run = {"301": ["LA010189-0001", "LA010189-0002"]}
-#     train_dataset = TrainDataset(qid_docid_to_rank=train_run, qrels=benchmark.qrels, extractor=extractor)
-#     dev_dataset = PredDataset(qid_docid_to_rank=train_run, extractor=extractor)
-#     reranker["trainer"].train(
-#         reranker, train_dataset, Path(tmpdir) / "train", dev_dataset, Path(tmpdir) / "dev", benchmark.qrels, metric
-#     )
+
+def test_docubert(dummy_index, tmpdir, tmpdir_as_cache, monkeypatch):
+    reranker = TFDocuBERT(
+        {"pretrained": "bert-base-uncased", "passagelen": 150, "stride": 50, "mode": "transformer"}
+    )
+    trainer = TensorFlowTrainer(
+        {
+            "_name": "tensorflow",
+            "maxdoclen": 800,
+            "maxqlen": 4,
+            "batch": 1,
+            "niters": 1,
+            "itersize": 2,
+            "gradacc": 1,
+            "lr": 0.001,
+            "softmaxloss": True,
+            "interactive": False,
+            "fastforward": True,
+            "validatefreq": 1,
+            "usecache": False,
+            "tpuname": None,
+            "tpuzone": None,
+            "storage": None,
+            "boardname": "default",
+            "loss": "approx_ndcg_loss",
+        }
+    )
+    reranker.modules["trainer"] = trainer
+    reranker.modules["extractor"] = BertPassage({"_name": "bertpassage", "maxqlen": 4, "usecache": False, "maxseqlen": 256, "numpassages": 16, "passagelen": 150, "stride": 100})
+    extractor = reranker.modules["extractor"]
+    extractor.modules["index"] = dummy_index
+    tok_cfg = {"_name": "berttokenizer", "pretrained": "bert-base-uncased"}
+    tokenizer = BertTokenizer(tok_cfg)
+    extractor.modules["tokenizer"] = tokenizer
+    metric = "map"
+    benchmark = DummyBenchmark({"fold": "s1", "rundocsonly": True})
+
+    extractor.create(["301"], ["LA010189-0001", "LA010189-0002"], benchmark.topics[benchmark.query_type])
+    reranker.build()
+    reranker.bm25_scores = {"301": {"LA010189-0001": 2, "LA010189-0002": 1}}
+    train_run = {"301": ["LA010189-0001", "LA010189-0002"]}
+    train_dataset = TrainDataset(qid_docid_to_rank=train_run, qrels=benchmark.qrels, extractor=extractor)
+    dev_dataset = PredDataset(qid_docid_to_rank=train_run, extractor=extractor)
+    reranker["trainer"].train(
+        reranker, train_dataset, Path(tmpdir) / "train", dev_dataset, Path(tmpdir) / "dev", benchmark.qrels, metric
+    )
