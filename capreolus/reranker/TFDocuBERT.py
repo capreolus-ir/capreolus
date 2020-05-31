@@ -110,7 +110,7 @@ class TFDocuBERT_Class(tf.keras.Model):
         posdoc_mask = tf.reshape(posdoc_mask, [batch_size * self.num_passages, -1])
         posdoc_seg = tf.reshape(posdoc_seg, [batch_size * self.num_passages, -1])
 
-        pos_cls = self.bert(posdoc_input, posdoc_mask, posdoc_seg)[0][:, 0]
+        pos_cls = self.bert(posdoc_input, attention_mask=posdoc_mask, token_type_ids=posdoc_seg)[0][:, 0]
         pos_cls = tf.reshape(pos_cls, [batch_size, self.num_passages, -1])
 
         pos_transformer_out1 = self.transformer_layer_1((pos_cls, None, None))
@@ -124,7 +124,7 @@ class TFDocuBERT_Class(tf.keras.Model):
             negdoc_mask = tf.reshape(negdoc_mask, [batch_size * self.num_passages, -1])
             negdoc_seg = tf.reshape(negdoc_seg, [batch_size * self.num_passages, -1])
 
-            neg_cls = self.bert(negdoc_input, negdoc_mask, negdoc_seg)[0][:, 0]
+            neg_cls = self.bert(negdoc_input, attention_mask=negdoc_mask, token_type_ids=negdoc_seg)[0][:, 0]
             neg_cls = tf.reshape(neg_cls, [batch_size, self.num_passages, -1])
 
             neg_transformer_out1 = self.transformer_layer_1((neg_cls, None, None))
