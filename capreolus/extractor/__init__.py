@@ -487,12 +487,12 @@ class BertPassage(Extractor):
         def parse_tensor(x):
             return tf.io.parse_tensor(x, tf.int64)
 
-        posdoc = tf.map_fn(parse_tensor, parsed_example["posdoc"])
-        posdoc_mask = tf.map_fn(parse_tensor, parsed_example["posdoc_mask"])
-        posdoc_seg = tf.map_fn(parse_tensor, parsed_example["posdoc_seg"])
-        negdoc = tf.map_fn(parse_tensor, parsed_example["negdoc"])
-        negdoc_mask = tf.map_fn(parse_tensor, parsed_example["negdoc_mask"])
-        negdoc_seg = tf.map_fn(parse_tensor, parsed_example["negdoc_seg"])
+        posdoc = tf.map_fn(parse_tensor, parsed_example["posdoc"], dtype=tf.int64)
+        posdoc_mask = tf.map_fn(parse_tensor, parsed_example["posdoc_mask"], dtype=tf.int64)
+        posdoc_seg = tf.map_fn(parse_tensor, parsed_example["posdoc_seg"], dtype=tf.int64)
+        negdoc = tf.map_fn(parse_tensor, parsed_example["negdoc"], dtype=tf.int64)
+        negdoc_mask = tf.map_fn(parse_tensor, parsed_example["negdoc_mask"], dtype=tf.int64)
+        negdoc_seg = tf.map_fn(parse_tensor, parsed_example["negdoc_seg"], dtype=tf.int64)
         label = parsed_example["label"]
 
         return (posdoc, posdoc_mask, posdoc_seg, negdoc, negdoc_mask, negdoc_seg), label
