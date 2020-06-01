@@ -138,11 +138,10 @@ class TFDocuBERT_Class(tf.keras.Model):
 
         def get_fake_neg_score():
             # Saves an awful lot of trouble by not passing a zero tensor through BERT
-            return tf.zeros_like(pos_score)
+            return tf.zeros((batch_size))
 
         neg_score = tf.cond(tf.math.equal(tf.math.count_nonzero(negdoc_input), 0), false_fn=lambda: get_neg_score(negdoc_input, negdoc_mask, negdoc_seg), true_fn=get_fake_neg_score)
 
-        logger.info("pos_score is {}".format(pos_score))
         return tf.stack([pos_score, neg_score], axis=1)
 
 

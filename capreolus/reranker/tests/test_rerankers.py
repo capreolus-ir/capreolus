@@ -714,7 +714,7 @@ def test_docubert(dummy_index, tmpdir, tmpdir_as_cache, monkeypatch):
             "tpuzone": None,
             "storage": None,
             "boardname": "default",
-            "loss": "approx_ndcg_loss",
+            "loss": "pairwise_hinge_loss",
         }
     )
     reranker.modules["trainer"] = trainer
