@@ -642,10 +642,10 @@ class TensorFlowTrainer(Trainer):
         2. Else, converts the dataset into tf records, writes them to disk, and returns them
         """
         if self.cfg["usecache"] and self.cache_exists(dataset):
-            return self.load_cached_tf_records(reranker, dataset, self.cfg["batch"])
+            return self.load_cached_tf_records(reranker, dataset, 1)
         else:
             tf_record_filenames = self.convert_to_tf_dev_record(reranker, dataset)
-            return self.load_tf_records_from_file(reranker, tf_record_filenames, self.cfg["batch"])
+            return self.load_tf_records_from_file(reranker, tf_record_filenames, 1)
 
     def get_tf_train_records(self, reranker, dataset):
         """
