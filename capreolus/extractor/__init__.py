@@ -562,8 +562,6 @@ class BertPassage(Extractor):
             tokenized_passage = tokenize(" ".join(passage))
             input_line = ['CLS'] + query_toks + ['SEP'] + tokenized_passage + ['SEP']
             if len(input_line) > maxseqlen:
-                logger.warning("The original passage: {}".format(passage))
-                logger.warning("Tokenized passage: {}".format(tokenized_passage))
                 input_line = input_line[:maxseqlen]
                 input_line[-1] = 'SEP'
 
@@ -595,8 +593,6 @@ class BertPassage(Extractor):
                 tokenized_passage = tokenize(" ".join(passage))
                 input_line = ['CLS'] + query_toks + ['SEP'] + tokenized_passage + ['SEP']
                 if len(input_line) > maxseqlen:
-                    logger.warning("The original passage: {}".format(passage))
-                    logger.warning("Tokenized passage: {}".format(tokenized_passage))
                     input_line = input_line[:maxseqlen]
                     input_line[-1] = 'SEP'
 
