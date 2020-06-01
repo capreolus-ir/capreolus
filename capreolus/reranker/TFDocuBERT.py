@@ -119,28 +119,25 @@ class TFDocuBERT_Class(tf.keras.Model):
 
         pos_score = tf.reshape(self.linear(pos_final_cls), [batch_size])
 
-        def get_neg_score(negdoc_input, negdoc_mask, negdoc_seg):
-            batch_size = tf.shape(negdoc_input)[0]
-            negdoc_input = tf.reshape(negdoc_input, [batch_size * self.num_passages, self.maxseqlen])
-            negdoc_mask = tf.reshape(negdoc_mask, [batch_size * self.num_passages, self.maxseqlen])
-            negdoc_seg = tf.reshape(negdoc_seg, [batch_size * self.num_passages, self.maxseqlen])
+        negdoc_input = tf.reshape(negdoc_input, [batch_size * self.num_passages, self.maxseqlen])
+        negdoc_mask = tf.reshape(negdoc_mask, [batch_size * self.num_passages, self.maxseqlen])
+        negdoc_seg = tf.reshape(negdoc_seg, [batch_size * self.num_passages, self.maxseqlen])
 
-            neg_cls = self.bert(negdoc_input, attention_mask=negdoc_mask, token_type_ids=negdoc_seg)[0][:, 0]
-            neg_cls = tf.reshape(neg_cls, [batch_size, self.num_passages, self.bert.config.hidden_size])
+        neg_cls = self.bert(negdoc_input, attention_mask=negdoc_mask, token_type_ids=negdoc_seg)[0][:, 0]
+        neg_cls = tf.reshape(neg_cls, [batch_size, self.num_passages, self.bert.config.hidden_size])
 
-            neg_transformer_out1, = self.transformer_layer_1((neg_cls, None, None))
-            neg_transformer_out2, = self.transformer_layer_2((neg_transformer_out1, None, None))
-            neg_final_cls = tf.reshape(neg_transformer_out2[:, 0], [batch_size, self.bert.config.hidden_size])
+        neg_transformer_out1, = self.transformer_layer_1((neg_cls, None, None))
+        neg_transformer_out2, = self.transformer_layer_2((neg_transformer_out1, None, None))
+        neg_final_cls = tf.reshape(neg_transformer_out2[:, 0], [batch_size, self.bert.config.hidden_size])
 
-            neg_score = tf.reshape(self.linear(neg_final_cls), [batch_size])
+        neg_score = tf.reshape(self.linear(neg_final_cls), [batch_size])
 
-            return neg_score
 
-        def get_fake_neg_score():
-            # Saves an awful lot of trouble by not passing a zero tensor through BERT
-            return tf.zeros((batch_size))
-
-        neg_score = tf.cond(tf.math.equal(tf.math.count_nonzero(negdoc_input), 0), false_fn=lambda: get_neg_score(negdoc_input, negdoc_mask, negdoc_seg), true_fn=get_fake_neg_score)
+        # def get_fake_neg_score():
+        #     # Saves an awful lot of trouble by not passing a zero tensor through BERT
+        #     return tf.zeros([batch_size])
+        #
+        # neg_score = tf.cond(tf.math.equal(tf.math.count_nonzero(negdoc_input), 0), false_fn=lambda: get_neg_score(negdoc_input, negdoc_mask, negdoc_seg), true_fn=get_fake_neg_score)
 
         return tf.stack([pos_score, neg_score], axis=1)
 
