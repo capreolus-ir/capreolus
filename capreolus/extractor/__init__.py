@@ -522,7 +522,7 @@ class BertPassage(Extractor):
                         passage = padlist(doc[i: i+self.cfg["passagelen"]], padlen=self.cfg["passagelen"], pad_token=self.pad_tok)
 
                     # N.B: The passages are not bert tokenized.
-                    passages.append(passage)
+                    passages.append(tokenize(" ".join(passage)))
 
                 self.docid2passages[docid] = passages
 
@@ -548,7 +548,6 @@ class BertPassage(Extractor):
 
     def id2vec(self, qid, posid, negid=None):
         tokenizer = self["tokenizer"]
-        tokenize = tokenizer.tokenize
         maxseqlen = self.cfg["maxseqlen"]
 
         query_toks = self.qid2toks[qid]
@@ -558,8 +557,7 @@ class BertPassage(Extractor):
 
         # N.B: The passages in self.docid2passages are not bert tokenized
         pos_passages = self.docid2passages[posid]
-        for passage in pos_passages:
-            tokenized_passage = tokenize(" ".join(passage))
+        for tokenized_passage in pos_passages:
             input_line = ['CLS'] + query_toks + ['SEP'] + tokenized_passage + ['SEP']
             if len(input_line) > maxseqlen:
                 input_line = input_line[:maxseqlen]
@@ -589,8 +587,7 @@ class BertPassage(Extractor):
             neg_bert_masks = []
             neg_bert_segs = []
             neg_passages = self.docid2passages[negid]
-            for passage in neg_passages:
-                tokenized_passage = tokenize(" ".join(passage))
+            for tokenized_passage in neg_passages:
                 input_line = ['CLS'] + query_toks + ['SEP'] + tokenized_passage + ['SEP']
                 if len(input_line) > maxseqlen:
                     input_line = input_line[:maxseqlen]
