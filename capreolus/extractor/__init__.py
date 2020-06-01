@@ -567,9 +567,9 @@ class BertPassage(Extractor):
             "posdoc_mask": np.array(pos_bert_masks, dtype=np.long),
             "posdoc_seg": np.array(pos_bert_segs, dtype=np.long),
             "negdocid": "",
-            "negdoc": np.zeros((self.cfg["numpassages"], self.cfg["passagelen"]), dtype=np.long),
-            "negdoc_mask": np.zeros((self.cfg["numpassages"], self.cfg["passagelen"]), dtype=np.long),
-            "negdoc_seg": np.zeros((self.cfg["numpassages"], self.cfg["passagelen"]), dtype=np.long),
+            "negdoc": np.zeros((self.cfg["numpassages"], self.cfg["maxseqlen"]), dtype=np.long),
+            "negdoc_mask": np.zeros((self.cfg["numpassages"], self.cfg["maxseqlen"]), dtype=np.long),
+            "negdoc_seg": np.zeros((self.cfg["numpassages"], self.cfg["maxseqlen"]), dtype=np.long),
 
         }
 
