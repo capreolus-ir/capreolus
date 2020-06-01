@@ -549,6 +549,7 @@ class BertPassage(Extractor):
     def id2vec(self, qid, posid, negid=None):
         tokenizer = self["tokenizer"]
         tokenize = tokenizer.tokenize
+        maxseqlen = self.cfg["maxseqlen"]
 
         query_toks = self.qid2toks[qid]
         pos_bert_inputs = []
@@ -560,9 +561,11 @@ class BertPassage(Extractor):
         for passage in pos_passages:
             tokenized_passage = tokenize(" ".join(passage))
             input_line = ['CLS'] + query_toks + ['SEP'] + tokenized_passage + ['SEP']
-            if len(input_line) > self.cfg["maxseqlen"]:
-                logger.error("Tokenized passage len: {}".format(len(tokenized_passage)))
-                raise ValueError("Input exceeds maximum sequence length")
+            if len(input_line) > maxseqlen:
+                logger.warning("The original passage: {}".format(passage))
+                logger.warning("Tokenized passage: {}".format(tokenized_passage))
+                input_line = input_line[:maxseqlen]
+                input_line[-1] = 'SEP'
 
             padded_input_line = padlist(input_line, padlen=self.cfg["maxseqlen"], pad_token=self.pad_tok)
             pos_bert_masks.append([1] * len(input_line) + [0] * (len(padded_input_line) - len(input_line)))
@@ -591,11 +594,13 @@ class BertPassage(Extractor):
             for passage in neg_passages:
                 tokenized_passage = tokenize(" ".join(passage))
                 input_line = ['CLS'] + query_toks + ['SEP'] + tokenized_passage + ['SEP']
-                padded_input_line = padlist(input_line, padlen=self.cfg["maxseqlen"], pad_token=self.pad_tok)
-                if len(input_line) > self.cfg["maxseqlen"]:
-                    logger.error("Tokenized passage len: {}".format(len(tokenized_passage)))
-                    raise ValueError("Input exceeds maximum sequence length")
+                if len(input_line) > maxseqlen:
+                    logger.warning("The original passage: {}".format(passage))
+                    logger.warning("Tokenized passage: {}".format(tokenized_passage))
+                    input_line = input_line[:maxseqlen]
+                    input_line[-1] = 'SEP'
 
+                padded_input_line = padlist(input_line, padlen=self.cfg["maxseqlen"], pad_token=self.pad_tok)
                 neg_bert_masks.append([1] * len(input_line) + [0] * (len(padded_input_line) - len(input_line)))
                 neg_bert_segs.append([0] * (len(query_toks) + 2) + [1] * (len(padded_input_line) - len(query_toks) - 2))
                 neg_bert_inputs.append(tokenizer.convert_tokens_to_ids(padded_input_line))
