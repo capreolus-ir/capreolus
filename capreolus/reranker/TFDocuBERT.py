@@ -21,7 +21,7 @@ class TFDocuBERT_Class(tf.keras.Model):
         self.transformer_layer_2 = TFBertLayer(self.bert.config)
         # self.num_passages = (self.extractor.cfg["maxdoclen"] - config["passagelen"]) // self.config["stride"]
         self.num_passages = extractor.cfg["numpassages"]
-        self.linear = tf.keras.layers.Dense(1, input_shape=(self.num_passages + 1, self.bert.config.hidden_size))
+        self.linear = tf.keras.layers.Dense(1, input_shape=(self.bert.config.hidden_size, ))
 
     # def call(self, x, **kwargs):
     #     pos_toks, posdoc_mask, neg_toks, negdoc_mask, query_toks, query_mask = x[0], x[1], x[2], x[3], x[4], x[5]
@@ -100,7 +100,7 @@ class TFDocuBERT_Class(tf.keras.Model):
     #     neg_score = tf.reshape(self.linear(neg_final_cls_embedding), [batch_size])
     #
     #     return tf.stack([pos_score, neg_score], axis=1)
-
+    @tf.function
     def call(self, x, **kwargs):
         posdoc_input, posdoc_mask, posdoc_seg, negdoc_input, negdoc_mask, negdoc_seg = x
         batch_size = tf.shape(posdoc_input)[0]
@@ -111,24 +111,25 @@ class TFDocuBERT_Class(tf.keras.Model):
         posdoc_seg = tf.reshape(posdoc_seg, [batch_size * self.num_passages, -1])
 
         pos_cls = self.bert(posdoc_input, attention_mask=posdoc_mask, token_type_ids=posdoc_seg)[0][:, 0]
-        pos_cls = tf.reshape(pos_cls, [batch_size, self.num_passages, -1])
+        pos_cls = tf.reshape(pos_cls, [batch_size, self.num_passages, self.bert.config.hidden_size])
 
-        pos_transformer_out1 = self.transformer_layer_1((pos_cls, None, None))
-        pos_transformer_out2 = self.transformer_layer_2((pos_transformer_out1, None, None))
+        pos_transformer_out1, = self.transformer_layer_1((pos_cls, None, None))
+        pos_transformer_out2, = self.transformer_layer_2((pos_transformer_out1, None, None))
         pos_final_cls = tf.reshape(pos_transformer_out2[:, 0], [batch_size, self.bert.config.hidden_size])
 
         pos_score = tf.reshape(self.linear(pos_final_cls), [batch_size])
 
-        def get_neg_score():
+        def get_neg_score(negdoc_input, negdoc_mask, negdoc_seg):
+            batch_size = tf.shape(negdoc_input)[0]
             negdoc_input = tf.reshape(negdoc_input, [batch_size * self.num_passages, -1])
             negdoc_mask = tf.reshape(negdoc_mask, [batch_size * self.num_passages, -1])
             negdoc_seg = tf.reshape(negdoc_seg, [batch_size * self.num_passages, -1])
 
             neg_cls = self.bert(negdoc_input, attention_mask=negdoc_mask, token_type_ids=negdoc_seg)[0][:, 0]
-            neg_cls = tf.reshape(neg_cls, [batch_size, self.num_passages, -1])
+            neg_cls = tf.reshape(neg_cls, [batch_size, self.num_passages, self.bert.config.hidden_size])
 
-            neg_transformer_out1 = self.transformer_layer_1((neg_cls, None, None))
-            neg_transformer_out2 = self.transformer_layer_2((neg_transformer_out1, None, None))
+            neg_transformer_out1, = self.transformer_layer_1((neg_cls, None, None))
+            neg_transformer_out2, = self.transformer_layer_2((neg_transformer_out1, None, None))
             neg_final_cls = tf.reshape(neg_transformer_out2[:, 0], [batch_size, self.bert.config.hidden_size])
 
             neg_score = tf.reshape(self.linear(neg_final_cls), [batch_size])
@@ -139,8 +140,9 @@ class TFDocuBERT_Class(tf.keras.Model):
             # Saves an awful lot of trouble by not passing a zero tensor through BERT
             return tf.zeros_like(pos_score)
 
-        neg_score = tf.cond(tf.math.count_nonzero(negdoc_input), true_fn=get_neg_score, false_fn=get_fake_neg_score)
+        neg_score = tf.cond(tf.math.equal(tf.math.count_nonzero(negdoc_input), 0), false_fn=lambda: get_neg_score(negdoc_input, negdoc_mask, negdoc_seg), true_fn=get_fake_neg_score)
 
+        logger.info("pos_score is {}".format(pos_score))
         return tf.stack([pos_score, neg_score], axis=1)
 
 
