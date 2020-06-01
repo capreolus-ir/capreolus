@@ -587,7 +587,7 @@ class TensorFlowTrainer(Trainer):
         tf_record_filenames = []
 
         for niter in tqdm(range(0, self.cfg["niters"]), desc="Converting data to tf records"):
-            for sample_idx, sample in enumerate(dataset):
+            for sample_idx, sample in tqdm(enumerate(dataset), desc="data for 1 iter"):
                 tf_features.append(reranker["extractor"].create_tf_feature(sample))
 
                 if len(tf_features) > 20000:
