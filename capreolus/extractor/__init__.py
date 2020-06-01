@@ -561,6 +561,7 @@ class BertPassage(Extractor):
             tokenized_passage = tokenize(" ".join(passage))
             input_line = ['CLS'] + query_toks + ['SEP'] + tokenized_passage + ['SEP']
             if len(input_line) > self.cfg["maxseqlen"]:
+                logger.error("Tokenized passage len: {}".format(len(tokenized_passage)))
                 raise ValueError("Input exceeds maximum sequence length")
 
             padded_input_line = padlist(input_line, padlen=self.cfg["maxseqlen"], pad_token=self.pad_tok)
@@ -591,6 +592,10 @@ class BertPassage(Extractor):
                 tokenized_passage = tokenize(" ".join(passage))
                 input_line = ['CLS'] + query_toks + ['SEP'] + tokenized_passage + ['SEP']
                 padded_input_line = padlist(input_line, padlen=self.cfg["maxseqlen"], pad_token=self.pad_tok)
+                if len(input_line) > self.cfg["maxseqlen"]:
+                    logger.error("Tokenized passage len: {}".format(len(tokenized_passage)))
+                    raise ValueError("Input exceeds maximum sequence length")
+
                 neg_bert_masks.append([1] * len(input_line) + [0] * (len(padded_input_line) - len(input_line)))
                 neg_bert_segs.append([0] * (len(query_toks) + 2) + [1] * (len(padded_input_line) - len(query_toks) - 2))
                 neg_bert_inputs.append(tokenizer.convert_tokens_to_ids(padded_input_line))
