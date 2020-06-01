@@ -402,6 +402,7 @@ class TrecCheckpointCallback(tf.keras.callbacks.Callback):
         Takes in a list of predictions and returns a dict that can be fed into pytrec_eval
         As a side effect, also writes the predictions into a file in the trec format
         """
+        logger.debug("There are {} predictions".format(len(predictions)))
         pred_dict = defaultdict(lambda: dict())
 
         for i, (qid, docid) in enumerate(dev_data.get_qid_docid_pairs()):
@@ -641,7 +642,7 @@ class TensorFlowTrainer(Trainer):
         2. Else, converts the dataset into tf records, writes them to disk, and returns them
         """
         if self.cfg["usecache"] and self.cache_exists(dataset):
-            return self.load_cached_tf_records(reranker, dataset, 1)
+            return self.load_cached_tf_records(reranker, dataset, self.cfg["batch"])
         else:
             tf_record_filenames = self.convert_to_tf_dev_record(reranker, dataset)
             return self.load_tf_records_from_file(reranker, tf_record_filenames, self.cfg["batch"])
