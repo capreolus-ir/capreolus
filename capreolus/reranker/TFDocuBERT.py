@@ -21,7 +21,7 @@ class TFDocuBERT_Class(tf.keras.Model):
         self.transformer_layer_2 = TFBertLayer(self.bert.config)
         # self.num_passages = (self.extractor.cfg["maxdoclen"] - config["passagelen"]) // self.config["stride"]
         self.num_passages = extractor.cfg["numpassages"]
-        self.passagelen = extractor.cfg["passagelen"]
+        self.maxseqlen = extractor.cfg["maxseqlen"]
         self.linear = tf.keras.layers.Dense(1, input_shape=(self.bert.config.hidden_size, ))
 
     # def call(self, x, **kwargs):
@@ -107,9 +107,9 @@ class TFDocuBERT_Class(tf.keras.Model):
         batch_size = tf.shape(posdoc_input)[0]
 
         # Reshape to (batch_size * num_passages, passagelen)
-        posdoc_input = tf.reshape(posdoc_input, [batch_size * self.num_passages, self.passagelen])
-        posdoc_mask = tf.reshape(posdoc_mask, [batch_size * self.num_passages, self.passagelen])
-        posdoc_seg = tf.reshape(posdoc_seg, [batch_size * self.num_passages, self.passagelen])
+        posdoc_input = tf.reshape(posdoc_input, [batch_size * self.num_passages, self.maxseqlen])
+        posdoc_mask = tf.reshape(posdoc_mask, [batch_size * self.num_passages, self.maxseqlen])
+        posdoc_seg = tf.reshape(posdoc_seg, [batch_size * self.num_passages, self.maxseqlen])
 
         pos_cls = self.bert(posdoc_input, attention_mask=posdoc_mask, token_type_ids=posdoc_seg)[0][:, 0]
         pos_cls = tf.reshape(pos_cls, [batch_size, self.num_passages, self.bert.config.hidden_size])
@@ -122,9 +122,9 @@ class TFDocuBERT_Class(tf.keras.Model):
 
         def get_neg_score(negdoc_input, negdoc_mask, negdoc_seg):
             batch_size = tf.shape(negdoc_input)[0]
-            negdoc_input = tf.reshape(negdoc_input, [batch_size * self.num_passages, self.passagelen])
-            negdoc_mask = tf.reshape(negdoc_mask, [batch_size * self.num_passages, self.passagelen])
-            negdoc_seg = tf.reshape(negdoc_seg, [batch_size * self.num_passages, self.passagelen])
+            negdoc_input = tf.reshape(negdoc_input, [batch_size * self.num_passages, self.maxseqlen])
+            negdoc_mask = tf.reshape(negdoc_mask, [batch_size * self.num_passages, self.maxseqlen])
+            negdoc_seg = tf.reshape(negdoc_seg, [batch_size * self.num_passages, self.maxseqlen])
 
             neg_cls = self.bert(negdoc_input, attention_mask=negdoc_mask, token_type_ids=negdoc_seg)[0][:, 0]
             neg_cls = tf.reshape(neg_cls, [batch_size, self.num_passages, self.bert.config.hidden_size])
