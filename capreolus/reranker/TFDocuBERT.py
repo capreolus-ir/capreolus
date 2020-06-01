@@ -106,7 +106,6 @@ class TFDocuBERT_Class(tf.keras.Model):
         posdoc_input, posdoc_mask, posdoc_seg, negdoc_input, negdoc_mask, negdoc_seg = x
         batch_size = tf.shape(posdoc_input)[0]
 
-        # Reshape to (batch_size * num_passages, passagelen)
         posdoc_input = tf.reshape(posdoc_input, [batch_size * self.num_passages, self.maxseqlen])
         posdoc_mask = tf.reshape(posdoc_mask, [batch_size * self.num_passages, self.maxseqlen])
         posdoc_seg = tf.reshape(posdoc_seg, [batch_size * self.num_passages, self.maxseqlen])
