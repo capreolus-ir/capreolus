@@ -485,7 +485,10 @@ class BertPassage(Extractor):
         parsed_example = tf.io.parse_example(example_proto, feature_description)
 
         def parse_tensor(x):
-            return tf.io.parse_tensor(x, tf.int64)
+            parsed_tensor = tf.io.parse_tensor(x, tf.int64)
+            parsed_tensor.set_shape([self.cfg["numpassages"], self.cfg["maxseqlen"]])
+            
+            return parsed_tensor
 
         posdoc = tf.map_fn(parse_tensor, parsed_example["posdoc"], dtype=tf.int64)
         posdoc_mask = tf.map_fn(parse_tensor, parsed_example["posdoc_mask"], dtype=tf.int64)
