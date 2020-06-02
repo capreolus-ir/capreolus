@@ -558,10 +558,10 @@ class BertPassage(Extractor):
         # N.B: The passages in self.docid2passages are not bert tokenized
         pos_passages = self.docid2passages[posid]
         for tokenized_passage in pos_passages:
-            input_line = ['CLS'] + query_toks + ['SEP'] + tokenized_passage + ['SEP']
+            input_line = ['[CLS]'] + query_toks + ['[SEP]'] + tokenized_passage + ['[SEP]']
             if len(input_line) > maxseqlen:
                 input_line = input_line[:maxseqlen]
-                input_line[-1] = 'SEP'
+                input_line[-1] = '[SEP]'
 
             padded_input_line = padlist(input_line, padlen=self.cfg["maxseqlen"], pad_token=self.pad_tok)
             pos_bert_masks.append([1] * len(input_line) + [0] * (len(padded_input_line) - len(input_line)))
@@ -588,10 +588,10 @@ class BertPassage(Extractor):
             neg_bert_segs = []
             neg_passages = self.docid2passages[negid]
             for tokenized_passage in neg_passages:
-                input_line = ['CLS'] + query_toks + ['SEP'] + tokenized_passage + ['SEP']
+                input_line = ['[CLS]'] + query_toks + ['[SEP]'] + tokenized_passage + ['[SEP]']
                 if len(input_line) > maxseqlen:
                     input_line = input_line[:maxseqlen]
-                    input_line[-1] = 'SEP'
+                    input_line[-1] = '[SEP]'
 
                 padded_input_line = padlist(input_line, padlen=self.cfg["maxseqlen"], pad_token=self.pad_tok)
                 neg_bert_masks.append([1] * len(input_line) + [0] * (len(padded_input_line) - len(input_line)))
