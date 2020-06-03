@@ -1,12 +1,15 @@
+import json
+import logging
 import os
 from collections import defaultdict, Counter
+from os.path import join, exists
 
 import numpy as np
 from pymagnitude import Magnitude, MagnitudeUtils
 
 from capreolus.registry import ModuleBase, RegisterableModule, Dependency, CACHE_BASE_PATH
 from capreolus.utils.loginit import get_logger
-from capreolus.utils.common import padlist
+from capreolus.utils.common import padlist, get_file_name
 from capreolus.utils.exceptions import MissingDocError
 
 logger = get_logger(__name__)
@@ -210,6 +213,9 @@ class DocStats(Extractor):
     def exist(self):
         return hasattr(self, "doc_tf")
 
+    def get_profile_term_prob_cache_path(self):
+        self["entitylinking"].get_benchmark_cache_dir() / 'profiletermprobs'
+
     def create(self, qids, docids, topics, qdocs=None):
         #todo where can I check this: is here good?
         if "nostem" in self["backgroundindex"].cfg["indexcorpus"]:
@@ -260,6 +266,14 @@ class DocStats(Extractor):
             self.qid2toks[qid] = query
             q_count = Counter(query)
             self.qid_termprob[qid] = {k: (v/len(query)) for k, v in q_count.items()}
+
+            if logger.level == logging.DEBUG:
+                os.makedirs(self.get_profile_term_prob_cache_path(), exist_ok=True)
+                outf = join(self.get_profile_term_prob_cache_path(), get_file_name(qid, self.get_benchmark_name(), self.get_benchmark_querytype()))
+                if not exists(outf):
+                    with open(outf, 'w') as f:
+                        sortedTP = {k: v for k, v in sorted(self.qid_termprob[qid].items(), key=lambda item: item[1], reverse=True)}
+                        f.write(json.dumps(sortedTP.json(), indent=4))
 
         # TODO hardcoded paths
         #df_fn, freq_fn = "/GW/NeuralIR/work/PES20/counts_IDF_stemmed.txt", "/GW/NeuralIR/work/PES20/counts_LM_stemmed.txt"
@@ -313,6 +327,7 @@ class DocStats(Extractor):
 
         #TODO: we have to calculate the avg doc len of the given query and documents eventually here (that's why O need qdocs as input) and here is the code but I disabled it for test:
 
+        logger.debug("calculating average document length")
         self.query_avg_doc_len = {}
         for qid, docs in qdocs.items():
             doclen = 0

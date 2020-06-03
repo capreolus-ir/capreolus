@@ -38,15 +38,24 @@ class AmbiverseNLU(EntityLinking):
     def get_extracted_entities_cache_path(self):
         return self.get_cache_path() / 'entities'
 
-    def extract_entities(self, textid, text):
-        benchmark_name = self['benchmark'].name
-        benchmark_querytype = self['benchmark'].query_type
+    def get_benchmark_domain(self):
+        return self['benchmark'].domain
 
-        if benchmark_querytype == 'entityprofile':
+    def get_benchmark_querytype(self):
+        return self['benchmark'].query_type
+
+    def get_benchmark_name(self):
+        return self['benchmark'].name
+
+    def get_benchmark_cache_dir(self):
+        return self['benchmark'].get_cache_path()
+
+    def extract_entities(self, textid, text):
+        if self.get_benchmark_querytype() == 'entityprofile':
             raise ValueError("wrong usage of incorporate entities. Do not use it with querytype 'entityprofile'")
 
         outdir = self.get_extracted_entities_cache_path()
-        if exists(join(outdir, get_file_name(textid, benchmark_name, benchmark_querytype))):
+        if exists(join(outdir, get_file_name(textid, self.get_benchmark_name(), self.get_benchmark_querytype()))):
             for e in self.get_all_entities(textid):
                 self.entity_descriptions[e] = ""
             return
@@ -54,7 +63,7 @@ class AmbiverseNLU(EntityLinking):
         os.makedirs(outdir, exist_ok=True)
 
         headers = {'accept': 'application/json', 'content-type': 'application/json'}
-        data = {"docId": "{}".format(get_file_name(textid, benchmark_name, benchmark_querytype)), "text": "{}".format(text), "extractConcepts": "{}".format(str(self.cfg["extractConcepts"])), "language": "en"}#"annotatedMentions": [{"charLength": 7, "charOffset":5}, {"charLength": 4, "charOffset": 0}]
+        data = {"docId": "{}".format(get_file_name(textid, self.get_benchmark_name(), self.get_benchmark_querytype())), "text": "{}".format(text), "extractConcepts": "{}".format(str(self.cfg["extractConcepts"])), "language": "en"}#"annotatedMentions": [{"charLength": 7, "charOffset":5}, {"charLength": 4, "charOffset": 0}]
         try:
             r = requests.post(url=self.server, data=json.dumps(data), headers=headers)
         except requests.exceptions.RequestException as e:
@@ -63,7 +72,7 @@ class AmbiverseNLU(EntityLinking):
         # TODO: later maybe I could use the annotatedMentions to annotate the input?
         # logger.debug(f"entitylinking id:{textid} {benchmark_name} {benchmark_querytype}  status:{r.status_code}")
         if r.status_code == 200:
-            with open(join(outdir, get_file_name(textid, benchmark_name, benchmark_querytype)), 'w') as f:
+            with open(join(outdir, get_file_name(textid, self.get_benchmark_name(), self.get_benchmark_querytype())), 'w') as f:
                 f.write(json.dumps(r.json(), sort_keys=True, indent=4))
 
             if 'entities' in r.json():
@@ -112,14 +121,9 @@ class AmbiverseNLU(EntityLinking):
         return self.entity_descriptions[entity]
 
     def get_all_entities(self, textid):
-        data = json.load(open(join(self.get_extracted_entities_cache_path(), get_file_name(textid, self['benchmark'].name, self['benchmark'].query_type)), 'r'))
+        data = json.load(open(join(self.get_extracted_entities_cache_path(), get_file_name(textid, self.get_benchmark_name(), self.get_benchmark_querytype())), 'r'))
         res = []
         if 'entities' in data:
             for e in data['entities']:
                 res.append(e['name'])
         return res
-
-    def get_domain_related_entieis(self, textid):
-        domain = self['benchmark'].domain
-        #TODO     Implement - a new dependency - component
-
