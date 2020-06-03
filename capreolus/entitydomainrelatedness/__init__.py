@@ -38,7 +38,7 @@ class DomainRelatedness(EntityDomainRelatedness):
             raise ValueError(f"invalid domain embedding strategy: {strategy}")
 
     def get_similarities_cache_path(self):
-        return self.entity_linking_cache_path() / "similarities"
+        return self.entity_linking_cache_path / "similarities"
 
     def initialize(self, el_cache_path):
         if hasattr(self, "domain"):
@@ -82,7 +82,8 @@ class DomainRelatedness(EntityDomainRelatedness):
             similarities = self.calculate_domain_entity_similarities(entities)
             os.makedirs(outdir, exist_ok=True)
             with open(join(outdir, get_file_name(tid, benchmark_name, benchmark_querytype)), 'w') as f:
-                f.write(json.dumps(similarities, sort_keys=True, indent=4))
+                sorted_sim = {k: v for k, v in sorted(similarities.items(), key=lambda item: item[1], reverse=True)} #TODO: could be removed later, to make the files nicer for observation
+                f.write(json.dumps(sorted_sim, sort_keys=True, indent=4))
 
         # just for logging:
         #sorted_sim = {k: v for k, v in sorted(similarities.items(), key=lambda item: item[1], reverse=True)}

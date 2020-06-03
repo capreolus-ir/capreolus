@@ -1,5 +1,6 @@
 import json
 import operator
+import os
 from os.path import join, exists
 
 import numpy as np
@@ -20,12 +21,15 @@ class EntitySpecificity(ModuleBase, metaclass=RegisterableModule):
     def top_specific_entities(self, tid, entities):
         benchmark_name = self['benchmark'].name
         benchmark_querytype = self['benchmark'].query_type
+        os.makedirs(self.get_selected_entities_cache_path(), exist_ok=True)
         cache_file = join(self.get_selected_entities_cache_path(), "{}_{}".format(get_file_name(tid, benchmark_name, benchmark_querytype), len(entities)))
         if exists(cache_file):
             return json.loads(open(cache_file, 'r').read())
 
         if len(entities) <= self.cfg['return_top']:
             logger.debug(f"number of entities less than top-specific-entity cut {len(entities)} <= {self.cfg['return_top']}")
+            with open(cache_file, 'w') as f:
+                f.write(json.dumps(entities))
             return entities
         logger.debug(f"number of entities: {len(entities)}")
 
@@ -106,7 +110,7 @@ class EntitySpecificityBy2HopPath(EntitySpecificity):
         return_top = 10
 
     def get_selected_entities_cache_path(self):
-        return self.get_cache_path() + "selectedentities"
+        return self.get_cache_path() / "selectedentities"
 
     def initialize(self):
         self['utils'].load_wp_links()
@@ -190,7 +194,7 @@ class EntitySpecificityHigherMean(EntitySpecificity):
         return_top = 10
 
     def get_selected_entities_cache_path(self):
-        return self.get_cache_path() + "selectedentities"
+        return self.get_cache_path() / "selectedentities"
 
     def initialize(self):
         logger.debug("loading wikipedia2vec pretrained embedding")
