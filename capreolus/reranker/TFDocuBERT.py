@@ -104,12 +104,6 @@ class TFDocuBERT_Class(tf.keras.Model):
     @tf.function
     def call(self, x, **kwargs):
         posdoc_input, posdoc_mask, posdoc_seg, negdoc_input, negdoc_mask, negdoc_seg = x
-        logger.debug("posdoc_input is {}".format(posdoc_input))
-        logger.debug("posdoc_mask is {}".format(posdoc_mask))
-        logger.debug("posdoc_seg is {}".format(posdoc_seg))
-        logger.debug("negdoc_input is {}".format(negdoc_input))
-        logger.debug("negdoc_mask is {}".format(negdoc_mask))
-        logger.debug("negdoc_seg is {}".format(negdoc_seg))
 
         batch_size = tf.shape(posdoc_input)[0]
 
