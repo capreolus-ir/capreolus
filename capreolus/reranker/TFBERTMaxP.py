@@ -11,8 +11,8 @@ logger = get_logger(__name__)
 class TFBERTMaxP_Class(tf.keras.Model):
     def __init__(self, extractor, config, *args, **kwargs):
         super(TFBERTMaxP_Class, self).__init__(*args, **kwargs)
-        self.clsidx = extractor.clsidx  # The index of the CLS token
-        self.sepidx = extractor.sepidx  # The index of the SEP token
+        # self.clsidx = extractor.clsidx  # The index of the CLS token
+        # self.sepidx = extractor.sepidx  # The index of the SEP token
         self.extractor = extractor
         self.bert = TFBertForSequenceClassification.from_pretrained(config["pretrained"])
         self.config = config
