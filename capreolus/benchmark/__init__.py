@@ -453,4 +453,3 @@ class CovidQA(Benchmark):
         json.dump({"s1": {"train_qids": all_qids, "predict": {"dev": all_qids, "test": all_qids}}}, open(self.fold_file, "w"))
         topic_f.close()
         qrel_f.close()
-

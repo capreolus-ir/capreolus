@@ -389,9 +389,26 @@ class COVID(Collection):
         metadata = pd.read_csv(metadata_csv, header=0)
         columns = metadata.columns.values
         cols_before = [
-            'cord_uid', 'sha', 'source_x', 'title', 'doi', 'pmcid', 'pubmed_id', 'license', 'abstract', 'publish_time',
-            'authors', 'journal', 'Microsoft Academic Paper ID', 'WHO #Covidence', 'arxiv_id', 'has_pdf_parse',
-            'has_pmc_xml_parse', 'full_text_file', 'url']
+            "cord_uid",
+            "sha",
+            "source_x",
+            "title",
+            "doi",
+            "pmcid",
+            "pubmed_id",
+            "license",
+            "abstract",
+            "publish_time",
+            "authors",
+            "journal",
+            "Microsoft Academic Paper ID",
+            "WHO #Covidence",
+            "arxiv_id",
+            "has_pdf_parse",
+            "has_pmc_xml_parse",
+            "full_text_file",
+            "url",
+        ]
         assert all(columns == cols_before)
 
         # step 1: rename column
