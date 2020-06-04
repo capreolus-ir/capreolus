@@ -118,6 +118,7 @@ def topic_to_trectxt(qno, title, desc=None, narr=None):
 
 def anserini_index_to_trec_docs(index_dir, output_dir, expected_doc_count):
     from jnius import autoclass
+
     JFile = autoclass("java.io.File")
     JFSDirectory = autoclass("org.apache.lucene.store.FSDirectory")
     JIndexReaderUtils = autoclass("io.anserini.index.IndexReaderUtils")
