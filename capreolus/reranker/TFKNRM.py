@@ -52,7 +52,7 @@ class TFKNRM_Class(tf.keras.Model):
 
         # During eval, the negdoc_score would be a zero tensor
         # TODO: Verify that negdoc_score is indeed always zero whenever a zero negdoc tensor is passed into it
-        return posdoc_score - negdoc_score
+        return tf.stack([posdoc_score, negdoc_score], axis=1)
 
 
 class TFKNRM(Reranker):

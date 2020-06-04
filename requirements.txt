@@ -38,6 +38,8 @@ google-api-python-client
 oauth2client
 tensorflow==2.1
 transformers
+tensorflow-ranking
+# covid
 beautifulsoup4
 lxml
 scispacy
