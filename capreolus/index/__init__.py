@@ -57,7 +57,6 @@ class AnseriniIndex(Index):
 
     def _create_index(self):
         outdir = self.get_index_path()
-        print("index dir: ", outdir)
         stops = "-keepStopwords" if self.cfg["indexstops"] else ""
 
         collection_path, document_type, generator_type = self["collection"].get_path_and_types()
@@ -85,14 +84,13 @@ class AnseriniIndex(Index):
     def get_docs(self, doc_ids):
         # if self.collection.is_large_collection:
         #     return self.get_documents_from_disk(doc_ids)
-
         return [self.get_doc(doc_id) for doc_id in doc_ids]
 
     def get_doc(self, docid):
         try:
             if not hasattr(self, "index_utils") or self.index_utils is None:
                 self.open()
-            return self.index_utils.getTransformedDocument(docid)
+            return self.index_reader_utils.documentContents(self.reader, self.JString(docid))
         except Exception as e:
             raise
 
@@ -116,7 +114,9 @@ class AnseriniIndex(Index):
         index_path = self.get_index_path().as_posix()
 
         JIndexUtils = autoclass("io.anserini.index.IndexUtils")
+        JIndexReaderUtils = autoclass("io.anserini.index.IndexReaderUtils")
         self.index_utils = JIndexUtils(index_path)
+        self.index_reader_utils = JIndexReaderUtils()
 
         JFile = autoclass("java.io.File")
         JFSDirectory = autoclass("org.apache.lucene.store.FSDirectory")
@@ -124,3 +124,4 @@ class AnseriniIndex(Index):
         self.reader = autoclass("org.apache.lucene.index.DirectoryReader").open(fsdir)
         self.numdocs = self.reader.numDocs()
         self.JTerm = autoclass("org.apache.lucene.index.Term")
+        self.JString = autoclass("java.lang.String")

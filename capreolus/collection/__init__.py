@@ -87,7 +87,7 @@ class Collection(ModuleBase, metaclass=RegisterableModule):
 class Robust04(Collection):
     name = "robust04"
     collection_type = "TrecCollection"
-    generator_type = "JsoupGenerator"
+    generator_type = "DefaultLuceneDocumentGenerator"
     config_keys_not_in_path = ["path"]
 
     @staticmethod
@@ -177,7 +177,7 @@ class DummyCollection(Collection):
     name = "dummy"
     _path = PACKAGE_PATH / "data" / "dummy" / "data"
     collection_type = "TrecCollection"
-    generator_type = "JsoupGenerator"
+    generator_type = "DefaultLuceneDocumentGenerator"
 
     def _validate_document_path(self, path):
         """ Validate that the document path contains `dummy_trec_doc` """
@@ -189,7 +189,7 @@ class ANTIQUE(Collection):
     _path = PACKAGE_PATH / "data" / "antique-collection"
 
     collection_type = "TrecCollection"
-    generator_type = "JsoupGenerator"
+    generator_type = "DefaultLuceneDocumentGenerator"
 
     def download_if_missing(self):
         url = "https://ciir.cs.umass.edu/downloads/Antique/antique-collection.txt"
@@ -236,7 +236,7 @@ class MSMarco(Collection):
     name = "msmarco"
     config_keys_not_in_path = ["path"]
     collection_type = "TrecCollection"
-    generator_type = "JsoupGenerator"
+    generator_type = "DefaultLuceneDocumentGenerator"
 
     @staticmethod
     def config():
@@ -247,7 +247,7 @@ class CodeSearchNet(Collection):
     name = "codesearchnet"
     url = "https://s3.amazonaws.com/code-search-net/CodeSearchNet/v2"
     collection_type = "TrecCollection"  # TODO: any other supported type?
-    generator_type = "JsoupGenerator"
+    generator_type = "DefaultLuceneDocumentGenerator"
 
     @staticmethod
     def config():
