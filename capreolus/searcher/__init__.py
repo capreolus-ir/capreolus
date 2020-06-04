@@ -76,7 +76,8 @@ class AnseriniSearcherMixIn:
             f"java -classpath {anserini_fat_jar} "
             f"-Xms512M -Xmx31G -Dapp.name=SearchCollection io.anserini.search.SearchCollection "
             f"-topicreader Trec -index {index_path} {indexopts} -topics {topicsfn} -output {output_path} "
-            f"-topicfield {topicfield} -inmem -threads {MAX_THREADS} {anserini_param_str}")
+            f"-topicfield {topicfield} -inmem -threads {MAX_THREADS} {anserini_param_str}"
+        )
         logger.info("Anserini writing runs to %s", output_path)
         logger.debug(cmd)
 
