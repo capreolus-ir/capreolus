@@ -118,7 +118,7 @@ class EmbedText(Extractor):
             "query_idf": tf.io.FixedLenFeature([self.cfg["maxqlen"]], tf.float32),
             "posdoc": tf.io.FixedLenFeature([self.cfg["maxdoclen"]], tf.int64),
             "negdoc": tf.io.FixedLenFeature([self.cfg["maxdoclen"]], tf.int64),
-            "label": tf.io.FixedLenFeature([1], tf.float32, default_value=tf.zeros((1))),
+            "label": tf.io.FixedLenFeature([2], tf.float32, default_value=tf.convert_to_tensor([1, 0], dtype=tf.float32)),
         }
 
         return feature_description
@@ -296,7 +296,7 @@ class BertText(Extractor):
             "posdoc_mask": tf.io.FixedLenFeature([self.cfg["maxdoclen"]], tf.int64),
             "negdoc": tf.io.FixedLenFeature([self.cfg["maxdoclen"]], tf.int64),
             "negdoc_mask": tf.io.FixedLenFeature([self.cfg["maxdoclen"]], tf.int64),
-            "label": tf.io.FixedLenFeature([1], tf.float32, default_value=tf.zeros((1))),
+            "label": tf.io.FixedLenFeature([2], tf.float32, default_value=tf.convert_to_tensor([1, 0], dtype=tf.float32)),
         }
 
         return feature_description
