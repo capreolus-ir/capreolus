@@ -39,5 +39,5 @@ def test_searcher_bm25_grid(tmpdir_as_cache, tmpdir, dummy_index):
 
     for k1 in k1s:
         for b in bs:
-            assert os.path.exists(os.path.join(output_fn, "searcher_k1={0},b={1}".format(k1, b)))
+            assert os.path.exists(os.path.join(output_fn, "searcher_bm25(k1={0},b={1})_default".format(k1, b)))
     assert os.path.exists(os.path.join(output_fn, "done"))
