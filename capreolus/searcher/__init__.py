@@ -1,4 +1,5 @@
 import os
+import math
 import subprocess
 from collections import defaultdict, OrderedDict
 
@@ -32,7 +33,8 @@ class Searcher(ModuleBase, metaclass=RegisterableModule):
     def write_trec_run(preds, outfn):
         count = 0
         with open(outfn, "wt") as outf:
-            for qid in sorted(preds):
+            qids = sorted(preds.keys(), key=lambda k: int(k))
+            for qid in qids:
                 rank = 1
                 for docid, score in sorted(preds[qid].items(), key=lambda x: x[1], reverse=True):
                     print(f"{qid} Q0 {docid} {rank} {score} capreolus", file=outf)
@@ -43,9 +45,14 @@ class Searcher(ModuleBase, metaclass=RegisterableModule):
 class AnseriniSearcherMixIn:
     """ MixIn for searchers that use Anserini's SearchCollection script """
 
-    def _anserini_query_from_file(self, topicsfn, anserini_param_str, output_base_path):
+    def _anserini_query_from_file(self, topicsfn, anserini_param_str, output_base_path, topicfield):
         if not os.path.exists(topicsfn):
             raise IOError(f"could not find topics file: {topicsfn}")
+
+        # for covid:
+        field2querytype = {"query": "title", "question": "description", "narrative": "narrative"}
+        for k, v in field2querytype.items():
+            topicfield = topicfield.replace(k, v)
 
         donefn = os.path.join(output_base_path, "done")
         if os.path.exists(donefn):
@@ -65,7 +72,12 @@ class AnseriniSearcherMixIn:
 
         index_path = self["index"].get_index_path()
         anserini_fat_jar = Anserini.get_fat_jar()
-        cmd = f"java -classpath {anserini_fat_jar} -Xms512M -Xmx31G -Dapp.name=SearchCollection io.anserini.search.SearchCollection -topicreader Trec -index {index_path} {indexopts} -topics {topicsfn} -output {output_path} -inmem -threads {MAX_THREADS} {anserini_param_str}"
+        cmd = (
+            f"java -classpath {anserini_fat_jar} "
+            f"-Xms512M -Xmx31G -Dapp.name=SearchCollection io.anserini.search.SearchCollection "
+            f"-topicreader Trec -index {index_path} {indexopts} -topics {topicsfn} -output {output_path} "
+            f"-topicfield {topicfield} -inmem -threads {MAX_THREADS} {anserini_param_str}"
+        )
         logger.info("Anserini writing runs to %s", output_path)
         logger.debug(cmd)
 
@@ -83,6 +95,70 @@ class AnseriniSearcherMixIn:
             print("done", file=donef)
 
 
+class PostprocessMixin:
+    def _keep_topn(self, runs, topn):
+        queries = sorted(list(runs.keys()), key=lambda k: int(k))
+        for q in queries:
+            docs = runs[q]
+            if len(docs) <= topn:
+                continue
+            docs = sorted(docs.items(), key=lambda kv: kv[1], reverse=True)[:topn]
+            runs[q] = {k: v for k, v in docs}
+        return runs
+
+    def filter(self, run_dir, docs_to_remove=None, docs_to_keep=None, topn=None):
+        if (not docs_to_keep) and (not docs_to_remove):
+            raise
+
+        for fn in os.listdir(run_dir):
+            if fn == "done":
+                continue
+
+            run_fn = os.path.join(run_dir, fn)
+            self._filter(run_fn, docs_to_remove, docs_to_keep, topn)
+        return run_dir
+
+    def _filter(self, runfile, docs_to_remove, docs_to_keep, topn):
+        runs = Searcher.load_trec_run(runfile)
+
+        # filtering
+        if docs_to_remove:  # prioritize docs_to_remove
+            if isinstance(docs_to_remove, list):
+                docs_to_remove = {q: docs_to_remove for q in runs}
+            runs = {q: {d: v for d, v in docs.items() if d not in docs_to_remove.get(q, [])} for q, docs in runs.items()}
+        elif docs_to_keep:
+            if isinstance(docs_to_keep, list):
+                docs_to_keep = {q: docs_to_keep for q in runs}
+            runs = {q: {d: v for d, v in docs.items() if d in docs_to_keep[q]} for q, docs in runs.items()}
+
+        if topn:
+            runs = self._keep_topn(runs, topn)
+        Searcher.write_trec_run(runs, runfile)  # overwrite runfile
+
+    def dedup(self, run_dir, topn=None):
+        for fn in os.listdir(run_dir):
+            if fn == "done":
+                continue
+            run_fn = os.path.join(run_dir, fn)
+            self._dedup(run_fn, topn)
+        return run_dir
+
+    def _dedup(self, runfile, topn):
+        runs = Searcher.load_trec_run(runfile)
+        new_runs = {q: {} for q in runs}
+
+        # use the sum of each passage score as the document score, no sorting is done here
+        for q, psg in runs.items():
+            for pid, score in psg.items():
+                docid = pid.split(".")[0]
+                new_runs[q][docid] = max(new_runs[q].get(docid, -math.inf), score)
+        runs = new_runs
+
+        if topn:
+            runs = self._keep_topn(runs, topn)
+        Searcher.write_trec_run(runs, runfile)
+
+
 class BM25(Searcher, AnseriniSearcherMixIn):
     """ BM25 with fixed k1 and b. """
 
@@ -94,6 +170,7 @@ class BM25(Searcher, AnseriniSearcherMixIn):
         b = 0.4  # controls document length normalization
         k1 = 0.9  # controls term saturation
         hits = 1000
+        fields = "title"
 
     def query_from_file(self, topicsfn, output_path):
         """
@@ -110,8 +187,8 @@ class BM25(Searcher, AnseriniSearcherMixIn):
         bstr = " ".join(str(x) for x in bs)
         k1str = " ".join(str(x) for x in k1s)
         hits = self.cfg["hits"]
-        anserini_param_str = f"-bm25 -b {bstr} -k1 {k1str} -hits {hits}"
-        self._anserini_query_from_file(topicsfn, anserini_param_str, output_path)
+        anserini_param_str = f"-bm25 -bm25.b {bstr} -bm25.k1 {k1str} -hits {hits}"
+        self._anserini_query_from_file(topicsfn, anserini_param_str, output_path, self.cfg["fields"])
 
         return output_path
 
@@ -135,6 +212,7 @@ class BM25Grid(Searcher, AnseriniSearcherMixIn):
         k1max = 1.0  # maximum k1 value to include in grid search (starting at 0.1)
         bmax = 1.0  # maximum b value to include in grid search (starting at 0.1)
         hits = 1000
+        fields = "title"
 
     def query_from_file(self, topicsfn, output_path):
         bs = np.around(np.arange(0.1, self.cfg["bmax"] + 0.1, 0.1), 1)
@@ -142,9 +220,9 @@ class BM25Grid(Searcher, AnseriniSearcherMixIn):
         bstr = " ".join(str(x) for x in bs)
         k1str = " ".join(str(x) for x in k1s)
         hits = self.cfg["hits"]
-        anserini_param_str = f"-bm25 -b {bstr} -k1 {k1str} -hits {hits}"
+        anserini_param_str = f"-bm25 -bm25.b {bstr} -bm25.k1 {k1str} -hits {hits}"
 
-        self._anserini_query_from_file(topicsfn, anserini_param_str, output_path)
+        self._anserini_query_from_file(topicsfn, anserini_param_str, output_path, self.cfg["fields"])
 
         return output_path
 
@@ -170,13 +248,13 @@ class BM25RM3(Searcher, AnseriniSearcherMixIn):
         fbDocs = BM25RM3.list2str([5, 10, 15])
         originalQueryWeight = BM25RM3.list2str([0.2, 0.25])
         hits = 1000
+        field = "title"
 
     @staticmethod
     def list2str(l):
         return "-".join(str(x) for x in l)
 
     def query_from_file(self, topicsfn, output_path):
-        # paras = {k: self.list2str(self.cfg[k]) for k in ["k1", "b", "fbTerms", "fbDocs", "originalQueryWeight"]}
         paras = {k: " ".join(self.cfg[k].split("-")) for k in ["k1", "b", "fbTerms", "fbDocs", "originalQueryWeight"]}
         hits = str(self.cfg["hits"])
 
@@ -184,10 +262,10 @@ class BM25RM3(Searcher, AnseriniSearcherMixIn):
             "-rm3 "
             + " ".join(f"-rm3.{k} {paras[k]}" for k in ["fbTerms", "fbDocs", "originalQueryWeight"])
             + " -bm25 "
-            + " ".join(f"-{k} {paras[k]}" for k in ["k1", "b"])
+            + " ".join(f"-bm25.{k} {paras[k]}" for k in ["k1", "b"])
             + f" -hits {hits}"
         )
-        self._anserini_query_from_file(topicsfn, anserini_param_str, output_path)
+        self._anserini_query_from_file(topicsfn, anserini_param_str, output_path, self.cfg["fields"])
 
         return output_path
 
@@ -199,6 +277,33 @@ class BM25RM3(Searcher, AnseriniSearcherMixIn):
 
         hits = searcher.search(query)
         return OrderedDict({hit.docid: hit.score for hit in hits})
+
+
+class BM25PostProcess(BM25, PostprocessMixin):
+    name = "BM25Postprocess"
+
+    @staticmethod
+    def config():
+        b = 0.4  # controls document length normalization
+        k1 = 0.9  # controls term saturation
+        hits = 1000
+        topn = 1000
+        fields = "title"
+        dedup = False
+
+    def query_from_file(self, topicsfn, output_path, docs_to_remove=None):
+        # qrel_fn = "/home/xinyu1zhang/cikm/capreolus-covid/capreolus/data/covid/round=2_udelqexpand=False_excludeknown=True/ignore.qrel.txt"
+        # qrels = load_qrels(qrel_fn)
+        # docs_to_remove = {q: list(d.keys()) for q, d in qrels.items()}
+
+        output_path = super().query_from_file(topicsfn, output_path)
+
+        if docs_to_remove:
+            output_path = self.filter(output_path, docs_to_remove=docs_to_remove, topn=self.cfg["topn"])
+        if self.cfg["dedup"]:
+            output_path = self.dedup(output_path, topn=self.cfg["topn"])
+
+        return output_path
 
 
 class StaticBM25RM3Rob04Yang19(Searcher):
@@ -232,6 +337,7 @@ class DirichletQL(Searcher, AnseriniSearcherMixIn):
     def config():
         mu = 1000  # mu smoothing parameter
         hits = 1000
+        fields = "title"
 
     def query_from_file(self, topicsfn, output_path):
         """
@@ -247,7 +353,7 @@ class DirichletQL(Searcher, AnseriniSearcherMixIn):
         mustr = " ".join(str(x) for x in mus)
         hits = self.cfg["hits"]
         anserini_param_str = f"-qld -mu {mustr} -hits {hits}"
-        self._anserini_query_from_file(topicsfn, anserini_param_str, output_path)
+        self._anserini_query_from_file(topicsfn, anserini_param_str, output_path, self.cfg["fields"])
 
         return output_path
 

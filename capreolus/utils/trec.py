@@ -109,7 +109,7 @@ def topic_to_trectxt(qno, title, desc=None, narr=None):
     return (
         f"<top>\n\n"
         f"<num> Number: {qno}\n"
-        f"<title>{title}\n\n"
+        f"<title> {title}\n\n"
         f"<desc> Description:\n{desc or title}\n\n"
         f"<narr> Narrative:\n{narr or title}\n\n"
         f"</top>\n\n\n"
@@ -119,13 +119,21 @@ def topic_to_trectxt(qno, title, desc=None, narr=None):
 def anserini_index_to_trec_docs(index_dir, output_dir, expected_doc_count):
     from jnius import autoclass
 
+    JFile = autoclass("java.io.File")
+    JFSDirectory = autoclass("org.apache.lucene.store.FSDirectory")
+    JIndexReaderUtils = autoclass("io.anserini.index.IndexReaderUtils")
     JIndexUtils = autoclass("io.anserini.index.IndexUtils")
     index_utils = JIndexUtils(index_dir)
+
+    index_reader_utils = JIndexReaderUtils()
+
+    fsdir = JFSDirectory.open(JFile(index_dir).toPath())
+    reader = autoclass("org.apache.lucene.index.DirectoryReader").open(fsdir)
 
     docids = set()
     for i in range(expected_doc_count):
         try:
-            docid = index_utils.convertLuceneDocidToDocid(i)
+            docid = index_reader_utils.convertLuceneDocidToDocid(reader, i)
             docids.add(docid)
         except:
             # we reached the end?
