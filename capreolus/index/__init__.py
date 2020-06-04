@@ -65,7 +65,7 @@ class AnseriniIndex(Index):
         if self["collection"].is_large_collection:
             cmd = f"java -classpath {anserini_fat_jar} -Xms512M -Xmx31G -Dapp.name='IndexCollection' io.anserini.index.IndexCollection -collection {document_type} -generator {generator_type} -threads {MAX_THREADS} -input {collection_path} -index {outdir} -stemmer {self.cfg['stemmer']} {stops}"
         else:
-            cmd = f"java -classpath {anserini_fat_jar} -Xms512M -Xmx31G -Dapp.name='IndexCollection' io.anserini.index.IndexCollection -collection {document_type} -generator {generator_type} -threads {MAX_THREADS} -input {collection_path} -index {outdir} -storePositions -storeDocvectors -storeTransformedDocs -stemmer {self.cfg['stemmer']} {stops}"
+            cmd = f"java -classpath {anserini_fat_jar} -Xms512M -Xmx31G -Dapp.name='IndexCollection' io.anserini.index.IndexCollection -collection {document_type} -generator {generator_type} -threads {MAX_THREADS} -input {collection_path} -index {outdir} -storePositions -storeDocvectors -storeContents -stemmer {self.cfg['stemmer']} {stops}"
 
         logger.info("building index %s", outdir)
         logger.debug(cmd)
@@ -84,14 +84,13 @@ class AnseriniIndex(Index):
     def get_docs(self, doc_ids):
         # if self.collection.is_large_collection:
         #     return self.get_documents_from_disk(doc_ids)
-
         return [self.get_doc(doc_id) for doc_id in doc_ids]
 
     def get_doc(self, docid):
         try:
             if not hasattr(self, "index_utils") or self.index_utils is None:
                 self.open()
-            return self.index_utils.getTransformedDocument(docid)
+            return self.index_reader_utils.documentContents(self.reader, self.JString(docid))
         except Exception as e:
             raise
 
@@ -115,7 +114,9 @@ class AnseriniIndex(Index):
         index_path = self.get_index_path().as_posix()
 
         JIndexUtils = autoclass("io.anserini.index.IndexUtils")
+        JIndexReaderUtils = autoclass("io.anserini.index.IndexReaderUtils")
         self.index_utils = JIndexUtils(index_path)
+        self.index_reader_utils = JIndexReaderUtils()
 
         JFile = autoclass("java.io.File")
         JFSDirectory = autoclass("org.apache.lucene.store.FSDirectory")
@@ -123,3 +124,4 @@ class AnseriniIndex(Index):
         self.reader = autoclass("org.apache.lucene.index.DirectoryReader").open(fsdir)
         self.numdocs = self.reader.numDocs()
         self.JTerm = autoclass("org.apache.lucene.index.Term")
+        self.JString = autoclass("java.lang.String")

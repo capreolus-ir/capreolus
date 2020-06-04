@@ -12,6 +12,19 @@ VALID_METRICS = {"P", "map", "map_cut", "ndcg_cut", "Rprec", "recip_rank", "set_
 CUT_POINTS = [5, 10, 15, 20, 30, 100, 200, 500, 1000]
 
 
+def P_1(qrels, runs):
+    scores = []
+    for q, rundocs in runs.items():
+        if q not in qrels:
+            logger.warning(f"{q} in run files cannot be found in qrels")
+            continue
+
+        top = sorted(rundocs.items(), key=lambda k_v: float(k_v[1]), reverse=True)[0][0]  # id of the highest ranked doc
+        score = int(top in qrels[q])
+        scores.append(score)
+    return sum(scores) / len(scores)
+
+
 def mrr(qrels, runs, qids=None):
     if qids:
         qrels = {q: v for q, v in qrels.items() if q in qids}
@@ -20,6 +33,7 @@ def mrr(qrels, runs, qids=None):
     ranks = []
     for q, rundocs in runs.items():
         if q not in qrels:
+            logger.warning(f"{q} in run files cannot be found in qrels")
             continue
 
         rundocs = sorted(rundocs.items(), key=lambda k_v: float(k_v[1]), reverse=True)
@@ -66,9 +80,13 @@ def _transform_metric(metrics):
 def _eval_runs(runs, qrels, metrics, dev_qids):
     assert isinstance(metrics, list)
     calc_mrr = "mrr" in metrics
+    calc_p1 = "P_1" in metrics
     if calc_mrr:
         metrics.remove("mrr")
         mrr_score = mrr(qrels, runs, dev_qids)
+    if calc_p1:
+        metrics.remove("P_1")
+        p1_score = P_1(qrels, runs)
 
     _verify_metric(metrics)
 
@@ -81,6 +99,8 @@ def _eval_runs(runs, qrels, metrics, dev_qids):
 
     if calc_mrr:
         scores["mrr"] = mrr_score
+    if calc_p1:
+        scores["P_1"] = p1_score
 
     return scores
 
