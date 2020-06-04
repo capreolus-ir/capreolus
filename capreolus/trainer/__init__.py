@@ -7,7 +7,7 @@ import uuid
 from collections import defaultdict
 from copy import copy
 import tensorflow as tf
-
+import tensorflow_ranking as tfr
 import numpy as np
 import torch
 from keras import Sequential, layers
@@ -15,7 +15,7 @@ from keras.layers import Dense
 from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
 from capreolus.registry import ModuleBase, RegisterableModule, Dependency, MAX_THREADS
-from capreolus.reranker.common import pair_hinge_loss, pair_softmax_loss, tf_pair_hinge_loss
+from capreolus.reranker.common import pair_hinge_loss, pair_softmax_loss
 from capreolus.searcher import Searcher
 from capreolus.utils.loginit import get_logger
 from capreolus.utils.common import plot_metrics, plot_loss
@@ -406,7 +406,7 @@ class TrecCheckpointCallback(tf.keras.callbacks.Callback):
 
         for i, (qid, docid) in enumerate(dev_data.get_qid_docid_pairs()):
             # Pytrec_eval has problems with high precision floats
-            pred_dict[qid][docid] = predictions[i].astype(np.float16).item()
+            pred_dict[qid][docid] = predictions[i][0].astype(np.float16).item()
 
         return dict(pred_dict)
 
@@ -463,6 +463,9 @@ class TensorFlowTrainer(Trainer):
         storage = None
         boardname = "default"
 
+        # Must be one of tfr.losses.RankingLossKey
+        loss = "pairwise_hinge_loss"
+
     def get_optimizer(self):
         return tf.keras.optimizers.Adam(learning_rate=self.cfg["lr"])
 
@@ -506,7 +509,8 @@ class TensorFlowTrainer(Trainer):
             reranker.build()
 
             self.optimizer = self.get_optimizer()
-            reranker.model.compile(optimizer=self.optimizer, loss=tf_pair_hinge_loss)
+            loss = tfr.keras.losses.get(self.cfg["loss"])
+            reranker.model.compile(optimizer=self.optimizer, loss=loss)
 
             train_start_time = time.time()
             reranker.model.fit(
@@ -563,7 +567,7 @@ class TensorFlowTrainer(Trainer):
         """
         Similar to self.convert_to_tf_train_record(), but won't result in multiple files
         """
-        dir_name = "{0}/{1}/{2}".format(self.cfg["storage"], "capreolus_tfrecords", dataset.get_hash())
+        dir_name = self.get_tf_record_cache_path(dataset)
 
         tf_features = [reranker["extractor"].create_tf_feature(sample) for sample in dataset]
 
@@ -575,7 +579,7 @@ class TensorFlowTrainer(Trainer):
         Takes in a dataset,  iterates through it, and creates multiple tf records from it.
         The exact structure of the tfrecords is defined by reranker.extractor. For example, see EmbedText.get_tf_feature()
         """
-        dir_name = "{0}/{1}/{2}".format(self.cfg["storage"], "capreolus_tfrecords", dataset.get_hash())
+        dir_name = self.get_tf_record_cache_path(dataset)
 
         total_samples = dataset.get_total_samples()
         tf_features = []

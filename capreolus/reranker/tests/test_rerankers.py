@@ -108,6 +108,7 @@ def test_knrm_tf(dummy_index, tmpdir, tmpdir_as_cache, monkeypatch):
             "tpuzone": None,
             "storage": None,
             "boardname": "default",
+            "loss": "approx_ndcg_loss",
         }
     )
     reranker.modules["trainer"] = trainer
