@@ -26,7 +26,7 @@ class TFBERTMaxP_Class(tf.keras.Model):
         posdoc_input, posdoc_mask, posdoc_seg, negdoc_input, negdoc_mask, negdoc_seg = x
 
         batch_size = tf.shape(posdoc_input)[0]
-        num_passages = self.extractor.cfg["num_passages"]
+        num_passages = self.extractor.cfg["numpassages"]
         maxseqlen = self.extractor.cfg["maxseqlen"]
 
         posdoc_input = tf.reshape(posdoc_input, [batch_size * num_passages, maxseqlen])
