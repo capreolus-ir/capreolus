@@ -35,7 +35,7 @@ class TFBERTMaxP_Class(tf.keras.Model):
 
         pos_passage_scores = self.bert(posdoc_input, attention_mask=posdoc_mask, token_type_ids=posdoc_seg)[0][:, 0]
         pos_passage_scores = tf.reshape(pos_passage_scores, [batch_size, num_passages])
-        posdoc_score = tf.math.reduce_max(pos_passage_scores, axis=1)
+        posdoc_scores = tf.math.reduce_max(pos_passage_scores, axis=1)
 
         negdoc_input = tf.reshape(negdoc_input, [batch_size * num_passages, maxseqlen])
         negdoc_mask = tf.reshape(negdoc_mask, [batch_size * num_passages, maxseqlen])
@@ -43,7 +43,7 @@ class TFBERTMaxP_Class(tf.keras.Model):
 
         neg_passage_scores = self.bert(negdoc_input, attention_mask=negdoc_mask, token_type_ids=negdoc_seg)[0][:, 0]
         neg_passage_scores = tf.reshape(neg_passage_scores, [batch_size, num_passages])
-        negdoc_score = tf.math.reduce_max(neg_passage_scores, axis=1)
+        negdoc_scores = tf.math.reduce_max(neg_passage_scores, axis=1)
 
         return tf.stack([posdoc_scores, negdoc_scores], axis=1)
 
