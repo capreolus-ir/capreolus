@@ -194,8 +194,8 @@ class DocStats(Extractor):
        # "tokenizer": Dependency(module="tokenizer", name="spacy", config_overrides={"keepstops": False}),
         "entitylinking": Dependency(module="entitylinking", name='ambiversenlu'),
         "domainrelatedness": Dependency(module='entitydomainrelatedness', name='wiki2vecrepresentative', config_overrides={"strategy": "centroid-k100"},),
-#        "entityspecificity": Dependency(module='entityspecificity', name='higherneighborhoodmean', config_overrides={"return_top": 10, "k": 100, 'ranking_strategy': 'greedy_most_outlinks_withrm'}),
-        "entityspecificity": Dependency(module='entityspecificity', name='twohoppath'),
+        "entityspecificity": Dependency(module='entityspecificity', name='higherneighborhoodmean', config_overrides={"return_top": 10, "k": 100, 'ranking_strategy': 'greedy_most_outlinks_withrm'}),
+#        "entityspecificity": Dependency(module='entityspecificity', name='twohoppath'),
 
     }
 
@@ -214,9 +214,11 @@ class DocStats(Extractor):
         return hasattr(self, "doc_tf")
 
     def get_profile_term_prob_cache_path(self):
-        self["entitylinking"].get_benchmark_cache_dir() / 'profiletermprobs'
+        #return self["entitylinking"].get_benchmark_cache_dir() / 'profiletermprobs'
+        return self.get_cache_path() / 'profiletermprobs'
 
     def create(self, qids, docids, topics, qdocs=None):
+        logger.debug(f"cache path: {self.get_cache_path()}")
         #todo where can I check this: is here good?
         if "nostem" in self["backgroundindex"].cfg["indexcorpus"]:
             if 'stemmer' in self["tokenizer"].cfg and self["tokenizer"].cfg['stemmer'] != "none":
@@ -266,14 +268,13 @@ class DocStats(Extractor):
             self.qid2toks[qid] = query
             q_count = Counter(query)
             self.qid_termprob[qid] = {k: (v/len(query)) for k, v in q_count.items()}
-
-            if logger.level == logging.DEBUG:
+            if logger.level in [logging.DEBUG, logging.NOTSET]:
                 os.makedirs(self.get_profile_term_prob_cache_path(), exist_ok=True)
-                outf = join(self.get_profile_term_prob_cache_path(), get_file_name(qid, self.get_benchmark_name(), self.get_benchmark_querytype()))
+                outf = join(self.get_profile_term_prob_cache_path(), get_file_name(qid, self["entitylinking"].get_benchmark_name(), self["entitylinking"].get_benchmark_querytype()))
                 if not exists(outf):
                     with open(outf, 'w') as f:
                         sortedTP = {k: v for k, v in sorted(self.qid_termprob[qid].items(), key=lambda item: item[1], reverse=True)}
-                        f.write(json.dumps(sortedTP.json(), indent=4))
+                        f.write(json.dumps(sortedTP, indent=4))
 
         # TODO hardcoded paths
         #df_fn, freq_fn = "/GW/NeuralIR/work/PES20/counts_IDF_stemmed.txt", "/GW/NeuralIR/work/PES20/counts_LM_stemmed.txt"
@@ -334,7 +335,8 @@ class DocStats(Extractor):
             for docid in docs:
                 doclen += self.doc_len[docid]
             self.query_avg_doc_len[qid] = doclen/len(docs)
-
+        
+        logger.debug("extractor DONE")
         #self.query_avg_doc_len = {}
         #with open(doclen_fn, "rt") as f:
         #    for line in f:
