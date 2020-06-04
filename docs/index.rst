@@ -15,6 +15,7 @@ Looking for the code? `Find Capreolus on GitHub. <https://github.com/capreolus-i
    cli
    experiments-wsdm20
    api
+   reproduceability
 
 ..   
   TODO Concepts: explanation of modules (index, reranker, etc) and file formats (for extending)
