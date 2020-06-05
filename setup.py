@@ -70,6 +70,7 @@ setuptools.setup(
         "tensorflow==2.1",
         "transformers",
         "tensorflow-ranking",
+        "Pillow",
         "beautifulsoup4",
         "lxml",
         "scispacy",
