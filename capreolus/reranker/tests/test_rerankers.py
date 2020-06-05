@@ -31,51 +31,27 @@ def test_knrm_pytorch(dummy_index, tmpdir, tmpdir_as_cache, monkeypatch):
 
     monkeypatch.setattr(EmbedText, "_get_pretrained_emb", fake_magnitude_embedding)
 
-    reranker = KNRM({"gradkernels": True, "scoretanh": False, "singlefc": True, "finetune": False})
-    trainer = PytorchTrainer(
+    reranker = KNRM(
         {
-            "maxdoclen": 800,
-            "maxqlen": 4,
-            "batch": 32,
-            "niters": 1,
-            "itersize": 512,
-            "gradacc": 1,
-            "lr": 0.001,
-            "softmaxloss": True,
-            "interactive": False,
-            "fastforward": True,
-            "validatefreq": 1,
-            "usecache": False,
-            "boardname": "default",
-        }
+            "gradkernels": True,
+            "scoretanh": False,
+            "singlefc": True,
+            "finetune": False,
+            "trainer": {"niters": 1, "itersize": 4, "batch": 2},
+        },
+        provide={"index": dummy_index},
     )
-    reranker.modules["trainer"] = trainer
-    reranker.modules["extractor"] = EmbedText(
-        {
-            "_name": "embedtext",
-            "embeddings": "glove6b",
-            "zerounk": False,
-            "calcidf": True,
-            "maxqlen": 4,
-            "maxdoclen": 800,
-            "usecache": False,
-        }
-    )
-    extractor = reranker.modules["extractor"]
-    extractor.modules["index"] = dummy_index
-    tok_cfg = {"_name": "anserini", "keepstops": True, "stemmer": "none"}
-    tokenizer = AnseriniTokenizer(tok_cfg)
-    extractor.modules["tokenizer"] = tokenizer
+    extractor = reranker.extractor
     metric = "map"
-    benchmark = DummyBenchmark({"fold": "s1", "rundocsonly": True})
+    benchmark = DummyBenchmark()
 
-    extractor.create(["301"], ["LA010189-0001", "LA010189-0002"], benchmark.topics[benchmark.query_type])
-    reranker.build()
+    extractor.preprocess(["301"], ["LA010189-0001", "LA010189-0002"], benchmark.topics[benchmark.query_type])
+    reranker.build_model()
 
     train_run = {"301": ["LA010189-0001", "LA010189-0002"]}
     train_dataset = TrainDataset(qid_docid_to_rank=train_run, qrels=benchmark.qrels, extractor=extractor)
     dev_dataset = PredDataset(qid_docid_to_rank=train_run, extractor=extractor)
-    reranker["trainer"].train(
+    reranker.trainer.train(
         reranker, train_dataset, Path(tmpdir) / "train", dev_dataset, Path(tmpdir) / "dev", benchmark.qrels, metric
     )
 
@@ -88,56 +64,21 @@ def test_knrm_tf(dummy_index, tmpdir, tmpdir_as_cache, monkeypatch):
 
     monkeypatch.setattr(EmbedText, "_get_pretrained_emb", fake_magnitude_embedding)
 
-    reranker = TFKNRM({"gradkernels": True, "finetune": False})
-    trainer = TensorFlowTrainer(
-        {
-            "_name": "tensorflow",
-            "maxdoclen": 800,
-            "maxqlen": 4,
-            "batch": 2,
-            "niters": 1,
-            "itersize": 64,
-            "gradacc": 1,
-            "lr": 0.001,
-            "softmaxloss": True,
-            "interactive": False,
-            "fastforward": True,
-            "validatefreq": 1,
-            "usecache": False,
-            "tpuname": None,
-            "tpuzone": None,
-            "storage": None,
-            "boardname": "default",
-            "loss": "approx_ndcg_loss",
-        }
+    reranker = TFKNRM(
+        {"gradkernels": True, "finetune": False, "trainer": {"niters": 1, "itersize": 4, "batch": 2}},
+        provide={"index": dummy_index},
     )
-    reranker.modules["trainer"] = trainer
-    reranker.modules["extractor"] = EmbedText(
-        {
-            "_name": "embedtext",
-            "embeddings": "glove6b",
-            "zerounk": False,
-            "calcidf": True,
-            "maxqlen": 4,
-            "maxdoclen": 800,
-            "usecache": False,
-        }
-    )
-    extractor = reranker.modules["extractor"]
-    extractor.modules["index"] = dummy_index
-    tok_cfg = {"_name": "anserini", "keepstops": True, "stemmer": "none"}
-    tokenizer = AnseriniTokenizer(tok_cfg)
-    extractor.modules["tokenizer"] = tokenizer
+    extractor = reranker.extractor
     metric = "map"
-    benchmark = DummyBenchmark({"fold": "s1", "rundocsonly": True})
+    benchmark = DummyBenchmark()
 
-    extractor.create(["301"], ["LA010189-0001", "LA010189-0002"], benchmark.topics[benchmark.query_type])
-    reranker.build()
+    extractor.preprocess(["301"], ["LA010189-0001", "LA010189-0002"], benchmark.topics[benchmark.query_type])
+    reranker.build_model()
 
     train_run = {"301": ["LA010189-0001", "LA010189-0002"]}
     train_dataset = TrainDataset(qid_docid_to_rank=train_run, qrels=benchmark.qrels, extractor=extractor)
     dev_dataset = PredDataset(qid_docid_to_rank=train_run, extractor=extractor)
-    reranker["trainer"].train(
+    reranker.trainer.train(
         reranker, train_dataset, Path(tmpdir) / "train", dev_dataset, Path(tmpdir) / "dev", benchmark.qrels, metric
     )
 
@@ -150,50 +91,28 @@ def test_pacrr(dummy_index, tmpdir, tmpdir_as_cache, monkeypatch):
 
     monkeypatch.setattr(EmbedText, "_get_pretrained_emb", fake_magnitude_embedding)
 
-    reranker = PACRR({"mingram": 1, "maxgram": 3, "nfilters": 32, "idf": True, "kmax": 2, "combine": 32, "nonlinearity": "relu"})
-    trainer = PytorchTrainer(
+    reranker = PACRR(
         {
-            "maxdoclen": 800,
-            "maxqlen": 4,
-            "batch": 32,
-            "niters": 1,
-            "itersize": 512,
-            "gradacc": 1,
-            "lr": 0.001,
-            "softmaxloss": True,
-            "interactive": False,
-            "fastforward": True,
-            "validatefreq": 1,
-            "boardname": "default",
-        }
+            "nfilters": 32,
+            "idf": True,
+            "kmax": 2,
+            "combine": 32,
+            "nonlinearity": "relu",
+            "trainer": {"niters": 1, "itersize": 4, "batch": 2},
+        },
+        provide={"index": dummy_index},
     )
-    reranker.modules["trainer"] = trainer
-    reranker.modules["extractor"] = EmbedText(
-        {
-            "_name": "embedtext",
-            "embeddings": "glove6b",
-            "zerounk": False,
-            "calcidf": True,
-            "maxqlen": 4,
-            "maxdoclen": 800,
-            "usecache": False,
-        }
-    )
-    extractor = reranker.modules["extractor"]
-    extractor.modules["index"] = dummy_index
-    tok_cfg = {"_name": "anserini", "keepstops": True, "stemmer": "none"}
-    tokenizer = AnseriniTokenizer(tok_cfg)
-    extractor.modules["tokenizer"] = tokenizer
+    extractor = reranker.extractor
     metric = "map"
-    benchmark = DummyBenchmark({"fold": "s1", "rundocsonly": True})
+    benchmark = DummyBenchmark()
 
-    extractor.create(["301"], ["LA010189-0001", "LA010189-0002"], benchmark.topics[benchmark.query_type])
-    reranker.build()
+    extractor.preprocess(["301"], ["LA010189-0001", "LA010189-0002"], benchmark.topics[benchmark.query_type])
+    reranker.build_model()
 
     train_run = {"301": ["LA010189-0001", "LA010189-0002"]}
     train_dataset = TrainDataset(qid_docid_to_rank=train_run, qrels=benchmark.qrels, extractor=extractor)
     dev_dataset = PredDataset(qid_docid_to_rank=train_run, extractor=extractor)
-    reranker["trainer"].train(
+    reranker.trainer.train(
         reranker, train_dataset, Path(tmpdir) / "train", dev_dataset, Path(tmpdir) / "dev", benchmark.qrels, metric
     )
 
@@ -206,42 +125,18 @@ def test_dssm_unigram(dummy_index, tmpdir, tmpdir_as_cache, monkeypatch):
 
     monkeypatch.setattr(EmbedText, "_get_pretrained_emb", fake_magnitude_embedding)
 
-    reranker = DSSM({"nhiddens": "56", "lr": 0.0001})
-    trainer = PytorchTrainer(
-        {
-            "maxdoclen": 800,
-            "maxqlen": 4,
-            "batch": 32,
-            "niters": 1,
-            "itersize": 512,
-            "gradacc": 1,
-            "lr": 0.001,
-            "softmaxloss": True,
-            "interactive": False,
-            "fastforward": True,
-            "validatefreq": 1,
-            "boardname": "default",
-        }
-    )
-    reranker.modules["trainer"] = trainer
-    reranker.modules["extractor"] = BagOfWords(
-        {"_name": "bagofwords", "datamode": "unigram", "keepstops": True, "maxqlen": 4, "maxdoclen": 800, "usecache": False}
-    )
-    extractor = reranker.modules["extractor"]
-    extractor.modules["index"] = dummy_index
-    tok_cfg = {"_name": "anserini", "keepstops": True, "stemmer": "none"}
-    tokenizer = AnseriniTokenizer(tok_cfg)
-    extractor.modules["tokenizer"] = tokenizer
+    reranker = DSSM({"nhiddens": "56", "trainer": {"niters": 1, "itersize": 4, "batch": 2}}, provide={"index": dummy_index})
+    extractor = reranker.extractor
     metric = "map"
-    benchmark = DummyBenchmark({"fold": "s1", "rundocsonly": True})
+    benchmark = DummyBenchmark()
 
-    extractor.create(["301"], ["LA010189-0001", "LA010189-0002"], benchmark.topics[benchmark.query_type])
-    reranker.build()
+    extractor.preprocess(["301"], ["LA010189-0001", "LA010189-0002"], benchmark.topics[benchmark.query_type])
+    reranker.build_model()
 
     train_run = {"301": ["LA010189-0001", "LA010189-0002"]}
     train_dataset = TrainDataset(qid_docid_to_rank=train_run, qrels=benchmark.qrels, extractor=extractor)
     dev_dataset = PredDataset(qid_docid_to_rank=train_run, extractor=extractor)
-    reranker["trainer"].train(
+    reranker.trainer.train(
         reranker, train_dataset, Path(tmpdir) / "train", dev_dataset, Path(tmpdir) / "dev", benchmark.qrels, metric
     )
 
@@ -267,51 +162,21 @@ def test_tk(dummy_index, tmpdir, tmpdir_as_cache, monkeypatch):
             "usemask": False,
             "usemixer": True,
             "finetune": True,
-        }
+            "trainer": {"niters": 1, "itersize": 4, "batch": 2},
+        },
+        provide={"index": dummy_index},
     )
-    trainer = PytorchTrainer(
-        {
-            "maxdoclen": 800,
-            "maxqlen": 4,
-            "batch": 32,
-            "niters": 1,
-            "itersize": 512,
-            "gradacc": 1,
-            "lr": 0.001,
-            "softmaxloss": True,
-            "interactive": False,
-            "fastforward": False,
-            "validatefreq": 1,
-            "boardname": "default",
-        }
-    )
-    reranker.modules["trainer"] = trainer
-    reranker.modules["extractor"] = EmbedText(
-        {
-            "_name": "embedtext",
-            "embeddings": "glove6b",
-            "zerounk": False,
-            "calcidf": True,
-            "maxqlen": 4,
-            "maxdoclen": 800,
-            "usecache": False,
-        }
-    )
-    extractor = reranker.modules["extractor"]
-    extractor.modules["index"] = dummy_index
-    tok_cfg = {"_name": "anserini", "keepstops": True, "stemmer": "none"}
-    tokenizer = AnseriniTokenizer(tok_cfg)
-    extractor.modules["tokenizer"] = tokenizer
+    extractor = reranker.extractor
     metric = "map"
-    benchmark = DummyBenchmark({"fold": "s1", "rundocsonly": True})
+    benchmark = DummyBenchmark()
 
-    extractor.create(["301"], ["LA010189-0001", "LA010189-0002"], benchmark.topics[benchmark.query_type])
-    reranker.build()
+    extractor.preprocess(["301"], ["LA010189-0001", "LA010189-0002"], benchmark.topics[benchmark.query_type])
+    reranker.build_model()
 
     train_run = {"301": ["LA010189-0001", "LA010189-0002"]}
     train_dataset = TrainDataset(qid_docid_to_rank=train_run, qrels=benchmark.qrels, extractor=extractor)
     dev_dataset = PredDataset(qid_docid_to_rank=train_run, extractor=extractor)
-    reranker["trainer"].train(
+    reranker.trainer.train(
         reranker, train_dataset, Path(tmpdir) / "train", dev_dataset, Path(tmpdir) / "dev", benchmark.qrels, metric
     )
 
@@ -337,30 +202,15 @@ def test_tk_get_mask(tmpdir, dummy_index, monkeypatch):
             "usemask": True,
             "usemixer": True,
             "finetune": True,
-        }
+            "trainer": {"niters": 1, "itersize": 4, "batch": 2},
+        },
+        provide={"index": dummy_index},
     )
-    reranker.modules["extractor"] = EmbedText(
-        {
-            "_name": "embedtext",
-            "embeddings": "glove6b",
-            "zerounk": False,
-            "calcidf": True,
-            "maxqlen": 4,
-            "maxdoclen": 800,
-            "usecache": False,
-            "fastforward": True,
-            "validatefreq": 1,
-        }
-    )
-    extractor = reranker.modules["extractor"]
-    extractor.modules["index"] = dummy_index
-    tok_cfg = {"_name": "anserini", "keepstops": True, "stemmer": "none"}
-    tokenizer = AnseriniTokenizer(tok_cfg)
-    extractor.modules["tokenizer"] = tokenizer
-    benchmark = DummyBenchmark({"fold": "s1", "rundocsonly": True})
+    extractor = reranker.extractor
+    benchmark = DummyBenchmark()
 
-    extractor.create(["301"], ["LA010189-0001", "LA010189-0002"], benchmark.topics[benchmark.query_type])
-    reranker.build()
+    extractor.preprocess(["301"], ["LA010189-0001", "LA010189-0002"], benchmark.topics[benchmark.query_type])
+    reranker.build_model()
 
     # 3 batches, each of seq len 4, and embedding dim 8
     embedding = torch.ones(3, 4, 8)
@@ -408,62 +258,29 @@ def test_deeptilebars(dummy_index, tmpdir, tmpdir_as_cache, monkeypatch):
         return Magnitude(None)
 
     monkeypatch.setattr(DeepTileExtractor, "_get_pretrained_emb", fake_magnitude_embedding)
-    reranker_config = {
-        "name": "DeepTileBar",
-        "passagelen": 30,
-        "numberfilter": 3,
-        "lstmhiddendim": 3,
-        "linearhiddendim1": 32,
-        "linearhiddendim2": 16,
-    }
-    reranker = DeepTileBar(reranker_config)
-    trainer = PytorchTrainer(
+    reranker = DeepTileBar(
         {
-            "maxdoclen": 800,
-            "maxqlen": 4,
-            "batch": 2,
-            "niters": 1,
-            "itersize": 512,
-            "gradacc": 1,
-            "lr": 0.001,
-            "softmaxloss": True,
-            "interactive": False,
-            "fastforward": True,
-            "validatefreq": 1,
-            "boardname": "default",
-        }
+            "name": "DeepTileBar",
+            "passagelen": 30,
+            "numberfilter": 3,
+            "lstmhiddendim": 3,
+            "linearhiddendim1": 32,
+            "linearhiddendim2": 16,
+            "trainer": {"niters": 1, "itersize": 4, "batch": 2},
+        },
+        provide={"index": dummy_index},
     )
-    reranker.modules["trainer"] = trainer
-    reranker.modules["extractor"] = DeepTileExtractor(
-        {
-            "_name": "deeptiles",
-            "embeddings": "glove6b",
-            "tfchannel": True,
-            "slicelen": 20,
-            "keepstops": False,
-            "tilechannels": 3,
-            "calcidf": False,
-            "usecache": False,
-            "maxqlen": 4,
-            "maxdoclen": 800,
-            "passagelen": 20,
-        }
-    )
-    extractor = reranker.modules["extractor"]
-    extractor.modules["index"] = dummy_index
-    tok_cfg = {"_name": "anserini", "keepstops": True, "stemmer": "none"}
-    tokenizer = AnseriniTokenizer(tok_cfg)
-    extractor.modules["tokenizer"] = tokenizer
+    extractor = reranker.extractor
     metric = "map"
-    benchmark = DummyBenchmark({"fold": "s1", "rundocsonly": True})
+    benchmark = DummyBenchmark()
 
-    extractor.create(["301"], ["LA010189-0001", "LA010189-0002"], benchmark.topics[benchmark.query_type])
-    reranker.build()
+    extractor.preprocess(["301"], ["LA010189-0001", "LA010189-0002"], benchmark.topics[benchmark.query_type])
+    reranker.build_model()
 
     train_run = {"301": ["LA010189-0001", "LA010189-0002"]}
     train_dataset = TrainDataset(qid_docid_to_rank=train_run, qrels=benchmark.qrels, extractor=extractor)
     dev_dataset = PredDataset(qid_docid_to_rank=train_run, extractor=extractor)
-    reranker["trainer"].train(
+    reranker.trainer.train(
         reranker, train_dataset, Path(tmpdir) / "train", dev_dataset, Path(tmpdir) / "dev", benchmark.qrels, metric
     )
 
@@ -476,50 +293,21 @@ def test_HINT(dummy_index, tmpdir, tmpdir_as_cache, monkeypatch):
 
     monkeypatch.setattr(EmbedText, "_get_pretrained_emb", fake_magnitude_embedding)
 
-    reranker = HINT({"spatialGRU": 2, "LSTMdim": 6, "kmax": 10})
-    trainer = PytorchTrainer(
-        {
-            "maxdoclen": 20,
-            "maxqlen": 4,
-            "batch": 2,
-            "niters": 1,
-            "itersize": 64,
-            "gradacc": 1,
-            "lr": 0.001,
-            "softmaxloss": True,
-            "interactive": False,
-            "fastforward": True,
-            "validatefreq": 1,
-            "boardname": "default",
-        }
+    reranker = HINT(
+        {"spatialGRU": 2, "LSTMdim": 6, "kmax": 10, "trainer": {"niters": 1, "itersize": 2, "batch": 1}},
+        provide={"index": dummy_index},
     )
-    reranker.modules["trainer"] = trainer
-    reranker.modules["extractor"] = EmbedText(
-        {
-            "_name": "embedtext",
-            "embeddings": "glove6b",
-            "zerounk": False,
-            "calcidf": True,
-            "maxqlen": 4,
-            "maxdoclen": 800,
-            "usecache": False,
-        }
-    )
-    extractor = reranker.modules["extractor"]
-    extractor.modules["index"] = dummy_index
-    tok_cfg = {"_name": "anserini", "keepstops": True, "stemmer": "none"}
-    tokenizer = AnseriniTokenizer(tok_cfg)
-    extractor.modules["tokenizer"] = tokenizer
+    extractor = reranker.extractor
     metric = "map"
-    benchmark = DummyBenchmark({"fold": "s1", "rundocsonly": True})
+    benchmark = DummyBenchmark()
 
-    extractor.create(["301"], ["LA010189-0001", "LA010189-0002"], benchmark.topics[benchmark.query_type])
-    reranker.build()
+    extractor.preprocess(["301"], ["LA010189-0001", "LA010189-0002"], benchmark.topics[benchmark.query_type])
+    reranker.build_model()
 
     train_run = {"301": ["LA010189-0001", "LA010189-0002"]}
     train_dataset = TrainDataset(qid_docid_to_rank=train_run, qrels=benchmark.qrels, extractor=extractor)
     dev_dataset = PredDataset(qid_docid_to_rank=train_run, extractor=extractor)
-    reranker["trainer"].train(
+    reranker.trainer.train(
         reranker, train_dataset, Path(tmpdir) / "train", dev_dataset, Path(tmpdir) / "dev", benchmark.qrels, metric
     )
 
@@ -532,50 +320,18 @@ def test_POSITDRMM(dummy_index, tmpdir, tmpdir_as_cache, monkeypatch):
 
     monkeypatch.setattr(EmbedText, "_get_pretrained_emb", fake_magnitude_embedding)
 
-    reranker = POSITDRMM({})
-    trainer = PytorchTrainer(
-        {
-            "maxdoclen": 800,
-            "maxqlen": 4,
-            "batch": 32,
-            "niters": 1,
-            "itersize": 4,
-            "gradacc": 1,
-            "lr": 0.001,
-            "softmaxloss": True,
-            "interactive": False,
-            "fastforward": True,
-            "validatefreq": 1,
-            "boardname": "default",
-        }
-    )
-    reranker.modules["trainer"] = trainer
-    reranker.modules["extractor"] = EmbedText(
-        {
-            "_name": "embedtext",
-            "embeddings": "glove6b",
-            "zerounk": False,
-            "calcidf": True,
-            "maxqlen": 4,
-            "maxdoclen": 800,
-            "usecache": False,
-        }
-    )
-    extractor = reranker.modules["extractor"]
-    extractor.modules["index"] = dummy_index
-    tok_cfg = {"_name": "anserini", "keepstops": True, "stemmer": "none"}
-    tokenizer = AnseriniTokenizer(tok_cfg)
-    extractor.modules["tokenizer"] = tokenizer
+    reranker = POSITDRMM({"trainer": {"niters": 1, "itersize": 4, "batch": 2}}, provide={"index": dummy_index})
+    extractor = reranker.extractor
     metric = "map"
-    benchmark = DummyBenchmark({"fold": "s1", "rundocsonly": True})
+    benchmark = DummyBenchmark()
 
-    extractor.create(["301"], ["LA010189-0001", "LA010189-0002"], benchmark.topics[benchmark.query_type])
-    reranker.build()
+    extractor.preprocess(["301"], ["LA010189-0001", "LA010189-0002"], benchmark.topics[benchmark.query_type])
+    reranker.build_model()
     reranker.bm25_scores = {"301": {"LA010189-0001": 2, "LA010189-0002": 1}}
     train_run = {"301": ["LA010189-0001", "LA010189-0002"]}
     train_dataset = TrainDataset(qid_docid_to_rank=train_run, qrels=benchmark.qrels, extractor=extractor)
     dev_dataset = PredDataset(qid_docid_to_rank=train_run, extractor=extractor)
-    reranker["trainer"].train(
+    reranker.trainer.train(
         reranker, train_dataset, Path(tmpdir) / "train", dev_dataset, Path(tmpdir) / "dev", benchmark.qrels, metric
     )
 
@@ -588,49 +344,27 @@ def test_CDSSM(dummy_index, tmpdir, tmpdir_as_cache, monkeypatch):
 
     monkeypatch.setattr(EmbedText, "_get_pretrained_emb", fake_magnitude_embedding)
 
-    reranker = CDSSM({"nkernel": 3, "nfilter": 1, "nhiddens": 30, "windowsize": 3, "dropoutrate": 0})
-    trainer = PytorchTrainer(
+    reranker = CDSSM(
         {
-            "maxdoclen": 800,
-            "maxqlen": 8,
-            "batch": 32,
-            "niters": 1,
-            "itersize": 512,
-            "gradacc": 1,
-            "lr": 0.001,
-            "softmaxloss": True,
-            "interactive": False,
-            "fastforward": True,
-            "validatefreq": 1,
-            "boardname": "default",
-        }
+            "nkernel": 3,
+            "nfilter": 1,
+            "nhiddens": 30,
+            "windowsize": 3,
+            "dropoutrate": 0,
+            "trainer": {"niters": 1, "itersize": 2, "batch": 1},
+        },
+        provide={"index": dummy_index},
     )
-    reranker.modules["trainer"] = trainer
-    reranker.modules["extractor"] = EmbedText(
-        {
-            "_name": "embedtext",
-            "embeddings": "glove6b",
-            "zerounk": False,
-            "calcidf": True,
-            "maxqlen": 4,
-            "maxdoclen": 800,
-            "usecache": False,
-        }
-    )
-    extractor = reranker.modules["extractor"]
-    extractor.modules["index"] = dummy_index
-    tok_cfg = {"_name": "anserini", "keepstops": True, "stemmer": "none"}
-    tokenizer = AnseriniTokenizer(tok_cfg)
-    extractor.modules["tokenizer"] = tokenizer
+    extractor = reranker.extractor
     metric = "map"
-    benchmark = DummyBenchmark({"fold": "s1", "rundocsonly": True})
+    benchmark = DummyBenchmark()
 
-    extractor.create(["301"], ["LA010189-0001", "LA010189-0002"], benchmark.topics[benchmark.query_type])
-    reranker.build()
+    extractor.preprocess(["301"], ["LA010189-0001", "LA010189-0002"], benchmark.topics[benchmark.query_type])
+    reranker.build_model()
     reranker.bm25_scores = {"301": {"LA010189-0001": 2, "LA010189-0002": 1}}
     train_run = {"301": ["LA010189-0001", "LA010189-0002"]}
     train_dataset = TrainDataset(qid_docid_to_rank=train_run, qrels=benchmark.qrels, extractor=extractor)
     dev_dataset = PredDataset(qid_docid_to_rank=train_run, extractor=extractor)
-    reranker["trainer"].train(
+    reranker.trainer.train(
         reranker, train_dataset, Path(tmpdir) / "train", dev_dataset, Path(tmpdir) / "dev", benchmark.qrels, metric
     )

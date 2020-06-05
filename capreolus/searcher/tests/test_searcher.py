@@ -9,15 +9,12 @@ from capreolus.tests.common_fixtures import tmpdir_as_cache, dummy_index
 
 
 def test_searcher_bm25(tmpdir_as_cache, tmpdir, dummy_index):
-    searcher_config = ConfigScope(BM25.config)()
-    searcher_config["_name"] = BM25.name
-    searcher = BM25(searcher_config)
-    searcher.modules["index"] = dummy_index
+    searcher = BM25(provide={"index": dummy_index})
     topics_fn = DummyBenchmark.topic_file
 
-    output_fn = searcher.query_from_file(topics_fn, os.path.join(searcher.get_cache_path(), DummyBenchmark.name))
+    output_fn = searcher.query_from_file(topics_fn, os.path.join(searcher.get_cache_path(), DummyBenchmark.module_name))
 
-    assert output_fn == os.path.join(searcher.get_cache_path(), DummyBenchmark.name)
+    assert output_fn == os.path.join(searcher.get_cache_path(), DummyBenchmark.module_name)
 
     with open(os.path.join(output_fn, "searcher"), "r") as fp:
         file_contents = fp.readlines()
@@ -26,16 +23,13 @@ def test_searcher_bm25(tmpdir_as_cache, tmpdir, dummy_index):
 
 
 def test_searcher_bm25_grid(tmpdir_as_cache, tmpdir, dummy_index):
-    searcher_config = ConfigScope(BM25Grid.config)()
-    searcher_config["_name"] = BM25Grid.name
-    searcher = BM25Grid(searcher_config)
-    searcher.modules["index"] = dummy_index
+    searcher = BM25Grid(provide={"index": dummy_index})
     bs = np.around(np.arange(0.1, 1 + 0.1, 0.1), 1)
     k1s = np.around(np.arange(0.1, 1 + 0.1, 0.1), 1)
     topics_fn = DummyBenchmark.topic_file
 
-    output_fn = searcher.query_from_file(topics_fn, os.path.join(searcher.get_cache_path(), DummyBenchmark.name))
-    assert output_fn == os.path.join(searcher.get_cache_path(), DummyBenchmark.name)
+    output_fn = searcher.query_from_file(topics_fn, os.path.join(searcher.get_cache_path(), DummyBenchmark.module_name))
+    assert output_fn == os.path.join(searcher.get_cache_path(), DummyBenchmark.module_name)
 
     for k1 in k1s:
         for b in bs:

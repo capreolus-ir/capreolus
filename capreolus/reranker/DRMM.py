@@ -2,6 +2,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+from profane import Dependency, ConfigOption
+
 from capreolus.reranker import Reranker
 from capreolus.reranker.common import create_emb_layer
 from capreolus.utils.loginit import get_logger
@@ -119,30 +121,21 @@ class DRMM_class(nn.Module):
 dtype = torch.FloatTensor
 
 
+@Reranker.register
 class DRMM(Reranker):
-    name = "DRMM"
+    module_name = "DRMM"
     description = """Jiafeng Guo, Yixing Fan, Qingyao Ai, and W. Bruce Croft. 2016. A Deep Relevance Matching Model for Ad-hoc Retrieval. In CIKM'16."""
-    # EXTRACTORS = [EmbedText]
 
-    @staticmethod
-    def config():
-        nbins = 29  # number of bins in matching histogram
-        nodes = 5  # hidden layer dimension for feed forward matching network
-        histType = "LCH"  # histogram type: 'CH', 'NH' or 'LCH'
-        gateType = "IDF"  # term gate type: 'TV' or 'IDF'
+    config_spec = [
+        ConfigOption("nbins", 29, "number of bins in matching histogram"),
+        ConfigOption("nodes", 5, "hidden layer dimension for feed forward matching network"),
+        ConfigOption("histType", "LCH", "histogram type: CH, NH, or LCH"),
+        ConfigOption("gateType", "IDF", "term gate type: TV or IDF"),
+    ]
 
-    # @staticmethod
-    # def required_params():
-    #     # Used for validation. Returns a set of params required by the class defined in get_model_class()
-    #     return {"gateType", "histType", "nodes", "nbins"}
-
-    # @classmethod
-    # def get_model_class(cls):
-    #     return DRMM_class
-
-    def build(self):
+    def build_model(self):
         if not hasattr(self, "model"):
-            self.model = DRMM_class(self["extractor"], self.cfg)
+            self.model = DRMM_class(self.extractor, self.config)
 
         return self.model
 

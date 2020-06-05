@@ -1,29 +1,34 @@
-from capreolus.registry import ModuleBase, RegisterableModule, Dependency
+from profane import import_all_modules
+
+# import_all_modules(__file__, __package__)
+
+from profane import ModuleBase, Dependency, ConfigOption
+
 from transformers import BertTokenizer as HFBertTokenizer
 
 
-class Tokenizer(ModuleBase, metaclass=RegisterableModule):
-    """the module base class"""
-
+class Tokenizer(ModuleBase):
     module_type = "tokenizer"
 
 
+@Tokenizer.register
 class AnseriniTokenizer(Tokenizer):
-    name = "anserini"
+    module_name = "anserini"
+    config_spec = [
+        ConfigOption("keepstops", True, "keep stopwords if True"),
+        ConfigOption("stemmer", "none", "stemmer: porter, krovetz, or none"),
+    ]
 
-    @staticmethod
-    def config():
-        keepstops = True
-        stemmer = "none"
-
-    def __init__(self, cfg):
-        super().__init__(cfg)
+    def build(self):
         self._tokenize = self._get_tokenize_fn()
 
     def _get_tokenize_fn(self):
         from jnius import autoclass
 
-        stemmer, keepstops = self.cfg["stemmer"], self.cfg["keepstops"]
+        stemmer, keepstops = self.config["stemmer"], self.config["keepstops"]
+        if stemmer is None:
+            stemmer = "none"
+
         emptyjchar = autoclass("org.apache.lucene.analysis.CharArraySet").EMPTY_SET
         Analyzer = autoclass("io.anserini.analysis.DefaultEnglishAnalyzer")
         analyzer = Analyzer.newStemmingInstance(stemmer, emptyjchar) if keepstops else Analyzer.newStemmingInstance(stemmer)
@@ -44,16 +49,13 @@ class AnseriniTokenizer(Tokenizer):
         return [self._tokenize(s) for s in sentences]
 
 
+@Tokenizer.register
 class BertTokenizer(Tokenizer):
-    name = "berttokenizer"
+    module_name = "berttokenizer"
+    config_spec = [ConfigOption("pretrained", "bert-base-uncased", "pretrained model to load vocab from")]
 
-    @staticmethod
-    def config():
-        pretrained = "bert-base-uncased"
-
-    def __init__(self, cfg):
-        super().__init__(cfg)
-        self.bert_tokenizer = HFBertTokenizer.from_pretrained(cfg["pretrained"])
+    def build(self):
+        self.bert_tokenizer = HFBertTokenizer.from_pretrained(self.config["pretrained"])
 
     def convert_tokens_to_ids(self, tokens):
         return self.bert_tokenizer.convert_tokens_to_ids(tokens)

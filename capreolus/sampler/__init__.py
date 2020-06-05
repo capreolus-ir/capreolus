@@ -1,3 +1,7 @@
+from profane import import_all_modules
+
+# import_all_modules(__file__, __package__)
+
 import random
 from itertools import product
 import hashlib
@@ -53,7 +57,7 @@ class TrainDataset(torch.utils.data.IterableDataset):
 
     def get_hash(self):
         sorted_rep = sorted([(qid, docids) for qid, docids in self.qid_docid_to_rank.items()])
-        key_content = "{0}{1}".format(self.extractor.name, str(sorted_rep))
+        key_content = "{0}{1}".format(self.extractor.module_name, str(sorted_rep))
         key = hashlib.md5(key_content.encode("utf-8")).hexdigest()
         return "train_{0}".format(key)
 
@@ -116,7 +120,7 @@ class PredDataset(torch.utils.data.IterableDataset):
 
     def get_hash(self):
         sorted_rep = sorted([(qid, docids) for qid, docids in self.qid_docid_to_rank.items()])
-        key_content = "{0}{1}".format(self.extractor.name, str(sorted_rep))
+        key_content = "{0}{1}".format(self.extractor.module_name, str(sorted_rep))
         key = hashlib.md5(key_content.encode("utf-8")).hexdigest()
 
         return "dev_{0}".format(key)

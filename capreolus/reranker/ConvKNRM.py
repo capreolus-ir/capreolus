@@ -1,3 +1,4 @@
+from profane import Dependency, ConfigOption
 import torch
 from torch import nn
 
@@ -76,22 +77,23 @@ class ConvKNRM_class(nn.Module):
         return scores
 
 
+@Reranker.register
 class ConvKNRM(Reranker):
-    name = "ConvKNRM"
-    citation = """Zhuyun Dai, Chenyan Xiong, Jamie Callan, and Zhiyuan Liu. 2018. Convolutional Neural Networks for Soft-Matching N-Grams in Ad-hoc Search. In WSDM'18."""
+    module_name = "ConvKNRM"
+    description = """Zhuyun Dai, Chenyan Xiong, Jamie Callan, and Zhiyuan Liu. 2018. Convolutional Neural Networks for Soft-Matching N-Grams in Ad-hoc Search. In WSDM'18."""
 
-    @staticmethod
-    def config():
-        gradkernels = True  # backprop through mus and sigmas
-        maxngram = 3  # maximum length of ngram considered
-        crossmatch = True  # match query and document ngrams of different lengths (e.g., bigram vs. unigram)
-        filters = 128  # number of filters used in convolutional layers
-        scoretanh = False  # use a tanh on the prediction as in paper (True) or do not use a nonlinearity (False)
-        singlefc = True  # use single fully connected layer as in paper (True) or 2 fully connected layers (False)
+    config_spec = [
+        ConfigOption("gradkernels", True, "backprop through mus and sigmas"),
+        ConfigOption("maxngram", 3, "maximum ngram length considered"),
+        ConfigOption("crossmatch", True, "match query and document ngrams of different lengths (e.g., bigram vs. unigram)"),
+        ConfigOption("filters", 128, "number of filters used in convolutional layers"),
+        ConfigOption("scoretanh", False, "use a tanh on the prediction as in paper (True) or do not use a nonlinearity (False)"),
+        ConfigOption("singlefc", True, "use single fully connected layer as in paper (True) or 2 fully connected layers (False)"),
+    ]
 
-    def build(self):
+    def build_model(self):
         if not hasattr(self, "model"):
-            self.model = ConvKNRM_class(self["extractor"], self.cfg)
+            self.model = ConvKNRM_class(self.extractor, self.config)
         return self.model
 
     def score(self, d):

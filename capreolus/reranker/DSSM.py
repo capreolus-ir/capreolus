@@ -1,3 +1,5 @@
+from profane import Dependency, ConfigOption
+
 from capreolus.extractor.bagofwords import BagOfWords
 
 import torch
@@ -5,7 +7,6 @@ import torch.nn as nn
 
 from capreolus.reranker import Reranker
 from capreolus.utils.loginit import get_logger
-from capreolus.registry import Dependency
 
 logger = get_logger(__name__)
 
@@ -45,27 +46,25 @@ class DSSM_class(nn.Module):
 dtype = torch.FloatTensor
 
 
+@Reranker.register
 class DSSM(Reranker):
     description = """Po-Sen Huang, Xiaodong He, Jianfeng Gao, Li Deng, Alex Acero, and Larry Heck. 2013. Learning deep structured semantic models for web search using clickthrough data. In CIKM'13."""
-    name = "DSSM"
+    module_name = "DSSM"
+    dependencies = [
+        Dependency(key="extractor", module="extractor", name="bagofwords"),
+        Dependency(key="trainer", module="trainer", name="pytorch", default_config_overrides={"lr": 0.0001}),
+    ]
+    config_spec = [
+        ConfigOption(
+            "nhiddens",
+            "56",
+            "list of hidden layer sizes (eg '56 128'), where the i'th value indicates the output size of the i'th layer",
+        )
+    ]
 
-    dependencies = {
-        "extractor": Dependency(module="extractor", name="bagofwords"),
-        "trainer": Dependency(module="trainer", name="pytorch"),
-    }
-
-    @staticmethod
-    def config():
-        # hidden layer sizes, like '56 128', where i'th value indicates output size of the i'th layer
-        nhiddens = "56"
-        lr = 0.0001
-
-    @classmethod
-    def get_model_class(cls):
-        return DSSM_class
-
-    def build(self):
-        self.model = DSSM_class(self["extractor"], self.cfg)
+    def build_model(self):
+        if not hasattr(self, "model"):
+            self.model = DSSM_class(self.extractor, self.config)
         return self.model
 
     def score(self, d):

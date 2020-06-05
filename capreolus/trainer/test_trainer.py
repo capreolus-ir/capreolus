@@ -1,3 +1,4 @@
+import collections
 import numpy as np
 import os
 import tensorflow as tf
@@ -8,12 +9,14 @@ from capreolus.trainer import TensorFlowTrainer
 
 
 def test_tf_get_tf_dataset(monkeypatch):
-    benchmark = DummyBenchmark({"fold": "s1", "rundocsonly": True})
-    extractor = EmbedText({"keepstops": True, "maxdoclen": 4, "maxqlen": 4})
+    benchmark = DummyBenchmark()
+    extractor = EmbedText(
+        {"maxdoclen": 4, "maxqlen": 4, "tokenizer": {"keepstops": True}}, provide={"collection": benchmark.collection}
+    )
     training_judgments = benchmark.qrels.copy()
     train_dataset = TrainDataset(training_judgments, training_judgments, extractor)
 
-    reranker = {"extractor": extractor}
+    reranker = collections.namedtuple("reranker", "extractor")(extractor=extractor)
 
     def mock_id2vec(*args, **kwargs):
         return {
@@ -29,15 +32,11 @@ def test_tf_get_tf_dataset(monkeypatch):
     monkeypatch.setattr(EmbedText, "id2vec", mock_id2vec)
     trainer = TensorFlowTrainer(
         {
-            "_name": "tensorflow",
+            "name": "tensorflow",
             "batch": 2,
             "niters": 2,
             "itersize": 16,
-            "gradacc": 1,
             "lr": 0.001,
-            "softmaxloss": True,
-            "interactive": False,
-            "fastforward": True,
             "validatefreq": 1,
             "usecache": False,
             "tpuname": None,

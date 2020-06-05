@@ -7,8 +7,7 @@ from capreolus.tests.common_fixtures import tmpdir_as_cache, dummy_index
 
 
 def test_anserini_create_index(tmpdir_as_cache):
-    index = AnseriniIndex({"_name": "anserini", "indexstops": False, "stemmer": "porter"})
-    index.modules["collection"] = DummyCollection({"_name": "dummy"})
+    index = AnseriniIndex({"name": "anserini", "indexstops": False, "stemmer": "porter", "collection": {"name": "dummy"}})
     assert not index.exists()
     index.create_index()
     assert index.exists()

@@ -1,6 +1,7 @@
 import torch
 from torch import nn
 from torch.nn import functional as F
+from profane import Dependency, ConfigOption
 
 
 # TODO add shuffle, cascade, disambig?
@@ -26,7 +27,7 @@ class PACRR_class(nn.Module):
             self.ngrams.append(PACRRConvMax2dModule(ng, p["nfilters"], k=p["kmax"], channels=1))
 
         qterm_size = len(self.ngrams) * p["kmax"] + (1 if p["idf"] else 0)
-        self.linear1 = torch.nn.Linear(extractor.cfg["maxqlen"] * qterm_size, p["combine"])
+        self.linear1 = torch.nn.Linear(extractor.config["maxqlen"] * qterm_size, p["combine"])
         self.linear2 = torch.nn.Linear(p["combine"], p["combine"])
         self.linear3 = torch.nn.Linear(p["combine"], 1)
 
@@ -47,7 +48,7 @@ class PACRR_class(nn.Module):
         scores = [ng(simmat) for ng in self.ngrams]
         if self.p["idf"]:
             scores.append(
-                F.softmax(query_idf.reshape(query_idf.shape, 1).float(), dim=1).view(-1, self.extractor.cfg["maxqlen"], 1)
+                F.softmax(query_idf.reshape(query_idf.shape, 1).float(), dim=1).view(-1, self.extractor.config["maxqlen"], 1)
             )
         scores = torch.cat(scores, dim=2)
         scores = scores.reshape(scores.shape[0], scores.shape[1] * scores.shape[2])
@@ -82,24 +83,25 @@ class PACRRConvMax2dModule(torch.nn.Module):
         return result
 
 
+@Reranker.register
 class PACRR(Reranker):
-    name = "PACRR"
-    citation = "Kai Hui1, Andrew Yates1, Klaus Berberich1, Gerard de Melo, EMNLP 2017"
+    module_name = "PACRR"
+    description = """Kai Hui, Andrew Yates, Klaus Berberich, and Gerard de Melo. EMNLP 2017.
+                  PACRR: A Position-Aware Neural IR Model for Relevance Matching. """
 
-    @staticmethod
-    def config():
-        mingram = 1  # minimum length of ngram used
-        maxgram = 3  # maximum length of ngram used
-        nfilters = 32  # number of filters in convolution layer
-        idf = True  # concatenate idf signals to combine relevance score from individual query terms
-        kmax = 2  # value of kmax pooling used
-        combine = 32  # size of combination layers
-        nonlinearity = "relu"  # nonlinearity in combination layer: 'none', 'relu', 'tanh'
+    config_spec = [
+        ConfigOption("mingram", 1, "minimum length of ngram used"),
+        ConfigOption("maxgram", 3, "maximum length of ngram used"),
+        ConfigOption("nfilters", 32, "number of filters in convolution layer"),
+        ConfigOption("idf", True, "concatenate idf signals to combine relevance score from individual query terms"),
+        ConfigOption("kmax", 2, "value of kmax pooling used"),
+        ConfigOption("combine", 32, "size of combination layers"),
+        ConfigOption("nonlinearity", "relu", "nonlinearity in combination layer: none, relu, or tanh"),
+    ]
 
-    # TODO: Move to a common place
-    def build(self):
+    def build_model(self):
         if not hasattr(self, "model"):
-            self.model = PACRR_class(self["extractor"], self.cfg)
+            self.model = PACRR_class(self.extractor, self.config)
         return self.model
 
     def score(self, d):

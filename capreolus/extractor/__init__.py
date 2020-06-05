@@ -1,3 +1,7 @@
+from profane import import_all_modules
+
+# import_all_modules(__file__, __package__)
+
 import pickle
 from collections import defaultdict
 import tensorflow as tf
@@ -7,8 +11,9 @@ import numpy as np
 import hashlib
 from pymagnitude import Magnitude, MagnitudeUtils
 from tqdm import tqdm
+from profane import ModuleBase, Dependency, ConfigOption, constants
 
-from capreolus.registry import ModuleBase, RegisterableModule, Dependency, CACHE_BASE_PATH
+
 from capreolus.utils.loginit import get_logger
 from capreolus.utils.common import padlist
 from capreolus.utils.exceptions import MissingDocError
@@ -16,9 +21,7 @@ from capreolus.utils.exceptions import MissingDocError
 logger = get_logger(__name__)
 
 
-class Extractor(ModuleBase, metaclass=RegisterableModule):
-    """the module base class"""
-
+class Extractor(ModuleBase):
     module_type = "extractor"
 
     def _extend_stoi(self, toks_list, calc_idf=False):
@@ -29,7 +32,7 @@ class Extractor(ModuleBase, metaclass=RegisterableModule):
         if calc_idf and not self.idf:
             logger.warning("extending idf while it's not yet instantiated")
             self.idf = {}
-        if calc_idf and not self.modules.get("index", None):
+        if calc_idf and not hasattr(self, "index"):
             logger.warning("requesting calculating idf yet index is not available, set calc_idf to False")
             calc_idf = False
 
@@ -40,9 +43,9 @@ class Extractor(ModuleBase, metaclass=RegisterableModule):
                 if tok not in self.stoi:
                     self.stoi[tok] = len(self.stoi)
                 if calc_idf and tok not in self.idf:
-                    self.idf[tok] = self["index"].get_idf(tok)
+                    self.idf[tok] = self.index.get_idf(tok)
 
-        logger.debug(f"added {len(self.stoi)-n_words_before} terms to the stoi of extractor {self.name}")
+        logger.debug(f"added {len(self.stoi)-n_words_before} terms to the stoi of extractor {self.module_name}")
 
     def cache_state(self, qids, docids):
         raise NotImplementedError
@@ -69,12 +72,23 @@ class Extractor(ModuleBase, metaclass=RegisterableModule):
         raise NotImplementedError
 
 
+@Extractor.register
 class EmbedText(Extractor):
-    name = "embedtext"
-    dependencies = {
-        "index": Dependency(module="index", name="anserini", config_overrides={"indexstops": True, "stemmer": "none"}),
-        "tokenizer": Dependency(module="tokenizer", name="anserini"),
-    }
+    module_name = "embedtext"
+    dependencies = [
+        Dependency(
+            key="index", module="index", name="anserini", default_config_overrides={"indexstops": True, "stemmer": "none"}
+        ),
+        Dependency(key="tokenizer", module="tokenizer", name="anserini"),
+    ]
+    config_spec = [
+        ConfigOption("embeddings", "glove6b"),
+        ConfigOption("zerounk", False),
+        ConfigOption("calcidf", True),
+        ConfigOption("maxqlen", 4),
+        ConfigOption("maxdoclen", 800),
+        ConfigOption("usecache", False),
+    ]
 
     pad = 0
     pad_tok = "<pad>"
@@ -85,18 +99,9 @@ class EmbedText(Extractor):
         "fasttext": "fasttext/light/wiki-news-300d-1M-subword",
     }
 
-    @staticmethod
-    def config():
-        embeddings = "glove6b"
-        zerounk = False
-        calcidf = True
-        maxqlen = 4
-        maxdoclen = 800
-        usecache = False
-
     def _get_pretrained_emb(self):
-        magnitude_cache = CACHE_BASE_PATH / "magnitude/"
-        return Magnitude(MagnitudeUtils.download_model(self.embed_paths[self.cfg["embeddings"]], download_dir=magnitude_cache))
+        magnitude_cache = constants["CACHE_BASE_PATH"] / "magnitude/"
+        return Magnitude(MagnitudeUtils.download_model(self.embed_paths[self.config["embeddings"]], download_dir=magnitude_cache))
 
     def load_state(self, qids, docids):
         with open(self.get_state_cache_file_path(qids, docids), "rb") as f:
@@ -114,10 +119,10 @@ class EmbedText(Extractor):
 
     def get_tf_feature_description(self):
         feature_description = {
-            "query": tf.io.FixedLenFeature([self.cfg["maxqlen"]], tf.int64),
-            "query_idf": tf.io.FixedLenFeature([self.cfg["maxqlen"]], tf.float32),
-            "posdoc": tf.io.FixedLenFeature([self.cfg["maxdoclen"]], tf.int64),
-            "negdoc": tf.io.FixedLenFeature([self.cfg["maxdoclen"]], tf.int64),
+            "query": tf.io.FixedLenFeature([self.config["maxqlen"]], tf.int64),
+            "query_idf": tf.io.FixedLenFeature([self.config["maxqlen"]], tf.float32),
+            "posdoc": tf.io.FixedLenFeature([self.config["maxdoclen"]], tf.int64),
+            "negdoc": tf.io.FixedLenFeature([self.config["maxdoclen"]], tf.int64),
             "label": tf.io.FixedLenFeature([2], tf.float32, default_value=tf.convert_to_tensor([1, 0], dtype=tf.float32)),
         }
 
@@ -150,18 +155,18 @@ class EmbedText(Extractor):
         return (posdoc, negdoc, query, query_idf), label
 
     def _build_vocab(self, qids, docids, topics):
-        if self.is_state_cached(qids, docids) and self.cfg["usecache"]:
+        if self.is_state_cached(qids, docids) and self.config["usecache"]:
             self.load_state(qids, docids)
             logger.info("Vocabulary loaded from cache")
         else:
-            tokenize = self["tokenizer"].tokenize
+            tokenize = self.tokenizer.tokenize
             self.qid2toks = {qid: tokenize(topics[qid]) for qid in qids}
-            self.docid2toks = {docid: tokenize(self["index"].get_doc(docid)) for docid in docids}
-            self._extend_stoi(self.qid2toks.values(), calc_idf=self.cfg["calcidf"])
-            self._extend_stoi(self.docid2toks.values(), calc_idf=self.cfg["calcidf"])
+            self.docid2toks = {docid: tokenize(self.index.get_doc(docid)) for docid in docids}
+            self._extend_stoi(self.qid2toks.values(), calc_idf=self.config["calcidf"])
+            self._extend_stoi(self.docid2toks.values(), calc_idf=self.config["calcidf"])
             self.itos = {i: s for s, i in self.stoi.items()}
             logger.info(f"vocabulary constructed, with {len(self.itos)} terms in total")
-            if self.cfg["usecache"]:
+            if self.config["usecache"]:
                 self.cache_state(qids, docids)
 
     def _get_idf(self, toks):
@@ -183,9 +188,9 @@ class EmbedText(Extractor):
                 embed_matrix[idx] = np.zeros(emb_dim)
             else:
                 n_missed += 1
-                embed_matrix[idx] = np.zeros(emb_dim) if self.cfg["zerounk"] else np.random.normal(scale=0.5, size=emb_dim)
+                embed_matrix[idx] = np.zeros(emb_dim) if self.config["zerounk"] else np.random.normal(scale=0.5, size=emb_dim)
 
-        logger.info(f"embedding matrix {self.cfg['embeddings']} constructed, with shape {embed_matrix.shape}")
+        logger.info(f"embedding matrix {self.config['embeddings']} constructed, with shape {embed_matrix.shape}")
         if n_missed > 0:
             logger.warning(f"{n_missed}/{len(self.stoi)} (%.3f) term missed" % (n_missed / len(self.stoi)))
 
@@ -199,12 +204,11 @@ class EmbedText(Extractor):
             and 0 < len(self.stoi) == self.embeddings.shape[0]
         )
 
-    def create(self, qids, docids, topics):
-
+    def preprocess(self, qids, docids, topics):
         if self.exist():
             return
 
-        self["index"].create_index()
+        self.index.create_index()
 
         self.itos = {self.pad: self.pad_tok}
         self.stoi = {self.pad_tok: self.pad}
@@ -225,7 +229,7 @@ class EmbedText(Extractor):
         query = self.qid2toks[qid]
 
         # TODO find a way to calculate qlen/doclen stats earlier, so we can log them and check sanity of our values
-        qlen, doclen = self.cfg["maxqlen"], self.cfg["maxdoclen"]
+        qlen, doclen = self.config["maxqlen"], self.config["maxdoclen"]
         posdoc = self.docid2toks.get(posid, None)
         if not posdoc:
             raise MissingDocError(qid, posid)
@@ -243,7 +247,7 @@ class EmbedText(Extractor):
             "posdoc": np.array(posdoc, dtype=np.long),
             "query_idf": np.array(idfs, dtype=np.float32),
             "negdocid": "",
-            "negdoc": np.zeros(self.cfg["maxdoclen"], dtype=np.long),
+            "negdoc": np.zeros(self.config["maxdoclen"], dtype=np.long),
         }
 
         if negid:
@@ -259,11 +263,14 @@ class EmbedText(Extractor):
 
 
 class BertText(Extractor):
-    name = "berttext"
-    dependencies = {
-        "index": Dependency(module="index", name="anserini", config_overrides={"indexstops": True, "stemmer": "none"}),
-        "tokenizer": Dependency(module="tokenizer", name="berttokenizer"),
-    }
+    module_name = "berttext"
+    dependencies = [
+        Dependency(
+            key="index", module="index", name="anserini", default_config_overrides={"indexstops": True, "stemmer": "none"}
+        ),
+        Dependency(key="tokenizer", module="tokenizer", name="berttokenizer"),
+    ]
+    config_spec = [ConfigOption("maxqlen", 4), ConfigOption("maxdoclen", 800), ConfigOption("usecache", False)]
 
     pad = 0
     pad_tok = "<pad>"
@@ -290,12 +297,12 @@ class BertText(Extractor):
 
     def get_tf_feature_description(self):
         feature_description = {
-            "query": tf.io.FixedLenFeature([self.cfg["maxqlen"]], tf.int64),
-            "query_mask": tf.io.FixedLenFeature([self.cfg["maxqlen"]], tf.int64),
-            "posdoc": tf.io.FixedLenFeature([self.cfg["maxdoclen"]], tf.int64),
-            "posdoc_mask": tf.io.FixedLenFeature([self.cfg["maxdoclen"]], tf.int64),
-            "negdoc": tf.io.FixedLenFeature([self.cfg["maxdoclen"]], tf.int64),
-            "negdoc_mask": tf.io.FixedLenFeature([self.cfg["maxdoclen"]], tf.int64),
+            "query": tf.io.FixedLenFeature([self.config["maxqlen"]], tf.int64),
+            "query_mask": tf.io.FixedLenFeature([self.config["maxqlen"]], tf.int64),
+            "posdoc": tf.io.FixedLenFeature([self.config["maxdoclen"]], tf.int64),
+            "posdoc_mask": tf.io.FixedLenFeature([self.config["maxdoclen"]], tf.int64),
+            "negdoc": tf.io.FixedLenFeature([self.config["maxdoclen"]], tf.int64),
+            "negdoc_mask": tf.io.FixedLenFeature([self.config["maxdoclen"]], tf.int64),
             "label": tf.io.FixedLenFeature([2], tf.float32, default_value=tf.convert_to_tensor([1, 0], dtype=tf.float32)),
         }
 
@@ -334,26 +341,26 @@ class BertText(Extractor):
         return (posdoc, posdoc_mask, negdoc, negdoc_mask, query, query_mask), label
 
     def _build_vocab(self, qids, docids, topics):
-        if self.is_state_cached(qids, docids) and self.cfg["usecache"]:
+        if self.is_state_cached(qids, docids) and self.config["usecache"]:
             self.load_state(qids, docids)
             logger.info("Vocabulary loaded from cache")
         else:
             logger.info("Building bertext vocabulary")
-            tokenize = self["tokenizer"].tokenize
+            tokenize = self.tokenizer.tokenize
             self.qid2toks = {qid: tokenize(topics[qid]) for qid in tqdm(qids, desc="querytoks")}
-            self.docid2toks = {docid: tokenize(self["index"].get_doc(docid)) for docid in tqdm(docids, desc="doctoks")}
-            self.clsidx, self.sepidx = self["tokenizer"].convert_tokens_to_ids(["CLS", "SEP"])
+            self.docid2toks = {docid: tokenize(self.index.get_doc(docid)) for docid in tqdm(docids, desc="doctoks")}
+            self.clsidx, self.sepidx = self.tokenizer.convert_tokens_to_ids(["CLS", "SEP"])
 
             self.cache_state(qids, docids)
 
     def exist(self):
         return hasattr(self, "docid2toks") and len(self.docid2toks)
 
-    def create(self, qids, docids, topics):
+    def preprocess(self, qids, docids, topics):
         if self.exist():
             return
 
-        self["index"].create_index()
+        self.index.create_index()
         self.qid2toks = defaultdict(list)
         self.docid2toks = defaultdict(list)
         self.clsidx = None
@@ -362,8 +369,8 @@ class BertText(Extractor):
         self._build_vocab(qids, docids, topics)
 
     def id2vec(self, qid, posid, negid=None):
-        tokenizer = self["tokenizer"]
-        qlen, doclen = self.cfg["maxqlen"], self.cfg["maxdoclen"]
+        tokenizer = self.tokenizer
+        qlen, doclen = self.config["maxqlen"], self.config["maxdoclen"]
 
         query_toks = tokenizer.convert_tokens_to_ids(self.qid2toks[qid])
         query_mask = self.get_mask(query_toks, qlen)
