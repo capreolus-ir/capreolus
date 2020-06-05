@@ -265,7 +265,7 @@ class BM25RM3(Searcher, AnseriniSearcherMixIn):
             + " ".join(f"-bm25.{k} {paras[k]}" for k in ["k1", "b"])
             + f" -hits {hits}"
         )
-        self._anserini_query_from_file(topicsfn, anserini_param_str, output_path, self.cfg["fields"])
+        self._anserini_query_from_file(topicsfn, anserini_param_str, output_path, self.cfg["field"])
 
         return output_path
 
@@ -327,6 +327,79 @@ class StaticBM25RM3Rob04Yang19(Searcher):
         raise NotImplementedError("this searcher uses a static run file, so it cannot handle new queries")
 
 
+class BM25PRF(Searcher, AnseriniSearcherMixIn):
+    """
+    BM25 with PRF
+    """
+
+    name = "BM25PRF"
+
+    dependencies = {"index": Dependency(module="index", name="anserini")}
+
+    @staticmethod
+    def config():
+        k1 = BM25PRF.list2str([0.65, 0.70, 0.75])
+        b = BM25PRF.list2str([0.60, 0.7])  # [0.60, 0.65, 0.7]
+        fbTerms = BM25PRF.list2str([65, 70, 95, 100])
+        fbDocs = BM25PRF.list2str([5, 10, 15])
+        newTermWeight = BM25PRF.list2str([0.2, 0.25])
+        hits = 1000
+        field = "title"
+
+    @staticmethod
+    def list2str(l):
+        return "-".join(str(x) for x in l)
+
+    def query_from_file(self, topicsfn, output_path):
+        paras = {k: " ".join(self.cfg[k].split("-")) for k in ["k1", "b", "fbTerms", "fbDocs", "newTermWeight"]}
+
+        hits = str(self.cfg["hits"])
+
+        anserini_param_str = (
+            "-bm25prf "
+            + " ".join(f"-bm25prf.{k} {paras[k]}" for k in ["fbTerms", "fbDocs", "newTermWeight", "k1", "b"])
+            + " -bm25 "
+            + " ".join(f"-bm25.{k} {paras[k]}" for k in ["k1", "b"])
+            + f" -hits {hits}"
+        )
+        self._anserini_query_from_file(topicsfn, anserini_param_str, output_path, self.cfg["field"])
+
+        return output_path
+
+
+class AxiomaticSemanticMatching(Searcher, AnseriniSearcherMixIn):
+    """
+    TODO: Add more info on retrieval method
+    Also, BM25 is hard-coded to be the scoring model
+    """
+
+    name = "axiomatic"
+    dependencies = {"index": Dependency(module="index", name="anserini")}
+
+    @staticmethod
+    def config():
+        r = 20
+        n = 30
+        beta = 0.4
+        top = 20
+        field = "title"
+        hits = 1000
+        k1 = 0.9
+        b = 0.4
+
+    def query_from_file(self, topicsfn, output_path):
+        hits = str(self.cfg["hits"])
+        conditionals = ""
+
+        anserini_param_str = "-axiom -axiom.deterministic -axiom.r {0} -axiom.n {1} -axiom.beta {2} -axiom.top {3}".format(
+            self.cfg["r"], self.cfg["n"], self.cfg["beta"], self.cfg["top"]
+        )
+        anserini_param_str += " -bm25 -bm25.k1 {0} -bm25.b {1} -hits {2}".format(self.cfg["k1"], self.cfg["b"], self.cfg["hits"])
+        self._anserini_query_from_file(topicsfn, anserini_param_str, output_path, self.cfg["field"])
+
+        return output_path
+
+
 class DirichletQL(Searcher, AnseriniSearcherMixIn):
     """ Dirichlet QL with a fixed mu """
 
@@ -364,3 +437,142 @@ class DirichletQL(Searcher, AnseriniSearcherMixIn):
 
         hits = searcher.search(query)
         return OrderedDict({hit.docid: hit.score for hit in hits})
+
+
+class QLJM(Searcher, AnseriniSearcherMixIn):
+    """
+    QL with Jelinek-Mercer smoothing
+    """
+
+    name = "QLJM"
+    dependencies = {"index": Dependency(module="index", name="anserini")}
+
+    @staticmethod
+    def config():
+        lam = 0.1
+        field = "title"
+        hits = 1000
+
+    def query_from_file(self, topicsfn, output_path):
+        anserini_param_str = "-qljm -qljm.lambda {0} -hits {1}".format(self.cfg["lam"], self.cfg["hits"])
+
+        self._anserini_query_from_file(topicsfn, anserini_param_str, output_path, self.cfg["field"])
+
+        return output_path
+
+
+class INL2(Searcher, AnseriniSearcherMixIn):
+    """
+    I(n)L2 scoring model
+    """
+
+    name = "INL2"
+    dependencies = {"index": Dependency(module="index", name="anserini")}
+
+    @staticmethod
+    def config():
+        c = 0.1
+        field = "title"
+        hits = 1000
+
+    def query_from_file(self, topicsfn, output_path):
+        anserini_param_str = "-inl2 -inl2.c {0} -hits {1}".format(self.cfg["c"], self.cfg["hits"])
+
+        self._anserini_query_from_file(topicsfn, anserini_param_str, output_path, self.cfg["field"])
+
+        return output_path
+
+
+class SPL(Searcher, AnseriniSearcherMixIn):
+    """
+    SPL scoring model
+    """
+
+    name = "SPL"
+    dependencies = {"index": Dependency(module="index", name="anserini")}
+
+    @staticmethod
+    def config():
+        c = 0.1
+        field = "title"
+        hits = 1000
+
+    def query_from_file(self, topicsfn, output_path):
+        anserini_param_str = "-spl -spl.c {0} -hits {1}".format(self.cfg["c"], self.cfg["hits"])
+
+        self._anserini_query_from_file(topicsfn, anserini_param_str, output_path, self.cfg["field"])
+
+        return output_path
+
+
+class F2Exp(Searcher, AnseriniSearcherMixIn):
+    """
+    F2Exp scoring model
+    """
+
+    name = "F2Exp"
+    dependencies = {"index": Dependency(module="index", name="anserini")}
+
+    @staticmethod
+    def config():
+        s = 0.5
+        field = "title"
+        hits = 1000
+
+    def query_from_file(self, topicsfn, output_path):
+        anserini_param_str = "-f2exp -f2exp.s {0} -hits {1}".format(self.cfg["s"], self.cfg["hits"])
+
+        self._anserini_query_from_file(topicsfn, anserini_param_str, output_path, self.cfg["field"])
+
+        return output_path
+
+
+class F2Log(Searcher, AnseriniSearcherMixIn):
+    """
+    F2Log scoring model
+    """
+
+    name = "F2Log"
+    dependencies = {"index": Dependency(module="index", name="anserini")}
+
+    @staticmethod
+    def config():
+        s = 0.5
+        field = "title"
+        hits = 1000
+
+    def query_from_file(self, topicsfn, output_path):
+        anserini_param_str = "-f2log -f2log.s {0} -hits {1}".format(self.cfg["s"], self.cfg["hits"])
+
+        self._anserini_query_from_file(topicsfn, anserini_param_str, output_path, self.cfg["field"])
+
+        return output_path
+
+
+class SDM(Searcher, AnseriniSearcherMixIn):
+    """
+    Sequential Dependency Model
+    The scoring model is hardcoded to be BM25 (TODO: Make it configurable?)
+    """
+
+    name = "SDM"
+    dependencies = {"index": Dependency(module="index", name="anserini")}
+
+    @staticmethod
+    def config():
+        tw = 0.85  # Term weight
+        ow = 0.1  # Ordered window weight
+        uw = 0.05  # Unordered window weight
+        field = "title"
+        k1 = 0.9
+        b = 0.4
+        hits = 1000
+
+    def query_from_file(self, topicsfn, output_path):
+        anserini_param_str = "-sdm -sdm.tw {0} -sdm.ow {1} -sdm.uw {2} -hits {3}".format(
+            self.cfg["tw"], self.cfg["ow"], self.cfg["uw"], self.cfg["hits"]
+        )
+        anserini_param_str += " -bm25 -bm25.k1 {0} -bm25.b {1}".format(self.cfg["k1"], self.cfg["b"])
+        self._anserini_query_from_file(topicsfn, anserini_param_str, output_path, self.cfg["field"])
+
+        return output_path
