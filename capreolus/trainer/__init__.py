@@ -457,6 +457,7 @@ class TensorFlowTrainer(Trainer):
 
         interactive = False  # True for training with Notebook or False for command line environment
         fastforward = False
+        warmupsteps = 1
         validatefreq = 1
         usecache = False
         tpuname = None
@@ -467,8 +468,10 @@ class TensorFlowTrainer(Trainer):
         # Must be one of tfr.losses.RankingLossKey
         loss = "pairwise_hinge_loss"
 
-    def get_optimizer(self):
-        return tf.keras.optimizers.Adam(learning_rate=self.cfg["lr"])
+    def get_optimizer(self, reranker):
+        adam = tf.keras.optimizers.Adam(learning_rate=self.cfg["lr"])
+
+        return reranker.modify_optimizer(adam)
 
     def fastforward_training(self, reranker, weights_path, loss_fn):
         # TODO: Fix fast forwarding
@@ -485,6 +488,11 @@ class TensorFlowTrainer(Trainer):
 
     def apply_gradients(self, weights, grads):
         self.optimizer.apply_gradients(zip(grads, weights))
+
+    def do_warmup(self, epoch):
+        warmup_steps = self.cfg["warmupsteps"]
+        
+        return min(self.cfg["lr"] * ((epoch+1)/warmup_steps), self.cfg["lr"])
 
     def train(self, reranker, train_dataset, train_output_path, dev_data, dev_output_path, qrels, metric):
         # summary_writer = tf.summary.create_file_writer("{0}/capreolus_tensorboard/{1}".format(self.cfg["storage"], self.cfg["boardname"]))
@@ -504,12 +512,13 @@ class TensorFlowTrainer(Trainer):
             train_records = self.get_tf_train_records(reranker, train_dataset)
             dev_records = self.get_tf_dev_records(reranker, dev_data)
             trec_callback = TrecCheckpointCallback(qrels, dev_data, dev_records, train_output_path, self.cfg["validatefreq"])
+            learning_rate_callback = tf.keras.callbacks.LearningRateScheduler(self.do_warmup)
             tensorboard_callback = tf.keras.callbacks.TensorBoard(
                 log_dir="{0}/capreolus_tensorboard/{1}".format(self.cfg["storage"], self.cfg["boardname"])
             )
             reranker.build()
 
-            self.optimizer = self.get_optimizer()
+            self.optimizer = self.get_optimizer(reranker)
             loss = tfr.keras.losses.get(self.cfg["loss"])
             reranker.model.compile(optimizer=self.optimizer, loss=loss)
 
@@ -518,7 +527,7 @@ class TensorFlowTrainer(Trainer):
                 train_records.prefetch(tf.data.experimental.AUTOTUNE),
                 epochs=self.cfg["niters"],
                 steps_per_epoch=self.cfg["itersize"],
-                callbacks=[tensorboard_callback, trec_callback],
+                callbacks=[tensorboard_callback, trec_callback, learning_rate_callback],
                 workers=8,
                 use_multiprocessing=True,
             )

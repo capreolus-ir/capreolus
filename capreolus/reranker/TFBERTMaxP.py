@@ -1,5 +1,6 @@
 import tensorflow as tf
 from transformers import TFBertForSequenceClassification
+from keras_lr_multiplier import LRMultiplier
 
 from capreolus.registry import Dependency
 from capreolus.reranker import Reranker
@@ -120,6 +121,9 @@ class TFBERTMaxP(Reranker):
         passagelen = 100
         stride = 20
         mode = "maxp"
+
+    def modify_optimizer(self, optimizer):
+        return LRMultiplier(optimizer, {'bert': 0.02})
 
     def build(self):
         self.model = TFBERTMaxP_Class(self["extractor"], self.cfg)

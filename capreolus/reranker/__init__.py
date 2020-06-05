@@ -48,3 +48,10 @@ class Reranker(ModuleBase, metaclass=RegisterableModule):
         optimizer_fn = weights_fn.as_posix() + ".optimizer"
         with open(optimizer_fn, "rb") as f:
             optimizer.load_state_dict(pickle.load(f))
+
+    def modify_optimizer(self, optimizer):
+        """
+        Specific to Tensorflow
+        Modified the optimizer to apply differential learning rates e.t.c
+        """
+        return optimizer
