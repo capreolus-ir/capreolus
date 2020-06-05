@@ -39,6 +39,7 @@ oauth2client
 tensorflow==2.1
 transformers
 tensorflow-ranking
+Pillow
 # covid
 beautifulsoup4
 lxml
