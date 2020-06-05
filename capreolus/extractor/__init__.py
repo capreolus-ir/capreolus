@@ -214,8 +214,10 @@ class DocStats(Extractor):
         return hasattr(self, "doc_tf")
 
     def get_profile_term_prob_cache_path(self):
-        #return self["entitylinking"].get_benchmark_cache_dir() / 'profiletermprobs'
         return self.get_cache_path() / 'profiletermprobs'
+
+    def get_selected_entities_cache_path(self):
+        return self.get_cache_path() / 'selectedentities'
 
     def create(self, qids, docids, topics, qdocs=None):
         logger.debug(f"cache path: {self.get_cache_path()}")
@@ -251,13 +253,25 @@ class DocStats(Extractor):
             self["entityspecificity"].initialize()
 
         logger.debug("tokenizing queries [+entity descriptions]")
+        if logger.level in [logging.DEBUG, logging.NOTSET]:
+            os.makedirs(self.get_profile_term_prob_cache_path(), exist_ok=True)
+        os.makedirs(self.get_selected_entities_cache_path(), exist_ok=True)
+
         self.qid2toks = {}
         self.qid_termprob = {}
         for qid in qids:
             qtext = topics[qid]
             qdesc = []
+            
+            entoutf = join(self.get_selected_entities_cache_path(), get_file_name(qid, self["entitylinking"].get_benchmark_name(), self["entitylinking"].get_benchmark_querytype()))
+            if exists(entoutf):
+                with open(entoutf, 'r') as f:
+                    qentities = json.loads(f.read())
+            else:
+                qentities = self.get_entities(qid) # returns empty array if the entity_strategy is None
+                with open(entoutf, 'w') as f:
+                    f.write(json.dumps(qentities, indent=4))
 
-            qentities = self.get_entities(qid) # returns empty array if the entity_strategy is None
             logger.debug(f"{self.entity_strategy}: {qentities}")
             for e in qentities:
                 qdesc.append(self["entitylinking"].get_entity_description(e))
@@ -268,11 +282,10 @@ class DocStats(Extractor):
             self.qid2toks[qid] = query
             q_count = Counter(query)
             self.qid_termprob[qid] = {k: (v/len(query)) for k, v in q_count.items()}
-            if logger.level in [logging.DEBUG, logging.NOTSET]:
-                os.makedirs(self.get_profile_term_prob_cache_path(), exist_ok=True)
-                outf = join(self.get_profile_term_prob_cache_path(), get_file_name(qid, self["entitylinking"].get_benchmark_name(), self["entitylinking"].get_benchmark_querytype()))
-                if not exists(outf):
-                    with open(outf, 'w') as f:
+            if logger.level in [logging.DEBUG, logging.NOTSET]:#since I just wanted to use this as a debug step, I didn't read from it when it was available
+                tfoutf = join(self.get_profile_term_prob_cache_path(), get_file_name(qid, self["entitylinking"].get_benchmark_name(), self["entitylinking"].get_benchmark_querytype()))
+                if not exists(tfoutf):
+                    with open(tfoutf, 'w') as f:
                         sortedTP = {k: v for k, v in sorted(self.qid_termprob[qid].items(), key=lambda item: item[1], reverse=True)}
                         f.write(json.dumps(sortedTP, indent=4))
 
