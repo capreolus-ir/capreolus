@@ -1,20 +1,24 @@
+from profane import import_all_modules
+
+# import_all_modules(__file__, __package__)
+
 import logging
 import math
 import os
 import subprocess
 
-from capreolus.registry import ModuleBase, RegisterableModule, Dependency, MAX_THREADS
+from profane import ModuleBase, Dependency, ConfigOption, constants
+
 from capreolus.utils.common import Anserini
 from capreolus.utils.loginit import get_logger
 
 logger = get_logger(__name__)  # pylint: disable=invalid-name
+MAX_THREADS = constants["MAX_THREADS"]
 
 
-class Index(ModuleBase, metaclass=RegisterableModule):
-    """the module base class"""
-
+class Index(ModuleBase):
     module_type = "index"
-    dependencies = {"collection": Dependency(module="collection")}
+    dependencies = [Dependency(key="collection", module="collection")]
 
     def get_index_path(self):
         return self.get_cache_path() / "index"
@@ -42,30 +46,26 @@ class Index(ModuleBase, metaclass=RegisterableModule):
         raise NotImplementedError()
 
 
-def get_cache_path(self):
-    print(self.get_cache_path())
-
-
+@Index.register
 class AnseriniIndex(Index):
-    name = "anserini"
-    commands = {"cache_path": get_cache_path}
-
-    @staticmethod
-    def config():
-        indexstops = False
-        stemmer = "porter"
+    module_name = "anserini"
+    config_spec = [
+        ConfigOption("indexstops", False, "should stopwords be indexed? (if False, stopwords are removed)"),
+        ConfigOption("stemmer", "porter", "stemmer: porter, krovetz, or none"),
+    ]
 
     def _create_index(self):
         outdir = self.get_index_path()
-        stops = "-keepStopwords" if self.cfg["indexstops"] else ""
+        stops = "-keepStopwords" if self.config["indexstops"] else ""
+        stemmer = "none" if self.config["stemmer"] is None else self.config["stemmer"]
 
-        collection_path, document_type, generator_type = self["collection"].get_path_and_types()
+        collection_path, document_type, generator_type = self.collection.get_path_and_types()
 
         anserini_fat_jar = Anserini.get_fat_jar()
-        if self["collection"].is_large_collection:
-            cmd = f"java -classpath {anserini_fat_jar} -Xms512M -Xmx31G -Dapp.name='IndexCollection' io.anserini.index.IndexCollection -collection {document_type} -generator {generator_type} -threads {MAX_THREADS} -input {collection_path} -index {outdir} -stemmer {self.cfg['stemmer']} {stops}"
+        if self.collection.is_large_collection:
+            cmd = f"java -classpath {anserini_fat_jar} -Xms512M -Xmx31G -Dapp.name='IndexCollection' io.anserini.index.IndexCollection -collection {document_type} -generator {generator_type} -threads {MAX_THREADS} -input {collection_path} -index {outdir} -stemmer {stemmer} {stops}"
         else:
-            cmd = f"java -classpath {anserini_fat_jar} -Xms512M -Xmx31G -Dapp.name='IndexCollection' io.anserini.index.IndexCollection -collection {document_type} -generator {generator_type} -threads {MAX_THREADS} -input {collection_path} -index {outdir} -storePositions -storeDocvectors -storeContents -stemmer {self.cfg['stemmer']} {stops}"
+            cmd = f"java -classpath {anserini_fat_jar} -Xms512M -Xmx31G -Dapp.name='IndexCollection' io.anserini.index.IndexCollection -collection {document_type} -generator {generator_type} -threads {MAX_THREADS} -input {collection_path} -index {outdir} -storePositions -storeDocvectors -storeContents -stemmer {stemmer} {stops}"
 
         logger.info("building index %s", outdir)
         logger.debug(cmd)

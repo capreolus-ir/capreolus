@@ -1,4 +1,5 @@
 from allennlp.modules.matrix_attention import CosineMatrixAttention
+from profane import Dependency, ConfigOption
 
 from capreolus.reranker import Reranker
 import torch
@@ -72,8 +73,8 @@ class TK_class(nn.Module):
         Returns a matrix of mu values that can be directly subtracted from the cosine matrix.
         This is the matrix mu in equation 5 in the paper (https://arxiv.org/pdf/2002.01854.pdf)
         """
-        qlen = extractor.cfg["maxqlen"]
-        doclen = extractor.cfg["maxdoclen"]
+        qlen = extractor.config["maxqlen"]
+        doclen = extractor.config["maxdoclen"]
 
         mu_matrix = torch.zeros(len(self.mus), qlen, doclen, requires_grad=False)
 
@@ -142,28 +143,29 @@ class TK_class(nn.Module):
         return score
 
 
+@Reranker.register
 class TK(Reranker):
-    name = "TK"
-    citation = """Add citation"""
-    # TODO: Declare the dependency on EmbedText
+    module_name = "TK"
+    description = """Sebastian Hofstätter, Markus Zlabinger, and Allan Hanbury. 2019.
+                     TU Wien @ TREC Deep Learning '19 -- Simple Contextualization for Re-ranking. In TREC '19."""
 
-    @staticmethod
-    def config():
-        gradkernels = True  # backprop through mus and sigmas
-        scoretanh = False  # use a tanh on the prediction as in paper (True) or do not use a nonlinearity (False)
-        singlefc = True  # use single fully connected layer as in paper (True) or 2 fully connected layers (False)
-        projdim = 32
-        ffdim = 100
-        numlayers = 2
-        numattheads = 8
-        alpha = 0.5
-        usemask = False
-        usemixer = False
-        finetune = False
+    config_spec = [
+        ConfigOption("gradkernels", True, "backprop through mus and sigmas"),
+        ConfigOption("scoretanh", False, "use a tanh on the prediction as in paper (True) or do not use a nonlinearity (False)"),
+        ConfigOption("singlefc", True, "use single fully connected layer as in paper (True) or 2 fully connected layers (False)"),
+        ConfigOption("projdim", 32),
+        ConfigOption("ffdim", 100),
+        ConfigOption("numlayers", 2),
+        ConfigOption("numattheads", 8),
+        ConfigOption("alpha", 0.5),
+        ConfigOption("usemask", False),
+        ConfigOption("usemixer", False),
+        ConfigOption("finetune", False, "fine tune the embedding layer"),  # TODO check save when True
+    ]
 
-    def build(self):
+    def build_model(self):
         if not hasattr(self, "model"):
-            self.model = TK_class(self["extractor"], self.cfg)
+            self.model = TK_class(self.extractor, self.config)
         return self.model
 
     def score(self, d):

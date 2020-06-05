@@ -2,6 +2,8 @@ import torch
 from torch import nn
 import torch.nn.functional as F
 from torch.autograd import Variable
+from profane import Dependency, ConfigOption
+
 from capreolus.reranker import Reranker
 from capreolus.utils.loginit import get_logger
 from capreolus.reranker.common import create_emb_layer
@@ -123,19 +125,18 @@ class POSITDRMM_class(nn.Module):
 dtype = torch.FloatTensor
 
 
+@Reranker.register
 class POSITDRMM(Reranker):
-    description = """Ryan McDonald, George Brokos, and Ion Androutsopoulos. 2018. Deep Relevance Ranking Using Enhanced Document-Query Interactions. In EMNLP'18."""
-    name = "POSITDRMM"
+    description = """Ryan McDonald, George Brokos, and Ion Androutsopoulos. 2018.
+                     Deep Relevance Ranking Using Enhanced Document-Query Interactions. In EMNLP'18."""
+    module_name = "POSITDRMM"
 
-    @staticmethod
-    def config():
-        pass
-
-    def build(self):
-        config = dict(self.cfg)
-        config["batch"] = self["trainer"].cfg["batch"]
-        config.update(self["extractor"].cfg)
-        self.model = POSITDRMM_class(self["extractor"], config)
+    def build_model(self):
+        if not hasattr(self, "model"):
+            config = dict(self.config)
+            config["batch"] = self.trainer.config["batch"]
+            config.update(self.extractor.config)
+            self.model = POSITDRMM_class(self.extractor, config)
 
         return self.model
 
@@ -186,7 +187,7 @@ class POSITDRMM(Reranker):
         """
         Remove pad tokens from the text
         """
-        return text[text != self["extractor"].pad]
+        return text[text != self.extractor.pad]
 
     def get_bigrams(self, text):
         # text_batch has shape (batch_size, length)

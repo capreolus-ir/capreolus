@@ -1,10 +1,10 @@
 import os
 
-import pytrec_eval
 import numpy as np
+import pytrec_eval
 
-from capreolus.utils.loginit import get_logger
 from capreolus.searcher import Searcher
+from capreolus.utils.loginit import get_logger
 
 logger = get_logger(__name__)
 

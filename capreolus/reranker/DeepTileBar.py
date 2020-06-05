@@ -1,5 +1,7 @@
 import copy
 
+from profane import Dependency, ConfigOption
+
 import torch
 from torch.autograd import Variable
 from torch import nn
@@ -7,7 +9,6 @@ import torch.nn.functional as F
 from capreolus.extractor.deeptileextractor import DeepTileExtractor
 from capreolus.reranker import Reranker
 from capreolus.utils.loginit import get_logger
-from capreolus.registry import Dependency
 
 logger = get_logger(__name__)  # pylint: disable=invalid-name
 
@@ -144,7 +145,7 @@ class DeepTileBar_class(nn.Module):
         linear_hidden_dim1 = config["linearhiddendim1"]
         linear_hidden_dim2 = config["linearhiddendim2"]
         config = dict(config)
-        config.update(dict(extractor.cfg))
+        config.update(dict(extractor.config))
 
         self.DeepTileBar1 = DeepTileBar_nn(
             config, batch_size, number_filter, lstm_hidden_dim, linear_hidden_dim1, linear_hidden_dim2
@@ -169,27 +170,29 @@ class DeepTileBar_class(nn.Module):
         return pos_tag_scores
 
 
+@Reranker.register
 class DeepTileBar(Reranker):
     description = """Zhiwen Tang and Grace Hui Yang. 2019. DeepTileBars: Visualizing Term Distribution for Neural Information Retrieval. In AAAI'19."""
-    EXTRACTORS = [DeepTileExtractor]
-    name = "DeepTileBar"
-    dependencies = {
-        "extractor": Dependency(module="extractor", name="deeptiles"),
-        "trainer": Dependency(module="trainer", name="pytorch"),
-    }
+    module_name = "DeepTileBar"
 
-    @staticmethod
-    def config():
-        passagelen = 30
-        numberfilter = 3
-        lstmhiddendim = 3
-        linearhiddendim1 = 32
-        linearhiddendim2 = 16
+    dependencies = [
+        Dependency(key="extractor", module="extractor", name="deeptiles"),
+        Dependency(key="trainer", module="trainer", name="pytorch"),
+    ]
 
-    def build(self):
-        config = copy.copy(dict(self.cfg))
-        config["batch"] = self["trainer"].cfg["batch"]
-        self.model = DeepTileBar_class(self["extractor"], config)
+    config_spec = [
+        ConfigOption("passagelen", 30),
+        ConfigOption("numberfilter", 3),
+        ConfigOption("lstmhiddendim", 3),
+        ConfigOption("linearhiddendim1", 32),
+        ConfigOption("linearhiddendim2", 16),
+    ]
+
+    def build_model(self):
+        if not hasattr(self, "model"):
+            config = copy.copy(dict(self.config))
+            config["batch"] = self.trainer.config["batch"]
+            self.model = DeepTileBar_class(self.extractor, config)
 
         return self.model
 

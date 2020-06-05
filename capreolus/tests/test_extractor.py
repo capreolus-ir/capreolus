@@ -26,10 +26,11 @@ def test_embedtext_creation(monkeypatch):
 
     monkeypatch.setattr(EmbedText, "_get_pretrained_emb", fake_magnitude_embedding)
 
+    index_cfg = {"name": "anserini", "indexstops": False, "stemmer": "porter", "collection": {"name": "dummy"}}
+    index = AnseriniIndex(index_cfg)
+
     extractor_cfg = {
-        "_name": "embedtext",
-        "index": "anserini",
-        "tokenizer": "anserini",
+        "name": "embedtext",
         "embeddings": "glove6b",
         "zerounk": True,
         "calcidf": True,
@@ -37,24 +38,13 @@ def test_embedtext_creation(monkeypatch):
         "maxdoclen": MAXDOCLEN,
         "usecache": False,
     }
-    extractor = EmbedText(extractor_cfg)
-
-    benchmark = DummyBenchmark({"_fold": "s1", "rundocsonly": False})
-    collection = DummyCollection({"_name": "dummy"})
-
-    index_cfg = {"_name": "anserini", "indexstops": False, "stemmer": "porter"}
-    index = AnseriniIndex(index_cfg)
-    index.modules["collection"] = collection
-
-    tok_cfg = {"_name": "anserini", "keepstops": True, "stemmer": "none"}
-    tokenizer = AnseriniTokenizer(tok_cfg)
-    extractor.modules["index"] = index
-    extractor.modules["tokenizer"] = tokenizer
+    extractor = EmbedText(extractor_cfg, provide={"index": index})
+    benchmark = DummyBenchmark()
 
     qids = list(benchmark.qrels.keys())  # ["301"]
     qid = qids[0]
     docids = list(benchmark.qrels[qid].keys())
-    extractor.create(qids, docids, benchmark.topics[benchmark.query_type])
+    extractor.preprocess(qids, docids, benchmark.topics[benchmark.query_type])
     expected_vocabs = ["lessdummy", "dummy", "doc", "hello", "greetings", "world", "from", "outer", "space", "<pad>"]
     expected_stoi = {s: i for i, s in enumerate(expected_vocabs)}
 
@@ -76,9 +66,7 @@ def test_embedtext_id2vec(monkeypatch):
     monkeypatch.setattr(EmbedText, "_get_pretrained_emb", fake_magnitude_embedding)
 
     extractor_cfg = {
-        "_name": "embedtext",
-        "index": "anserini",
-        "tokenizer": "anserini",
+        "name": "embedtext",
         "embeddings": "glove6b",
         "zerounk": True,
         "calcidf": True,
@@ -86,26 +74,14 @@ def test_embedtext_id2vec(monkeypatch):
         "maxdoclen": MAXDOCLEN,
         "usecache": False,
     }
-    extractor = EmbedText(extractor_cfg)
-
-    benchmark = DummyBenchmark({"_fold": "s1", "rundocsonly": False})
-    collection = DummyCollection({"_name": "dummy"})
-
-    index_cfg = {"_name": "anserini", "indexstops": False, "stemmer": "porter"}
-    index = AnseriniIndex(index_cfg)
-    index.modules["collection"] = collection
-
-    tok_cfg = {"_name": "anserini", "keepstops": True, "stemmer": "none"}
-    tokenizer = AnseriniTokenizer(tok_cfg)
-
-    extractor.modules["index"] = index
-    extractor.modules["tokenizer"] = tokenizer
+    extractor = EmbedText(extractor_cfg, provide={"collection": DummyCollection()})
+    benchmark = DummyBenchmark()
 
     qids = list(benchmark.qrels.keys())  # ["301"]
     qid = qids[0]
     docids = list(benchmark.qrels[qid].keys())
 
-    extractor.create(qids, docids, benchmark.topics[benchmark.query_type])
+    extractor.preprocess(qids, docids, benchmark.topics[benchmark.query_type])
 
     docid1, docid2 = docids[0], docids[1]
     data = extractor.id2vec(qid, docid1, docid2)
@@ -122,8 +98,8 @@ def test_embedtext_id2vec(monkeypatch):
     assert len(d2) == MAXDOCLEN
 
     assert len([w for w in q if w.sum() != 0]) == len(topics[qid].strip().split()[:MAXQLEN])
-    assert len([w for w in d1 if w.sum() != 0]) == len(extractor["index"].get_doc(docid1).strip().split()[:MAXDOCLEN])
-    assert len([w for w in d2 if w.sum() != 0]) == len(extractor["index"].get_doc(docid2).strip().split()[:MAXDOCLEN])
+    assert len([w for w in d1 if w.sum() != 0]) == len(extractor.index.get_doc(docid1).strip().split()[:MAXDOCLEN])
+    assert len([w for w in d2 if w.sum() != 0]) == len(extractor.index.get_doc(docid2).strip().split()[:MAXDOCLEN])
 
     # check MissDocError
     error_thrown = False
@@ -144,9 +120,7 @@ def test_embedtext_caching(dummy_index, monkeypatch):
     monkeypatch.setattr(EmbedText, "_get_pretrained_emb", fake_magnitude_embedding)
 
     extractor_cfg = {
-        "_name": "embedtext",
-        "index": "anserini",
-        "tokenizer": "anserini",
+        "name": "embedtext",
         "embeddings": "glove6b",
         "zerounk": True,
         "calcidf": True,
@@ -154,20 +128,8 @@ def test_embedtext_caching(dummy_index, monkeypatch):
         "maxdoclen": MAXDOCLEN,
         "usecache": True,
     }
-    extractor = EmbedText(extractor_cfg)
-
-    benchmark = DummyBenchmark({"_fold": "s1", "rundocsonly": False})
-    collection = DummyCollection({"_name": "dummy"})
-
-    index_cfg = {"_name": "anserini", "indexstops": False, "stemmer": "porter"}
-    index = AnseriniIndex(index_cfg)
-    index.modules["collection"] = collection
-
-    tok_cfg = {"_name": "anserini", "keepstops": True, "stemmer": "none"}
-    tokenizer = AnseriniTokenizer(tok_cfg)
-
-    extractor.modules["index"] = index
-    extractor.modules["tokenizer"] = tokenizer
+    extractor = EmbedText(extractor_cfg, provide={"index": dummy_index})
+    benchmark = DummyBenchmark()
 
     qids = list(benchmark.qrels.keys())  # ["301"]
     qid = qids[0]
@@ -175,14 +137,11 @@ def test_embedtext_caching(dummy_index, monkeypatch):
 
     assert not extractor.is_state_cached(qids, docids)
 
-    extractor.create(qids, docids, benchmark.topics[benchmark.query_type])
+    extractor.preprocess(qids, docids, benchmark.topics[benchmark.query_type])
 
     assert extractor.is_state_cached(qids, docids)
 
-    new_extractor = EmbedText(extractor_cfg)
-
-    new_extractor.modules["index"] = index
-    new_extractor.modules["tokenizer"] = tokenizer
+    new_extractor = EmbedText(extractor_cfg, provide={"index": dummy_index})
 
     assert new_extractor.is_state_cached(qids, docids)
     new_extractor._build_vocab(qids, docids, benchmark.topics[benchmark.query_type])
@@ -190,14 +149,11 @@ def test_embedtext_caching(dummy_index, monkeypatch):
 
 def test_bagofwords_create(monkeypatch, tmpdir, dummy_index):
     benchmark = DummyBenchmark({})
-    tok_cfg = {"_name": "anserini", "keepstops": True, "stemmer": "none"}
-    tokenizer = AnseriniTokenizer(tok_cfg)
     extractor = BagOfWords(
-        {"_name": "bagofwords", "datamode": "unigram", "keepstops": True, "maxqlen": 4, "maxdoclen": 800, "usecache": False}
+        {"name": "bagofwords", "datamode": "unigram", "maxqlen": 4, "maxdoclen": 800, "usecache": False},
+        provide={"index": dummy_index},
     )
-    extractor.modules["index"] = dummy_index
-    extractor.modules["tokenizer"] = tokenizer
-    extractor.create(["301"], ["LA010189-0001", "LA010189-0002"], benchmark.topics["title"])
+    extractor.preprocess(["301"], ["LA010189-0001", "LA010189-0002"], benchmark.topics["title"])
     assert extractor.stoi == {
         "<pad>": 0,
         "dummy": 1,
@@ -228,14 +184,13 @@ def test_bagofwords_create(monkeypatch, tmpdir, dummy_index):
 
 def test_bagofwords_create_trigrams(monkeypatch, tmpdir, dummy_index):
     benchmark = DummyBenchmark({})
-    tok_cfg = {"_name": "anserini", "keepstops": True, "stemmer": "none"}
+    tok_cfg = {"name": "anserini", "keepstops": True, "stemmer": "none"}
     tokenizer = AnseriniTokenizer(tok_cfg)
     extractor = BagOfWords(
-        {"_name": "bagofwords", "datamode": "trigram", "keepstops": True, "maxqlen": 4, "maxdoclen": 800, "usecache": False}
+        {"name": "bagofwords", "datamode": "trigram", "maxqlen": 4, "maxdoclen": 800, "usecache": False},
+        provide={"index": dummy_index, "tokenizer": tokenizer},
     )
-    extractor.modules["index"] = dummy_index
-    extractor.modules["tokenizer"] = tokenizer
-    extractor.create(["301"], ["LA010189-0001", "LA010189-0002"], benchmark.topics["title"])
+    extractor.preprocess(["301"], ["LA010189-0001", "LA010189-0002"], benchmark.topics["title"])
     assert extractor.stoi == {
         "<pad>": 0,
         "#du": 1,
@@ -291,17 +246,16 @@ def test_bagofwords_create_trigrams(monkeypatch, tmpdir, dummy_index):
 
 def test_bagofwords_id2vec(tmpdir, dummy_index):
     benchmark = DummyBenchmark({})
-    tok_cfg = {"_name": "anserini", "keepstops": True, "stemmer": "none"}
+    tok_cfg = {"name": "anserini", "keepstops": True, "stemmer": "none"}
     tokenizer = AnseriniTokenizer(tok_cfg)
     extractor = BagOfWords(
-        {"_name": "bagofwords", "datamode": "unigram", "keepstops": True, "maxqlen": 4, "maxdoclen": 800, "usecache": False}
+        {"name": "bagofwords", "datamode": "unigram", "maxqlen": 4, "maxdoclen": 800, "usecache": False},
+        provide={"index": dummy_index, "tokenizer": tokenizer},
     )
-    extractor.modules["index"] = dummy_index
-    extractor.modules["tokenizer"] = tokenizer
     extractor.stoi = {extractor.pad_tok: extractor.pad}
     extractor.itos = {extractor.pad: extractor.pad_tok}
     extractor.idf = defaultdict(lambda: 0)
-    # extractor.create(["301"], ["LA010189-0001", "LA010189-0002"], benchmark.topics["title"])
+    # extractor.preprocess(["301"], ["LA010189-0001", "LA010189-0002"], benchmark.topics["title"])
 
     extractor.qid2toks = {"301": ["dummy", "doc"]}
     extractor.stoi["dummy"] = 1
@@ -326,17 +280,16 @@ def test_bagofwords_id2vec(tmpdir, dummy_index):
 
 def test_bagofwords_id2vec_trigram(tmpdir, dummy_index):
     benchmark = DummyBenchmark({})
-    tok_cfg = {"_name": "anserini", "keepstops": True, "stemmer": "none"}
+    tok_cfg = {"name": "anserini", "keepstops": True, "stemmer": "none"}
     tokenizer = AnseriniTokenizer(tok_cfg)
     extractor = BagOfWords(
-        {"_name": "bagofwords", "datamode": "trigram", "keepstops": True, "maxqlen": 4, "maxdoclen": 800, "usecache": False}
+        {"name": "bagofwords", "datamode": "trigram", "maxqlen": 4, "maxdoclen": 800, "usecache": False},
+        provide={"index": dummy_index, "tokenizer": tokenizer},
     )
-    extractor.modules["index"] = dummy_index
-    extractor.modules["tokenizer"] = tokenizer
     extractor.stoi = {extractor.pad_tok: extractor.pad}
     extractor.itos = {extractor.pad: extractor.pad_tok}
     extractor.idf = defaultdict(lambda: 0)
-    # extractor.create(["301"], ["LA010189-0001", "LA010189-0002"], benchmark.topics["title"])
+    # extractor.preprocess(["301"], ["LA010189-0001", "LA010189-0002"], benchmark.topics["title"])
 
     extractor.qid2toks = {"301": ["dummy", "doc"]}
     extractor.docid2toks = {
@@ -382,28 +335,10 @@ def test_bagofwords_caching(dummy_index, monkeypatch):
 
     monkeypatch.setattr(EmbedText, "_get_pretrained_emb", fake_magnitude_embedding)
 
-    extractor_cfg = {
-        "_name": "bagofwords",
-        "datamode": "trigram",
-        "keepstops": True,
-        "maxqlen": 4,
-        "maxdoclen": 800,
-        "usecache": True,
-    }
-    extractor = BagOfWords(extractor_cfg)
+    extractor_cfg = {"name": "bagofwords", "datamode": "trigram", "maxqlen": 4, "maxdoclen": 800, "usecache": True}
+    extractor = BagOfWords(extractor_cfg, provide={"index": dummy_index})
 
-    benchmark = DummyBenchmark({"_fold": "s1", "rundocsonly": False})
-    collection = DummyCollection({"_name": "dummy"})
-
-    index_cfg = {"_name": "anserini", "indexstops": False, "stemmer": "porter"}
-    index = AnseriniIndex(index_cfg)
-    index.modules["collection"] = collection
-
-    tok_cfg = {"_name": "anserini", "keepstops": True, "stemmer": "none"}
-    tokenizer = AnseriniTokenizer(tok_cfg)
-
-    extractor.modules["index"] = index
-    extractor.modules["tokenizer"] = tokenizer
+    benchmark = DummyBenchmark()
 
     qids = list(benchmark.qrels.keys())  # ["301"]
     qid = qids[0]
@@ -411,14 +346,11 @@ def test_bagofwords_caching(dummy_index, monkeypatch):
 
     assert not extractor.is_state_cached(qids, docids)
 
-    extractor.create(qids, docids, benchmark.topics[benchmark.query_type])
+    extractor.preprocess(qids, docids, benchmark.topics[benchmark.query_type])
 
     assert extractor.is_state_cached(qids, docids)
 
-    new_extractor = EmbedText(extractor_cfg)
-
-    new_extractor.modules["index"] = index
-    new_extractor.modules["tokenizer"] = tokenizer
+    new_extractor = BagOfWords(extractor_cfg, provide={"index": dummy_index})
 
     assert new_extractor.is_state_cached(qids, docids)
     new_extractor._build_vocab(qids, docids, benchmark.topics[benchmark.query_type])
@@ -427,7 +359,7 @@ def test_bagofwords_caching(dummy_index, monkeypatch):
 nltk.download("stopwords")
 
 
-def test_deeptiles_extract_segment_long_text(tmpdir, monkeypatch):
+def test_deeptiles_extract_segment_long_text(tmpdir, monkeypatch, dummy_index):
     def fake_magnitude_embedding(*args, **kwargs):
         return Magnitude(None)
 
@@ -435,14 +367,14 @@ def test_deeptiles_extract_segment_long_text(tmpdir, monkeypatch):
     # nltk.TextTilingTokenizer only works with large blobs of text
     ttt = TextTilingTokenizer(k=6)
     extractor_config = {
-        "_name": "deeptiles",
+        "name": "deeptiles",
         "embeddings": "glove6b",
         "tilechannels": 3,
         "passagelen": 30,
         "slicelen": 20,
         "tfchannel": True,
     }
-    extractor = DeepTileExtractor(extractor_config)
+    extractor = DeepTileExtractor(extractor_config, provide={"index": dummy_index})
 
     # blob of text with Shakespeare and Shangri La. Should split into two topics
     s = (
@@ -466,15 +398,22 @@ def test_deeptiles_extract_segment_long_text(tmpdir, monkeypatch):
     ]
 
 
-def test_deeptiles_extract_segment_short_text(tmpdir, monkeypatch):
+def test_deeptiles_extract_segment_short_text(tmpdir, monkeypatch, dummy_index):
     def fake_magnitude_embedding(*args, **kwargs):
         return Magnitude(None)
 
     monkeypatch.setattr(DeepTileExtractor, "_get_pretrained_emb", fake_magnitude_embedding)
     # The text is too short for TextTilingTokenizer. Test if the fallback works
     ttt = TextTilingTokenizer(k=6)
-    pipeline_config = {"_name": "deeptiles", "passagelen": 30, "slicelen": 20, "tfchannel": True, "tilechannels": 3}
-    extractor = DeepTileExtractor(pipeline_config)
+    pipeline_config = {
+        "name": "deeptiles",
+        "passagelen": 30,
+        "slicelen": 20,
+        "tfchannel": True,
+        "tilechannels": 3,
+        "index": {"collection": {"name": "dummy"}},
+    }
+    extractor = DeepTileExtractor(pipeline_config, provide={"index": dummy_index})
     s = "But we in it shall be rememberèd We few, we happy few, we band of brothers"
     doc_toks = s.split(" ")
     segments = extractor.extract_segment(doc_toks, ttt)
@@ -496,9 +435,9 @@ def test_deeptiles_extract_segment_short_text(tmpdir, monkeypatch):
     ]
 
 
-def test_deeptiles_clean_segments(tmpdir):
-    pipeline_config = {"_name": "deeptiles", "passagelen": 30, "slicelen": 20, "tfchannel": True, "tilechannels": 3}
-    extractor = DeepTileExtractor(pipeline_config)
+def test_deeptiles_clean_segments(tmpdir, dummy_index):
+    pipeline_config = {"name": "deeptiles", "passagelen": 30, "slicelen": 20, "tfchannel": True, "tilechannels": 3}
+    extractor = DeepTileExtractor(pipeline_config, provide={"index": dummy_index})
     assert extractor.clean_segments(["hello world", "foo bar"], p_len=4) == [
         "hello world",
         "foo bar",
@@ -508,13 +447,13 @@ def test_deeptiles_clean_segments(tmpdir):
     assert extractor.clean_segments(["hello world", "foo bar", "alice", "bob"], p_len=3) == ["hello world", "foo bar", "alicebob"]
 
 
-def test_deeptiles_create_visualization_matrix(monkeypatch, tmpdir):
+def test_deeptiles_create_visualization_matrix(monkeypatch, tmpdir, dummy_index):
     def fake_magnitude_embedding(*args, **kwargs):
         return Magnitude(None)
 
     monkeypatch.setattr(DeepTileExtractor, "_get_pretrained_emb", fake_magnitude_embedding)
-    pipeline_config = {"_name": "deeptiles", "tilechannels": 3, "maxqlen": 5, "passagelen": 3, "slicelen": 20, "tfchannel": True}
-    extractor = DeepTileExtractor(pipeline_config)
+    pipeline_config = {"name": "deeptiles", "tilechannels": 3, "maxqlen": 5, "passagelen": 3, "slicelen": 20, "tfchannel": True}
+    extractor = DeepTileExtractor(pipeline_config, provide={"index": dummy_index})
     extractor.stoi = {"<pad>": 0, "hello": 1, "world": 2, "foo": 3, "bar": 4, "alice": 5, "bob": 6}
     extractor.idf = defaultdict(lambda: 0)
 
@@ -534,10 +473,8 @@ def test_deeptiles_create(monkeypatch, tmpdir, dummy_index):
 
     monkeypatch.setattr(DeepTileExtractor, "_get_pretrained_emb", fake_magnitude_embedding)
     benchmark = DummyBenchmark({})
-    tok_cfg = {"_name": "anserini", "keepstops": True, "stemmer": "none"}
-    tokenizer = AnseriniTokenizer(tok_cfg)
     extractor_config = {
-        "_name": "deeptiles",
+        "name": "deeptiles",
         "tilechannels": 3,
         "maxqlen": 5,
         "passagelen": 3,
@@ -546,10 +483,10 @@ def test_deeptiles_create(monkeypatch, tmpdir, dummy_index):
         "embeddings": "glove6b",
         "usecache": False,
     }
-    extractor = DeepTileExtractor(extractor_config)
-    extractor.modules["index"] = dummy_index
-    extractor.modules["tokenizer"] = tokenizer
-    extractor.create(["301"], ["LA010189-0001", "LA010189-0002"], benchmark.topics["title"])
+    extractor = DeepTileExtractor(extractor_config, provide={"index": dummy_index})
+
+    print("BT:", benchmark.topics["title"])
+    extractor.preprocess(["301"], ["LA010189-0001", "LA010189-0002"], benchmark.topics["title"])
     assert extractor.stoi == {
         "<pad>": 0,
         "dummy": 1,

@@ -1,7 +1,7 @@
 import tensorflow as tf
 from transformers import TFBertForSequenceClassification
+from profane import Dependency, ConfigOption
 
-from capreolus.registry import Dependency
 from capreolus.reranker import Reranker
 from capreolus.utils.loginit import get_logger
 
@@ -51,17 +51,15 @@ class TFVanillaBert_Class(tf.keras.Model):
         return tf.stack([posdoc_score, negdoc_score], axis=1)
 
 
+@Reranker.register
 class TFVanillaBERT(Reranker):
-    name = "TFVanillaBERT"
-    dependencies = {
-        "extractor": Dependency(module="extractor", name="berttext"),
-        "trainer": Dependency(module="trainer", name="tensorflow"),
-    }
+    module_name = "TFVanillaBERT"
+    dependencies = [
+        Dependency(key="extractor", module="extractor", name="berttext"),
+        Dependency(key="trainer", module="trainer", name="tensorflow"),
+    ]
+    config_spec = [ConfigOption("pretrained", "bert-base-uncased", "pretrained model to load")]
 
-    @staticmethod
-    def config():
-        pretrained = "bert-base-uncased"
-
-    def build(self):
-        self.model = TFVanillaBert_Class(self["extractor"], self.cfg)
+    def build_model(self):
+        self.model = TFVanillaBert_Class(self.extractor, self.config)
         return self.model

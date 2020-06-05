@@ -1,6 +1,7 @@
 import torch
 from torch import nn
 import matplotlib.pyplot as plt
+from profane import Dependency, ConfigOption
 
 from capreolus.reranker import Reranker
 from capreolus.reranker.common import create_emb_layer, SimilarityMatrix, RbfKernelBank
@@ -57,21 +58,22 @@ class KNRM_class(nn.Module):
         return scores
 
 
+@Reranker.register
 class KNRM(Reranker):
-    name = "KNRM"
-    citation = """Chenyan Xiong, Zhuyun Dai, Jamie Callan, Zhiyuan Liu, and Russell Power. 2017.
+    module_name = "KNRM"
+    description = """Chenyan Xiong, Zhuyun Dai, Jamie Callan, Zhiyuan Liu, and Russell Power. 2017.
                   End-to-End Neural Ad-hoc Ranking with Kernel Pooling. In SIGIR'17."""
 
-    @staticmethod
-    def config():
-        gradkernels = True  # backprop through mus and sigmas
-        scoretanh = False  # use a tanh on the prediction as in paper (True) or do not use a    nonlinearity (False)
-        singlefc = True  # use single fully connected layer as in paper (True) or 2 fully connected layers (False)
-        finetune = False  # Fine tune the embedding
+    config_spec = [
+        ConfigOption("gradkernels", True, "backprop through mus and sigmas"),
+        ConfigOption("scoretanh", False, "use a tanh on the prediction as in paper (True) or do not use a nonlinearity (False)"),
+        ConfigOption("singlefc", True, "use single fully connected layer as in paper (True) or 2 fully connected layers (False)"),
+        ConfigOption("finetune", False, "fine tune the embedding layer"),  # TODO check save when True
+    ]
 
     def add_summary(self, summary_writer, niter):
         super(KNRM, self).add_summary(summary_writer, niter)
-        if self.cfg["singlefc"]:
+        if self.config["singlefc"]:
             fig = plt.figure()
             ax = fig.add_subplot(1, 1, 1)
             ax.matshow(self.model.combine[0].weight.data.cpu())
@@ -79,8 +81,9 @@ class KNRM(Reranker):
         else:
             pass
 
-    def build(self):
-        self.model = KNRM_class(self["extractor"], self.cfg)
+    def build_model(self):
+        if not hasattr(self, "model"):
+            self.model = KNRM_class(self.extractor, self.config)
 
         return self.model
 
