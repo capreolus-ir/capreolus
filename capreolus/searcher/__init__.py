@@ -378,16 +378,10 @@ class AxiomaticSemanticMatching(Searcher, AnseriniSearcherMixIn):
 
     @staticmethod
     def config():
-        deterministic = False
-        seed = 42
-        docids = None  # sorted docids file that for deterministic reranking
         r = 20
         n = 30
         beta = 0.4
         top = 20
-        indexpath = None  # path to the external index for generating the reranking doucments pool
-        querymap = None  # query id - query mapping file
-        outputQuery = False
         field = "title"
         hits = 1000
         k1 = 0.9
@@ -396,14 +390,10 @@ class AxiomaticSemanticMatching(Searcher, AnseriniSearcherMixIn):
     def query_from_file(self, topicsfn, output_path):
         hits = str(self.cfg["hits"])
         conditionals = ""
-        conditionals = conditionals + " -axiom.deterministic" if self.cfg["deterministic"] else conditionals
-        conditionals = conditionals + " -axiom.docids" if self.cfg["deterministic"] else conditionals
-        conditionals = conditionals + " axiom.outputQuery" if self.cfg["outputQuery"] else conditionals
 
-        anserini_param_str = "-axiom -axiom.r {0} -axiom.n {1} -axiom.beta {2} -axiom.top {3} -axiom.index {4} -qid_queries {5}".format(
-            self.cfg["r"], self.cfg["n"], self.cfg["beta"], self.cfg["top"], self.cfg["indexpath"], self.cfg["querymap"]
+        anserini_param_str = "-axiom -axiom.deterministic -axiom.r {0} -axiom.n {1} -axiom.beta {2} -axiom.top {3}".format(
+            self.cfg["r"], self.cfg["n"], self.cfg["beta"], self.cfg["top"]
         )
-        anserini_param_str += conditionals
         anserini_param_str += " -bm25 -bm25.k1 {0} -bm25.b {1} -hits {2}".format(self.cfg["k1"], self.cfg["b"], self.cfg["hits"])
         self._anserini_query_from_file(topicsfn, anserini_param_str, output_path, self.cfg["field"])
 
