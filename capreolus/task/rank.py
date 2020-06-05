@@ -1,6 +1,7 @@
 import os
 from capreolus.task import Task
 from capreolus.registry import RESULTS_BASE_PATH
+from capreolus.utils.trec import load_qrels
 
 from capreolus import evaluator
 
@@ -17,18 +18,29 @@ def train(config, modules):
     topics_fn = benchmark.topic_file
 
     searcher["index"].create_index()
-    search_results_folder = searcher.query_from_file(topics_fn, os.path.join(searcher.get_cache_path(), benchmark.name))
-    print("Search results are at: " + search_results_folder)
+
+    benchmark_dirname = benchmark.name + "_".join([f"{k}={v}" for k, v in benchmark.cfg.items() if k != "_name"])
+    output_dir = searcher.get_cache_path() / benchmark_dirname
+
+    if config["filter"]:
+        qrels = load_qrels(benchmark.qrel_ignore)
+        docs_to_remove = {q: list(d.keys()) for q, d in qrels.items()}
+        search_results_folder = searcher.query_from_file(topics_fn, output_dir, docs_to_remove)
+    else:
+        search_results_folder = searcher.query_from_file(topics_fn, output_dir)
+
+    print(f"Search results are at: {search_results_folder}")
 
 
 def evaluate(config, modules):
     # output_path = _pipeline_path(config, modules)
     searcher = modules["searcher"]
     benchmark = modules["benchmark"]
+    benchmark_dirname = benchmark.name + "_".join([f"{k}={v}" for k, v in benchmark.cfg.items() if k != "_name"])
 
     metric = config["optimize"]
-    all_metric = ["mrr", "ndcg_cut_20", "ndcg_cut_10", "map", "P_20", "P_10", "set_recall"]
-    output_dir = searcher.get_cache_path() / benchmark.name
+    all_metric = ["mrr", "P_1", "ndcg_cut_20", "ndcg_cut_10", "map", "P_20", "P_10", "set_recall"]
+    output_dir = searcher.get_cache_path() / benchmark_dirname
     best_results = evaluator.search_best_run(output_dir, benchmark, primary_metric=metric, metrics=all_metric)
     pathes = [f"\t{s}: {path}" for s, path in best_results["path"].items()]
     print("path for each split: \n", "\n".join(pathes))
@@ -58,6 +70,7 @@ class RankTask(Task):
         seed = 123_456
         # eval_metrics = {"map", "ndcg_cut_20", "ndcg_cut_10", "P_20"}
         optimize = "map"  # metric to maximize on the dev set
+        filter = False
 
     name = "rank"
     module_order = ["collection", "searcher", "benchmark"]
