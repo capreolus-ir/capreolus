@@ -8,6 +8,23 @@ from capreolus.utils.loginit import get_logger
 
 logger = get_logger(__name__)
 
+DEFAULT_METRICS = [
+    "P_1",
+    "P_5",
+    "P_10",
+    "P_20",
+    "judged_10",
+    "judged_20",
+    "judged_200",
+    "map",
+    "ndcg_cut_5",
+    "ndcg_cut_10",
+    "ndcg_cut_20",
+    "recall_100",
+    "recall_1000",
+    "recip_rank",
+]
+
 
 def judged(qrels, runs, n):
     scores = []

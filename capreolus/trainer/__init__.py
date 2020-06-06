@@ -63,6 +63,7 @@ class PytorchTrainer(Trainer):
         ConfigOption("validatefreq", 1),
         ConfigOption("boardname", "default"),
     ]
+    config_keys_not_in_path = ["fastforward"]
 
     def build(self):
         # sanity checks
@@ -284,9 +285,11 @@ class PytorchTrainer(Trainer):
             summary_writer.add_scalar("training_loss", iter_loss_tensor.item(), niter)
             reranker.add_summary(summary_writer, niter)
             summary_writer.flush()
-        print("training loss: ", train_loss)
+        logger.info("training loss: %s", train_loss)
         logger.info("Training took {}".format(time.time() - train_start_time))
         summary_writer.close()
+
+        # TODO should we write a /done so that training can be skipped if possible when fastforward=False? or in Task?
 
     def load_best_model(self, reranker, train_output_path):
         self.optimizer = torch.optim.Adam(

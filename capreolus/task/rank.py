@@ -26,7 +26,8 @@ class RankTask(Task):
         topics_fn = self.benchmark.topic_file
         output_dir = self.get_results_path()
 
-        self.searcher.index.create_index()
+        if hasattr(self.searcher, "index"):
+            self.searcher.index.create_index()
 
         if self.config["filter"]:
             qrels = load_qrels(self.benchmark.qrel_ignore)
@@ -39,30 +40,14 @@ class RankTask(Task):
         return search_results_folder
 
     def evaluate(self):
-        all_metric = [
-            "P_1",
-            "P_5",
-            "P_10",
-            "P_20",
-            "judged_10",
-            "judged_20",
-            "judged_200",
-            "map",
-            "ndcg_cut_5",
-            "ndcg_cut_10",
-            "ndcg_cut_20",
-            "recall_100",
-            "recall_1000",
-            "recip_rank",
-        ]
         best_results = evaluator.search_best_run(
-            self.get_results_path(), self.benchmark, primary_metric=self.config["optimize"], metrics=all_metric
+            self.get_results_path(), self.benchmark, primary_metric=self.config["optimize"], metrics=evaluator.DEFAULT_METRICS
         )
 
         for fold, path in best_results["path"].items():
-            logger.info("fold=%s best run: %s", fold, path)
+            logger.info("rank: fold=%s best run: %s", fold, path)
 
-        logger.info("cross-validated results when optimizing for '%s':", self.config["optimize"])
+        logger.info("rank: cross-validated results when optimizing for '%s':", self.config["optimize"])
         for metric, score in sorted(best_results["score"].items()):
             logger.info("%15s: %0.4f", metric, score)
 

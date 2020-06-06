@@ -326,7 +326,7 @@ def test_POSITDRMM(dummy_index, tmpdir, tmpdir_as_cache, monkeypatch):
 
     extractor.preprocess(["301"], ["LA010189-0001", "LA010189-0002"], benchmark.topics[benchmark.query_type])
     reranker.build_model()
-    reranker.bm25_scores = {"301": {"LA010189-0001": 2, "LA010189-0002": 1}}
+    reranker.searcher_scores = {"301": {"LA010189-0001": 2, "LA010189-0002": 1}}
     train_run = {"301": ["LA010189-0001", "LA010189-0002"]}
     train_dataset = TrainDataset(qid_docid_to_rank=train_run, qrels=benchmark.qrels, extractor=extractor)
     dev_dataset = PredDataset(qid_docid_to_rank=train_run, extractor=extractor)
@@ -360,7 +360,7 @@ def test_CDSSM(dummy_index, tmpdir, tmpdir_as_cache, monkeypatch):
 
     extractor.preprocess(["301"], ["LA010189-0001", "LA010189-0002"], benchmark.topics[benchmark.query_type])
     reranker.build_model()
-    reranker.bm25_scores = {"301": {"LA010189-0001": 2, "LA010189-0002": 1}}
+    reranker.searcher_scores = {"301": {"LA010189-0001": 2, "LA010189-0002": 1}}
     train_run = {"301": ["LA010189-0001", "LA010189-0002"]}
     train_dataset = TrainDataset(qid_docid_to_rank=train_run, qrels=benchmark.qrels, extractor=extractor)
     dev_dataset = PredDataset(qid_docid_to_rank=train_run, extractor=extractor)
