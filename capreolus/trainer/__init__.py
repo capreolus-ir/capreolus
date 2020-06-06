@@ -33,6 +33,7 @@ RESULTS_BASE_PATH = constants["RESULTS_BASE_PATH"]
 
 class Trainer(ModuleBase):
     module_type = "trainer"
+    requires_random_seed = True
 
     def get_paths_for_early_stopping(self, train_output_path, dev_output_path):
         os.makedirs(dev_output_path, exist_ok=True)

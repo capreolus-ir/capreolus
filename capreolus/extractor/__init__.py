@@ -75,6 +75,7 @@ class Extractor(ModuleBase):
 @Extractor.register
 class EmbedText(Extractor):
     module_name = "embedtext"
+    requires_random_seed = True
     dependencies = [
         Dependency(
             key="index", module="index", name="anserini", default_config_overrides={"indexstops": True, "stemmer": "none"}

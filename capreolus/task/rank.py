@@ -11,7 +11,8 @@ logger = get_logger(__name__)  # pylint: disable=invalid-name
 @Task.register
 class RankTask(Task):
     module_name = "rank"
-    config_spec = [ConfigOption("optimize", "map", "metric to maximzie on the dev set"), ConfigOption("filter", False)]
+    requires_random_seed = False
+    config_spec = [ConfigOption("optimize", "map", "metric to maximize on the dev set"), ConfigOption("filter", False)]
     config_keys_not_in_path = ["optimize"]  # only used for choosing best result; does not affect search()
     dependencies = [
         Dependency(key="benchmark", module="benchmark", name="wsdm20demo", provide_this=True, provide_children=["collection"]),
