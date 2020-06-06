@@ -1,3 +1,4 @@
+import logging
 import multiprocessing
 import os
 import sys
@@ -76,7 +77,7 @@ if __name__ == "__main__":
             print("error: log level must be one of:", ", ".join(valid_loglevels))
             sys.exit(1)
 
-        os.environ["CAPREOLUS_LOGGING"] = loglevel
+        logging.getLogger("capreolus").setLevel(loglevel)
 
     # prepare task even if we're queueing, so that we validate the config
     config = config_list_to_dict(arguments["CONFIG"])

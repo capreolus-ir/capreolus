@@ -79,7 +79,8 @@ def get_logger(name=None):
         sh.addFilter(RepeatFilter(logger))
         logger.addHandler(sh)
 
-    logger.setLevel(GLOBAL_LOGGING_CONF["level"])
+        logger.setLevel(GLOBAL_LOGGING_CONF["level"])
+
     if name is None:
         name = "capreolus"
     if not name.startswith("capreolus"):
