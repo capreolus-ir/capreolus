@@ -1,5 +1,6 @@
 from profane import import_all_modules
 
+
 # import_all_modules(__file__, __package__)
 
 import os
@@ -254,6 +255,7 @@ class BM25RM3(Searcher, AnseriniSearcherMixIn):
         ConfigOption("b", list2str([0.60, 0.7])),
         ConfigOption("fbTerms", list2str([65, 70, 95, 100])),
         ConfigOption("fbDocs", list2str([5, 10, 15])),
+        ConfigOption("originalQueryWeight", list2str([0.5])),
         ConfigOption("hits", 1000, "number of results to return"),
         ConfigOption("fields", "title"),
     ]
