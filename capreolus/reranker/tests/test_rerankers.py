@@ -7,22 +7,21 @@ from pymagnitude import Magnitude
 
 from capreolus.benchmark import DummyBenchmark
 from capreolus.extractor import EmbedText
-from capreolus.reranker.PACRR import PACRR
-from capreolus.sampler import TrainDataset, PredDataset
-from capreolus.tests.common_fixtures import tmpdir_as_cache, dummy_index
-from capreolus.tokenizer import AnseriniTokenizer
-from capreolus.trainer import PytorchTrainer
 from capreolus.extractor.bagofwords import BagOfWords
-from capreolus.reranker.DSSM import DSSM
-from capreolus.reranker.TK import TK
-from capreolus.reranker.KNRM import KNRM
-from capreolus.reranker.TFKNRM import TFKNRM
-from capreolus.trainer import TensorFlowTrainer
 from capreolus.extractor.deeptileextractor import DeepTileExtractor
-from capreolus.reranker.DeepTileBar import DeepTileBar
-from capreolus.reranker.HINT import HINT
-from capreolus.reranker.POSITDRMM import POSITDRMM
 from capreolus.reranker.CDSSM import CDSSM
+from capreolus.reranker.DeepTileBar import DeepTileBar
+from capreolus.reranker.DSSM import DSSM
+from capreolus.reranker.HINT import HINT
+from capreolus.reranker.KNRM import KNRM
+from capreolus.reranker.PACRR import PACRR
+from capreolus.reranker.POSITDRMM import POSITDRMM
+from capreolus.reranker.TFKNRM import TFKNRM
+from capreolus.reranker.TK import TK
+from capreolus.sampler import PredDataset, TrainDataset
+from capreolus.tests.common_fixtures import dummy_index, tmpdir_as_cache
+from capreolus.tokenizer import AnseriniTokenizer
+from capreolus.trainer import PytorchTrainer, TensorFlowTrainer
 
 
 def test_knrm_pytorch(dummy_index, tmpdir, tmpdir_as_cache, monkeypatch):

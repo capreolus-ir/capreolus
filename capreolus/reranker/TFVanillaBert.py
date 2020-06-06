@@ -1,6 +1,6 @@
 import tensorflow as tf
+from profane import ConfigOption, Dependency
 from transformers import TFBertForSequenceClassification
-from profane import Dependency, ConfigOption
 
 from capreolus.reranker import Reranker
 from capreolus.utils.loginit import get_logger

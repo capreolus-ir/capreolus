@@ -1,9 +1,8 @@
+import logging
+import logging.handlers
 import os
 
 import colorlog
-import logging
-import logging.handlers
-
 
 GLOBAL_LOGGING_CONF = {"level": os.environ.get("CAPREOLUS_LOGGING", logging.INFO)}
 

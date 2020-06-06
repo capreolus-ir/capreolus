@@ -1,7 +1,7 @@
 import os
 import pickle
 
-from profane import ModuleBase, Dependency, ConfigOption
+from profane import ConfigOption, Dependency, ModuleBase
 
 
 class Reranker(ModuleBase):

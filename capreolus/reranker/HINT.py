@@ -1,10 +1,11 @@
-from profane import Dependency, ConfigOption
+import math
 
 import torch
-from torch import nn
-import math
 import torch.nn.functional as F
+from profane import ConfigOption, Dependency
+from torch import nn
 from torch.autograd import Variable
+
 from capreolus.reranker import Reranker
 from capreolus.reranker.common import create_emb_layer
 

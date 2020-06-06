@@ -1,16 +1,16 @@
 import hashlib
 import logging
 import os
-import requests
 import sys
 from glob import glob
 
-import spacy
-import scispacy
-import numpy as np
-from tqdm import tqdm
-from lxml import etree
 import matplotlib.pyplot as plt
+import numpy as np
+import requests
+import scispacy
+import spacy
+from lxml import etree
+from tqdm import tqdm
 
 from capreolus.utils.loginit import get_logger
 

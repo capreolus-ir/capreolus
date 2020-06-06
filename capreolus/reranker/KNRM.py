@@ -1,10 +1,10 @@
-import torch
-from torch import nn
 import matplotlib.pyplot as plt
-from profane import Dependency, ConfigOption
+import torch
+from profane import ConfigOption, Dependency
+from torch import nn
 
 from capreolus.reranker import Reranker
-from capreolus.reranker.common import create_emb_layer, SimilarityMatrix, RbfKernelBank
+from capreolus.reranker.common import RbfKernelBank, SimilarityMatrix, create_emb_layer
 from capreolus.utils.loginit import get_logger
 
 logger = get_logger(__name__)  # pylint: disable=invalid-name

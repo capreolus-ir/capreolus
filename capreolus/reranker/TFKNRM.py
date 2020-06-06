@@ -1,8 +1,8 @@
 import tensorflow as tf
-from profane import Dependency, ConfigOption
+from profane import ConfigOption, Dependency
 
-from capreolus.reranker.common import RbfKernelBankTF, similarity_matrix_tf
 from capreolus.reranker import Reranker
+from capreolus.reranker.common import RbfKernelBankTF, similarity_matrix_tf
 
 
 class TFKNRM_Class(tf.keras.Model):

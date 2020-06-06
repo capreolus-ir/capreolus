@@ -1,12 +1,11 @@
 import torch
+from profane import ConfigOption, Dependency
 from torch import nn
 from torch.nn import functional as F
-from profane import Dependency, ConfigOption
 
-
-# TODO add shuffle, cascade, disambig?
-from capreolus.reranker.common import create_emb_layer, SimilarityMatrix
 from capreolus.reranker import Reranker
+# TODO add shuffle, cascade, disambig?
+from capreolus.reranker.common import SimilarityMatrix, create_emb_layer
 
 
 class PACRR_class(nn.Module):
