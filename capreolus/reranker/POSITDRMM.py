@@ -1,12 +1,12 @@
 import torch
-from torch import nn
 import torch.nn.functional as F
+from profane import ConfigOption, Dependency
+from torch import nn
 from torch.autograd import Variable
-from profane import Dependency, ConfigOption
 
 from capreolus.reranker import Reranker
-from capreolus.utils.loginit import get_logger
 from capreolus.reranker.common import create_emb_layer
+from capreolus.utils.loginit import get_logger
 
 logger = get_logger(__name__)  # pylint: disable=invalid-name
 

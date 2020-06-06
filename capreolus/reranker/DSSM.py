@@ -1,10 +1,8 @@
-from profane import Dependency, ConfigOption
-
-from capreolus.extractor.bagofwords import BagOfWords
-
 import torch
 import torch.nn as nn
+from profane import ConfigOption, Dependency
 
+from capreolus.extractor.bagofwords import BagOfWords
 from capreolus.reranker import Reranker
 from capreolus.utils.loginit import get_logger
 
