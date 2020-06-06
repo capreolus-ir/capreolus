@@ -41,6 +41,7 @@ setuptools.setup(
         "PyYAML==5.1.1",
         "profane",
         "SQLAlchemy==1.3.5",
+        "sqlalchemy-utils",
         "psycopg2-binary==2.8.3",
         "matplotlib==3.1.1",
         "pytorch-transformers==1.1.0",
