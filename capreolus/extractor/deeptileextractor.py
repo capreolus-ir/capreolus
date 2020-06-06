@@ -36,6 +36,7 @@ class DeepTileExtractor(Extractor):
         "fasttext": "fasttext/light/wiki-news-300d-1M-subword",
     }
 
+    requires_random_seed = True
     dependencies = [
         Dependency(
             key="index", module="index", name="anserini", default_config_overrides={"indexstops": True, "stemmer": "none"}
