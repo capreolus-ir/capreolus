@@ -369,7 +369,7 @@ class TrecCheckpointCallback(tf.keras.callbacks.Callback):
     Also saves the best model to disk
     """
 
-    def __init__(self, qrels, dev_data, dev_records, output_path, validate_freq=1, *args, **kwargs):
+    def __init__(self, qrels, dev_data, dev_records, output_path, tb_logdir, validate_freq=1, *args, **kwargs):
         super(TrecCheckpointCallback, self).__init__(*args, **kwargs)
         """
         qrels - a qrels dict
@@ -383,6 +383,8 @@ class TrecCheckpointCallback(tf.keras.callbacks.Callback):
         self.output_path = output_path
         self.iter_start_time = time.time()
         self.validate_freq = validate_freq
+        self.file_writer = tf.summary.create_file_writer(tb_logdir)
+        self.file_writer.set_as_default()
 
     def save_model(self):
         self.model.save_weights("{0}/dev.best".format(self.output_path))
@@ -392,6 +394,9 @@ class TrecCheckpointCallback(tf.keras.callbacks.Callback):
 
     def on_epoch_end(self, epoch, logs=None):
         logger.debug("Epoch {} took {}".format(epoch, time.time() - self.iter_start_time))
+        step_time = time.time() - self.iter_start_time
+        tf.summary.scalar('step time', data=step_time, step=step_time)
+
         if (epoch + 1) % self.validate_freq == 0:
             predictions = self.model.predict(self.dev_records, verbose=1, workers=8, use_multiprocessing=True)
             trec_preds = self.get_preds_in_trec_format(predictions, self.dev_data)
@@ -506,9 +511,10 @@ class TensorFlowTrainer(Trainer):
         with strategy_scope:
             train_records = self.get_tf_train_records(reranker, train_dataset)
             dev_records = self.get_tf_dev_records(reranker, dev_data)
-            trec_callback = TrecCheckpointCallback(qrels, dev_data, dev_records, train_output_path, self.config["validatefreq"])
+            tb_logdir = "{0}/capreolus_tensorboard/{1}".format(self.cfg["storage"], self.cfg["boardname"])
+            trec_callback = TrecCheckpointCallback(qrels, dev_data, dev_records, train_output_path, tb_logdir, validate_freq=self.config["validatefreq"])
             tensorboard_callback = tf.keras.callbacks.TensorBoard(
-                log_dir="{0}/capreolus_tensorboard/{1}".format(self.config["storage"], self.config["boardname"])
+               tb_logdir
             )
             reranker.build_model()  # TODO needed here?
 

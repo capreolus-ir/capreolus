@@ -47,6 +47,7 @@ def _eval_runs(runs, qrels, metrics, dev_qids):
         metrics.remove(f"judged_{n}")
 
     dev_qrels = {qid: labels for qid, labels in qrels.items() if qid in dev_qids}
+    metrics = {'P', 'ndcg', 'map'}
     evaluator = pytrec_eval.RelevanceEvaluator(dev_qrels, metrics)
 
     scores = [[metrics_dict.get(m, -1) for m in metrics] for metrics_dict in evaluator.evaluate(runs).values()]
