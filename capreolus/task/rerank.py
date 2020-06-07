@@ -69,6 +69,17 @@ class RerankTask(Task):
             self.config["optimize"],
         )
 
+        self.reranker.trainer.load_best_model(self.reranker, train_output_path)
+        dev_output_path = train_output_path / "pred" / "dev" / "best"
+        dev_preds = self.reranker.trainer.predict(self.reranker, dev_dataset, dev_output_path)
+
+        test_run = {qid: docs for qid, docs in best_search_run.items() if qid in self.benchmark.folds[fold]["predict"]["test"]}
+        test_dataset = PredDataset(qid_docid_to_rank=test_run, extractor=self.reranker.extractor)
+        test_output_path = train_output_path / "pred" / "test" / "best"
+        test_preds = self.reranker.trainer.predict(self.reranker, test_dataset, test_output_path)
+
+        return {"dev": dev_preds, "test": test_preds}
+
     def evaluate(self):
         fold = self.config["fold"]
         train_output_path = self.get_results_path()
