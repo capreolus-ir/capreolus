@@ -63,7 +63,7 @@ class PytorchTrainer(Trainer):
         ConfigOption("validatefreq", 1),
         ConfigOption("boardname", "default"),
     ]
-    config_keys_not_in_path = ["fastforward"]
+    config_keys_not_in_path = ["fastforward", "boardname"]
 
     def build(self):
         # sanity checks
@@ -81,6 +81,9 @@ class PytorchTrainer(Trainer):
 
         if self.config["lr"] <= 0:
             raise ValueError("lr must be > 0")
+
+        torch.manual_seed(self.config["seed"])
+        torch.cuda.manual_seed_all(self.config["seed"])
 
     def single_train_iteration(self, reranker, train_dataloader):
         """Train model for one iteration using instances from train_dataloader.
@@ -435,8 +438,11 @@ class TensorFlowTrainer(Trainer):
         ConfigOption("tpuzone", None),
         ConfigOption("storage", None),
     ]
+    config_keys_not_in_path = ["fastforward", "boardname", "usecache", "tpuname", "tpuzone", "storage"]
 
     def build(self):
+        tf.random.set_seed(self.config["seed"])
+
         # Use TPU if available, otherwise resort to GPU/CPU
         try:
             self.tpu = tf.distribute.cluster_resolver.TPUClusterResolver(tpu=self.config["tpuname"], zone=self.config["tpuzone"])
@@ -642,7 +648,8 @@ class TensorFlowTrainer(Trainer):
             return self.load_cached_tf_records(reranker, dataset, 1)
         else:
             tf_record_filenames = self.convert_to_tf_dev_record(reranker, dataset)
-            return self.load_tf_records_from_file(reranker, tf_record_filenames, self.config["batch"])
+            # TODO use actual batch size here. see issue #52
+            return self.load_tf_records_from_file(reranker, tf_record_filenames, 1)  # self.config["batch"])
 
     def get_tf_train_records(self, reranker, dataset):
         """
