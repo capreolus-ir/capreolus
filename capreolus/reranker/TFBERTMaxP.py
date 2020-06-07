@@ -1,6 +1,5 @@
 import tensorflow as tf
 from transformers import TFBertForSequenceClassification
-from keras_lr_multiplier import LRMultiplier
 
 from capreolus.registry import Dependency
 from capreolus.reranker import Reranker
