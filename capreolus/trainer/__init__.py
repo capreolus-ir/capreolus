@@ -469,7 +469,7 @@ class TensorFlowTrainer(Trainer):
         loss = "pairwise_hinge_loss"
 
     def get_optimizer(self, reranker):
-        adam = tf.keras.optimizers.Adam(learning_rate=self.cfg["lr"])
+        adam = tf.keras.optimizers.Adam(learning_rate=self.cfg["lr"], epsilon=1e-6)
 
         return reranker.modify_optimizer(adam)
 
