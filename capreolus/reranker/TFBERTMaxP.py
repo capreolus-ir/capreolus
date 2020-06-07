@@ -16,7 +16,7 @@ class TFBERTMaxP_Class(tf.keras.Model):
         self.extractor = extractor
         bert_config = BertConfig(config["pretrained"])
         bert_config.hidden_dropout_prob = config["dropout"]
-        self.bert = TFBertForSequenceClassification.from_pretrained(bert_config)
+        self.bert = TFBertForSequenceClassification.from_config(bert_config)
         self.config = config
         self.aggregate_fn = self.get_aggregate_fn()
 
