@@ -2,7 +2,6 @@ import tensorflow as tf
 import tensorflow.keras.backend as K
 import torch
 from tensorflow.keras.layers import Layer
-from tensorflow_core.python import name_scope
 
 _hinge_loss = torch.nn.MarginRankingLoss(margin=1, reduction="mean")
 

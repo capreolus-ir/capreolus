@@ -68,7 +68,7 @@ setuptools.setup(
         "keras",
         "google-api-python-client",
         "oauth2client",
-        "tensorflow==2.1",
+        "tensorflow==2.2",
         "transformers",
         "tensorflow-ranking",
         "Pillow",
