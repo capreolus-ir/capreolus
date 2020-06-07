@@ -121,9 +121,6 @@ class TFBERTMaxP(Reranker):
         stride = 20
         mode = "maxp"
 
-    def modify_optimizer(self, optimizer):
-        return LRMultiplier(optimizer, {'bert': 0.02})
-
     def build(self):
         self.model = TFBERTMaxP_Class(self["extractor"], self.cfg)
         return self.model
