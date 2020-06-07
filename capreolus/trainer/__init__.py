@@ -511,7 +511,7 @@ class TensorFlowTrainer(Trainer):
         with strategy_scope:
             train_records = self.get_tf_train_records(reranker, train_dataset)
             dev_records = self.get_tf_dev_records(reranker, dev_data)
-            tb_logdir = "{0}/capreolus_tensorboard/{1}".format(self.cfg["storage"], self.cfg["boardname"])
+            tb_logdir = "{0}/capreolus_tensorboard/{1}".format(self.config["storage"], self.config["boardname"])
             trec_callback = TrecCheckpointCallback(qrels, dev_data, dev_records, train_output_path, tb_logdir, validate_freq=self.config["validatefreq"])
             tensorboard_callback = tf.keras.callbacks.TensorBoard(
                tb_logdir
