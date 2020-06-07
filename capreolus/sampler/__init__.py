@@ -21,13 +21,12 @@ class TrainDataset(torch.utils.data.IterableDataset):
 
     def __init__(self, qid_docid_to_rank, qrels, extractor):
         self.extractor = extractor
-        self.iterations = 0  # TODO remove
 
         # remove qids from qid_docid_to_rank that do not have relevance labels in the qrels
         qid_docid_to_rank = qid_docid_to_rank.copy()
         for qid in list(qid_docid_to_rank.keys()):
             if qid not in qrels:
-                logger.warning("skipping qid=%s that was missing from the qrels", qid)
+                logger.warning("skipping training qid=%s that was missing from the qrels", qid)
                 del qid_docid_to_rank[qid]
 
         self.qid_docid_to_rank = qid_docid_to_rank
@@ -35,6 +34,7 @@ class TrainDataset(torch.utils.data.IterableDataset):
             qid: [docid for docid in docids if qrels[qid].get(docid, 0) > 0] for qid, docids in qid_docid_to_rank.items()
         }
 
+        # TODO option to include only negdocs in a top k
         self.qid_to_negdocs = {
             qid: [docid for docid in docids if qrels[qid].get(docid, 0) <= 0] for qid, docids in qid_docid_to_rank.items()
         }
@@ -46,7 +46,7 @@ class TrainDataset(torch.utils.data.IterableDataset):
             negdocs = len(self.qid_to_negdocs[qid])
             total_samples += posdocs * negdocs
             if posdocs == 0 or negdocs == 0:
-                logger.warning("removing training qid=%s with %s positive docs and %s negative docs", qid, posdocs, negdocs)
+                logger.debug("removing training qid=%s with %s positive docs and %s negative docs", qid, posdocs, negdocs)
                 del self.qid_to_reldocs[qid]
                 del self.qid_to_negdocs[qid]
 
