@@ -36,9 +36,6 @@ class RerankTask(Task):
         self.evaluate()
 
     def train(self):
-        torch.manual_seed(self.config["seed"])  # TODO move
-        torch.cuda.manual_seed_all(self.config["seed"])
-
         fold = self.config["fold"]
         train_output_path = self.get_results_path()
         dev_output_path = train_output_path / "pred" / "dev"
