@@ -1,4 +1,5 @@
 import os
+from collections import defaultdict
 
 import numpy as np
 import pytrec_eval
@@ -47,11 +48,22 @@ def _eval_runs(runs, qrels, metrics, dev_qids, relevance_level):
         metrics.remove(f"judged_{n}")
 
     dev_qrels = {qid: labels for qid, labels in qrels.items() if qid in dev_qids}
-    evaluator = pytrec_eval.RelevanceEvaluator(dev_qrels, metrics, relevance_level=relevance_level)
 
-    scores = [[metrics_dict.get(m, -1) for m in metrics] for metrics_dict in evaluator.evaluate(runs).values()]
-    scores = np.array(scores).mean(axis=0).tolist()
-    scores = dict(zip(metrics, scores))
+    if isinstance(relevance_level, int) or "+" not in relevance_level:
+        metrics2rel = [[",".join(metrics), relevance_level]]
+    else:
+        metrics2rel = [mr.split("=") for mr in relevance_level.split("+")]  # ('m1,m2,m3', relevance_level)
+
+    scores = {}
+    for parsed_metrics, relevance_level in metrics2rel:
+        parsed_metrics = [m for m in parsed_metrics.strip(",").split(",") if m in metrics]
+        if not parsed_metrics:
+            continue
+
+        evaluator = pytrec_eval.RelevanceEvaluator(dev_qrels, parsed_metrics, relevance_level=int(relevance_level))
+        scores_list = [[metrics_dict.get(m, -1) for m in parsed_metrics] for metrics_dict in evaluator.evaluate(runs).values()]
+        scores_list = np.array(scores_list).mean(axis=0).tolist()
+        scores.update(dict(zip(parsed_metrics, scores_list)))
 
     for n in calc_judged:
         scores[f"judged_{n}"] = judged(qrels, runs, n)
@@ -116,12 +128,6 @@ def search_best_run(runfile_dir, benchmark, primary_metric, metrics=None, folds=
         for f in os.listdir(runfile_dir)
         if (f != "done" and not os.path.isdir(os.path.join(runfile_dir, f)))
     ]
-
-    if len(runfiles) == 1:
-        return {
-            "score": eval_runfile(runfiles[0], benchmark.qrels, metrics, benchmark.relevance_level),
-            "path": {s: runfiles[0] for s in folds},
-        }
 
     best_scores = {s: {primary_metric: 0, "path": None} for s in folds}
     for runfile in runfiles:

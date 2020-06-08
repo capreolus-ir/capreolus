@@ -33,6 +33,7 @@ class Benchmark(ModuleBase):
     # documents with a relevance label >= relevance_level will be considered relevant
     # corresponds to trec_eval's --level_for_rel (and passed to pytrec_eval as relevance_level)
     relevance_level = 1
+    train_relevance_level = 1
 
     @property
     def qrels(self):
@@ -91,7 +92,8 @@ class ANTIQUE(Benchmark):
     topic_file = PACKAGE_PATH / "data" / "topics.antique.txt"
     fold_file = PACKAGE_PATH / "data" / "antique.json"
     query_type = "title"
-    relevance_level = 2
+    relevance_level = "map,P_1,P_5,P_10,P_20=2+ndcg_cut_5,ndcg_cut_10,ndcg_cut_20=1"  # 2
+    train_relevance_level = 2
 
 
 @Benchmark.register
