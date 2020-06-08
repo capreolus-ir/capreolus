@@ -19,8 +19,12 @@ class RankTask(Task):
         Dependency(key="searcher", module="searcher", name="BM25"),
     ]
 
-    commands = ["run", "evaluate"] + Task.help_commands
+    commands = ["run", "evaluate", "searcheval"] + Task.help_commands
     default_command = "describe"
+
+    def searcheval(self):
+        self.search()
+        self.evaluate()
 
     def search(self):
         topics_fn = self.benchmark.topic_file
