@@ -383,8 +383,7 @@ class TrecCheckpointCallback(tf.keras.callbacks.Callback):
         self.output_path = output_path
         self.iter_start_time = time.time()
         self.validate_freq = validate_freq
-        self.file_writer = tf.summary.create_file_writer(tb_logdir)
-        self.file_writer.set_as_default()
+        self.tb_logdir = tb_logdir
 
     def save_model(self):
         self.model.save_weights("{0}/dev.best".format(self.output_path))
@@ -395,6 +394,8 @@ class TrecCheckpointCallback(tf.keras.callbacks.Callback):
     def on_epoch_end(self, epoch, logs=None):
         logger.debug("Epoch {} took {}".format(epoch, time.time() - self.iter_start_time))
         step_time = time.time() - self.iter_start_time
+        file_writer = tf.summary.create_file_writer(self.tb_logdir)
+        file_writer.set_as_default()
         tf.summary.scalar('step time', data=step_time, step=step_time)
 
         if (epoch + 1) % self.validate_freq == 0:
