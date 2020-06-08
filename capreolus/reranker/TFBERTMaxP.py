@@ -14,9 +14,7 @@ class TFBERTMaxP_Class(tf.keras.Model):
         # self.clsidx = extractor.clsidx  # The index of the CLS token
         # self.sepidx = extractor.sepidx  # The index of the SEP token
         self.extractor = extractor
-        bert_config = BertConfig(config["pretrained"])
-        bert_config.hidden_dropout_prob = config["dropout"]
-        self.bert = TFBertForSequenceClassification.from_config(bert_config.to_dict())
+        self.bert = TFBertForSequenceClassification.from_pretrained(config["pretrained"])
         self.config = config
         self.aggregate_fn = self.get_aggregate_fn()
 
