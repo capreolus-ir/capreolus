@@ -1,3 +1,15 @@
-version https://git-lfs.github.com/spec/v1
-oid sha256:ec764b2dfff535fe3d537bfc02344939ec2449f837eab5f17459e5b1d150657e
-size 155
+{
+  "s1": {
+    "train_qids": [
+      "301"
+    ],
+    "predict": {
+      "dev": [
+        "301"
+      ],
+      "test": [
+        "301"
+      ]
+    }
+  }
+}

@@ -11,19 +11,21 @@ import torch
 from nltk import TextTilingTokenizer
 from pymagnitude import Magnitude, MagnitudeUtils
 from tqdm import tqdm
+from profane import ConfigOption, Dependency, constants
 
 from capreolus.extractor import Extractor
-from capreolus.registry import CACHE_BASE_PATH, Dependency
 from capreolus.utils.common import padlist
 from capreolus.utils.loginit import get_logger
 
 logger = get_logger(__name__)
+CACHE_BASE_PATH = constants["CACHE_BASE_PATH"]
 
 
+@Extractor.register
 class DeepTileExtractor(Extractor):
     """ Creates a text tiling matrix. Used by the DeepTileBars reranker. """
 
-    name = "deeptiles"
+    module_name = "deeptiles"
     pad = 0
     pad_tok = "<pad>"
 
@@ -33,26 +35,29 @@ class DeepTileExtractor(Extractor):
         "w2vnews": "word2vec/light/GoogleNews-vectors-negative300",
         "fasttext": "fasttext/light/wiki-news-300d-1M-subword",
     }
-    dependencies = {
-        "index": Dependency(module="index", name="anserini", config_overrides={"indexstops": True, "stemmer": "none"}),
-        "tokenizer": Dependency(module="tokenizer", name="anserini"),
-    }
 
-    @staticmethod
-    def config():
-        tfchannel = True  # include TF as a channel
-        slicelen = 20
-        keepstops = False  # include stopwords in the reranker's input
-        tilechannels = 3
-        embeddings = "glove6b"
-        passagelen = 20
-        usecache = False
-        maxqlen = 8
-        maxdoclen = 800
+    requires_random_seed = True
+    dependencies = [
+        Dependency(
+            key="index", module="index", name="anserini", default_config_overrides={"indexstops": True, "stemmer": "none"}
+        ),
+        Dependency(key="tokenizer", module="tokenizer", name="anserini"),
+    ]
+    config_spec = [
+        ConfigOption("tfchannel", True, "include TF as a channel"),
+        ConfigOption("slicelen", 20),
+        ConfigOption("keepstops", False, "include stopwords"),
+        ConfigOption("tilechannels", 3),
+        ConfigOption("embeddings", "glove6b"),
+        ConfigOption("passagelen", 20),
+        ConfigOption("maxqlen", 8),
+        ConfigOption("maxdoclen", 800),
+        ConfigOption("usecache", False),
+    ]
 
     def _get_pretrained_emb(self):
         magnitude_cache = CACHE_BASE_PATH / "magnitude/"
-        return Magnitude(MagnitudeUtils.download_model(self.embed_paths[self.cfg["embeddings"]], download_dir=magnitude_cache))
+        return Magnitude(MagnitudeUtils.download_model(self.embed_paths[self.config["embeddings"]], download_dir=magnitude_cache))
 
     def load_state(self, qids, docids):
         with open(self.get_state_cache_file_path(qids, docids), "rb") as f:
@@ -142,7 +147,7 @@ class DeepTileExtractor(Extractor):
             segment_toks = topic_segment.split(" ")
             tf = segment_toks.count(q_tok)
 
-            if self.cfg["tfchannel"]:
+            if self.config["tfchannel"]:
                 channels.append(tf)
 
             channels.append(self.idf.get(q_tok, 0) if tf else 0)
@@ -156,7 +161,7 @@ class DeepTileExtractor(Extractor):
             )
             channels.append(sim)
         else:
-            channels = [0.0] * self.cfg["tilechannels"]
+            channels = [0.0] * self.config["tilechannels"]
 
         tile = torch.tensor(channels, dtype=torch.float)
         return tile
@@ -172,11 +177,11 @@ class DeepTileExtractor(Extractor):
         :param document_segments: List of segments in a document. Each segment is a string
         :param embeddings_matrix: Used to look up word2vec embeddings
         """
-        q_len = self.cfg["maxqlen"]
-        p_len = self.cfg["passagelen"]
+        q_len = self.config["maxqlen"]
+        p_len = self.config["passagelen"]
         # The 'document_segments' arg to the method is a list of segments (segregated by topic) in a single document
         # Hence query_to_doc_tiles matrix stores the tiles (scores) b/w each query tok and each passage in the doc
-        query_to_doc_tiles = torch.zeros(1, q_len, p_len, self.cfg["tilechannels"]).float()
+        query_to_doc_tiles = torch.zeros(1, q_len, p_len, self.config["tilechannels"]).float()
 
         for q_idx in range(q_len):
             q_tok = query_toks[q_idx]
@@ -204,34 +209,34 @@ class DeepTileExtractor(Extractor):
         self.embeddings = embedding_matrix
 
     def _build_vocab(self, qids, docids, topics):
-        if self.is_state_cached(qids, docids) and self.cfg["usecache"]:
+        if self.is_state_cached(qids, docids) and self.config["usecache"]:
             self.load_state(qids, docids)
             logger.info("Vocabulary loaded from cache")
         else:
-            tokenize = self["tokenizer"].tokenize
+            tokenize = self.tokenizer.tokenize
             ttt = TextTilingTokenizer(k=6)  # TODO: Make K configurable?
 
             # TODO: Move the stoi and itos creation to a reusable mixin
             self.qid2toks = {qid: tokenize(topics[qid]) for qid in qids}
-            self.docid2toks = {docid: tokenize(self["index"].get_doc(docid)) for docid in docids}
+            self.docid2toks = {docid: tokenize(self.index.get_doc(docid)) for docid in docids}
             self._extend_stoi(self.qid2toks.values(), calc_idf=True)
             self._extend_stoi(self.docid2toks.values(), calc_idf=True)
             self.itos = {i: s for s, i in self.stoi.items()}
             self.docid2segments = {
-                doc_id: self.clean_segments(self.extract_segment(doc_toks, ttt, slicelen=self.cfg["slicelen"]))
+                doc_id: self.clean_segments(self.extract_segment(doc_toks, ttt, slicelen=self.config["slicelen"]))
                 for doc_id, doc_toks in tqdm(self.docid2toks.items(), desc="Extracting segments")
             }
-            if self.cfg["usecache"]:
+            if self.config["usecache"]:
                 self.cache_state(qids, docids)
 
     def exist(self):
         return hasattr(self, "embeddings") and self.embeddings is not None and len(self.stoi) > 0
 
-    def create(self, qids, docids, topics):
+    def preprocess(self, qids, docids, topics):
         if self.exist():
             return
 
-        self["index"].create_index()
+        self.index.create_index()
         self.itos = {self.pad: self.pad_tok}
         self.stoi = {self.pad_tok: self.pad}
         self.idf = defaultdict(lambda: 0)
@@ -244,12 +249,12 @@ class DeepTileExtractor(Extractor):
         self._build_embedding_matrix()
 
     def id2vec(self, qid, posdocid, negdocid=None):
-        query_toks = padlist(self.qid2toks[qid], self.cfg["maxqlen"], pad_token=self.pad_tok)
+        query_toks = padlist(self.qid2toks[qid], self.config["maxqlen"], pad_token=self.pad_tok)
         posdoc_tilebar = self.create_visualization_matrix(query_toks, self.docid2segments[posdocid], self.embeddings)
 
         data = {
             "qid": qid,
-            "query_idf": np.zeros(self.cfg["maxqlen"], dtype=np.float32),
+            "query_idf": np.zeros(self.config["maxqlen"], dtype=np.float32),
             "posdocid": posdocid,
             "posdoc": posdoc_tilebar,
             "negdocid": "",

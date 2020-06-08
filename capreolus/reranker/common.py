@@ -1,8 +1,7 @@
-import torch
 import tensorflow as tf
-from tensorflow.keras.layers import Layer
 import tensorflow.keras.backend as K
-from tensorflow_core.python import name_scope
+import torch
+from tensorflow.keras.layers import Layer
 
 _hinge_loss = torch.nn.MarginRankingLoss(margin=1, reduction="mean")
 

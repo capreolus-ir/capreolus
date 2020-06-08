@@ -1,5 +1,6 @@
 import os
 import pickle
+import pytest
 from tqdm import tqdm
 
 from capreolus.utils.loginit import get_logger
@@ -11,10 +12,11 @@ from capreolus.collection import CodeSearchNet as CodeSearchNetCollection
 logger = get_logger(__name__)
 
 
+@pytest.mark.download
 def test_csn_corpus_benchmark_downloadifmissing():
     for lang in ["ruby"]:
         logger.info(f"testing {lang}")
-        cfg = {"_name": "codesearchnet_corpus", "lang": lang}
+        cfg = {"name": "codesearchnet_corpus", "lang": lang}
         benchmark = CodeSearchNetCodeSearchNetCorpusBenchmark(cfg)
         benchmark.download_if_missing()
 
@@ -54,9 +56,10 @@ def _load_trec_doc(fn):
     return id2doc
 
 
+@pytest.mark.download
 def test_csn_coll_benchmark_consistency():
     for lang in ["ruby"]:
-        cfg = {"_name": "codesearchnet_corpus", "lang": lang}
+        cfg = {"name": "codesearchnet_corpus", "lang": lang}
         benchmark = CodeSearchNetCodeSearchNetCorpusBenchmark(cfg)
         collection = CodeSearchNetCollection(cfg)
 
@@ -80,8 +83,9 @@ def test_csn_coll_benchmark_consistency():
             assert docno == benc_docno
 
 
+@pytest.mark.download
 def test_csn_challenge_download_if_missing():
-    config = {"_name": "codesearchnet_challenge", "lang": "ruby"}
+    config = {"name": "codesearchnet_challenge", "lang": "ruby"}
     benmchmark = CodeSearchNetCodeSearchNetChallengeBenchmark(config)
     benmchmark.download_if_missing()
 

@@ -1,3 +1,7 @@
+from profane import import_all_modules
+
+# import_all_modules(__file__, __package__)
+
 import random
 from itertools import product
 import hashlib
@@ -17,13 +21,12 @@ class TrainDataset(torch.utils.data.IterableDataset):
 
     def __init__(self, qid_docid_to_rank, qrels, extractor):
         self.extractor = extractor
-        self.iterations = 0  # TODO remove
 
         # remove qids from qid_docid_to_rank that do not have relevance labels in the qrels
         qid_docid_to_rank = qid_docid_to_rank.copy()
         for qid in list(qid_docid_to_rank.keys()):
             if qid not in qrels:
-                logger.warning("skipping qid=%s that was missing from the qrels", qid)
+                logger.warning("skipping training qid=%s that was missing from the qrels", qid)
                 del qid_docid_to_rank[qid]
 
         self.qid_docid_to_rank = qid_docid_to_rank
@@ -31,6 +34,7 @@ class TrainDataset(torch.utils.data.IterableDataset):
             qid: [docid for docid in docids if qrels[qid].get(docid, 0) > 0] for qid, docids in qid_docid_to_rank.items()
         }
 
+        # TODO option to include only negdocs in a top k
         self.qid_to_negdocs = {
             qid: [docid for docid in docids if qrels[qid].get(docid, 0) <= 0] for qid, docids in qid_docid_to_rank.items()
         }
@@ -42,7 +46,7 @@ class TrainDataset(torch.utils.data.IterableDataset):
             negdocs = len(self.qid_to_negdocs[qid])
             total_samples += posdocs * negdocs
             if posdocs == 0 or negdocs == 0:
-                logger.warning("removing training qid=%s with %s positive docs and %s negative docs", qid, posdocs, negdocs)
+                logger.debug("removing training qid=%s with %s positive docs and %s negative docs", qid, posdocs, negdocs)
                 del self.qid_to_reldocs[qid]
                 del self.qid_to_negdocs[qid]
 
@@ -53,7 +57,7 @@ class TrainDataset(torch.utils.data.IterableDataset):
 
     def get_hash(self):
         sorted_rep = sorted([(qid, docids) for qid, docids in self.qid_docid_to_rank.items()])
-        key_content = "{0}{1}".format(self.extractor.name, str(sorted_rep))
+        key_content = "{0}{1}".format(self.extractor.module_name, str(sorted_rep))
         key = hashlib.md5(key_content.encode("utf-8")).hexdigest()
         return "train_{0}".format(key)
 
@@ -116,7 +120,7 @@ class PredDataset(torch.utils.data.IterableDataset):
 
     def get_hash(self):
         sorted_rep = sorted([(qid, docids) for qid, docids in self.qid_docid_to_rank.items()])
-        key_content = "{0}{1}".format(self.extractor.name, str(sorted_rep))
+        key_content = "{0}{1}".format(self.extractor.module_name, str(sorted_rep))
         key = hashlib.md5(key_content.encode("utf-8")).hexdigest()
 
         return "dev_{0}".format(key)

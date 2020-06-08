@@ -10,8 +10,8 @@ from capreolus.tests.common_fixtures import tmpdir_as_cache, dummy_index
 
 
 def test_train_sampler(monkeypatch, tmpdir):
-    benchmark = DummyBenchmark({"fold": "s1", "rundocsonly": True})
-    extractor = EmbedText({"keepstops": True})
+    benchmark = DummyBenchmark()
+    extractor = EmbedText({"tokenizer": {"keepstops": True}}, provide={"collection": benchmark.collection})
     training_judgments = benchmark.qrels.copy()
     train_dataset = TrainDataset(training_judgments, training_judgments, extractor)
 
@@ -37,8 +37,9 @@ def test_train_sampler(monkeypatch, tmpdir):
 
 
 def test_pred_sampler(monkeypatch, tmpdir):
+    benchmark = DummyBenchmark()
+    extractor = EmbedText({"tokenizer": {"keepstops": True}}, provide={"collection": benchmark.collection})
     search_run = {"301": {"LA010189-0001": 50, "LA010189-0002": 100}}
-    extractor = EmbedText({"keepstops": True})
     pred_dataset = PredDataset(search_run, extractor)
 
     def mock_id2vec(*args, **kwargs):

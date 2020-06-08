@@ -1,3 +1,7 @@
+from profane import import_all_modules
+
+# import_all_modules(__file__, __package__)
+
 import json
 import os
 import gzip
@@ -8,16 +12,17 @@ from zipfile import ZipFile
 from pathlib import Path
 from collections import defaultdict
 from bs4 import BeautifulSoup
+from profane import ModuleBase, Dependency, ConfigOption, constants
 
-from capreolus.registry import ModuleBase, RegisterableModule, PACKAGE_PATH
 from capreolus.utils.loginit import get_logger
 from capreolus.utils.trec import load_qrels, load_trec_topics, topic_to_trectxt
 from capreolus.utils.common import download_file, remove_newline, get_udel_query_expander
 
 logger = get_logger(__name__)
+PACKAGE_PATH = constants["PACKAGE_PATH"]
 
 
-class Benchmark(ModuleBase, metaclass=RegisterableModule):
+class Benchmark(ModuleBase):
     """the module base class"""
 
     module_type = "benchmark"
@@ -25,6 +30,9 @@ class Benchmark(ModuleBase, metaclass=RegisterableModule):
     topic_file = None
     fold_file = None
     query_type = None
+    # documents with a relevance label >= relevance_level will be considered relevant
+    # corresponds to trec_eval's --level_for_rel (and passed to pytrec_eval as relevance_level)
+    relevance_level = 1
 
     @property
     def qrels(self):
@@ -45,48 +53,61 @@ class Benchmark(ModuleBase, metaclass=RegisterableModule):
         return self._folds
 
 
+@Benchmark.register
 class DummyBenchmark(Benchmark):
-    name = "dummy"
+    module_name = "dummy"
+    dependencies = [Dependency(key="collection", module="collection", name="dummy")]
     qrel_file = PACKAGE_PATH / "data" / "qrels.dummy.txt"
     topic_file = PACKAGE_PATH / "data" / "topics.dummy.txt"
     fold_file = PACKAGE_PATH / "data" / "dummy_folds.json"
     query_type = "title"
 
 
+@Benchmark.register
 class WSDM20Demo(Benchmark):
-    name = "wsdm20demo"
+    module_name = "wsdm20demo"
+    dependencies = [Dependency(key="collection", module="collection", name="robust04")]
     qrel_file = PACKAGE_PATH / "data" / "qrels.robust2004.txt"
     topic_file = PACKAGE_PATH / "data" / "topics.robust04.301-450.601-700.txt"
     fold_file = PACKAGE_PATH / "data" / "rob04_yang19_folds.json"
     query_type = "title"
 
 
+@Benchmark.register
 class Robust04Yang19(Benchmark):
-    name = "robust04.yang19"
+    module_name = "robust04.yang19"
+    dependencies = [Dependency(key="collection", module="collection", name="robust04")]
     qrel_file = PACKAGE_PATH / "data" / "qrels.robust2004.txt"
     topic_file = PACKAGE_PATH / "data" / "topics.robust04.301-450.601-700.txt"
     fold_file = PACKAGE_PATH / "data" / "rob04_yang19_folds.json"
     query_type = "title"
 
 
+@Benchmark.register
 class ANTIQUE(Benchmark):
-    name = "antique"
+    module_name = "antique"
+    dependencies = [Dependency(key="collection", module="collection", name="antique")]
     qrel_file = PACKAGE_PATH / "data" / "qrels.antique.txt"
     topic_file = PACKAGE_PATH / "data" / "topics.antique.txt"
     fold_file = PACKAGE_PATH / "data" / "antique.json"
     query_type = "title"
+    relevance_level = 2
 
 
+@Benchmark.register
 class MSMarcoPassage(Benchmark):
-    name = "msmarcopassage"
+    module_name = "msmarcopassage"
+    dependencies = [Dependency(key="collection", module="collection", name="msmarco")]
     qrel_file = PACKAGE_PATH / "data" / "qrels.msmarcopassage.txt"
     topic_file = PACKAGE_PATH / "data" / "topics.msmarcopassage.txt"
     fold_file = PACKAGE_PATH / "data" / "msmarcopassage.folds.json"
     query_type = "title"
 
 
+@Benchmark.register
 class CodeSearchNetCorpus(Benchmark):
-    name = "codesearchnet_corpus"
+    module_name = "codesearchnet_corpus"
+    dependencies = [Dependency(key="collection", module="collection", name="codesearchnet")]
     url = "https://s3.amazonaws.com/code-search-net/CodeSearchNet/v2"
     query_type = "title"
 
@@ -99,13 +120,10 @@ class CodeSearchNetCorpus(Benchmark):
     qidmap_dir = file_fn / "qidmap"
     docidmap_dir = file_fn / "docidmap"
 
-    @staticmethod
-    def config():
-        lang = "ruby"  # which language dataset under CodeSearchNet
+    config_spec = [ConfigOption("lang", "ruby", "CSN language dataset to use")]
 
-    def __init__(self, cfg):
-        super().__init__(cfg)
-        lang = cfg["lang"]
+    def build(self):
+        lang = self.config["lang"]
 
         self.qid_map_file = self.qidmap_dir / f"{lang}.json"
         self.docid_map_file = self.docidmap_dir / f"{lang}.json"
@@ -115,7 +133,7 @@ class CodeSearchNetCorpus(Benchmark):
         self.fold_file = self.fold_dir / f"{lang}.json"
 
         for file in [var for var in vars(self) if var.endswith("file")]:
-            eval(f"self.{file}").parent.mkdir(exist_ok=True, parents=True)  # TODO: is eval a good coding habit?
+            getattr(self, file).parent.mkdir(exist_ok=True, parents=True)
 
         self.download_if_missing()
 
@@ -142,7 +160,7 @@ class CodeSearchNetCorpus(Benchmark):
         if all([f.exists() for f in files]):
             return
 
-        lang = self.cfg["lang"]
+        lang = self.config["lang"]
 
         tmp_dir = Path("/tmp")
         zip_fn = tmp_dir / f"{lang}.zip"
@@ -218,7 +236,7 @@ class CodeSearchNetCorpus(Benchmark):
         :return:
         """
         # TODO: any way to avoid the twice traversal of all url and make the return dict structure consistent
-        lang = self.cfg["lang"]
+        lang = self.config["lang"]
         url2docid = defaultdict(dict)
         for i, doc in tqdm(enumerate(doc_objs), desc=f"Preparing the {lang} docid_map"):
             url, code_tokens = doc["url"], remove_newline(" ".join(doc["function_tokens"]))
@@ -240,12 +258,16 @@ class CodeSearchNetCorpus(Benchmark):
         return docids[0] if len(docids) == 1 else docids[code_tokens]
 
 
+@Benchmark.register
 class CodeSearchNetChallenge(Benchmark):
     """
     CodeSearchNetChallenge can only be used for training but not for evaluation since qrels is not provided
     """
 
-    name = "codesearchnet_challenge"
+    module_name = "codesearchnet_challenge"
+    dependencies = [Dependency(key="collection", module="collection", name="codesearchnet")]
+    config_spec = [ConfigOption("lang", "ruby", "CSN language dataset to use")]
+
     url = "https://raw.githubusercontent.com/github/CodeSearchNet/master/resources/queries.csv"
     query_type = "title"
 
@@ -278,25 +300,26 @@ class CodeSearchNetChallenge(Benchmark):
         json.dump(qid_map, open(self.qid_map_file, "w"))
 
 
+@Benchmark.register
 class COVID(Benchmark):
-    name = "covid"
+    module_name = "covid"
+    dependencies = [Dependency(key="collection", module="collection", name="covid")]
     data_dir = PACKAGE_PATH / "data" / "covid"
     topic_url = "https://ir.nist.gov/covidSubmit/data/topics-rnd%d.xml"
     qrel_url = "https://ir.nist.gov/covidSubmit/data/qrels-rnd%d.txt"
     lastest_round = 3
 
-    @staticmethod
-    def config():
-        round = 3
-        udelqexpand = False
-        excludeknown = True
+    config_spec = [
+        ConfigOption("round", 3, "TREC-COVID round to use"),
+        ConfigOption("udelqexpand", False),
+        ConfigOption("excludeknown", True),
+    ]
 
-    def __init__(self, cfg):
-        super().__init__(cfg)
-        if cfg["round"] == self.lastest_round and not cfg["excludeknown"]:
+    def build(self):
+        if self.config["round"] == self.lastest_round and not self.config["excludeknown"]:
             logger.warning(f"No evaluation can be done for the lastest round in exclude-known mode")
 
-        cfg_string = "_".join([f"{k}={v}" for k, v in cfg.items() if k != "_name"])
+        cfg_string = "_".join([f"{k}={v}" for k, v in self.config.items() if k != "name"])
         data_dir = self.data_dir / cfg_string
         data_dir.mkdir(exist_ok=True)
 
@@ -311,7 +334,7 @@ class COVID(Benchmark):
         if all([os.path.exists(fn) for fn in [self.qrel_file, self.qrel_ignore, self.topic_file, self.fold_file]]):
             return
 
-        rnd_i, excludeknown = self.cfg["round"], self.cfg["excludeknown"]
+        rnd_i, excludeknown = self.config["round"], self.config["excludeknown"]
         if rnd_i > self.lastest_round:
             raise ValueError(f"round {rnd_i} is unavailable")
 
@@ -380,7 +403,7 @@ class COVID(Benchmark):
                 desc = topic.find_all("question")[0].text.strip()
                 narr = topic.find_all("narrative")[0].text.strip()
 
-                if self.cfg["udelqexpand"]:
+                if self.config["udelqexpand"]:
                     title = expand_query(title, rm_sw=True)
                     desc = expand_query(desc, rm_sw=False)
 
@@ -393,22 +416,21 @@ class COVID(Benchmark):
         return all_qids
 
 
+@Benchmark.register
 class CovidQA(Benchmark):
-    name = "covidqa"
+    module_name = "covidqa"
+    dependencies = [Dependency(key="collection", module="collection", name="covidqa")]
     url = "https://raw.githubusercontent.com/castorini/pygaggle/master/data/kaggle-lit-review-%s.json"
     available_versions = ["0.1", "0.2"]
 
     datadir = PACKAGE_PATH / "data" / "covidqa"
 
-    @staticmethod
-    def config():
-        version = "0.1+0.2"
+    config_spec = [ConfigOption("version", "0.1+0.2")]
 
-    def __init__(self, cfg):
-        super(CovidQA, self).__init__(cfg)
+    def build(self):
         os.makedirs(self.datadir, exist_ok=True)
 
-        version = cfg["version"]
+        version = self.config["version"]
         self.qrel_file = self.datadir / f"qrels.v{version}.txt"
         self.topic_file = self.datadir / f"topics.v{version}.txt"
         self.fold_file = self.datadir / f"v{version}.json"  # HOW TO SPLIT THE FOLD HERE?
@@ -425,7 +447,7 @@ class CovidQA(Benchmark):
 
         all_qids = []
         qid = 2001  # to distingsuish queries here from queries in TREC-covid
-        versions = self.cfg["version"].split("+") if isinstance(self.cfg["version"], str) else str(self.cfg["version"])
+        versions = self.config["version"].split("+") if isinstance(self.config["version"], str) else str(self.config["version"])
         for v in versions:
             if v not in self.available_versions:
                 vs = " ".join(self.available_versions)

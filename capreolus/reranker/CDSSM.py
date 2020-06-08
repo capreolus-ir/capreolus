@@ -1,5 +1,7 @@
 import torch
+from profane import ConfigOption, Dependency
 from torch import nn
+
 from capreolus.reranker import Reranker
 from capreolus.reranker.common import create_emb_layer
 
@@ -70,20 +72,22 @@ class CDSSM_class(nn.Module):
 dtype = torch.FloatTensor
 
 
+@Reranker.register
 class CDSSM(Reranker):
     description = """Yelong Shen, Xiaodong He, Jianfeng Gao, Li Deng, and Grégoire Mesnil. 2014. A Latent Semantic Model with Convolutional-Pooling Structure for Information Retrieval. In CIKM'14."""
-    name = "CDSSM"
+    module_name = "CDSSM"
 
-    @staticmethod
-    def config():
-        nkernel = 3  # kernel dimension in conv
-        nfilter = 1  # number of filters in conv
-        nhiddens = 30  # hidden layer dimension for ffw layer
-        windowsize = 3  # number of query/document words to concatenate before conv
-        dropoutrate = 0  # dropout rate for conv
+    config_spec = [
+        ConfigOption("nkernel", 3, "kernel dimension in conv"),
+        ConfigOption("nfilter", 1, "number of filters in conv"),
+        ConfigOption("nhiddens", 30, "hidden layer dimension for ffw layer"),
+        ConfigOption("windowsize", 3, "number of query/document words to concatenate before conv"),
+        ConfigOption("dropoutrate", 0, "dropout rate for conv"),
+    ]
 
-    def build(self):
-        self.model = CDSSM_class(self["extractor"], self.cfg)
+    def build_model(self):
+        if not hasattr(self, "model"):
+            self.model = CDSSM_class(self.extractor, self.config)
 
         return self.model
 
