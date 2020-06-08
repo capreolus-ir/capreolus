@@ -393,10 +393,6 @@ class TrecCheckpointCallback(tf.keras.callbacks.Callback):
 
     def on_epoch_end(self, epoch, logs=None):
         logger.debug("Epoch {} took {}".format(epoch, time.time() - self.iter_start_time))
-        step_time = time.time() - self.iter_start_time
-        file_writer = tf.summary.create_file_writer(self.tb_logdir)
-        file_writer.set_as_default()
-        tf.summary.scalar('step time', data=step_time, step=step_time)
 
         if (epoch + 1) % self.validate_freq == 0:
             predictions = self.model.predict(self.dev_records, verbose=1, workers=8, use_multiprocessing=True)
