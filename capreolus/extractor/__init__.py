@@ -263,6 +263,7 @@ class EmbedText(Extractor):
         return data
 
 
+@Extractor.register
 class BertText(Extractor):
     module_name = "berttext"
     dependencies = [
