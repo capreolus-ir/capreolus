@@ -14,8 +14,10 @@ Capreolus is a toolkit for conducting end-to-end ad hoc retrieval experiments. C
 ## Quick Start
 1. Prerequisites: Python 3.6+ and Java 11
 2. Install the pip package: `pip install capreolus`
-3. Train a model: `capreolus train with reranker=KNRM niters=2 expid=myquickstart`
-4. If the `train` command completed successfully, you've trained your first Capreolus reranker on robust04! This command created several outputs, such as run files, a loss plot, and a ranking metric plot on the dev set queries. To learn about these files and about how to evaluate your model, [read about running experiments with Capreolus](http://capreolus.ai/en/latest/cli.html).
+3. Train a model: `capreolus rerank.traineval with reranker.name=KNRM reranker.trainer.niters=2`
+4. If the `train` command completed successfully, you've trained your first Capreolus reranker on robust04! This command created several outputs, such as run files, a loss plot, and a ranking metric plot on the dev set queries. To learn about these files, [read about running experiments with Capreolus](http://capreolus.ai/en/latest/cli.html).
+5. To learn about different configuration options, try: `capreolus rerank.print_config with reranker.name=KNRM`
+5. To learn about different modules you can use, such as `reranker.name=DRMM`, try: `capreolus modules`
 
 ## Environment Variables
 Capreolus uses environment variables to indicate where outputs should be stored and where document inputs can be found. Consult the table below to determine which variables should be set. Set them either on the fly before running Capreolus (`export CAPREOLUS_RESULTS=...`) or by editing your shell's initialization files (e.g., `~/.bashrc` or `~/.zshrc`).
