@@ -347,26 +347,27 @@ class COVID(Collection):
 
     def transform_metadata(self, root_path):
         """
-        the transformation is necessary for dataset round 1 and 2 according to
-        https://discourse.cord-19.semanticscholar.org/t/faqs-about-cord-19-dataset/94
+            the transformation is necessary for dataset round 1 and 2 according to
+            https://discourse.cord-19.semanticscholar.org/t/faqs-about-cord-19-dataset/94
 
-        the assumed directory under root_path:
-        ./root_path
-            ./metadata.csv
-            ./comm_use_subset
-            ./noncomm_use_subset
-            ./custom_license
-            ./biorxiv_medrxiv
-            ./archive
+            the assumed directory under root_path:
+            ./root_path
+                ./metadata.csv
+                ./comm_use_subset
+                ./noncomm_use_subset
+                ./custom_license
+                ./biorxiv_medrxiv
+                ./archive
 
-        In a nutshell:
-        1. renaming:
-            Microsoft Academic Paper ID -> mag_id;
-            WHO #Covidence -> who_covidence_id
-        2. update:
-            has_pdf_parse -> pdf_json_files  # e.g. document_parses/pmc_json/PMC125340.xml.json
-            has_pmc_xml_parse -> pmc_json_files
+            In a nutshell:
+            1. renaming:
+                Microsoft Academic Paper ID -> mag_id;
+                WHO #Covidence -> who_covidence_id
+            2. update:
+                has_pdf_parse -> pdf_json_files  # e.g. document_parses/pmc_json/PMC125340.xml.json
+                has_pmc_xml_parse -> pmc_json_files
         """
+
         metadata_csv = str(root_path / "metadata.csv")
         orifiles = ["arxiv", "custom_license", "biorxiv_medrxiv", "comm_use_subset", "noncomm_use_subset"]
         for fn in orifiles:
