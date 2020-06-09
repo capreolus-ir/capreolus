@@ -44,6 +44,6 @@ jobs:
       run: |
         pip install pytest
         export PYTHONPATH=${PYTHONPATH}:/home/runner/work/capreolus/capreolus/
-        pytest -vvv
+        python -m pytest -vvv
 
     timeout-minutes: 50
