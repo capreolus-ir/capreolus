@@ -1,9 +1,12 @@
 Capreolus
 =========================================
+Capreolus is a toolkit for constructing flexible *ad hoc retrieval pipelines*. Capreolus pipelines can be run via a Python or command line interface.
 
-Capreolus is a toolkit for conducting end-to-end *ad hoc retrieval* experiments, which consist of a first stage ranking method (e.g., BM25 or RM3) followed by a neural re-ranking method.
+Capreolus is organized around the idea of interchangeable and configurable *modules*, such as a neural ``Reranker`` or a first stage ``Searcher``. Researchers can implement new module classes, such as a new neural ``Reranker``, to experiment with a new module while controlling for all other variables in the pipeline (e.g., the first stage ranking method and its parameters, folds used for cross-validation, tokenization and embeddings if applicable used with the reranker, neural training options like the number of iterations, batch size, and loss function, etc).
 
-Capreolus is organized around the idea of interchangeable and configurable *modules*, such as a neural ``reranker`` or a first stage ``searcher``. Researchers can implement new module classes, such as a new neural ``reranker``, to experiment with a new module while controlling for all other variables in the pipeline (e.g., the first stage ranking method and its parameters, folds used for cross-validation, tokenization and embeddings if applicable used with the reranker, neural training options like the number of iterations, batch size, and loss function, etc).
+Since Capreolus v0.2, *pipelines* are instances of the ``Task`` module and can be combined like any other module.
+For example, the ``RerankTask`` implements a "search-then-rerank" pipeline by running ``RankTask`` and reranking its output.
+Both ``Task`` modules respect the same folds (provided by a ``Benchmark``) and can be configured independently (e.g., to optimize for different metrics).
 
 Looking for the code? `Find Capreolus on GitHub. <https://github.com/capreolus-ir/capreolus>`_
 
@@ -13,15 +16,12 @@ Looking for the code? `Find Capreolus on GitHub. <https://github.com/capreolus-i
 
    installation
    cli
-   experiments-wsdm20
-   api
 
-..   
-  TODO Concepts: explanation of modules (index, reranker, etc) and file formats (for extending)
-
-Indices and tables
+.. Indices and tables
 ==================
-
 * :ref:`genindex`
 * :ref:`modindex`
 * :ref:`search`
+
+Looking for the previous "search-then-rerank" pipeline that was presented in the WSDM'20 demo paper?
+Check out Capreolus v0.1 and `the corresponding documentation. <https://capreolus.ai/en/v0.1.4/>`_
