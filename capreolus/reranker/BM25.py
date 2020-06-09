@@ -43,19 +43,25 @@ class BM25Reranker(Reranker):
     def score_document(self, query, qid, docid, avg_doc_len):
         # TODO is it correct to skip over terms that don't appear to be in the idf vocab?
         scores = {}
+        accumulated_scores = {}
         scoresum = 0
         for term in query:
             temp = self.score_document_term(term, docid, avg_doc_len)
+            if term not in accumulated_scores[term]:
+                accumulated_scores[term] = 0
             scores[term] = temp
+            accumulated_scores[term] += temp
             scoresum += temp
         
         os.makedirs(self.get_docscore_cache_path(), exist_ok=True)
         outf = join(self.get_docscore_cache_path(), f"{qid}_{docid}")
-        if not exists(outf):
-            with open(outf, 'w') as f:
-                scores["OVERALL_SCORE"] = scoresum
-                sorted_scores = {k: v for k,v in sorted(scores.items(), key=lambda item: item[1], reverse=True)}
-                f.write(json.dumps(sorted_scores, indent=4))
+        # if not exists(outf):
+        with open(outf, 'w') as f:
+            scores["OVERALL_SCORE"] = "-"
+            accumulated_scores["OVERALL_SCORE"] = scoresum
+            sorted_acc_scores = {k: v for k, v in sorted(accumulated_scores.items(), key=lambda item: item[1], reverse=True)}
+            final_scores = {k: (v, scores[k]) for k, v in sorted_acc_scores}
+            f.write(json.dumps(final_scores, indent=4))
         
         return scoresum
         #return sum(self.score_document_term(term, docid, avg_doc_len) for term in query)
