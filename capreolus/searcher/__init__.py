@@ -14,6 +14,7 @@ from pyserini.search import pysearch
 
 from capreolus.utils.common import Anserini
 from capreolus.utils.loginit import get_logger
+from capreolus.utils.trec import topic_to_trectxt
 
 logger = get_logger(__name__)  # pylint: disable=invalid-name
 MAX_THREADS = constants["MAX_THREADS"]
@@ -48,6 +49,36 @@ class Searcher(ModuleBase):
                     print(f"{qid} Q0 {docid} {rank} {score} capreolus", file=outf)
                     rank += 1
                     count += 1
+
+
+    def _query_from_file(self, topicsfn, output_path, cfg):
+        raise NotImplementedError()
+
+    def query_from_file(self, topicsfn, output_path):
+        return self._query_from_file(self, topicsfn, output_path, self.config)
+
+    def query(self, query, **kwargs):
+        """fire a search with parameters, using parameters in config as default"""
+        config = {k: kwargs.get(k, self.config[k]) for k in self.config}
+
+        cache_dir = self.get_cache_path()
+        cache_dir.mkdir(exist_ok=True)
+        topic_fn, runfile_dir = cache_dir / "topic.txt", cache_dir / "runfiles"
+        with open(topic_fn, "w", encoding="utf-8") as f:
+            f.write(topic_to_trectxt(1, query))
+
+        self._query_from_file(topic_fn, runfile_dir, config)
+        # TODO: in terms of grid search case, shall we import evaluator to find the best runfile?
+
+        print(runfile_dir)
+        runfile_fn = ([f for f in os.listdir(runfile_dir) if f != "done"][0])  # assume only one file is generated
+        runfile_fn = runfile_dir / runfile_fn
+
+        runs = self.load_trec_run(runfile_fn)
+        os.remove(runfile_fn)  # remove it in case the file accumulate
+        os.remove(runfile_dir / "done")
+
+        return OrderedDict(runs)
 
 
 class AnseriniSearcherMixIn:
@@ -182,7 +213,7 @@ class BM25(Searcher, AnseriniSearcherMixIn):
         ConfigOption("fields", "title"),
     ]
 
-    def query_from_file(self, topicsfn, output_path):
+    def _query_from_file(self, topicsfn, output_path, config):
         """
         Runs BM25 search. Takes a query from the topic files, and fires it against the index
         Args:
@@ -192,13 +223,13 @@ class BM25(Searcher, AnseriniSearcherMixIn):
         Returns: Path to the run file where the results of the search are stored
 
         """
-        bs = [self.config["b"]]
-        k1s = [self.config["k1"]]
+        bs = [config["b"]]
+        k1s = [config["k1"]]
         bstr = " ".join(str(x) for x in bs)
         k1str = " ".join(str(x) for x in k1s)
-        hits = self.config["hits"]
+        hits = config["hits"]
         anserini_param_str = f"-bm25 -bm25.b {bstr} -bm25.k1 {k1str} -hits {hits}"
-        self._anserini_query_from_file(topicsfn, anserini_param_str, output_path, self.config["fields"])
+        self._anserini_query_from_file(topicsfn, anserini_param_str, output_path, config["fields"])
 
         return output_path
 
@@ -224,15 +255,15 @@ class BM25Grid(Searcher, AnseriniSearcherMixIn):
         ConfigOption("fields", "title"),
     ]
 
-    def query_from_file(self, topicsfn, output_path):
-        bs = np.around(np.arange(0.1, self.config["bmax"] + 0.1, 0.1), 1)
-        k1s = np.around(np.arange(0.1, self.config["k1max"] + 0.1, 0.1), 1)
+    def _query_from_file(self, topicsfn, output_path, config):
+        bs = np.around(np.arange(0.1, config["bmax"] + 0.1, 0.1), 1)
+        k1s = np.around(np.arange(0.1, config["k1max"] + 0.1, 0.1), 1)
         bstr = " ".join(str(x) for x in bs)
         k1str = " ".join(str(x) for x in k1s)
-        hits = self.config["hits"]
+        hits = config["hits"]
         anserini_param_str = f"-bm25 -bm25.b {bstr} -bm25.k1 {k1str} -hits {hits}"
 
-        self._anserini_query_from_file(topicsfn, anserini_param_str, output_path, self.config["fields"])
+        self._anserini_query_from_file(topicsfn, anserini_param_str, output_path, config["fields"])
 
         return output_path
 
@@ -260,9 +291,9 @@ class BM25RM3(Searcher, AnseriniSearcherMixIn):
         ConfigOption("fields", "title"),
     ]
 
-    def query_from_file(self, topicsfn, output_path):
-        paras = {k: " ".join(self.config[k].split("-")) for k in ["k1", "b", "fbTerms", "fbDocs", "originalQueryWeight"]}
-        hits = str(self.config["hits"])
+    def _query_from_file(self, topicsfn, output_path, config):
+        paras = {k: " ".join(config[k].split("-")) for k in ["k1", "b", "fbTerms", "fbDocs", "originalQueryWeight"]}
+        hits = str(config["hits"])
 
         anserini_param_str = (
             "-rm3 "
@@ -271,7 +302,7 @@ class BM25RM3(Searcher, AnseriniSearcherMixIn):
             + " ".join(f"-bm25.{k} {paras[k]}" for k in ["k1", "b"])
             + f" -hits {hits}"
         )
-        self._anserini_query_from_file(topicsfn, anserini_param_str, output_path, self.config["fields"])
+        self._anserini_query_from_file(topicsfn, anserini_param_str, output_path, config["fields"])
 
         return output_path
 
@@ -318,7 +349,7 @@ class StaticBM25RM3Rob04Yang19(Searcher):
 
     module_name = "bm25staticrob04yang19"
 
-    def query_from_file(self, topicsfn, output_path):
+    def _query_from_file(self, topicsfn, output_path, config):
         import shutil
 
         outfn = os.path.join(output_path, "static.run")
@@ -354,10 +385,10 @@ class BM25PRF(Searcher, AnseriniSearcherMixIn):
     def list2str(l):
         return "-".join(str(x) for x in l)
 
-    def query_from_file(self, topicsfn, output_path):
-        paras = {k: " ".join(self.config[k].split("-")) for k in ["k1", "b", "fbTerms", "fbDocs", "newTermWeight"]}
+    def _query_from_file(self, topicsfn, output_path, config):
+        paras = {k: " ".join(config[k].split("-")) for k in ["k1", "b", "fbTerms", "fbDocs", "newTermWeight"]}
 
-        hits = str(self.config["hits"])
+        hits = str(config["hits"])
 
         anserini_param_str = (
             "-bm25prf "
@@ -366,7 +397,7 @@ class BM25PRF(Searcher, AnseriniSearcherMixIn):
             + " ".join(f"-bm25.{k} {paras[k]}" for k in ["k1", "b"])
             + f" -hits {hits}"
         )
-        self._anserini_query_from_file(topicsfn, anserini_param_str, output_path, self.config["fields"])
+        self._anserini_query_from_file(topicsfn, anserini_param_str, output_path, config["fields"])
 
         return output_path
 
@@ -391,17 +422,17 @@ class AxiomaticSemanticMatching(Searcher, AnseriniSearcherMixIn):
         ConfigOption("fields", "title"),
     ]
 
-    def query_from_file(self, topicsfn, output_path):
-        hits = str(self.config["hits"])
+    def _query_from_file(self, topicsfn, output_path, config):
+        hits = str(config["hits"])
         conditionals = ""
 
         anserini_param_str = "-axiom -axiom.deterministic -axiom.r {0} -axiom.n {1} -axiom.beta {2} -axiom.top {3}".format(
-            self.config["r"], self.config["n"], self.config["beta"], self.config["top"]
+            config["r"], config["n"], config["beta"], config["top"]
         )
         anserini_param_str += " -bm25 -bm25.k1 {0} -bm25.b {1} -hits {2}".format(
-            self.config["k1"], self.config["b"], self.config["hits"]
+            config["k1"], config["b"], config["hits"]
         )
-        self._anserini_query_from_file(topicsfn, anserini_param_str, output_path, self.config["fields"])
+        self._anserini_query_from_file(topicsfn, anserini_param_str, output_path, config["fields"])
 
         return output_path
 
@@ -419,7 +450,7 @@ class DirichletQL(Searcher, AnseriniSearcherMixIn):
         ConfigOption("fields", "title"),
     ]
 
-    def query_from_file(self, topicsfn, output_path):
+    def _query_from_file(self, topicsfn, output_path, config):
         """
         Runs Dirichlet QL search. Takes a query from the topic files, and fires it against the index
         Args:
@@ -429,11 +460,11 @@ class DirichletQL(Searcher, AnseriniSearcherMixIn):
         Returns: Path to the run file where the results of the search are stored
 
         """
-        mus = [self.config["mu"]]
+        mus = [config["mu"]]
         mustr = " ".join(str(x) for x in mus)
-        hits = self.config["hits"]
+        hits = config["hits"]
         anserini_param_str = f"-qld -mu {mustr} -hits {hits}"
-        self._anserini_query_from_file(topicsfn, anserini_param_str, output_path, self.config["fields"])
+        self._anserini_query_from_file(topicsfn, anserini_param_str, output_path, config["fields"])
 
         return output_path
 
@@ -460,10 +491,10 @@ class QLJM(Searcher, AnseriniSearcherMixIn):
         ConfigOption("fields", "title"),
     ]
 
-    def query_from_file(self, topicsfn, output_path):
-        anserini_param_str = "-qljm -qljm.lambda {0} -hits {1}".format(self.config["lam"], self.config["hits"])
+    def _query_from_file(self, topicsfn, output_path, config):
+        anserini_param_str = "-qljm -qljm.lambda {0} -hits {1}".format(config["lam"], config["hits"])
 
-        self._anserini_query_from_file(topicsfn, anserini_param_str, output_path, self.config["fields"])
+        self._anserini_query_from_file(topicsfn, anserini_param_str, output_path, config["fields"])
 
         return output_path
 
@@ -482,10 +513,10 @@ class INL2(Searcher, AnseriniSearcherMixIn):
         ConfigOption("fields", "title"),
     ]
 
-    def query_from_file(self, topicsfn, output_path):
-        anserini_param_str = "-inl2 -inl2.c {0} -hits {1}".format(self.config["c"], self.config["hits"])
+    def _query_from_file(self, topicsfn, output_path, config):
+        anserini_param_str = "-inl2 -inl2.c {0} -hits {1}".format(config["c"], config["hits"])
 
-        self._anserini_query_from_file(topicsfn, anserini_param_str, output_path, self.config["fields"])
+        self._anserini_query_from_file(topicsfn, anserini_param_str, output_path, config["fields"])
 
         return output_path
 
@@ -505,10 +536,10 @@ class SPL(Searcher, AnseriniSearcherMixIn):
         ConfigOption("fields", "title"),
     ]
 
-    def query_from_file(self, topicsfn, output_path):
-        anserini_param_str = "-spl -spl.c {0} -hits {1}".format(self.config["c"], self.config["hits"])
+    def _query_from_file(self, topicsfn, output_path, config):
+        anserini_param_str = "-spl -spl.c {0} -hits {1}".format(config["c"], config["hits"])
 
-        self._anserini_query_from_file(topicsfn, anserini_param_str, output_path, self.config["fields"])
+        self._anserini_query_from_file(topicsfn, anserini_param_str, output_path, config["fields"])
 
         return output_path
 
@@ -528,10 +559,10 @@ class F2Exp(Searcher, AnseriniSearcherMixIn):
         ConfigOption("fields", "title"),
     ]
 
-    def query_from_file(self, topicsfn, output_path):
-        anserini_param_str = "-f2exp -f2exp.s {0} -hits {1}".format(self.config["s"], self.config["hits"])
+    def _query_from_file(self, topicsfn, output_path, config):
+        anserini_param_str = "-f2exp -f2exp.s {0} -hits {1}".format(config["s"], config["hits"])
 
-        self._anserini_query_from_file(topicsfn, anserini_param_str, output_path, self.config["fields"])
+        self._anserini_query_from_file(topicsfn, anserini_param_str, output_path, config["fields"])
 
         return output_path
 
@@ -551,10 +582,10 @@ class F2Log(Searcher, AnseriniSearcherMixIn):
         ConfigOption("fields", "title"),
     ]
 
-    def query_from_file(self, topicsfn, output_path):
-        anserini_param_str = "-f2log -f2log.s {0} -hits {1}".format(self.config["s"], self.config["hits"])
+    def _query_from_file(self, topicsfn, output_path, config):
+        anserini_param_str = "-f2log -f2log.s {0} -hits {1}".format(config["s"], config["hits"])
 
-        self._anserini_query_from_file(topicsfn, anserini_param_str, output_path, self.config["fields"])
+        self._anserini_query_from_file(topicsfn, anserini_param_str, output_path, config["fields"])
 
         return output_path
 
@@ -579,11 +610,11 @@ class SDM(Searcher, AnseriniSearcherMixIn):
         ConfigOption("fields", "title"),
     ]
 
-    def query_from_file(self, topicsfn, output_path):
+    def _query_from_file(self, topicsfn, output_path, config):
         anserini_param_str = "-sdm -sdm.tw {0} -sdm.ow {1} -sdm.uw {2} -hits {3}".format(
-            self.config["tw"], self.config["ow"], self.config["uw"], self.config["hits"]
+            config["tw"], config["ow"], config["uw"], config["hits"]
         )
-        anserini_param_str += " -bm25 -bm25.k1 {0} -bm25.b {1}".format(self.config["k1"], self.config["b"])
-        self._anserini_query_from_file(topicsfn, anserini_param_str, output_path, self.config["fields"])
+        anserini_param_str += " -bm25 -bm25.k1 {0} -bm25.b {1}".format(config["k1"], config["b"])
+        self._anserini_query_from_file(topicsfn, anserini_param_str, output_path, config["fields"])
 
         return output_path
