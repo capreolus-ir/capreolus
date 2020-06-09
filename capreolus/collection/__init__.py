@@ -195,7 +195,7 @@ class ANTIQUE(Collection):
     generator_type = "DefaultLuceneDocumentGenerator"
 
     def download_if_missing(self):
-        url = "https://ciir.cs.umass.edu/downloads/Antique/antique-collection.txt"
+        url = "http://ciir.cs.umass.edu/downloads/Antique/antique-collection.txt"
         cachedir = self.get_cache_path()
         document_dir = os.path.join(cachedir, "documents")
         coll_filename = os.path.join(document_dir, "antique-collection.txt")
