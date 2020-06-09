@@ -232,7 +232,7 @@ class ANTIQUE(Collection):
 
     def _validate_document_path(self, path):
         """ Checks that the sha256sum is correct """
-        return hash_file(path) == "409e0960f918970977ceab9e5b1d372f45395af25d53b95644bdc9ccbbf973da"
+        return hash_file(os.path.join(path, "antique-collection.txt")) == "409e0960f918970977ceab9e5b1d372f45395af25d53b95644bdc9ccbbf973da"
 
 
 @Collection.register
