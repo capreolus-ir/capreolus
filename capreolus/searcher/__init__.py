@@ -50,12 +50,11 @@ class Searcher(ModuleBase):
                     rank += 1
                     count += 1
 
-
     def _query_from_file(self, topicsfn, output_path, cfg):
         raise NotImplementedError()
 
     def query_from_file(self, topicsfn, output_path):
-        return self._query_from_file(self, topicsfn, output_path, self.config)
+        return self._query_from_file(topicsfn, output_path, self.config)
 
     def query(self, query, **kwargs):
         """fire a search with parameters, using parameters in config as default"""
@@ -71,7 +70,7 @@ class Searcher(ModuleBase):
         # TODO: in terms of grid search case, shall we import evaluator to find the best runfile?
 
         print(runfile_dir)
-        runfile_fn = ([f for f in os.listdir(runfile_dir) if f != "done"][0])  # assume only one file is generated
+        runfile_fn = [f for f in os.listdir(runfile_dir) if f != "done"][0]  # assume only one file is generated
         runfile_fn = runfile_dir / runfile_fn
 
         runs = self.load_trec_run(runfile_fn)
@@ -429,9 +428,7 @@ class AxiomaticSemanticMatching(Searcher, AnseriniSearcherMixIn):
         anserini_param_str = "-axiom -axiom.deterministic -axiom.r {0} -axiom.n {1} -axiom.beta {2} -axiom.top {3}".format(
             config["r"], config["n"], config["beta"], config["top"]
         )
-        anserini_param_str += " -bm25 -bm25.k1 {0} -bm25.b {1} -hits {2}".format(
-            config["k1"], config["b"], config["hits"]
-        )
+        anserini_param_str += " -bm25 -bm25.k1 {0} -bm25.b {1} -hits {2}".format(config["k1"], config["b"], config["hits"])
         self._anserini_query_from_file(topicsfn, anserini_param_str, output_path, config["fields"])
 
         return output_path
