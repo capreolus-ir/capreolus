@@ -69,7 +69,6 @@ class Searcher(ModuleBase):
         self._query_from_file(topic_fn, runfile_dir, config)
         # TODO: in terms of grid search case, shall we import evaluator to find the best runfile?
 
-        print(runfile_dir)
         runfile_fn = [f for f in os.listdir(runfile_dir) if f != "done"][0]  # assume only one file is generated
         runfile_fn = runfile_dir / runfile_fn
 
