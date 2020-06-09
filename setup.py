@@ -61,6 +61,7 @@ setuptools.setup(
         "pytest-mock==1.10.4",
         "mock",
         "pyserini==0.9.3.0",
+        "numpy",
         "scipy",
         "keras",
         "google-api-python-client",

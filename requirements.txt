@@ -27,6 +27,7 @@ fasteners==0.15
 pytest-mock==1.10.4
 mock
 pyserini==0.9.3.0
+numpy
 scipy
 sphinx
 sphinxcontrib-apidoc
