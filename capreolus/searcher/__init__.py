@@ -299,10 +299,6 @@ class BM25PostProcess(BM25, PostprocessMixin):
     ]
 
     def query_from_file(self, topicsfn, output_path, docs_to_remove=None):
-        # qrel_fn = "/home/xinyu1zhang/cikm/capreolus-covid/capreolus/data/covid/round=2_udelqexpand=False_excludeknown=True/ignore.qrel.txt"
-        # qrels = load_qrels(qrel_fn)
-        # docs_to_remove = {q: list(d.keys()) for q, d in qrels.items()}
-
         output_path = super().query_from_file(topicsfn, output_path)
 
         if docs_to_remove:
