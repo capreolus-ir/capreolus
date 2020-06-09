@@ -46,7 +46,7 @@ setuptools.setup(
         "matplotlib",
         "pytorch-transformers==1.1.0",
         "colorlog==4.0.2",
-        "pytrec_eval@git+git://github.com/cvangysel/pytrec_eval.git@a9fa75459934f6bbb7b142f272419305390e51ae#egg=pytrec_eval-0.4.1",
+        "pytrec_eval_git",
         "pytest",
         "pyjnius==1.2.1",
         "pymagnitude==0.1.120",
