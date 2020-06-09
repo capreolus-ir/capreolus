@@ -69,14 +69,16 @@ class Searcher(ModuleBase):
         self._query_from_file(topic_fn, runfile_dir, config)
         # TODO: in terms of grid search case, shall we import evaluator to find the best runfile?
 
-        runfile_fn = [f for f in os.listdir(runfile_dir) if f != "done"][0]  # assume only one file is generated
-        runfile_fn = runfile_dir / runfile_fn
-
-        runs = self.load_trec_run(runfile_fn)
-        os.remove(runfile_fn)  # remove it in case the file accumulate
+        runfile_fns = [f for f in os.listdir(runfile_dir) if f != "done"]
+        config2runs = {}
+        for runfile in runfile_fns:
+            runfile_fn = runfile_dir / runfile
+            runs = self.load_trec_run(runfile_fn)
+            config2runs[runfile.replace("searcher_", "")] = OrderedDict(runs)
+            os.remove(runfile_fn)  # remove it in case the file accumulate
         os.remove(runfile_dir / "done")
 
-        return OrderedDict(runs)
+        return config2runs 
 
 
 class AnseriniSearcherMixIn:
