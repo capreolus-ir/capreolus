@@ -71,6 +71,9 @@ class Extractor(ModuleBase):
     def _build_vocab(self, qids, docids, topics):
         raise NotImplementedError
 
+    def build_from_benchmark(self, *args, **kwargs):
+        raise NotImplementedError
+
 
 @Extractor.register
 class EmbedText(Extractor):

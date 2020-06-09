@@ -26,8 +26,8 @@ with open("README.md", "r") as fh:
 setuptools.setup(
     name="capreolus",
     version="0.2.0",
-    author="Andrew Yates",
-    author_email="capreolus@mpi-inf.mpg.de",
+    author="Andrew Yates, Kevin Martin Jose, Xinyu Zhang, Siddhant Arora, Wei Yang, Jimmy Lin",
+    author_email="",
     description="A toolkit for end-to-end neural ad hoc retrieval",
     long_description=long_description,
     long_description_content_type="text/markdown",
