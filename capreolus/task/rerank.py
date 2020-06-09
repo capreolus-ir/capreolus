@@ -1,6 +1,6 @@
 import random
 import os
-
+from pathlib import Path
 
 import numpy as np
 import torch
@@ -46,6 +46,9 @@ class RerankTask(Task):
         return self.rerank_run(best_search_run, self.get_results_path())
 
     def rerank_run(self, best_search_run, train_output_path, include_train=False):
+        if not isinstance(train_output_path, Path):
+            train_output_path = Path(train_output_path)
+
         fold = self.config["fold"]
         dev_output_path = train_output_path / "pred" / "dev"
         logger.debug("results path: %s", train_output_path)
