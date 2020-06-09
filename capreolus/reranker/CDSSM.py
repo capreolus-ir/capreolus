@@ -1,25 +1,21 @@
-from capreolus.reranker.reranker import Reranker
-from capreolus.extractor.embedtext import EmbedText
-
 import torch
-import torch.nn as nn
-import torch.nn.functional as F
+from profane import ConfigOption, Dependency
+from torch import nn
 
+from capreolus.reranker import Reranker
 from capreolus.reranker.common import create_emb_layer
 
 
 class CDSSM_class(nn.Module):
-    @classmethod
-    def alternate_init(cls, embedding, config):
-        return cls(embedding, config)
-
-    def __init__(self, weights_matrix, p):
+    def __init__(self, extractor, config):
         super(CDSSM_class, self).__init__()
-        self.p = p
+        self.p = config
 
-        self.embedding = create_emb_layer(weights_matrix, non_trainable=True)
-        self.conv = nn.Sequential(nn.Conv1d(1, p["nfilter"], p["nkernel"]), nn.ReLU(), nn.Dropout(p["dropoutrate"]))
-        self.ffw = nn.Linear(p["nkernel"], p["nhiddens"])
+        self.embedding = create_emb_layer(extractor.embeddings, non_trainable=True)
+        self.conv = nn.Sequential(
+            nn.Conv1d(1, config["nfilter"], config["nkernel"]), nn.ReLU(), nn.Dropout(config["dropoutrate"])
+        )
+        self.ffw = nn.Linear(config["nkernel"], config["nhiddens"])
 
         self.output_layer = nn.Sequential(nn.Sigmoid())
 
@@ -79,40 +75,30 @@ dtype = torch.FloatTensor
 @Reranker.register
 class CDSSM(Reranker):
     description = """Yelong Shen, Xiaodong He, Jianfeng Gao, Li Deng, and Grégoire Mesnil. 2014. A Latent Semantic Model with Convolutional-Pooling Structure for Information Retrieval. In CIKM'14."""
-    EXTRACTORS = [EmbedText]
+    module_name = "CDSSM"
 
-    @staticmethod
-    def config():
-        nkernel = 30  # kernel dimension in conv
-        nfilter = 1  # number of filters in conv
-        nhiddens = 30  # hidden layer dimension for ffw layer
-        windowsize = 3  # number of query/document words to concatenate before conv
-        dropoutrate = 0  # dropout rate for conv
-        lr = 0.0001
-        return locals().copy()  # ignored by sacred
+    config_spec = [
+        ConfigOption("nkernel", 3, "kernel dimension in conv"),
+        ConfigOption("nfilter", 1, "number of filters in conv"),
+        ConfigOption("nhiddens", 30, "hidden layer dimension for ffw layer"),
+        ConfigOption("windowsize", 3, "number of query/document words to concatenate before conv"),
+        ConfigOption("dropoutrate", 0, "dropout rate for conv"),
+    ]
 
-    @staticmethod
-    def required_params():
-        # Used for validation. Returns a set of params required by the class defined in get_model_class()
-        return {"windowsize", "nhiddens", "nkernel", "dropoutrate", "nfilter"}
+    def build_model(self):
+        if not hasattr(self, "model"):
+            self.model = CDSSM_class(self.extractor, self.config)
 
-    @classmethod
-    def get_model_class(cls):
-        return CDSSM_class
-
-    def build(self):
-        config = self.config.copy()
-        config["pad_token"] = EmbedText.pad
-        self.model = CDSSM_class(self.embeddings, config)
         return self.model
 
     def score(self, d):
-        query_idf = d["query_idf"]
         query_sentence = d["query"]
         pos_sentence, neg_sentence = d["posdoc"], d["negdoc"]
         return [self.model(pos_sentence, query_sentence).view(-1), self.model(neg_sentence, query_sentence).view(-1)]
 
-    def test(self, query_sentence, query_idf, pos_sentence, *args, **kwargs):
+    def test(self, data):
+        query_sentence, pos_sentence = data["query"], data["posdoc"]
+
         return self.model(pos_sentence, query_sentence).view(-1)
 
     def zero_grad(self, *args, **kwargs):

@@ -1,10 +1,12 @@
-from capreolus.reranker.reranker import Reranker
-from capreolus.extractor.embedtext import EmbedText
-from capreolus.reranker.common import create_emb_layer
-
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
+from profane import ConfigOption, Dependency
+
+from capreolus.reranker import Reranker
+from capreolus.reranker.common import create_emb_layer
+from capreolus.utils.loginit import get_logger
+
+logger = get_logger(__name__)  # pylint: disable=invalid-name
 
 
 class LocalModel(nn.Module):
@@ -18,15 +20,12 @@ class LocalModel(nn.Module):
         else:
             raise ValueError("Unexpected activation: should be either tanh or relu")
 
-        self.conv = nn.Sequential(  # (B, 1, Q, D) -> (B, H, Q, 1)
-            nn.Conv2d(1, p["nfilters"], (1, p["maxdoclen"])), self.activation
-        )
+        q_len, doc_len = p["trainer"]["maxqlen"], p["trainer"]["maxdoclen"]
+        dropoutrate = p["trainer"]["dropoutrate"]
+        self.conv = nn.Sequential(nn.Conv2d(1, p["nfilters"], (1, doc_len)), self.activation)  # (B, 1, Q, D) -> (B, H, Q, 1)
 
         self.ffw = nn.Sequential(
-            nn.Linear(p["maxqlen"] * p["nfilters"], p["lmhidden"]),
-            self.activation,
-            nn.Dropout(p["dropoutrate"]),
-            nn.Linear(p["lmhidden"], 1),
+            nn.Linear(q_len * p["nfilters"], p["lmhidden"]), self.activation, nn.Dropout(dropoutrate), nn.Linear(p["lmhidden"], 1)
         )
 
     def exact_match(self, m1, m2):
@@ -50,12 +49,12 @@ class LocalModel(nn.Module):
             lm_matrix = lm_matrix * query_idf[:, :, None]
 
         lm_x = self.conv(lm_matrix.unsqueeze(1)).squeeze()  # (B, H1, nq)
-        lm_score = self.ffw(lm_x.view(lm_x.size(0), self.p["maxqlen"] * self.p["nfilters"]))
+        lm_score = self.ffw(lm_x.view(lm_x.size(0), -1))
         return lm_score
 
 
 class DistributedModel(nn.Module):
-    def __init__(self, weights_matrix, p):
+    def __init__(self, extractor, p):
         super(DistributedModel, self).__init__()
         if p["activation"] == "tanh":
             self.activation = nn.Tanh()
@@ -64,14 +63,14 @@ class DistributedModel(nn.Module):
         else:
             raise ValueError("Unexpected activation: should be either tanh or relu")
 
-        self.emb = create_emb_layer(weights_matrix, non_trainable=True)
-        embsize = weights_matrix.shape[-1]
-        print("weights_matrix embsize: ", embsize)
+        self.embedding = create_emb_layer(extractor.embeddings, non_trainable=True)
+        embsize = self.embedding.weight.shape[-1]
+        dropoutrate = p["trainer"]["dropoutrate"]
 
         self.q_conv = nn.Sequential(
             nn.Conv2d(1, p["nfilters"], (3, embsize)),
             self.activation,
-            nn.Dropout(p["dropoutrate"]),
+            nn.Dropout(dropoutrate),
             nn.MaxPool2d((2, 1), stride=(1, 1)),
         )
 
@@ -81,28 +80,27 @@ class DistributedModel(nn.Module):
         self.d_conv1 = nn.Sequential(
             nn.Conv2d(1, p["nfilters"], (3, embsize)),
             self.activation,
-            nn.Dropout(p["dropoutrate"]),
+            nn.Dropout(dropoutrate),
             nn.MaxPool2d((100, 1), stride=(1, 1)),
         )
 
         self.d_conv2 = nn.Sequential(
             nn.Conv2d(1, p["nfilters"], (p["nfilters"], 1)),  # (B, 1, H, Q') -> (B, H, 1, Q')
             self.activation,
-            nn.Dropout(p["dropoutrate"]),
+            nn.Dropout(dropoutrate),
         )
 
         self.ffw_1 = nn.Sequential(nn.Linear(p["nhidden"], 1), self.activation)
-
-        self.ffw_2 = nn.Sequential(nn.Dropout(p["dropoutrate"]), nn.Linear(p["nfilters"], 1))
+        self.ffw_2 = nn.Sequential(nn.Dropout(dropoutrate), nn.Linear(p["nfilters"], 1))
 
     def forward(self, documents, queries):
         # dm query
-        dm_q = self.emb(queries).unsqueeze(1)  # (B, 1, nq, D)
+        dm_q = self.embedding(queries).unsqueeze(1)  # (B, 1, nq, D)
         dm_q = self.q_conv(dm_q).squeeze()  # (B, H)
         dm_q = self.q_ffw(dm_q)  # (B, H)
 
         # dm document
-        dm_d = self.emb(documents).unsqueeze(1)  # (B, 1, nd, D)
+        dm_d = self.embedding(documents).unsqueeze(1)  # (B, 1, nd, D)
         dm_d = self.d_conv1(dm_d).squeeze()  # (B, H, 699)
         dm_d = self.d_conv2(dm_d.unsqueeze(1)).squeeze()  # (B, H, 699) -> (B, 1, H, 699) -> (B, H, 1, 699) -> (B, H, 699)
 
@@ -115,14 +113,10 @@ class DistributedModel(nn.Module):
 
 
 class DUET_class(nn.Module):
-    @classmethod
-    def alternate_init(cls, embedding, config):
-        return cls(embedding, config)
-
-    def __init__(self, weights_matrix, p):
+    def __init__(self, extractor, p):
         super(DUET_class, self).__init__()
         self.lm = LocalModel(p)
-        self.dm = DistributedModel(weights_matrix, p)
+        self.dm = DistributedModel(extractor, p)
 
     def forward(self, documents, queries, query_idf):
         """
@@ -135,38 +129,22 @@ class DUET_class(nn.Module):
         return lm_score + dm_score
 
 
-dtype = torch.FloatTensor
-
-
 @Reranker.register
 class DUET(Reranker):
+    module_name = "DUET"
     description = """Bhaskar Mitra, Fernando Diaz, and Nick Craswell. 2017. Learning to Match using Local and Distributed Representations of Text for Web Search. In WWW'17."""
-    EXTRACTORS = [EmbedText]
 
-    @staticmethod
-    def config():
-        nfilters = 10  # number of filters for both local and distrbuted model
-        lmhidden = 30  # ffw hidden layer dimension for local model
-        nhidden = 699  # ffw hidden layer dimension for local model
+    config_spec = [
+        ConfigOption("nfilter", 10, "number of filters for both local and distrbuted model"),
+        ConfigOption("lmhidden", 30, "ffw hidden layer dimension for local model"),
+        ConfigOption("nhidden", 699, "ffw hidden layer dimension for local model"),
+        ConfigOption("idfweight", True, "whether to weight each query word with its idf value in local model"),
+        ConfigOption("activation", "relu", "ffw layer activation: tanh or relu"),
+    ]
 
-        idfweight = True  # control whether to weight each query word with its idf value in local model
-        activation = "relu"  # activation for ffw layers, shoule be either 'tanh' or 'relu'
-
-        lr = 0.0001
-        dropoutrate = 0.5  # dropout probability
-        return locals().copy()  # ignored by sacred
-
-    @staticmethod
-    def required_params():
-        # Used for validation. Returns a set of params required by the class defined in get_model_class()
-        return {"maxdoclen", "lmhidden", "idfweight", "maxqlen", "dropoutrate", "nfilters", "activation"}
-
-    @classmethod
-    def get_model_class(cls):
-        return DUET_class
-
-    def build(self):
-        self.model = DUET_class(self.embeddings, self.config)
+    def build_model(self):
+        if not hasattr(self, "model"):
+            self.model = DUET_class(self.extractor, self.config)
         return self.model
 
     def score(self, d):
@@ -178,8 +156,8 @@ class DUET(Reranker):
             self.model(neg_sentence, query_sentence, query_idf).view(-1),
         ]
 
-    def test(self, query_sentence, query_idf, pos_sentence, *args, **kwargs):
+    def test(self, d):
+        query_idf = d["query_idf"]
+        query_sentence = d["query"]
+        pos_sentence = d["posdoc"]
         return self.model(pos_sentence, query_sentence, query_idf).view(-1)
-
-    def zero_grad(self, *args, **kwargs):
-        self.model.zero_grad(*args, **kwargs)

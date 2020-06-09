@@ -1,15 +1,5 @@
-import importlib
-import os.path
-from glob import glob
+from profane import import_all_modules
 
-from capreolus.utils.loginit import get_logger
+from .base import Reranker
 
-logger = get_logger(__name__)  # pylint: disable=invalid-name
-
-# import all model modules so that the model classes are registered
-pwd = os.path.dirname(__file__)
-logger.debug("checking for reranker to import in: %s", pwd)
-for fn in glob(os.path.join(pwd, "*.py")):
-    modname = os.path.basename(fn)[:-3]
-    if not (modname.startswith("__") or modname.startswith("flycheck_")):
-        importlib.import_module(f"capreolus.reranker.{modname}")
+import_all_modules(__file__, __package__)

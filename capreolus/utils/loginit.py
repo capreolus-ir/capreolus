@@ -1,9 +1,8 @@
+import logging
+import logging.handlers
 import os
 
 import colorlog
-import logging
-import logging.handlers
-
 
 GLOBAL_LOGGING_CONF = {"level": os.environ.get("CAPREOLUS_LOGGING", logging.INFO)}
 
@@ -80,8 +79,10 @@ def get_logger(name=None):
         sh.addFilter(RepeatFilter(logger))
         logger.addHandler(sh)
 
-    logger.setLevel(GLOBAL_LOGGING_CONF["level"])
+        logger.setLevel(GLOBAL_LOGGING_CONF["level"])
+
     if name is None:
-        return logger
-    else:
-        return logging.getLogger(name)
+        name = "capreolus"
+    if not name.startswith("capreolus"):
+        name = "capreolus." + name
+    return logging.getLogger(name)

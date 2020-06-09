@@ -1,0 +1,79 @@
+<DOC>
+<DOCNO> LA010189-0001 </DOCNO>
+<DOCID> 1 </DOCID>
+<DATE>
+<P>
+Dummy
+</P>
+</DATE>
+<SECTION>
+<P>
+Dummy
+</P>
+</SECTION>
+<LENGTH>
+<P>
+10 words
+</P>
+</LENGTH>
+<HEADLINE>
+<P>
+Dummy
+</P>
+<P>
+Dummy
+</P>
+</HEADLINE>
+<BYLINE>
+<P>
+Dummy
+</P>
+</BYLINE>
+<TEXT>
+<P>
+Hello world, greetings from outer space!
+</P>
+</TEXT>
+<TYPE>
+<P>
+Dummys
+</P>
+</TYPE>
+</DOC>
+
+
+
+<DOC>
+<DOCNO> LA010189-0002 </DOCNO>
+<DOCID> 1 </DOCID>
+<DATE>
+</DATE>
+<LENGTH>
+<P>
+10 words
+</P>
+</LENGTH>
+<HEADLINE>
+<P>
+Dummy
+</P>
+<P>
+LessDummy
+</P>
+</HEADLINE>
+<BYLINE>
+<P>
+LessDummy
+</P>
+</BYLINE>
+<TEXT>
+<P>
+Hello world, greetings from outer space!
+</P>
+</TEXT>
+<TYPE>
+<P>
+Dummys
+</P>
+</TYPE>
+</DOC>

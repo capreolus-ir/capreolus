@@ -1,35 +1,30 @@
-import json
-import os
+from profane import import_all_modules
 
-from collections import defaultdict
+
+# import_all_modules(__file__, __package__)
+
+import os
+import math
+import subprocess
+from collections import defaultdict, OrderedDict
 
 import numpy as np
-import pytrec_eval
+from profane import ModuleBase, Dependency, ConfigOption, constants
+from pyserini.search import pysearch
 
-from capreolus.utils.common import register_component_module, import_component_modules
+from capreolus.utils.common import Anserini
 from capreolus.utils.loginit import get_logger
 
 logger = get_logger(__name__)  # pylint: disable=invalid-name
+MAX_THREADS = constants["MAX_THREADS"]
 
 
-class Searcher:
-    """ Module responsible for searching an Index. Searchers are usually coupled to an Index module (e.g., AnseriniIndex). """
+def list2str(l):
+    return "-".join(str(x) for x in l)
 
-    ALL = {}
 
-    def __init__(self, index, collection, run_path, pipe_config):
-        self.index = index
-        self.collection = collection
-        self.run_path = run_path
-        self.pipeline_config = pipe_config
-
-    @staticmethod
-    def config():
-        return locals().copy()  # ignored by sacred
-
-    @classmethod
-    def register(cls, subcls):
-        return register_component_module(cls, subcls)
+class Searcher(ModuleBase):
+    module_type = "searcher"
 
     @staticmethod
     def load_trec_run(fn):
@@ -46,165 +41,553 @@ class Searcher:
     def write_trec_run(preds, outfn):
         count = 0
         with open(outfn, "wt") as outf:
-            for qid in sorted(preds):
+            qids = sorted(preds.keys(), key=lambda k: int(k))
+            for qid in qids:
                 rank = 1
                 for docid, score in sorted(preds[qid].items(), key=lambda x: x[1], reverse=True):
                     print(f"{qid} Q0 {docid} {rank} {score} capreolus", file=outf)
                     rank += 1
                     count += 1
 
-    def exists(self):
-        return os.path.exists(os.path.join(self.run_path, "done"))
 
-    def _query_index():
-        raise NotImplementedError()
+class AnseriniSearcherMixIn:
+    """ MixIn for searchers that use Anserini's SearchCollection script """
 
-    def create(self):
-        self.index.create(self.pipeline_config)
-        if self.exists():
+    def _anserini_query_from_file(self, topicsfn, anserini_param_str, output_base_path, topicfield):
+        if not os.path.exists(topicsfn):
+            raise IOError(f"could not find topics file: {topicsfn}")
+
+        # for covid:
+        field2querytype = {"query": "title", "question": "description", "narrative": "narrative"}
+        for k, v in field2querytype.items():
+            topicfield = topicfield.replace(k, v)
+
+        donefn = os.path.join(output_base_path, "done")
+        if os.path.exists(donefn):
+            logger.debug(f"skipping Anserini SearchCollection call because path already exists: {donefn}")
             return
 
-        # TODO check for and remove incomplete searcher files? then we can use -skipexists
-        self._query_index()
-        with open(os.path.join(self.run_path, "done"), "wt") as donef:
+        # create index if it does not exist. the call returns immediately if the index does exist.
+        self.index.create_index()
+
+        os.makedirs(output_base_path, exist_ok=True)
+        output_path = os.path.join(output_base_path, "searcher")
+
+        # add stemmer and stop options to match underlying index
+        indexopts = "-stemmer "
+        indexopts += "none" if self.index.config["stemmer"] is None else self.index.config["stemmer"]
+        if self.index.config["indexstops"]:
+            indexopts += " -keepstopwords"
+
+        index_path = self.index.get_index_path()
+        anserini_fat_jar = Anserini.get_fat_jar()
+        cmd = (
+            f"java -classpath {anserini_fat_jar} "
+            f"-Xms512M -Xmx31G -Dapp.name=SearchCollection io.anserini.search.SearchCollection "
+            f"-topicreader Trec -index {index_path} {indexopts} -topics {topicsfn} -output {output_path} "
+            f"-topicfield {topicfield} -inmem -threads {MAX_THREADS} {anserini_param_str}"
+        )
+        logger.info("Anserini writing runs to %s", output_path)
+        logger.debug(cmd)
+
+        app = subprocess.Popen(cmd.split(), stdout=subprocess.PIPE, universal_newlines=True)
+
+        # Anserini output is verbose, so ignore DEBUG log lines and send other output through our logger
+        for line in app.stdout:
+            Anserini.filter_and_log_anserini_output(line, logger)
+
+        app.wait()
+        if app.returncode != 0:
+            raise RuntimeError("command failed")
+
+        with open(donefn, "wt") as donef:
             print("done", file=donef)
 
-    def search_run_iter(self, load_run=True):
-        self.create()
-        for fn in os.listdir(self.run_path):
-            if fn == "done" or fn.endswith(".metrics"):
+
+class PostprocessMixin:
+    def _keep_topn(self, runs, topn):
+        queries = sorted(list(runs.keys()), key=lambda k: int(k))
+        for q in queries:
+            docs = runs[q]
+            if len(docs) <= topn:
                 continue
-            fn = os.path.join(self.run_path, fn)
-            if load_run:
-                yield self.load_trec_run(fn)
-            else:
-                yield fn
+            docs = sorted(docs.items(), key=lambda kv: kv[1], reverse=True)[:topn]
+            runs[q] = {k: v for k, v in docs}
+        return runs
 
-    def search_run_metrics(self, fn, evaluator, qids):
-        cachefn = fn + ".metrics"
-        try:
-            with open(cachefn, "rt") as cachef:
-                metrics_cache = json.load(cachef)
-        except:
-            metrics_cache = {}
+    def filter(self, run_dir, docs_to_remove=None, docs_to_keep=None, topn=None):
+        if (not docs_to_keep) and (not docs_to_remove):
+            raise
 
-        # return from cache if available
-        if all(qid in metrics_cache for qid in qids):
-            # pytrec_eval does not include qids with no qrels in its output dict, so we also skip them here
-            return {qid: metrics_cache[qid] for qid in qids if metrics_cache[qid] != "NONE"}
+        for fn in os.listdir(run_dir):
+            if fn == "done":
+                continue
 
-        # else calculate and cache the metrics
-        run = self.load_trec_run(fn)
-        metrics = evaluator.evaluate(run)
+            run_fn = os.path.join(run_dir, fn)
+            self._filter(run_fn, docs_to_remove, docs_to_keep, topn)
+        return run_dir
 
-        # update works for adding missing qids, but will not work for missing metrics
-        # (i.e., the old metrics will be overwritten due to dict nesting)
-        metrics_cache.update(metrics)
-        # add "NONE" placeholders for qids that pytrec_eval omitted (due to having no relevant docs in qrels)
-        metrics_cache.update({qid: "NONE" for qid in qids if qid not in metrics_cache})
-        with open(cachefn, "wt") as outf:
-            json.dump(metrics_cache, outf, indent=4)
+    def _filter(self, runfile, docs_to_remove, docs_to_keep, topn):
+        runs = Searcher.load_trec_run(runfile)
 
-        # pytrec_eval does not include qids with no qrels in its output dict, so we also skip them here
-        return {qid: metrics_cache[qid] for qid in qids if metrics_cache[qid] != "NONE"}
+        # filtering
+        if docs_to_remove:  # prioritize docs_to_remove
+            if isinstance(docs_to_remove, list):
+                docs_to_remove = {q: docs_to_remove for q in runs}
+            runs = {q: {d: v for d, v in docs.items() if d not in docs_to_remove.get(q, [])} for q, docs in runs.items()}
+        elif docs_to_keep:
+            if isinstance(docs_to_keep, list):
+                docs_to_keep = {q: docs_to_keep for q in runs}
+            runs = {q: {d: v for d, v in docs.items() if d in docs_to_keep[q]} for q, docs in runs.items()}
 
-    def crossvalidated_ranking(self, dev_qids, test_qids, metric="map", full_run=False):
-        """ Return a ranking for queries in test_qids using parameters chosen using the queries in dev_qids """
+        if topn:
+            runs = self._keep_topn(runs, topn)
+        Searcher.write_trec_run(runs, runfile)  # overwrite runfile
 
-        valid_metrics = {"P", "map", "map_cut", "ndcg_cut", "Rprec", "recip_rank"}
-        cut_points = [5, 10, 15, 20, 30, 100, 200, 500, 1000]
-        # the metrics we expect pytrec_eval to output (after expanding _cut)
-        expected_metrics = {m for m in valid_metrics if not m.endswith("_cut") and m != "P"} | {
-            m + "_" + str(cutoff) for cutoff in cut_points for m in valid_metrics if m.endswith("_cut") or m == "P"
-        }
+    def dedup(self, run_dir, topn=None):
+        for fn in os.listdir(run_dir):
+            if fn == "done":
+                continue
+            run_fn = os.path.join(run_dir, fn)
+            self._dedup(run_fn, topn)
+        return run_dir
 
-        if metric in ["ndcg", "ndcg_cut"]:
-            mkey = "ndcg_cut_20"
-        elif metric in expected_metrics:
-            mkey = metric
-        else:
-            raise RuntimeError("requested metric %s is not one of the supported metrics: %s" % (metric, sorted(expected_metrics)))
-        avg_metric = lambda run_metrics: np.mean([qid[mkey] for qid in run_metrics.values()])
+    def _dedup(self, runfile, topn):
+        runs = Searcher.load_trec_run(runfile)
+        new_runs = {q: {} for q in runs}
 
-        dev_qrels = {qid: labels for qid, labels in self.collection.qrels.items() if qid in dev_qids}
-        dev_eval = pytrec_eval.RelevanceEvaluator(dev_qrels, valid_metrics)
-        best_metric, best_run_fn = -np.inf, None
-        for search_run_fn in self.search_run_iter(load_run=False):
-            run_metrics = self.search_run_metrics(search_run_fn, dev_eval, dev_qids)
-            mavgp = avg_metric(run_metrics)
-            # assert that all qids are in what we get back from the evaluator?
-            # -> looks like it returns a metric of 0 for qids with all 0 labels, so this should work fine
-            if mavgp > best_metric:
-                best_metric = mavgp
-                best_run_fn = search_run_fn
+        # use the sum of each passage score as the document score, no sorting is done here
+        for q, psg in runs.items():
+            for pid, score in psg.items():
+                docid = pid.split(".")[0]
+                new_runs[q][docid] = max(new_runs[q].get(docid, -math.inf), score)
+        runs = new_runs
 
-        best_run = self.load_trec_run(best_run_fn)
-        if full_run:
-            test_ranking = best_run
-        else:
-            test_ranking = {qid: v for qid, v in best_run.items() if qid in test_qids}
-        return test_ranking
+        if topn:
+            runs = self._keep_topn(runs, topn)
+        Searcher.write_trec_run(runs, runfile)
+
+
+@Searcher.register
+class BM25(Searcher, AnseriniSearcherMixIn):
+    """ BM25 with fixed k1 and b. """
+
+    module_name = "BM25"
+
+    dependencies = [Dependency(key="index", module="index", name="anserini")]
+    config_spec = [
+        ConfigOption("b", 0.4, "controls document length normalization"),
+        ConfigOption("k1", 0.9, "controls term saturation"),
+        ConfigOption("hits", 1000, "number of results to return"),
+        ConfigOption("fields", "title"),
+    ]
+
+    def query_from_file(self, topicsfn, output_path):
+        """
+        Runs BM25 search. Takes a query from the topic files, and fires it against the index
+        Args:
+            topicsfn: Path to a topics file
+            output_path: Path where the results of the search (i.e the run file) should be stored
+
+        Returns: Path to the run file where the results of the search are stored
+
+        """
+        bs = [self.config["b"]]
+        k1s = [self.config["k1"]]
+        bstr = " ".join(str(x) for x in bs)
+        k1str = " ".join(str(x) for x in k1s)
+        hits = self.config["hits"]
+        anserini_param_str = f"-bm25 -bm25.b {bstr} -bm25.k1 {k1str} -hits {hits}"
+        self._anserini_query_from_file(topicsfn, anserini_param_str, output_path, self.config["fields"])
+
+        return output_path
+
+    def query(self, query):
+        self.index.create_index()
+        searcher = pysearch.SimpleSearcher(self.index.get_index_path().as_posix())
+        searcher.set_bm25(self.config["k1"], self.config["b"])
+
+        hits = searcher.search(query, k=self.config["hits"])
+        return OrderedDict({hit.docid: hit.score for hit in hits})
+
+
+@Searcher.register
+class BM25Grid(Searcher, AnseriniSearcherMixIn):
+    """ BM25 with a grid search for k1 and b. Search is from 0.1 to bmax/k1max in 0.1 increments """
+
+    module_name = "BM25Grid"
+    dependencies = [Dependency(key="index", module="index", name="anserini")]
+    config_spec = [
+        ConfigOption("k1max", 1.0, "maximum k1 value to include in grid search (starting at 0.1)"),
+        ConfigOption("bmax", 1.0, "maximum b value to include in grid search (starting at 0.1)"),
+        ConfigOption("hits", 1000, "number of results to return"),
+        ConfigOption("fields", "title"),
+    ]
+
+    def query_from_file(self, topicsfn, output_path):
+        bs = np.around(np.arange(0.1, self.config["bmax"] + 0.1, 0.1), 1)
+        k1s = np.around(np.arange(0.1, self.config["k1max"] + 0.1, 0.1), 1)
+        bstr = " ".join(str(x) for x in bs)
+        k1str = " ".join(str(x) for x in k1s)
+        hits = self.config["hits"]
+        anserini_param_str = f"-bm25 -bm25.b {bstr} -bm25.k1 {k1str} -hits {hits}"
+
+        self._anserini_query_from_file(topicsfn, anserini_param_str, output_path, self.config["fields"])
+
+        return output_path
+
+    def query(self, query, b, k1):
+        self.index.create_index()
+        searcher = pysearch.SimpleSearcher(self.index.get_index_path().as_posix())
+        searcher.set_bm25_similarity(k1, b)
+
+        hits = searcher.search(query)
+        return OrderedDict({hit.docid: hit.score for hit in hits})
+
+
+@Searcher.register
+class BM25RM3(Searcher, AnseriniSearcherMixIn):
+
+    module_name = "BM25RM3"
+    dependencies = [Dependency(key="index", module="index", name="anserini")]
+    config_spec = [
+        ConfigOption("k1", list2str([0.65, 0.70, 0.75])),
+        ConfigOption("b", list2str([0.60, 0.7])),
+        ConfigOption("fbTerms", list2str([65, 70, 95, 100])),
+        ConfigOption("fbDocs", list2str([5, 10, 15])),
+        ConfigOption("originalQueryWeight", list2str([0.5])),
+        ConfigOption("hits", 1000, "number of results to return"),
+        ConfigOption("fields", "title"),
+    ]
+
+    def query_from_file(self, topicsfn, output_path):
+        paras = {k: " ".join(self.config[k].split("-")) for k in ["k1", "b", "fbTerms", "fbDocs", "originalQueryWeight"]}
+        hits = str(self.config["hits"])
+
+        anserini_param_str = (
+            "-rm3 "
+            + " ".join(f"-rm3.{k} {paras[k]}" for k in ["fbTerms", "fbDocs", "originalQueryWeight"])
+            + " -bm25 "
+            + " ".join(f"-bm25.{k} {paras[k]}" for k in ["k1", "b"])
+            + f" -hits {hits}"
+        )
+        self._anserini_query_from_file(topicsfn, anserini_param_str, output_path, self.config["fields"])
+
+        return output_path
+
+    def query(self, query, b, k1, fbterms, fbdocs, ow):
+        self.index.create_index()
+        searcher = pysearch.SimpleSearcher(self.index.get_index_path().as_posix())
+        searcher.set_bm25_similarity(k1, b)
+        searcher.set_rm3_reranker(fb_terms=fbterms, fb_docs=fbdocs, original_query_weight=ow)
+
+        hits = searcher.search(query)
+        return OrderedDict({hit.docid: hit.score for hit in hits})
+
+
+@Searcher.register
+class BM25PostProcess(BM25, PostprocessMixin):
+    module_name = "BM25Postprocess"
+
+    config_spec = [
+        ConfigOption("b", 0.4, "controls document length normalization"),
+        ConfigOption("k1", 0.9, "controls term saturation"),
+        ConfigOption("hits", 1000, "number of results to return"),
+        ConfigOption("topn", 1000),
+        ConfigOption("fields", "title"),
+        ConfigOption("dedep", False),
+    ]
+
+    def query_from_file(self, topicsfn, output_path, docs_to_remove=None):
+        # qrel_fn = "/home/xinyu1zhang/cikm/capreolus-covid/capreolus/data/covid/round=2_udelqexpand=False_excludeknown=True/ignore.qrel.txt"
+        # qrels = load_qrels(qrel_fn)
+        # docs_to_remove = {q: list(d.keys()) for q, d in qrels.items()}
+
+        output_path = super().query_from_file(topicsfn, output_path)
+
+        if docs_to_remove:
+            output_path = self.filter(output_path, docs_to_remove=docs_to_remove, topn=self.config["topn"])
+        if self.config["dedup"]:
+            output_path = self.dedup(output_path, topn=self.config["topn"])
+
+        return output_path
+
+
+@Searcher.register
+class StaticBM25RM3Rob04Yang19(Searcher):
+    """ Tuned BM25+RM3 run used by Yang et al. in [1]. This should be used only with a benchmark using the same folds and queries.
+
+        [1] Wei Yang, Kuang Lu, Peilin Yang, and Jimmy Lin. Critically Examining the "Neural Hype": Weak Baselines and  the Additivity of Effectiveness Gains from Neural Ranking Models. SIGIR 2019.
+    """
+
+    module_name = "bm25staticrob04yang19"
+
+    def query_from_file(self, topicsfn, output_path):
+        import shutil
+
+        outfn = os.path.join(output_path, "static.run")
+        os.makedirs(output_path, exist_ok=True)
+        shutil.copy2(constants["PACKAGE_PATH"] / "data" / "rob04_yang19_rm3.run", outfn)
+
+        return output_path
+
+    def query(self, *args, **kwargs):
+        raise NotImplementedError("this searcher uses a static run file, so it cannot handle new queries")
+
+
+@Searcher.register
+class BM25PRF(Searcher, AnseriniSearcherMixIn):
+    """
+    BM25 with PRF
+    """
+
+    module_name = "BM25PRF"
+
+    dependencies = [Dependency(key="index", module="index", name="anserini")]
+    config_spec = [
+        ConfigOption("k1", list2str([0.65, 0.70, 0.75])),
+        ConfigOption("b", list2str([0.60, 0.7])),
+        ConfigOption("fbTerms", list2str([65, 70, 95, 100])),
+        ConfigOption("fbDocs", list2str([5, 10, 15])),
+        ConfigOption("newTermWeight", list2str([0.2, 0.25])),
+        ConfigOption("hits", 1000, "number of results to return"),
+        ConfigOption("fields", "title"),
+    ]
 
     @staticmethod
-    def interpolate_runs(run1, run2, qids, alpha):
-        out = {}
-        for qid in qids:
-            out[qid] = {}
-            assert len(run1[qid]) == len(run2[qid])
+    def list2str(l):
+        return "-".join(str(x) for x in l)
 
-            min1, max1 = min(run1[qid].values()), max(run1[qid].values())
-            min2, max2 = min(run2[qid].values()), max(run2[qid].values())
-            mu1, std1 = np.mean([*run1[qid].values()]), np.std([*run1[qid].values()])
-            mu2, std2 = np.mean([*run2[qid].values()]), np.std([*run2[qid].values()])
-            for docid, score1 in run1[qid].items():
-                if docid not in run2[qid]:
-                    score2 = min2
-                    print(f"WARNING: missing {qid} {docid}")
-                else:
-                    score2 = run2[qid][docid]
-                score1 = (score1 - min1) / (max1 - min1)
-                score2 = (score2 - min2) / (max2 - min2)
-                # score1 = (score1 - mu1) / std1
-                # score2 = (score2 - mu2) / std2
-                out[qid][docid] = alpha * score1 + (1 - alpha) * score2
+    def query_from_file(self, topicsfn, output_path):
+        paras = {k: " ".join(self.config[k].split("-")) for k in ["k1", "b", "fbTerms", "fbDocs", "newTermWeight"]}
 
-        return out
+        hits = str(self.config["hits"])
 
-    @staticmethod
-    def crossvalidated_interpolation(dev, test, metric):
-        """ Return an interpolated ranking """
+        anserini_param_str = (
+            "-bm25prf "
+            + " ".join(f"-bm25prf.{k} {paras[k]}" for k in ["fbTerms", "fbDocs", "newTermWeight", "k1", "b"])
+            + " -bm25 "
+            + " ".join(f"-bm25.{k} {paras[k]}" for k in ["k1", "b"])
+            + f" -hits {hits}"
+        )
+        self._anserini_query_from_file(topicsfn, anserini_param_str, output_path, self.config["fields"])
 
-        # TODO refactor out (shared with crossvalidated_ranking)
-        valid_metrics = {"P", "map", "map_cut", "ndcg_cut", "Rprec", "recip_rank"}
-        cut_points = [5, 10, 15, 20, 30, 100, 200, 500, 1000]
-        # the metrics we expect pytrec_eval to output (after expanding _cut)
-        expected_metrics = {m for m in valid_metrics if not m.endswith("_cut") and m != "P"} | {
-            m + "_" + str(cutoff) for cutoff in cut_points for m in valid_metrics if m.endswith("_cut") or m == "P"
-        }
-
-        if metric in ["ndcg", "ndcg_cut"]:
-            mkey = "ndcg_cut_20"
-        elif metric in expected_metrics:
-            mkey = metric
-        else:
-            raise RuntimeError("requested metric %s is not one of the supported metrics: %s" % (metric, sorted(expected_metrics)))
-        avg_metric = lambda run_metrics: np.mean([qid[mkey] for qid in run_metrics.values()])
-
-        assert len(set(dev["qrels"].keys()).intersection(test["qrels"].keys())) == 0
-        dev_eval = pytrec_eval.RelevanceEvaluator(dev["qrels"], valid_metrics)
-        best_metric, best_alpha = -np.inf, None
-        for alpha in np.arange(0, 1.001, 0.05):
-            run_metrics = dev_eval.evaluate(
-                Searcher.interpolate_runs(dev["reranker"], dev["searcher"], dev["qrels"].keys(), alpha)
-            )
-            mavgp = avg_metric(run_metrics)
-            if mavgp > best_metric:
-                best_metric = mavgp
-                best_alpha = alpha
-
-        test_run = Searcher.interpolate_runs(test["reranker"], test["searcher"], test["qrels"].keys(), best_alpha)
-        dev_run = Searcher.interpolate_runs(dev["reranker"], dev["searcher"], dev["qrels"].keys(), best_alpha)
-        return (best_alpha, test_run, dev_run)
+        return output_path
 
 
-import_component_modules("searcher")
+@Searcher.register
+class AxiomaticSemanticMatching(Searcher, AnseriniSearcherMixIn):
+    """
+    TODO: Add more info on retrieval method
+    Also, BM25 is hard-coded to be the scoring model
+    """
+
+    module_name = "axiomatic"
+    dependencies = [Dependency(key="index", module="index", name="anserini")]
+    config_spec = [
+        ConfigOption("b", 0.4, "controls document length normalization"),
+        ConfigOption("k1", 0.9, "controls term saturation"),
+        ConfigOption("r", 20),
+        ConfigOption("n", 30),
+        ConfigOption("beta", 0.4),
+        ConfigOption("top", 20),
+        ConfigOption("hits", 1000, "number of results to return"),
+        ConfigOption("fields", "title"),
+    ]
+
+    def query_from_file(self, topicsfn, output_path):
+        hits = str(self.config["hits"])
+        conditionals = ""
+
+        anserini_param_str = "-axiom -axiom.deterministic -axiom.r {0} -axiom.n {1} -axiom.beta {2} -axiom.top {3}".format(
+            self.config["r"], self.config["n"], self.config["beta"], self.config["top"]
+        )
+        anserini_param_str += " -bm25 -bm25.k1 {0} -bm25.b {1} -hits {2}".format(
+            self.config["k1"], self.config["b"], self.config["hits"]
+        )
+        self._anserini_query_from_file(topicsfn, anserini_param_str, output_path, self.config["fields"])
+
+        return output_path
+
+
+@Searcher.register
+class DirichletQL(Searcher, AnseriniSearcherMixIn):
+    """ Dirichlet QL with a fixed mu """
+
+    module_name = "DirichletQL"
+    dependencies = [Dependency(key="index", module="index", name="anserini")]
+
+    config_spec = [
+        ConfigOption("mu", 1000, "smoothing parameter"),
+        ConfigOption("hits", 1000, "number of results to return"),
+        ConfigOption("fields", "title"),
+    ]
+
+    def query_from_file(self, topicsfn, output_path):
+        """
+        Runs Dirichlet QL search. Takes a query from the topic files, and fires it against the index
+        Args:
+            topicsfn: Path to a topics file
+            output_path: Path where the results of the search (i.e the run file) should be stored
+
+        Returns: Path to the run file where the results of the search are stored
+
+        """
+        mus = [self.config["mu"]]
+        mustr = " ".join(str(x) for x in mus)
+        hits = self.config["hits"]
+        anserini_param_str = f"-qld -mu {mustr} -hits {hits}"
+        self._anserini_query_from_file(topicsfn, anserini_param_str, output_path, self.config["fields"])
+
+        return output_path
+
+    def query(self, query):
+        self.index.create_index()
+        searcher = pysearch.SimpleSearcher(self.index.get_index_path().as_posix())
+        searcher.set_lm_dirichlet_similarity(self.config["mu"])
+
+        hits = searcher.search(query)
+        return OrderedDict({hit.docid: hit.score for hit in hits})
+
+
+@Searcher.register
+class QLJM(Searcher, AnseriniSearcherMixIn):
+    """
+    QL with Jelinek-Mercer smoothing
+    """
+
+    module_name = "QLJM"
+    dependencies = [Dependency(key="index", module="index", name="anserini")]
+    config_spec = [
+        ConfigOption("lam", 0.1),
+        ConfigOption("hits", 1000, "number of results to return"),
+        ConfigOption("fields", "title"),
+    ]
+
+    def query_from_file(self, topicsfn, output_path):
+        anserini_param_str = "-qljm -qljm.lambda {0} -hits {1}".format(self.config["lam"], self.config["hits"])
+
+        self._anserini_query_from_file(topicsfn, anserini_param_str, output_path, self.config["fields"])
+
+        return output_path
+
+
+@Searcher.register
+class INL2(Searcher, AnseriniSearcherMixIn):
+    """
+    I(n)L2 scoring model
+    """
+
+    module_name = "INL2"
+    dependencies = [Dependency(key="index", module="index", name="anserini")]
+    config_spec = [
+        ConfigOption("c", 0.1),
+        ConfigOption("hits", 1000, "number of results to return"),
+        ConfigOption("fields", "title"),
+    ]
+
+    def query_from_file(self, topicsfn, output_path):
+        anserini_param_str = "-inl2 -inl2.c {0} -hits {1}".format(self.config["c"], self.config["hits"])
+
+        self._anserini_query_from_file(topicsfn, anserini_param_str, output_path, self.config["fields"])
+
+        return output_path
+
+
+@Searcher.register
+class SPL(Searcher, AnseriniSearcherMixIn):
+    """
+    SPL scoring model
+    """
+
+    module_name = "SPL"
+    dependencies = [Dependency(key="index", module="index", name="anserini")]
+
+    config_spec = [
+        ConfigOption("c", 0.1),
+        ConfigOption("hits", 1000, "number of results to return"),
+        ConfigOption("fields", "title"),
+    ]
+
+    def query_from_file(self, topicsfn, output_path):
+        anserini_param_str = "-spl -spl.c {0} -hits {1}".format(self.config["c"], self.config["hits"])
+
+        self._anserini_query_from_file(topicsfn, anserini_param_str, output_path, self.config["fields"])
+
+        return output_path
+
+
+@Searcher.register
+class F2Exp(Searcher, AnseriniSearcherMixIn):
+    """
+    F2Exp scoring model
+    """
+
+    module_name = "F2Exp"
+    dependencies = [Dependency(key="index", module="index", name="anserini")]
+
+    config_spec = [
+        ConfigOption("s", 0.5),
+        ConfigOption("hits", 1000, "number of results to return"),
+        ConfigOption("fields", "title"),
+    ]
+
+    def query_from_file(self, topicsfn, output_path):
+        anserini_param_str = "-f2exp -f2exp.s {0} -hits {1}".format(self.config["s"], self.config["hits"])
+
+        self._anserini_query_from_file(topicsfn, anserini_param_str, output_path, self.config["fields"])
+
+        return output_path
+
+
+@Searcher.register
+class F2Log(Searcher, AnseriniSearcherMixIn):
+    """
+    F2Log scoring model
+    """
+
+    module_name = "F2Log"
+    dependencies = [Dependency(key="index", module="index", name="anserini")]
+
+    config_spec = [
+        ConfigOption("s", 0.5),
+        ConfigOption("hits", 1000, "number of results to return"),
+        ConfigOption("fields", "title"),
+    ]
+
+    def query_from_file(self, topicsfn, output_path):
+        anserini_param_str = "-f2log -f2log.s {0} -hits {1}".format(self.config["s"], self.config["hits"])
+
+        self._anserini_query_from_file(topicsfn, anserini_param_str, output_path, self.config["fields"])
+
+        return output_path
+
+
+@Searcher.register
+class SDM(Searcher, AnseriniSearcherMixIn):
+    """
+    Sequential Dependency Model
+    The scoring model is hardcoded to be BM25 (TODO: Make it configurable?)
+    """
+
+    module_name = "SDM"
+    dependencies = [Dependency(key="index", module="index", name="anserini")]
+
+    config_spec = [
+        ConfigOption("b", 0.4, "controls document length normalization"),
+        ConfigOption("k1", 0.9, "controls term saturation"),
+        ConfigOption("tw", 0.85, "term weight"),
+        ConfigOption("ow", 0.15, "ordered window weight"),
+        ConfigOption("uw", 0.05, "unordered window weight"),
+        ConfigOption("hits", 1000, "number of results to return"),
+        ConfigOption("fields", "title"),
+    ]
+
+    def query_from_file(self, topicsfn, output_path):
+        anserini_param_str = "-sdm -sdm.tw {0} -sdm.ow {1} -sdm.uw {2} -hits {3}".format(
+            self.config["tw"], self.config["ow"], self.config["uw"], self.config["hits"]
+        )
+        anserini_param_str += " -bm25 -bm25.k1 {0} -bm25.b {1}".format(self.config["k1"], self.config["b"])
+        self._anserini_query_from_file(topicsfn, anserini_param_str, output_path, self.config["fields"])
+
+        return output_path

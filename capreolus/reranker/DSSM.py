@@ -1,20 +1,20 @@
-from capreolus.extractor.bagofwords import BagOfWords
-from capreolus.extractor.embedtext import EmbedText
-from capreolus.reranker.reranker import Reranker
-
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
+from profane import ConfigOption, Dependency
+
+from capreolus.extractor.bagofwords import BagOfWords
+from capreolus.reranker import Reranker
+from capreolus.utils.loginit import get_logger
+
+logger = get_logger(__name__)
 
 
 class DSSM_class(nn.Module):
-    def __init__(self, stoi, p):
+    def __init__(self, extractor, config):
         super(DSSM_class, self).__init__()
-        self.p = p
-        nvocab = len(stoi)
+        p = config
+        nvocab = len(extractor.stoi)
         nhiddens = [nvocab] + list(map(int, p["nhiddens"].split()))
-        print(nhiddens)
-
         self.ffw = nn.Sequential()
         for i in range(len(nhiddens) - 1):
             self.ffw.add_module("linear%d" % i, nn.Linear(nhiddens[i], nhiddens[i + 1]))
@@ -23,7 +23,9 @@ class DSSM_class(nn.Module):
 
         self.output_layer = nn.Sigmoid()
 
-    def forward(self, sentence, query):
+    def forward(self, sentence, query, query_idf):
+        query = query.float()
+        sentence = sentence.float()
         query = self.ffw(query)
         sentence = self.ffw(sentence)
 
@@ -45,41 +47,35 @@ dtype = torch.FloatTensor
 @Reranker.register
 class DSSM(Reranker):
     description = """Po-Sen Huang, Xiaodong He, Jianfeng Gao, Li Deng, Alex Acero, and Larry Heck. 2013. Learning deep structured semantic models for web search using clickthrough data. In CIKM'13."""
-    EXTRACTORS = [BagOfWords]
+    module_name = "DSSM"
+    dependencies = [
+        Dependency(key="extractor", module="extractor", name="bagofwords"),
+        Dependency(key="trainer", module="trainer", name="pytorch", default_config_overrides={"lr": 0.0001}),
+    ]
+    config_spec = [
+        ConfigOption(
+            "nhiddens",
+            "56",
+            "list of hidden layer sizes (eg '56 128'), where the i'th value indicates the output size of the i'th layer",
+        )
+    ]
 
-    @staticmethod
-    def config():
-        # hidden layer sizes, like '56 128', where i'th value indicates output size of the i'th layer
-        nhiddens = "56"
-
-        lr = 0.0001
-        return locals().copy()  # ignored by sacred
-
-    @staticmethod
-    def required_params():
-        # Used for validation. Returns a set of params required by the class defined in get_model_class()
-        return {"nhiddens", "nvocab", "maxdoclen", "maxqlen"}
-
-    @classmethod
-    def get_model_class(cls):
-        return DSSM_class
-
-    def build(self):
-        self.model = DSSM_class(self.embeddings, self.config)
+    def build_model(self):
+        if not hasattr(self, "model"):
+            self.model = DSSM_class(self.extractor, self.config)
         return self.model
 
-    def score(self, data):
-        query_idf = data["query_idf"].to(self.device)
-        query_sentence = data["query"].to(self.device)
-        pos_sentence, neg_sentence = data["posdoc"].to(self.device), data["negdoc"].to(self.device)
+    def score(self, d):
+        query_idf = d["query_idf"]
+        query_sentence = d["query"]
+        pos_sentence, neg_sentence = d["posdoc"], d["negdoc"]
+        return [
+            self.model(pos_sentence, query_sentence, query_idf).view(-1),
+            self.model(neg_sentence, query_sentence, query_idf).view(-1),
+        ]
 
-        return [self.model(pos_sentence, query_sentence).view(-1), self.model(neg_sentence, query_sentence).view(-1)]
-
-    def test(self, query_sentence, query_idf, pos_sentence, *args, **kwargs):
-        query_sentence = query_sentence.to(self.device)
-        pos_sentence = pos_sentence.to(self.device)
-
-        return self.model(pos_sentence, query_sentence).view(-1)
-
-    def zero_grad(self, *args, **kwargs):
-        self.model.zero_grad(*args, **kwargs)
+    def test(self, d):
+        query_idf = d["query_idf"]
+        query_sentence = d["query"]
+        pos_sentence = d["posdoc"]
+        return self.model(pos_sentence, query_sentence, query_idf).view(-1)

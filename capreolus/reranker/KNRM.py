@@ -1,10 +1,10 @@
+import matplotlib.pyplot as plt
 import torch
-
+from profane import ConfigOption, Dependency
 from torch import nn
 
-from capreolus.reranker.reranker import Reranker
-from capreolus.extractor.embedtext import EmbedText
-from capreolus.reranker.common import create_emb_layer, SimilarityMatrix, RbfKernel, RbfKernelBank
+from capreolus.reranker import Reranker
+from capreolus.reranker.common import RbfKernelBank, SimilarityMatrix, create_emb_layer
 from capreolus.utils.loginit import get_logger
 
 logger = get_logger(__name__)  # pylint: disable=invalid-name
@@ -13,17 +13,16 @@ logger = get_logger(__name__)  # pylint: disable=invalid-name
 class KNRM_class(nn.Module):
     # based on CedrKnrmRanker from https://github.com/Georgetown-IR-Lab/cedr/blob/master/modeling.py
     # which is copyright (c) 2019 Georgetown Information Retrieval Lab, MIT license
-    def __init__(self, embeddings, config):
+    def __init__(self, extractor, config):
         super(KNRM_class, self).__init__()
-        pad_token = config["pad_token"]
         self.p = config
 
         mus = [-0.9, -0.7, -0.5, -0.3, -0.1, 0.1, 0.3, 0.5, 0.7, 0.9, 1.0]
         sigmas = [0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.001]
         self.kernels = RbfKernelBank(mus, sigmas, dim=1, requires_grad=config["gradkernels"])
-
-        self.embedding = create_emb_layer(embeddings, non_trainable=True)
-        self.simmat = SimilarityMatrix(padding=pad_token)
+        non_trainable = not self.p["finetune"]
+        self.embedding = create_emb_layer(extractor.embeddings, non_trainable=non_trainable)
+        self.simmat = SimilarityMatrix(padding=extractor.pad)
 
         channels = 1
         if config["singlefc"]:
@@ -34,9 +33,14 @@ class KNRM_class(nn.Module):
             combine_steps.append(nn.Tanh())
         self.combine = nn.Sequential(*combine_steps)
 
+    def get_embedding(self, toks):
+        return self.embedding(toks)
+
     def forward(self, doctoks, querytoks, query_idf):
-        doc = self.embedding(doctoks)
-        query = self.embedding(querytoks)
+        doc = self.get_embedding(doctoks)
+        query = self.get_embedding(querytoks)
+
+        # query = torch.rand_like(query)  # debug
         simmat = self.simmat(query, doc, querytoks, doctoks)
         kernels = self.kernels(simmat)
         BATCH, KERNELS, VIEWS, QLEN, DLEN = kernels.shape
@@ -54,34 +58,33 @@ class KNRM_class(nn.Module):
         return scores
 
 
-dtype = torch.FloatTensor
-
-
 @Reranker.register
 class KNRM(Reranker):
-    description = """Chenyan Xiong, Zhuyun Dai, Jamie Callan, Zhiyuan Liu, and Russell Power. 2017. End-to-End Neural Ad-hoc Ranking with Kernel Pooling. In SIGIR'17."""
-    EXTRACTORS = [EmbedText]
+    module_name = "KNRM"
+    description = """Chenyan Xiong, Zhuyun Dai, Jamie Callan, Zhiyuan Liu, and Russell Power. 2017.
+                  End-to-End Neural Ad-hoc Ranking with Kernel Pooling. In SIGIR'17."""
 
-    @classmethod
-    def get_model_class(cls):
-        return KNRM_class
+    config_spec = [
+        ConfigOption("gradkernels", True, "backprop through mus and sigmas"),
+        ConfigOption("scoretanh", False, "use a tanh on the prediction as in paper (True) or do not use a nonlinearity (False)"),
+        ConfigOption("singlefc", True, "use single fully connected layer as in paper (True) or 2 fully connected layers (False)"),
+        ConfigOption("finetune", False, "fine tune the embedding layer"),  # TODO check save when True
+    ]
 
-    @staticmethod
-    def config():
-        gradkernels = True  # backprop through mus and sigmas
-        scoretanh = False  # use a tanh on the prediction as in paper (True) or do not use a nonlinearity (False)
-        singlefc = True  # use single fully connected layer as in paper (True) or 2 fully connected layers (False)
-        return locals().copy()  # ignored by sacred
+    def add_summary(self, summary_writer, niter):
+        super(KNRM, self).add_summary(summary_writer, niter)
+        if self.config["singlefc"]:
+            fig = plt.figure()
+            ax = fig.add_subplot(1, 1, 1)
+            ax.matshow(self.model.combine[0].weight.data.cpu())
+            summary_writer.add_figure("combine_steps weight", fig, niter)
+        else:
+            pass
 
-    @staticmethod
-    def required_params():
-        # Used for validation. Returns a set of params required by the class defined in get_model_class()
-        return {"pad_token", "gradkernels", "singlefc", "scoretanh"}
+    def build_model(self):
+        if not hasattr(self, "model"):
+            self.model = KNRM_class(self.extractor, self.config)
 
-    def build(self):
-        config = self.config.copy()
-        config["pad_token"] = EmbedText.pad
-        self.model = KNRM_class(self.embeddings, config)
         return self.model
 
     def score(self, d):
@@ -93,8 +96,9 @@ class KNRM(Reranker):
             self.model(neg_sentence, query_sentence, query_idf).view(-1),
         ]
 
-    def test(self, query_sentence, query_idf, pos_sentence, *args, **kwargs):
-        return self.model(pos_sentence, query_sentence, query_idf).view(-1)
+    def test(self, d):
+        query_idf = d["query_idf"]
+        query_sentence = d["query"]
+        pos_sentence = d["posdoc"]
 
-    def zero_grad(self, *args, **kwargs):
-        self.model.zero_grad(*args, **kwargs)
+        return self.model(pos_sentence, query_sentence, query_idf).view(-1)

@@ -1,4 +1,5 @@
 import gzip
+import os
 import xml.etree.ElementTree as ET
 from collections import defaultdict
 
@@ -22,7 +23,7 @@ def load_trec_topics(queryfn):
     title, desc, narr = defaultdict(list), defaultdict(list), defaultdict(list)
 
     block = None
-    if queryfn.endswith(".gz"):
+    if str(queryfn).endswith(".gz"):
         openf = gzip.open
     else:
         openf = open
@@ -96,3 +97,59 @@ def load_qrels(qrelfile, qids=None, include_spam=True):
 
     labels.default_factory = None  # behave like normal dict
     return labels
+
+
+def document_to_trectxt(docno, txt):
+    s = f"<DOC>\n<DOCNO> {docno} </DOCNO>\n"
+    s += f"<TEXT>\n{txt}\n</TEXT>\n</DOC>\n"
+    return s
+
+
+def topic_to_trectxt(qno, title, desc=None, narr=None):
+    return (
+        f"<top>\n\n"
+        f"<num> Number: {qno}\n"
+        f"<title> {title}\n\n"
+        f"<desc> Description:\n{desc or title}\n\n"
+        f"<narr> Narrative:\n{narr or title}\n\n"
+        f"</top>\n\n\n"
+    )
+
+
+def anserini_index_to_trec_docs(index_dir, output_dir, expected_doc_count):
+    from jnius import autoclass
+
+    JFile = autoclass("java.io.File")
+    JFSDirectory = autoclass("org.apache.lucene.store.FSDirectory")
+    JIndexReaderUtils = autoclass("io.anserini.index.IndexReaderUtils")
+    JIndexUtils = autoclass("io.anserini.index.IndexUtils")
+    index_utils = JIndexUtils(index_dir)
+
+    index_reader_utils = JIndexReaderUtils()
+
+    fsdir = JFSDirectory.open(JFile(index_dir).toPath())
+    reader = autoclass("org.apache.lucene.index.DirectoryReader").open(fsdir)
+
+    docids = set()
+    for i in range(expected_doc_count):
+        try:
+            docid = index_reader_utils.convertLuceneDocidToDocid(reader, i)
+            docids.add(docid)
+        except:
+            # we reached the end?
+            pass
+
+    if len(docids) != expected_doc_count:
+        raise ValueError(
+            f"we expected to retrieve {expected_doc_count} documents from the index, but actually found {len(docids)}"
+        )
+
+    output_handles = [gzip.open(os.path.join(output_dir, f"{i}.gz"), "wt", encoding="utf-8") for i in range(100, 200)]
+
+    for docidx, docid in enumerate(sorted(docids)):
+        txt = document_to_trectxt(docid, index_utils.getRawDocument(docid))
+        handleidx = docidx % len(output_handles)
+        print(txt, file=output_handles[handleidx])
+
+    for handle in output_handles:
+        handle.close()

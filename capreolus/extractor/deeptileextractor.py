@@ -1,60 +1,93 @@
 import math
 import os
 import pickle
+from collections import defaultdict
+
+import numpy as np
 import re
-import time
 from functools import reduce
+
 import torch
-
-from nltk.tokenize import TextTilingTokenizer
+from nltk import TextTilingTokenizer
 from pymagnitude import Magnitude, MagnitudeUtils
+from tqdm import tqdm
+from profane import ConfigOption, Dependency, constants
 
-from capreolus.extractor import Extractor, BuildStoIMixin
-from capreolus.tokenizer import Tokenizer
+from capreolus.extractor import Extractor
 from capreolus.utils.common import padlist
 from capreolus.utils.loginit import get_logger
-from tqdm import tqdm
-import numpy as np
-from collections import Counter, defaultdict
 
-logger = get_logger(__name__)  # pylint: disable=invalid-name
+logger = get_logger(__name__)
+CACHE_BASE_PATH = constants["CACHE_BASE_PATH"]
 
 
-class DeepTileExtractor(Extractor, BuildStoIMixin):
+@Extractor.register
+class DeepTileExtractor(Extractor):
     """ Creates a text tiling matrix. Used by the DeepTileBars reranker. """
 
+    module_name = "deeptiles"
     pad = 0
     pad_tok = "<pad>"
-    tokenizer_name = "anserini"
 
-    embedding_lookup = {
+    embed_paths = {
         "glove6b": "glove/light/glove.6B.300d",
         "glove6b.50d": "glove/light/glove.6B.50d",
         "w2vnews": "word2vec/light/GoogleNews-vectors-negative300",
         "fasttext": "fasttext/light/wiki-news-300d-1M-subword",
     }
 
-    def __init__(self, *args, **kwargs):
-        super(DeepTileExtractor, self).__init__(*args, **kwargs)
-        self.itos = {self.pad: self.pad_tok}
-        self.stoi = {self.pad_tok: self.pad}
-        self.embeddings = None
-        self.idf = defaultdict(lambda: 0)
-        self.doc_id_to_doc_toks = {}
-        self.embeddings_matrix = None
-        self.tilechannels = 3
-        if not self.pipeline_config["tfchannel"]:
-            self.tilechannels -= 1
+    requires_random_seed = True
+    dependencies = [
+        Dependency(
+            key="index", module="index", name="anserini", default_config_overrides={"indexstops": True, "stemmer": "none"}
+        ),
+        Dependency(key="tokenizer", module="tokenizer", name="anserini"),
+    ]
+    config_spec = [
+        ConfigOption("tfchannel", True, "include TF as a channel"),
+        ConfigOption("slicelen", 20),
+        ConfigOption("keepstops", False, "include stopwords"),
+        ConfigOption("tilechannels", 3),
+        ConfigOption("embeddings", "glove6b"),
+        ConfigOption("passagelen", 20),
+        ConfigOption("maxqlen", 8),
+        ConfigOption("maxdoclen", 800),
+        ConfigOption("usecache", False),
+    ]
 
-    @staticmethod
-    def config():
-        tfchannel = True  # include TF as a channel
-        slicelen = 20
-        keepstops = False  # include stopwords in the reranker's input
-        return locals().copy()  # ignored by sacred
+    def _get_pretrained_emb(self):
+        magnitude_cache = CACHE_BASE_PATH / "magnitude/"
+        return Magnitude(MagnitudeUtils.download_model(self.embed_paths[self.config["embeddings"]], download_dir=magnitude_cache))
 
-    def get_magnitude_embeddings(self, embedding_name):
-        return Magnitude(MagnitudeUtils.download_model(self.embedding_lookup[embedding_name], download_dir=self.cache_path))
+    def load_state(self, qids, docids):
+        with open(self.get_state_cache_file_path(qids, docids), "rb") as f:
+            state_dict = pickle.load(f)
+            self.qid2toks = state_dict["qid2toks"]
+            self.docid2toks = state_dict["docid2toks"]
+            self.stoi = state_dict["stoi"]
+            self.itos = state_dict["itos"]
+            self.docid2segments = state_dict["docid2segments"]
+
+    def cache_state(self, qids, docids):
+        os.makedirs(self.get_cache_path(), exist_ok=True)
+        with open(self.get_state_cache_file_path(qids, docids), "wb") as f:
+            state_dict = {
+                "qid2toks": self.qid2toks,
+                "docid2toks": self.docid2toks,
+                "stoi": self.stoi,
+                "itos": self.itos,
+                "docid2segments": self.docid2segments,
+            }
+            pickle.dump(state_dict, f, protocol=-1)
+
+    def get_tf_feature_description(self):
+        raise NotImplementedError()
+
+    def create_tf_feature(self):
+        raise NotImplementedError()
+
+    def parse_tf_example(self, example_proto):
+        raise NotImplementedError()
 
     def extract_segment(self, doc_toks, ttt, slicelen=20):
         """
@@ -96,17 +129,6 @@ class DeepTileExtractor(Extractor, BuildStoIMixin):
 
         return segments
 
-    def build_stoi_from_segments(self, segments_list, keepstops, calculate_idf):
-        for segments in tqdm(segments_list):
-            for segment in segments:
-                # The input to the text tiler is already tokenized, so can simply split on whitespace and call it a day
-                for tok in segment.split(" "):
-                    if tok not in self.stoi:
-                        self.stoi[tok] = len(self.stoi)
-
-                        if calculate_idf:
-                            self.idf[tok] = self.index.getidf(tok)
-
     def gaussian(self, x1, z1):
         x = np.asarray(x1)
         z = np.asarray(z1)
@@ -119,24 +141,27 @@ class DeepTileExtractor(Extractor, BuildStoIMixin):
         :param q_tok: List of tokens in a query
         :param topic_segment: A single segment. String. (A document can have multiple segments)
         """
+
         channels = []
         if q_tok != self.pad_tok and topic_segment != self.pad_tok:
             segment_toks = topic_segment.split(" ")
             tf = segment_toks.count(q_tok)
 
-            if self.pipeline_config["tfchannel"]:
+            if self.config["tfchannel"]:
                 channels.append(tf)
 
             channels.append(self.idf.get(q_tok, 0) if tf else 0)
             sim = max(
-                self.gaussian(embeddings_matrix[self.stoi[segment_toks[i]]], embeddings_matrix[self.stoi[q_tok]])
+                self.gaussian(
+                    embeddings_matrix[self.stoi.get(segment_toks[i], self.pad)], embeddings_matrix[self.stoi.get(q_tok, self.pad)]
+                )
                 if segment_toks[i] != self.pad_tok
                 else 0
                 for i in range(len(segment_toks))
             )
             channels.append(sim)
         else:
-            channels = [0.0] * self.tilechannels
+            channels = [0.0] * self.config["tilechannels"]
 
         tile = torch.tensor(channels, dtype=torch.float)
         return tile
@@ -152,11 +177,11 @@ class DeepTileExtractor(Extractor, BuildStoIMixin):
         :param document_segments: List of segments in a document. Each segment is a string
         :param embeddings_matrix: Used to look up word2vec embeddings
         """
-        q_len = self.pipeline_config["maxqlen"]
-        p_len = self.pipeline_config["passagelen"]
+        q_len = self.config["maxqlen"]
+        p_len = self.config["passagelen"]
         # The 'document_segments' arg to the method is a list of segments (segregated by topic) in a single document
         # Hence query_to_doc_tiles matrix stores the tiles (scores) b/w each query tok and each passage in the doc
-        query_to_doc_tiles = torch.zeros(1, q_len, p_len, self.tilechannels).float()
+        query_to_doc_tiles = torch.zeros(1, q_len, p_len, self.config["tilechannels"]).float()
 
         for q_idx in range(q_len):
             q_tok = query_toks[q_idx]
@@ -167,14 +192,12 @@ class DeepTileExtractor(Extractor, BuildStoIMixin):
 
         return query_to_doc_tiles
 
-    def create_embedding_matrix(self, embedding_name):
-        logger.debug("loading %s from pymagnitude", embedding_name)
-        magnitude_embeddings = self.get_magnitude_embeddings(embedding_name)
-
+    def _build_embedding_matrix(self):
+        magnitude_embeddings = self._get_pretrained_emb()
         embedding_vocab = set(term for term, _ in magnitude_embeddings)
 
         embedding_matrix = np.zeros((len(self.stoi), magnitude_embeddings.dim), dtype=np.float32)
-        for term, idx in self.stoi.items():
+        for term, idx in tqdm(self.stoi.items(), desc="Building embedding matrix"):
             if term in embedding_vocab:
                 embedding_matrix[idx] = magnitude_embeddings.query(term)
             elif term == self.pad_tok:
@@ -182,90 +205,65 @@ class DeepTileExtractor(Extractor, BuildStoIMixin):
             else:
                 embedding_matrix[idx] = np.random.normal(scale=0.5, size=magnitude_embeddings.dim)
             embedding_matrix[padidx] = np.zeros(magnitude_embeddings.dim)
-        return embedding_matrix
 
-    def build_from_benchmark(self, keepstops, *args, **kwargs):
-        if not all([self.collection, self.benchmark, self.index]):
-            raise ValueError("The Feature class was not initialized with a collection, benchmark and index.")
+        self.embeddings = embedding_matrix
 
-        tokenizer = Tokenizer.ALL[self.tokenizer_name].get_tokenizer_instance(self.index, keepstops=keepstops)
-        tokenizer.create()
-        self.index.open()
-
-        # Tokenize all queries
-        qids = list(set(self.benchmark.pred_pairs.keys()).union(set(self.benchmark.train_pairs.keys())))
-        queries = self.collection.topics[self.benchmark.query_type]
-        query_text_list = [queries[qid] for qid in qids]
-        query_tocs_list = [tokenizer.tokenize(query) for query in query_text_list]
-
-        # Tokenize all documents that this benchmark will use
-        doc_ids = set()
-        for qdocs in self.benchmark.pred_pairs.values():
-            doc_ids.update(qdocs)
-        for qdocs in self.benchmark.train_pairs.values():
-            doc_ids.update(qdocs)
-        self.doc_id_to_doc_toks = tokenizer.tokenizedocs(doc_ids)
-
-        logger.debug("Building stoi")
-        self.build_stoi(query_tocs_list, keepstops, True)
-
-        logger.debug("Extracting segments")
-        ttt = TextTilingTokenizer(k=6)
-
-        logger.debug("cache path: %s", self.feature_cache_dir)
-        cache_file = os.path.join(self.feature_cache_dir, "segments.npy")
-        os.makedirs(self.feature_cache_dir, exist_ok=True)
-        if os.path.isfile(cache_file):
-            logger.debug("Using cached segments")
-            doc_id_to_segments = pickle.load(open(cache_file, "rb"))
+    def _build_vocab(self, qids, docids, topics):
+        if self.is_state_cached(qids, docids) and self.config["usecache"]:
+            self.load_state(qids, docids)
+            logger.info("Vocabulary loaded from cache")
         else:
-            doc_id_to_segments = {
-                doc_id: self.extract_segment(doc_toks, ttt, slicelen=self.pipeline_config["slicelen"])
-                for doc_id, doc_toks in tqdm(self.doc_id_to_doc_toks.items())
+            tokenize = self.tokenizer.tokenize
+            ttt = TextTilingTokenizer(k=6)  # TODO: Make K configurable?
+
+            # TODO: Move the stoi and itos creation to a reusable mixin
+            self.qid2toks = {qid: tokenize(topics[qid]) for qid in qids}
+            self.docid2toks = {docid: tokenize(self.index.get_doc(docid)) for docid in docids}
+            self._extend_stoi(self.qid2toks.values(), calc_idf=True)
+            self._extend_stoi(self.docid2toks.values(), calc_idf=True)
+            self.itos = {i: s for s, i in self.stoi.items()}
+            self.docid2segments = {
+                doc_id: self.clean_segments(self.extract_segment(doc_toks, ttt, slicelen=self.config["slicelen"]))
+                for doc_id, doc_toks in tqdm(self.docid2toks.items(), desc="Extracting segments")
             }
-            try:
-                pickle.dump(doc_id_to_segments, open(cache_file, "wb"), protocol=2)
-            except FileNotFoundError as ex:
-                logger.error("encountered exception while writing segment cache file %s: %s", cache_file, ex)
-                pass
+            if self.config["usecache"]:
+                self.cache_state(qids, docids)
 
-        self.doc_id_to_segments = {doc_id: self.clean_segments(segments) for doc_id, segments in doc_id_to_segments.items()}
-        self.build_stoi_from_segments([segments for doc_id, segments in doc_id_to_segments.items()], keepstops, False)
-        logger.info("Creating tile bars")
-        self.embeddings_matrix = self.create_embedding_matrix("glove6b.50d")
-        self.itos = {i: s for s, i in self.stoi.items()}
-        logger.debug("The vocabulary size: %s", len(self.stoi))
+    def exist(self):
+        return hasattr(self, "embeddings") and self.embeddings is not None and len(self.stoi) > 0
 
-    def transform_qid_posdocid_negdocid(self, q_id, posdoc_id, negdoc_id=None):
-        if not all([self.collection, self.benchmark, self.index]):
-            raise ValueError("The Feature class was not initialized with a collection, benchmark and index")
+    def preprocess(self, qids, docids, topics):
+        if self.exist():
+            return
 
-        tokenizer = Tokenizer.ALL[self.tokenizer_name].get_tokenizer_instance(
-            self.index, keepstops=self.pipeline_config["keepstops"]
-        )
-        queries = self.collection.topics[self.benchmark.query_type]
-        query_toks = tokenizer.tokenize(queries[q_id])
-        #
-        query_toks = padlist(query_toks, self.pipeline_config["maxqlen"], pad_token=self.pad_tok)
-        posdoc_tilebar = self.create_visualization_matrix(query_toks, self.doc_id_to_segments[posdoc_id], self.embeddings_matrix)
-        if negdoc_id:
-            negdoc_tilebar = self.create_visualization_matrix(
-                query_toks, self.doc_id_to_segments[negdoc_id], self.embeddings_matrix
-            )
-        else:
-            negdoc_tilebar = torch.zeros(
-                1, self.pipeline_config["maxqlen"], self.pipeline_config["passagelen"], self.tilechannels
-            ).float()
+        self.index.create_index()
+        self.itos = {self.pad: self.pad_tok}
+        self.stoi = {self.pad_tok: self.pad}
+        self.idf = defaultdict(lambda: 0)
+        self.qid2toks = defaultdict(list)
+        self.docid2toks = defaultdict(list)
+        self.docid2segments = {}
+        self.embeddings = None
 
-        # All we need are the doc and query ids. See DeepTileBar reranker. Hence setting others to dummy values
-        transformed = {
-            "qid": q_id,
-            "posdocid": posdoc_id,
-            "negdocid": negdoc_id,
-            "query": np.zeros(1),
+        self._build_vocab(qids, docids, topics)
+        self._build_embedding_matrix()
+
+    def id2vec(self, qid, posdocid, negdocid=None):
+        query_toks = padlist(self.qid2toks[qid], self.config["maxqlen"], pad_token=self.pad_tok)
+        posdoc_tilebar = self.create_visualization_matrix(query_toks, self.docid2segments[posdocid], self.embeddings)
+
+        data = {
+            "qid": qid,
+            "query_idf": np.zeros(self.config["maxqlen"], dtype=np.float32),
+            "posdocid": posdocid,
             "posdoc": posdoc_tilebar,
-            "negdoc": negdoc_tilebar,
-            "query_idf": np.zeros(1),
+            "negdocid": "",
+            "negdoc": np.zeros_like(posdoc_tilebar),
         }
 
-        return transformed
+        if negdocid:
+            negdoc_tilebar = self.create_visualization_matrix(query_toks, self.docid2segments[negdocid], self.embeddings)
+            data["negdocid"] = negdocid
+            data["negdoc"] = negdoc_tilebar
+
+        return data

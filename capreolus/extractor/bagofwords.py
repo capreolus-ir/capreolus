@@ -1,6 +1,10 @@
+import pickle
+import os
+import time
+from profane import Dependency, ConfigOption
+
 from capreolus.extractor import Extractor
 from capreolus.tokenizer import Tokenizer
-from capreolus.utils.common import padlist
 from capreolus.utils.loginit import get_logger
 from tqdm import tqdm
 import numpy as np
@@ -9,151 +13,151 @@ from collections import Counter, defaultdict
 logger = get_logger(__name__)  # pylint: disable=invalid-name
 
 
+@Extractor.register
 class BagOfWords(Extractor):
     """ Bag of Words (or bag of trigrams when `datamode=trigram`) extractor. Used with the DSSM reranker. """
 
+    module_name = "bagofwords"
+    dependencies = [
+        Dependency(
+            key="index", module="index", name="anserini", default_config_overrides={"indexstops": True, "stemmer": "none"}
+        ),
+        Dependency(key="tokenizer", module="tokenizer", name="anserini"),
+    ]
+    config_spec = [
+        ConfigOption("datamode", "unigram", "unigram or trigram"),
+        ConfigOption("maxqlen", 4),
+        ConfigOption("maxdoclen", 800),
+        ConfigOption("usecache", False),
+    ]
     pad = 0
     pad_tok = "<pad>"
-    tokenizer_name = "anserini"
 
-    def __init__(self, *args, **kwargs):
-        super(BagOfWords, self).__init__(*args, **kwargs)
-        self.itos = {self.pad: self.pad_tok}
-        self.stoi = {self.pad_tok: self.pad}
-        self.embeddings = self.stoi
-        self.idf = defaultdict(lambda: 0)
+    def _tok2vec(self, toks):
+        # return [self.embeddings[self.stoi[tok]] for tok in toks]
+        return [self.stoi.get(tok, 0) for tok in toks]
 
-    @staticmethod
-    def config():
-        datamode = "unigram"  # type of input: 'unigram' or 'trigram'
-        keepstops = False  # include stopwords in the reranker's input
-        return locals().copy()  # ignored by sacred
+    def load_state(self, qids, docids):
+        with open(self.get_state_cache_file_path(qids, docids), "rb") as f:
+            state_dict = pickle.load(f)
+            self.qid2toks = state_dict["qid2toks"]
+            self.docid2toks = state_dict["docid2toks"]
+            self.stoi = state_dict["stoi"]
+            self.itos = state_dict["itos"]
+            self.idf = defaultdict(lambda: 0, state_dict["idf"])
 
-    def build_unigram_stoi(self, toks_list, keepstops, calculate_idf):
-        nexti = len(self.stoi)
-        for toks in tqdm(toks_list, desc="text to embed", unit_scale=True):
-            for tok in toks:
-                if tok not in self.stoi:
-                    self.stoi[tok] = nexti
-                    nexti += 1
-
-                    if calculate_idf:
-                        # TODO this will break if self.tokenizer is more restrictive (eg eliminates stops but index tokenizer does not)
-                        # index_toks = self.index.tokenizer(self.index).tokenize(tok)
-                        # index_tok = "" if len(index_toks) == 0 else index_toks[0]
-                        # self.idf[tok] = self.index.getidf(index_tok)
-
-                        # TODO: This is a temp hack. Refactor so that we query from an index where stop words are kept
-                        self.idf[tok] = self.index.getidf(tok)
+    def cache_state(self, qids, docids):
+        os.makedirs(self.get_cache_path(), exist_ok=True)
+        with open(self.get_state_cache_file_path(qids, docids), "wb") as f:
+            state_dict = {
+                "qid2toks": self.qid2toks,
+                "docid2toks": self.docid2toks,
+                "stoi": self.stoi,
+                "itos": self.itos,
+                "idf": dict(self.idf),
+            }
+            pickle.dump(state_dict, f, protocol=-1)
 
     def get_trigrams_for_toks(self, toks_list):
         return [("#%s#" % tok)[i : i + 3] for tok in toks_list for i in range(len(tok))]
 
-    def build_trigram_stoi(self, toks_list, keepstops, calculate_idf):
-        nexti = len(self.stoi)
-        trigrams_list = []
-        for toks in toks_list:
-            trigrams_list.extend(self.get_trigrams_for_toks(toks))
-
-        for trigram in trigrams_list:
-            if trigram not in self.stoi:
-                self.stoi[trigram] = nexti
-                nexti += 1
-
-    def build_stoi(self, toks_list, keepstops, calculate_idf):
-        """
-        Builds an stoi dict that stores a unique number for each token
-        toks_list - An array of arrays. Each element (i.e array) in toks_list represent tokens of an entire document
-        """
-        if self.index is None:
-            raise ValueError("Index cannot be None")
-
-        if self.pipeline_config["datamode"] == "unigram":
-            self.build_unigram_stoi(toks_list, keepstops, calculate_idf)
-        elif self.pipeline_config["datamode"] == "trigram":
-            self.build_trigram_stoi(toks_list, keepstops, calculate_idf)
-        else:
-            raise Exception("Unknown datamode")
-
-    def build_from_benchmark(self, keepstops, *args, **kwargs):
-        if not all([self.collection, self.benchmark, self.index]):
-            raise ValueError("The Feature class was not initialized with a collection, benchmark and index.")
-
-        tokenizer = Tokenizer.ALL[self.tokenizer_name].get_tokenizer_instance(self.index, keepstops=keepstops)
-        tokenizer.create()
-        self.index.open()
-
-        qids = set(self.benchmark.pred_pairs.keys()).union(self.benchmark.train_pairs.keys())
-        doc_ids = set()
-        for qdocs in self.benchmark.pred_pairs.values():
-            doc_ids.update(qdocs)
-        for qdocs in self.benchmark.train_pairs.values():
-            doc_ids.update(qdocs)
-
-        queries = self.collection.topics[self.benchmark.query_type]
-        query_text_list = [queries[qid] for qid in qids]
-        query_tocs_list = [tokenizer.tokenize(query) for query in query_text_list]
-
-        logger.info("loading %s queries", len(queries))
-        self.build_stoi(query_tocs_list, keepstops, True)
-
-        self.doc_id_to_doc_toks = tokenizer.tokenizedocs(doc_ids)
-        self.build_stoi([toks for doc_id, toks in self.doc_id_to_doc_toks.items()], keepstops, False)
-        self.embeddings = self.stoi
+    def _build_vocab_unigram(self, qids, docids, topics):
+        tokenize = self.tokenizer.tokenize
+        self.qid2toks = {qid: tokenize(topics[qid]) for qid in qids}
+        self.docid2toks = {docid: tokenize(self.index.get_doc(docid)) for docid in docids}
+        self._extend_stoi(self.qid2toks.values(), calc_idf=True)
+        self._extend_stoi(self.docid2toks.values())
         self.itos = {i: s for s, i in self.stoi.items()}
-        logger.debug("The vocabulary size: %s", len(self.stoi))
+        logger.info(f"vocabulary constructed, with {len(self.itos)} terms in total")
 
-    def transform_qid_posdocid_negdocid(self, q_id, posdoc_id, negdoc_id=None):
-        if not all([self.collection, self.benchmark, self.index]):
-            raise ValueError("The Feature class was not initialized with a collection, benchmark and index")
+    def _build_vocab_trigram(self, qids, docids, topics):
+        tokenize = self.tokenizer.tokenize
+        self.qid2toks = {qid: self.get_trigrams_for_toks(tokenize(topics[qid])) for qid in qids}
+        self.docid2toks = {docid: self.get_trigrams_for_toks(tokenize(self.index.get_doc(docid))) for docid in docids}
+        self._extend_stoi(self.qid2toks.values(), calc_idf=True)
+        self._extend_stoi(self.docid2toks.values())
+        self.itos = {i: s for s, i in self.stoi.items()}
+        logger.info(f"vocabulary constructed, with {len(self.itos)} terms in total")
 
-        tokenizer = Tokenizer.ALL[self.tokenizer_name].get_tokenizer_instance(
-            self.index, keepstops=self.pipeline_config["keepstops"]
-        )
-        queries = self.collection.topics[self.benchmark.query_type]
+    def _build_vocab(self, qids, docids, topics):
+        if self.is_state_cached(qids, docids) and self.config["usecache"]:
+            self.load_state(qids, docids)
+            logger.info("Vocabulary loaded from cache")
+        else:
+            if self.config["datamode"] == "unigram":
+                self._build_vocab_unigram(qids, docids, topics)
+            elif self.config["datamode"] == "trigram":
+                self._build_vocab_trigram(qids, docids, topics)
+            else:
+                raise NotImplementedError
+            if self.config["usecache"]:
+                self.cache_state(qids, docids)
 
-        posdoc_toks = self.doc_id_to_doc_toks.get(posdoc_id)
-        query_toks = tokenizer.tokenize(queries[q_id])
+        self.embeddings = self.stoi
+
+    def exist(self):
+        return hasattr(self, "qid2toks") and hasattr(self, "docid2toks") and len(self.stoi) > 1
+
+    def preprocess(self, qids, docids, topics):
+        if self.exist():
+            return
+        self.index.create_index()
+        self.itos = {self.pad: self.pad_tok}
+        self.stoi = {self.pad_tok: self.pad}
+        self.qid2toks = defaultdict(list)
+        self.docid2toks = defaultdict(list)
+        self.idf = defaultdict(lambda: 0)
+        self.embeddings = None
+        # self.cache = self.load_cache()    # TODO
+
+        self._build_vocab(qids, docids, topics)
+
+    def id2vec(self, q_id, posdoc_id, negdoc_id=None):
+        query_toks = self.qid2toks[q_id]
+        posdoc_toks = self.docid2toks.get(posdoc_id)
 
         if not posdoc_toks:
             logger.debug("missing docid %s", posdoc_id)
             return None
-        transformed_query = self.transform_txt(query_toks, self.pipeline_config["maxqlen"])
-        idfs = [self.idf[self.itos[tok]] for tok, count in enumerate(transformed_query)]
+
+        transformed_query = self.transform_txt(query_toks, self.config["maxqlen"])
+
+        query_idf_vector = np.zeros(len(self.stoi), dtype=np.float32)
+        for tok in query_toks:
+            query_idf_vector[self.stoi.get(tok, 0)] = self.idf[tok]
+
         transformed = {
             "qid": q_id,
             "posdocid": posdoc_id,
-            "negdocid": negdoc_id,
             "query": transformed_query,
-            "posdoc": self.transform_txt(posdoc_toks, self.pipeline_config["maxdoclen"]),
-            "query_idf": np.array(idfs, dtype=np.float32),
+            "posdoc": self.transform_txt(posdoc_toks, self.config["maxdoclen"]),
+            "query_idf": query_idf_vector,
         }
-
         if negdoc_id is not None:
-            negdoc_toks = self.doc_id_to_doc_toks.get(negdoc_id)
+            negdoc_toks = self.docid2toks.get(negdoc_id)
             if not negdoc_toks:
                 logger.debug("missing docid %s", negdoc_id)
                 return None
-
-            transformed["negdoc"] = self.transform_txt(negdoc_toks, self.pipeline_config["maxdoclen"])
+            transformed["negdocid"] = negdoc_id
+            transformed["negdoc"] = self.transform_txt(negdoc_toks, self.config["maxdoclen"])
 
         return transformed
 
     def transform_txt(self, term_list, maxlen):
+        term_vec = self._tok2vec(term_list)
         nvocab = len(self.stoi)
         bog_txt = np.zeros(nvocab, dtype=np.float32)
 
-        if self.pipeline_config["datamode"] == "unigram":
-            toks = [self.stoi.get(term, 0) for term in term_list]
-            tok_counts = Counter(toks)
-        elif self.pipeline_config["datamode"] == "trigram":
+        if self.config["datamode"] == "unigram":
+            for term in term_vec:
+                bog_txt[term] += 1
+        elif self.config["datamode"] == "trigram":
             trigrams = self.get_trigrams_for_toks(term_list)
             toks = [self.stoi.get(trigram, 0) for trigram in trigrams]
             tok_counts = Counter(toks)
+            for tok, count in tok_counts.items():
+                bog_txt[tok] = count
         else:
             raise Exception("Unknown datamode")
-
-        for tok, count in tok_counts.items():
-            bog_txt[tok] = count
 
         return bog_txt

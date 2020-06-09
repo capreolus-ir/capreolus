@@ -1,17 +1,14 @@
-import torch
-import torch.nn as nn
-
-from torch.autograd import Variable
 import math
+
+import torch
 import torch.nn.functional as F
-import numpy as np
-import time
+from profane import ConfigOption, Dependency
+from torch import nn
+from torch.autograd import Variable
 
-from capreolus.reranker.reranker import Reranker
-from capreolus.extractor.embedtext import EmbedText
-from capreolus.reranker.common import create_emb_layer, SimilarityMatrix
+from capreolus.reranker import Reranker
+from capreolus.reranker.common import create_emb_layer
 
-dtype = torch.FloatTensor
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 
@@ -64,7 +61,7 @@ class GRUModel2d(nn.Module):
     def __init__(self, input_dim, hidden_dim, bias=True):
         super(GRUModel2d, self).__init__()
         self.hidden_dim = hidden_dim
-        self.gru_cell = GRUCell2d(input_dim, hidden_dim)
+        self.gru_cell = GRUCell2d(input_dim, hidden_dim).to(device)
 
     def forward(self, x):
         B, T1, T2, H = x.size()
@@ -97,8 +94,8 @@ class HiNT(nn.Module):
         self.embedding = create_emb_layer(weights_matrix, non_trainable=True)
 
         self.Ws = nn.Linear(embedding_dim, Ws_dim)
-        self.GRU2d1 = GRUModel2d(3, self.p["spatialGRU"])
-        self.GRU2d3 = GRUModel2d(3, self.p["spatialGRU"])
+        self.GRU2d1 = GRUModel2d(3, self.p["spatialGRU"]).to(device)
+        self.GRU2d3 = GRUModel2d(3, self.p["spatialGRU"]).to(device)
 
         self.lstm = nn.LSTM(input_size=(4 * self.p["spatialGRU"]), hidden_size=self.lstm_hidden_dim, bidirectional=True)
         self.Wv = nn.Linear((4 * self.p["spatialGRU"]), self.lstm_hidden_dim, bias=True)
@@ -106,6 +103,7 @@ class HiNT(nn.Module):
         self.hidden = self.init_hidden()
 
     def init_hidden(self):
+        device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
         return (
             Variable(torch.zeros(2, self.batch_size, self.lstm_hidden_dim).to(device)),
             Variable(torch.zeros(2, self.batch_size, self.lstm_hidden_dim).to(device)),
@@ -125,18 +123,18 @@ class HiNT(nn.Module):
         """
         sentence, query_sentence = sentence.to(device), query_sentence.to(device)
 
-        x, query_x = self.embedding(sentence).to(device), self.embedding(query_sentence).to(device)
+        x, query_x = self.embedding(sentence), self.embedding(query_sentence)
 
         X_i = self.Ws(query_x).view(self.batch_size, -1)
         Y_j = self.Ws(x).view(self.batch_size, -1)
 
-        total_passage_level = torch.randn(self.passagelen, self.batch_size, 8).type(dtype).to(device)
-        M_cos_passage = torch.randn(self.passagelen, self.batch_size, self.p["maxqlen"], 100).type(dtype).to(device)
-        M_XOR_passage = torch.randn(self.passagelen, self.batch_size, self.p["maxqlen"], 100).type(dtype).to(device)
-        Y_j_passage = torch.randn(self.passagelen, self.batch_size, 100).type(dtype).to(device)
-        X_i_passage = torch.randn(self.passagelen, self.batch_size, self.p["maxqlen"]).type(dtype).to(device)
+        total_passage_level = torch.randn(self.passagelen, self.batch_size, 8).type(torch.FloatTensor).to(device)
+        M_cos_passage = torch.randn(self.passagelen, self.batch_size, self.p["maxqlen"], 100).type(torch.FloatTensor).to(device)
+        M_XOR_passage = torch.randn(self.passagelen, self.batch_size, self.p["maxqlen"], 100).type(torch.FloatTensor).to(device)
+        Y_j_passage = torch.randn(self.passagelen, self.batch_size, 100).type(torch.FloatTensor).to(device)
+        X_i_passage = torch.randn(self.passagelen, self.batch_size, self.p["maxqlen"]).type(torch.FloatTensor).to(device)
 
-        mask_passage = torch.randn(self.passagelen, self.batch_size, self.p["maxqlen"], 100).type(dtype).to(device)
+        mask_passage = torch.randn(self.passagelen, self.batch_size, self.p["maxqlen"], 100).type(torch.FloatTensor).to(device)
 
         for number_window in range(self.passagelen):
             mask_passage[number_window] = masks[:, :, (number_window * 100) : ((number_window + 1) * 100)]  # (P, BAT, Q, 100)
@@ -147,9 +145,9 @@ class HiNT(nn.Module):
             X_i_passage[number_window] = X_i  # (P, BAT, 100)
 
         S_cos = (
-            torch.randn(self.passagelen, self.batch_size, self.p["maxqlen"], 100, 3).type(dtype).to(device)
+            torch.randn(self.passagelen, self.batch_size, self.p["maxqlen"], 100, 3).type(torch.FloatTensor).to(device)
         )  # (P, BAT, Q, 100, 3)
-        S_xor = torch.randn(self.passagelen, self.batch_size, self.p["maxqlen"], 100, 3).type(dtype).to(device)
+        S_xor = torch.randn(self.passagelen, self.batch_size, self.p["maxqlen"], 100, 3).type(torch.FloatTensor).to(device)
         S_cos[:, :, :, :, 0] = X_i_passage.reshape(self.passagelen, self.batch_size, self.p["maxqlen"], 1).expand(
             self.passagelen, self.batch_size, self.p["maxqlen"], 100
         )
@@ -216,23 +214,23 @@ class HiNT(nn.Module):
 
 
 class HiNT_main(nn.Module):
-    def __init__(self, weights_matrix, p):
+    def __init__(self, extractor, config):
         super(HiNT_main, self).__init__()
-        self.HiNT1 = HiNT(weights_matrix, p)
-        self.batch_size = p["batch"]
+        self.HiNT1 = HiNT(extractor.embeddings, config).to(device)
+        self.batch_size = config["batch"]
 
     def init_hidden(self):
         return self.HiNT1.init_hidden()
 
     def forward(self, query_sentence, query_idf, pos_sentence, neg_sentence):
         self.HiNT1.hidden = self.HiNT1.init_hidden()
-        query_sentence = query_sentence.to(device)
-        query_idf = query_idf.to(device)
-        pos_sentence = pos_sentence.to(device)
-        neg_sentence = neg_sentence.to(device)
+        query_sentence = query_sentence
+        query_idf = query_idf
+        pos_sentence = pos_sentence
+        neg_sentence = neg_sentence
 
-        x = self.HiNT1.embedding(pos_sentence).cuda()
-        query_x = self.HiNT1.embedding(query_sentence).cuda()
+        x = self.HiNT1.embedding(pos_sentence)
+        query_x = self.HiNT1.embedding(query_sentence)
         BAT = query_sentence.shape[0]
         A = query_sentence.shape[1]
         B = pos_sentence.shape[1]
@@ -260,8 +258,8 @@ class HiNT_main(nn.Module):
         pos_scores = self.HiNT1(pos_sentence, query_sentence, XOR_matrix_pos, M_cos_pos, pos_masks)
 
         self.HiNT1.hidden = self.HiNT1.init_hidden()
-        x = self.HiNT1.embedding(neg_sentence).cuda()
-        query_x = self.HiNT1.embedding(query_sentence).cuda()
+        x = self.HiNT1.embedding(neg_sentence)
+        query_x = self.HiNT1.embedding(query_sentence)
         BAT = query_sentence.shape[0]
         A = query_sentence.shape[1]
         B = neg_sentence.shape[1]
@@ -291,12 +289,12 @@ class HiNT_main(nn.Module):
 
     def test_forward(self, query_sentence, query_idf, pos_sentence):
         self.HiNT1.hidden = self.HiNT1.init_hidden()
-        query_sentence = query_sentence.to(device)
-        query_idf = query_idf.to(device)
-        pos_sentence = pos_sentence.to(device)
+        query_sentence = query_sentence
+        query_idf = query_idf
+        pos_sentence = pos_sentence
 
-        x = self.HiNT1.embedding(pos_sentence).cuda()
-        query_x = self.HiNT1.embedding(query_sentence).cuda()
+        x = self.HiNT1.embedding(pos_sentence)
+        query_x = self.HiNT1.embedding(query_sentence)
         BAT = query_sentence.shape[0]
         A = query_sentence.shape[1]
         B = pos_sentence.shape[1]
@@ -325,52 +323,35 @@ class HiNT_main(nn.Module):
 
 @Reranker.register
 class HINT(Reranker):
+    module_name = "HINT"
     description = """Yixing Fan, Jiafeng Guo, Yanyan Lan, Jun Xu, Chengxiang Zhai, and Xueqi Cheng. 2018. Modeling Diverse Relevance Patterns in Ad-hoc Retrieval. In SIGIR'18."""
-    EXTRACTORS = [EmbedText]
 
-    @staticmethod
-    def config():
-        spatialGRU = 2
-        LSTMdim = 6
-        kmax = 10
-
-        lr = 0.005
-        batch = 128
-        return locals().copy()  # ignored by sacred
-
-    @staticmethod
-    def required_params():
-        # Used for validation. Returns a set of params required by the class defined in get_model_class()
-        return {"batch", "kmax", "spatialGRU", "LSTMdim", "maxqlen", "maxdoclen"}
-
-    @classmethod
-    def get_model_class(cls):
-        return HiNT
-
-    def score(self, query_sentence, query_idf, pos_sentence, neg_sentence):
-        return self.model(query_sentence, query_idf, pos_sentence, neg_sentence)
+    config_spec = [ConfigOption("spatialGRU", 2), ConfigOption("LSTMdim", 6), ConfigOption("kmax", 10)]
 
     def test(self, query_sentence, query_idf, pos_sentence, *args, **kwargs):
         return self.model.test_forward(query_sentence, query_idf, pos_sentence)
-
-    def zero_grad(self, *args, **kwargs):
-        self.model.zero_grad(*args, **kwargs)
-
-    def build(self):
-        config = self.config.copy()
-        config["pad_token"] = EmbedText.pad
-        self.model = HiNT_main(self.embeddings, config)
-        return self.model
 
     def score(self, d):
         query_idf = d["query_idf"]
         query_sentence = d["query"]
         pos_sentence, neg_sentence = d["posdoc"], d["negdoc"]
-        self.model.device = query_sentence.device  # TODO hack
         return self.model(query_sentence, query_idf, pos_sentence, neg_sentence)
 
-    def test(self, query_sentence, query_idf, pos_sentence, *args, **kwargs):
+    def test(self, d):
+        query_idf = d["query_idf"]
+        query_sentence = d["query"]
+        pos_sentence = d["posdoc"]
+
         return self.model.test_forward(query_sentence, query_idf, pos_sentence)
 
     def zero_grad(self, *args, **kwargs):
         self.model.zero_grad(*args, **kwargs)
+
+    def build_model(self):
+        if not hasattr(self, "model"):
+            config = dict(self.config)
+            config.update(self.extractor.config)
+            config["batch"] = self.trainer.config["batch"]
+            self.model = HiNT_main(self.extractor, config)
+
+        return self.model

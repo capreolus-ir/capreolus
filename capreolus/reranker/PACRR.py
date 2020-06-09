@@ -1,34 +1,33 @@
-from capreolus.reranker.reranker import Reranker
-from capreolus.extractor.embedtext import EmbedText
 import torch
+from profane import ConfigOption, Dependency
 from torch import nn
 from torch.nn import functional as F
-from capreolus.reranker.common import create_emb_layer, SimilarityMatrix
 
+from capreolus.reranker import Reranker
 
 # TODO add shuffle, cascade, disambig?
+from capreolus.reranker.common import SimilarityMatrix, create_emb_layer
+
+
 class PACRR_class(nn.Module):
     # based on CedrPacrrRanker from https://github.com/Georgetown-IR-Lab/cedr/blob/master/modeling.py
     # which is copyright (c) 2019 Georgetown Information Retrieval Lab, MIT license
-    @classmethod
-    def alternate_init(cls, embedding, config):
-        return cls(embedding, config)
 
-    def __init__(self, weights_matrix, config):
+    def __init__(self, extractor, config):
         super(PACRR_class, self).__init__()
         p = config
         self.p = p
-
-        self.embedding_dim = weights_matrix.shape[1]
-        self.embedding = create_emb_layer(weights_matrix, non_trainable=True)
-        self.simmat = SimilarityMatrix(padding=config["pad_token"])
+        self.extractor = extractor
+        self.embedding_dim = extractor.embeddings.shape[1]
+        self.embedding = create_emb_layer(extractor.embeddings, non_trainable=True)
+        self.simmat = SimilarityMatrix(padding=extractor.pad)
 
         self.ngrams = nn.ModuleList()
         for ng in range(p["mingram"], p["maxgram"] + 1):
             self.ngrams.append(PACRRConvMax2dModule(ng, p["nfilters"], k=p["kmax"], channels=1))
 
         qterm_size = len(self.ngrams) * p["kmax"] + (1 if p["idf"] else 0)
-        self.linear1 = torch.nn.Linear(p["maxqlen"] * qterm_size, p["combine"])
+        self.linear1 = torch.nn.Linear(extractor.config["maxqlen"] * qterm_size, p["combine"])
         self.linear2 = torch.nn.Linear(p["combine"], p["combine"])
         self.linear3 = torch.nn.Linear(p["combine"], 1)
 
@@ -48,7 +47,9 @@ class PACRR_class(nn.Module):
 
         scores = [ng(simmat) for ng in self.ngrams]
         if self.p["idf"]:
-            scores.append(F.softmax(query_idf.reshape(query_idf.shape, 1).float(), dim=1).view(-1, self.p["maxqlen"], 1))
+            scores.append(
+                F.softmax(query_idf.reshape(query_idf.shape, 1).float(), dim=1).view(-1, self.extractor.config["maxqlen"], 1)
+            )
         scores = torch.cat(scores, dim=2)
         scores = scores.reshape(scores.shape[0], scores.shape[1] * scores.shape[2])
         rel = self.combine(scores)
@@ -84,33 +85,23 @@ class PACRRConvMax2dModule(torch.nn.Module):
 
 @Reranker.register
 class PACRR(Reranker):
-    description = """Kai Hui, Andrew Yates, Klaus Berberich, and Gerard de Melo. 2017. PACRR: A Position-Aware Neural IR Model for Relevance Matching. In EMNLP'17."""
-    EXTRACTORS = [EmbedText]
+    module_name = "PACRR"
+    description = """Kai Hui, Andrew Yates, Klaus Berberich, and Gerard de Melo. EMNLP 2017.
+                  PACRR: A Position-Aware Neural IR Model for Relevance Matching. """
 
-    @staticmethod
-    def config():
-        mingram = 1  # minimum length of ngram used
-        maxgram = 3  # maximum length of ngram used
-        nfilters = 32  # number of filters in convolution layer
-        idf = True  # concatenate idf signals to combine relevance score from individual query terms
-        kmax = 2  # value of kmax pooling used
-        combine = 32  # size of combination layers
-        nonlinearity = "relu"  # nonlinearity in combination layer: 'none', 'relu', 'tanh'
-        return locals().copy()  # ignored by sacred
+    config_spec = [
+        ConfigOption("mingram", 1, "minimum length of ngram used"),
+        ConfigOption("maxgram", 3, "maximum length of ngram used"),
+        ConfigOption("nfilters", 32, "number of filters in convolution layer"),
+        ConfigOption("idf", True, "concatenate idf signals to combine relevance score from individual query terms"),
+        ConfigOption("kmax", 2, "value of kmax pooling used"),
+        ConfigOption("combine", 32, "size of combination layers"),
+        ConfigOption("nonlinearity", "relu", "nonlinearity in combination layer: none, relu, or tanh"),
+    ]
 
-    @staticmethod
-    def required_params():
-        # Used for validation. Returns a set of params required by the class defined in get_model_class()
-        return {"mingram", "maxgram", "nfilters", "batch", "maxqlen", "idf", "kmax"}
-
-    @classmethod
-    def get_model_class(cls):
-        return PACRR_class
-
-    def build(self):
-        config = self.config.copy()
-        config["pad_token"] = EmbedText.pad
-        self.model = PACRR_class(self.embeddings, config)
+    def build_model(self):
+        if not hasattr(self, "model"):
+            self.model = PACRR_class(self.extractor, self.config)
         return self.model
 
     def score(self, d):
@@ -122,8 +113,8 @@ class PACRR(Reranker):
             self.model(neg_sentence, query_sentence, query_idf).view(-1),
         ]
 
-    def test(self, query_sentence, query_idf, pos_sentence, *args, **kwargs):
+    def test(self, d):
+        query_idf = d["query_idf"]
+        query_sentence = d["query"]
+        pos_sentence = d["posdoc"]
         return self.model(pos_sentence, query_sentence, query_idf).view(-1)
-
-    def zero_grad(self, *args, **kwargs):
-        self.model.zero_grad(*args, **kwargs)

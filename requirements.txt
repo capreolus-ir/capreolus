@@ -1,14 +1,17 @@
 # install pytorch 1.2 from conda
+
 cython
 pre-commit
 PyYAML==5.1.1
-sacred==0.7.5
+profane
 SQLAlchemy==1.3.5
+sqlalchemy-utils
 psycopg2-binary==2.8.3
 matplotlib==3.1.1
 pytorch-transformers==1.1.0
 colorlog==4.0.2
-pytrec-eval==0.4
+# pytrec_eval with custom cutoffs is not yet on pypi
+git+git://github.com/cvangysel/pytrec_eval.git@a9fa75459934f6bbb7b142f272419305390e51ae
 pycapnp==0.6.4
 pytest==3.8.0
 pyjnius==1.2.1
@@ -27,5 +30,22 @@ fasteners==0.15
 django==2.2.13
 pytest-mock==1.10.4
 mock
-pyserini==0.7.0.0
-scipy==1.3.0
+pyserini==0.9.3.0
+scipy
+sphinx
+sphinxcontrib-apidoc
+recommonmark
+keras
+google-api-python-client
+oauth2client
+tensorflow==2.2
+transformers
+tensorflow-ranking
+Pillow
+# covid
+beautifulsoup4
+lxml
+scispacy
+spacy
+pandas
+https://s3-us-west-2.amazonaws.com/ai2-s2-scispacy/releases/v0.2.4/en_core_sci_lg-0.2.4.tar.gz

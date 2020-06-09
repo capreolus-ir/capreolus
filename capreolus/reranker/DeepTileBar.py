@@ -1,34 +1,26 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-"""
-Created on Sun Jan 27 16:05:18 2019
-
-@author: sarora
-"""
-import pickle
-
-from capreolus.extractor.deeptileextractor import DeepTileExtractor
-from capreolus.reranker.reranker import Reranker
-from capreolus.extractor.embedtext import EmbedText
+import copy
 
 import torch
-import torch.nn as nn
-
-from torch.autograd import Variable
 import torch.nn.functional as F
+from profane import ConfigOption, Dependency
+from torch import nn
+from torch.autograd import Variable
 
-dtype = torch.FloatTensor
-device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+from capreolus.extractor.deeptileextractor import DeepTileExtractor
+from capreolus.reranker import Reranker
+from capreolus.utils.loginit import get_logger
+
+logger = get_logger(__name__)  # pylint: disable=invalid-name
 
 
 class DeepTileBar_nn(nn.Module):
-    def __init__(self, p, number_filter, lstm_hidden_dim, linear_hidden_dim1, linear_hidden_dim2):
+    def __init__(self, p, batch_size, number_filter, lstm_hidden_dim, linear_hidden_dim1, linear_hidden_dim2):
         super(DeepTileBar_nn, self).__init__()
         self.p = p
         self.tilechannels = 3
         if not self.p["tfchannel"]:
             self.tilechannels -= 1
-        self.batch_size = p["batch"]
+        self.batch_size = batch_size
         self.number_filter = number_filter
         self.lstm_hidden_dim = lstm_hidden_dim
         self.conv1 = nn.Conv2d(self.tilechannels, number_filter, (p["maxqlen"], 1), stride=1)
@@ -71,6 +63,7 @@ class DeepTileBar_nn(nn.Module):
         # first is the hidden h
         # second is the cell c
         # if self.use_gpu:
+        device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
         l = []
         for j in range(10):
             l.append(
@@ -144,10 +137,18 @@ class DeepTileBar_nn(nn.Module):
 
 
 class DeepTileBar_class(nn.Module):
-    def __init__(self, batch_size, number_filter, lstm_hidden_dim, linear_hidden_dim1, linear_hidden_dim2):
+    def __init__(self, extractor, config):
         super(DeepTileBar_class, self).__init__()
-        self.DeepTileBar1 = DeepTileBar_nn(batch_size, number_filter, lstm_hidden_dim, linear_hidden_dim1, linear_hidden_dim2).to(
-            device
+        batch_size = config["batch"]
+        number_filter = config["numberfilter"]
+        lstm_hidden_dim = config["lstmhiddendim"]
+        linear_hidden_dim1 = config["linearhiddendim1"]
+        linear_hidden_dim2 = config["linearhiddendim2"]
+        config = dict(config)
+        config.update(dict(extractor.config))
+
+        self.DeepTileBar1 = DeepTileBar_nn(
+            config, batch_size, number_filter, lstm_hidden_dim, linear_hidden_dim1, linear_hidden_dim2
         )
 
     def init_hidden(self):
@@ -172,32 +173,39 @@ class DeepTileBar_class(nn.Module):
 @Reranker.register
 class DeepTileBar(Reranker):
     description = """Zhiwen Tang and Grace Hui Yang. 2019. DeepTileBars: Visualizing Term Distribution for Neural Information Retrieval. In AAAI'19."""
-    EXTRACTORS = [DeepTileExtractor]
+    module_name = "DeepTileBar"
 
-    @staticmethod
-    def config():
-        passagelen = 30
-        numberfilter = 3
-        lstmhiddendim = 3
-        linearhiddendim1 = 32
-        linearhiddendim2 = 16
-        return locals().copy()  # ignored by sacred
+    dependencies = [
+        Dependency(key="extractor", module="extractor", name="deeptiles"),
+        Dependency(key="trainer", module="trainer", name="pytorch"),
+    ]
 
-    def build(self):
-        self.dtbmatrix = self.embeddings
-        config = self.config.copy()
-        config["pad_token"] = EmbedText.pad
-        p = config
-        self.model = DeepTileBar_class(p, p["numberfilter"], p["lstmhiddendim"], p["linearhiddendim1"], p["linearhiddendim2"])
+    config_spec = [
+        ConfigOption("passagelen", 30),
+        ConfigOption("numberfilter", 3),
+        ConfigOption("lstmhiddendim", 3),
+        ConfigOption("linearhiddendim1", 32),
+        ConfigOption("linearhiddendim2", 16),
+    ]
+
+    def build_model(self):
+        if not hasattr(self, "model"):
+            config = copy.copy(dict(self.config))
+            config["batch"] = self.trainer.config["batch"]
+            self.model = DeepTileBar_class(self.extractor, config)
+
         return self.model
 
     def score(self, d):
-        pos_tile_matrix = torch.cat([d["posdoc"][i] for i in range(len(d["qid"]))]).to(device)
-        neg_tile_matrix = torch.cat([d["negdoc"][i] for i in range(len(d["qid"]))]).to(device)
+        pos_tile_matrix = torch.cat([d["posdoc"][i] for i in range(len(d["qid"]))])  # 32 x
+        neg_tile_matrix = torch.cat([d["negdoc"][i] for i in range(len(d["qid"]))])
         return self.model(pos_tile_matrix, neg_tile_matrix)
 
-    def test(self, query_sentence, query_idf, pos_sentence, qids, posdoc_ids, *args, **kwargs):
-        pos_tile_matrix = torch.cat([pos_sentence[i] for i in range(len(qids))]).to(device)
+    def test(self, d):
+        qids = d["qid"]
+        pos_sentence = d["posdoc"]
+        pos_tile_matrix = torch.cat([pos_sentence[i] for i in range(len(qids))])
+
         return self.model.test_forward(pos_tile_matrix)
 
     def zero_grad(self, *args, **kwargs):

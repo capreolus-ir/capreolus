@@ -1,26 +1,23 @@
 import torch
-import torch.nn as nn
-
-from capreolus.extractor.embedtext import EmbedText
-from capreolus.reranker.reranker import Reranker
-from torch.autograd import Variable
-from torch import optim
 import torch.nn.functional as F
-from capreolus.reranker.common import create_emb_layer
+from profane import ConfigOption, Dependency
+from torch import nn
+from torch.autograd import Variable
 
-from nltk.tokenize import TextTilingTokenizer
-import re
-import numpy as np
-import math
+from capreolus.reranker import Reranker
+from capreolus.reranker.common import create_emb_layer
 from capreolus.utils.loginit import get_logger
 
 logger = get_logger(__name__)  # pylint: disable=invalid-name
 
+device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+
 
 class POSITDRMM_basic(nn.Module):
-    def __init__(self, weights_matrix, pipeline_config):
+    def __init__(self, extractor, pipeline_config):
         super(POSITDRMM_basic, self).__init__()
         #        self.embedding_dim=embedding_dim
+        weights_matrix = extractor.embeddings
         self.embedding_dim = weights_matrix.shape[1]
         self.lstm_hidden_dim = weights_matrix.shape[1]
         self.batch_size = pipeline_config["batch"]
@@ -34,7 +31,7 @@ class POSITDRMM_basic(nn.Module):
             bidirectional=True,
             dropout=0.3,
         )
-        self.pad_token = pipeline_config["pad_token"]
+        self.pad_token = extractor.pad
         self.embedding = create_emb_layer(weights_matrix, non_trainable=True)
         self.m = nn.Dropout(p=0.2)
         self.Q1 = nn.Linear(6, 1, bias=True)
@@ -43,9 +40,10 @@ class POSITDRMM_basic(nn.Module):
         self.hidden = self.init_hidden()
 
     def init_hidden(self):
+
         return (
-            Variable(torch.zeros(4, self.batch_size, self.lstm_hidden_dim)),
-            Variable(torch.zeros(4, self.batch_size, self.lstm_hidden_dim)),
+            Variable(torch.zeros(4, self.batch_size, self.lstm_hidden_dim).to(device)),
+            Variable(torch.zeros(4, self.batch_size, self.lstm_hidden_dim).to(device)),
         )
 
     def forward(self, sentence, query_sentence, query_idf, extra):
@@ -104,10 +102,10 @@ class POSITDRMM_basic(nn.Module):
 
 
 class POSITDRMM_class(nn.Module):
-    def __init__(self, weights_matrix, pipeline_config):
+    def __init__(self, extractor, config):
         super(POSITDRMM_class, self).__init__()
-        self.posit1 = POSITDRMM_basic(weights_matrix, pipeline_config)
-        self.p = pipeline_config
+        self.posit1 = POSITDRMM_basic(extractor, config)
+        self.p = config
 
     def forward(self, query_sentence, query_idf, pos_sentence, neg_sentence, posdoc_extra, negdoc_extra):
         self.posit1.hidden = self.posit1.init_hidden()
@@ -129,33 +127,17 @@ dtype = torch.FloatTensor
 
 @Reranker.register
 class POSITDRMM(Reranker):
-    description = """Ryan McDonald, George Brokos, and Ion Androutsopoulos. 2018. Deep Relevance Ranking Using Enhanced Document-Query Interactions. In EMNLP'18."""
-    EXTRACTORS = [EmbedText]
+    description = """Ryan McDonald, George Brokos, and Ion Androutsopoulos. 2018.
+                     Deep Relevance Ranking Using Enhanced Document-Query Interactions. In EMNLP'18."""
+    module_name = "POSITDRMM"
 
-    @staticmethod
-    def config():
-        lr = 0.01
-        return locals().copy()  # ignored by sacred
+    def build_model(self):
+        if not hasattr(self, "model"):
+            config = dict(self.config)
+            config["batch"] = self.trainer.config["batch"]
+            config.update(self.extractor.config)
+            self.model = POSITDRMM_class(self.extractor, config)
 
-    @staticmethod
-    def required_params():
-        # Used for validation. Returns a set of params required by the class defined in get_model_class()
-        return {"maxqlen", "batch", "pad_token"}
-
-    @classmethod
-    def get_model_class(cls):
-        return POSITDRMM_class
-
-    def to(self, device):
-        self.model.to(device)
-        self.model.posit1.to(device)
-        self.device = device
-        return self
-
-    def build(self):
-        config = self.config.copy()
-        config["pad_token"] = EmbedText.pad
-        self.model = POSITDRMM_class(self.embeddings, config)
         return self.model
 
     def score(self, data):
@@ -168,57 +150,59 @@ class POSITDRMM(Reranker):
         neg_exact_matches, neg_exact_match_idf, neg_bigram_matches = self.get_exact_match_stats(
             query_idf, query_sentence, neg_sentence
         )
-        pos_bm25 = self.get_bm25_scores(data["qid"], data["posdocid"])
-        neg_bm25 = self.get_bm25_scores(data["qid"], data["negdocid"])
-        posdoc_extra = torch.cat((pos_exact_matches, pos_exact_match_idf, pos_bigram_matches, pos_bm25), dim=1).to(self.device)
-        negdoc_extra = torch.cat((neg_exact_matches, neg_exact_match_idf, neg_bigram_matches, neg_bm25), dim=1).to(self.device)
+        pos_bm25 = self.get_searcher_scores(data["qid"], data["posdocid"])
+        neg_bm25 = self.get_searcher_scores(data["qid"], data["negdocid"])
+        posdoc_extra = torch.cat((pos_exact_matches, pos_exact_match_idf, pos_bigram_matches, pos_bm25), dim=1).to(device)
+        negdoc_extra = torch.cat((neg_exact_matches, neg_exact_match_idf, neg_bigram_matches, neg_bm25), dim=1).to(device)
         return self.model(query_sentence, query_idf, pos_sentence, neg_sentence, posdoc_extra, negdoc_extra)
 
-    def test(self, query_sentence, query_idf, pos_sentence, qids=None, posdoc_ids=None):
-        assert qids is not None
-        assert posdoc_ids is not None
+    def test(self, data):
+        query_sentence = data["query"]
+        query_idf = data["query_idf"]
+        pos_sentence = data["posdoc"]
+        qids = data["qid"]
+        posdoc_ids = data["posdocid"]
 
         pos_exact_matches, pos_exact_match_idf, pos_bigram_matches = self.get_exact_match_stats(
             query_idf, query_sentence, pos_sentence
         )
-        pos_bm25 = self.get_bm25_scores(qids, posdoc_ids)
-        posdoc_extra = torch.cat((pos_exact_matches, pos_exact_match_idf, pos_bigram_matches, pos_bm25), dim=1).to(self.device)
+        pos_bm25 = self.get_searcher_scores(qids, posdoc_ids)
+        posdoc_extra = torch.cat((pos_exact_matches, pos_exact_match_idf, pos_bigram_matches, pos_bm25), dim=1).to(device)
+
         return self.model.test_forward(query_sentence, query_idf, pos_sentence, posdoc_extra)
 
     def zero_grad(self, *args, **kwargs):
         self.model.zero_grad(*args, **kwargs)
 
-    def get_bm25_scores(self, qids, doc_ids):
+    def get_searcher_scores(self, qids, doc_ids):
         scores = torch.zeros((len(doc_ids)))
         for i, doc_id in enumerate(doc_ids):
-            scores[i] = self.bm25_scores[qids[i]][doc_id]
+            # The searcher_scores attribute is set from RerankTask.train()
+            # TODO: Remove this temporary hack and figure out a way to pass these kind of features cleanly
+            scores[i] = self.searcher_scores[qids[i]][doc_id]
 
         return scores.reshape(len(doc_ids), 1)
 
-    @classmethod
-    def clean(cls, text):
+    def clean(self, text):
         """
         Remove pad tokens from the text
         """
-        return text[text != EmbedText.pad]
+        return text[text != self.extractor.pad]
 
-    @classmethod
-    def get_bigrams(cls, text):
+    def get_bigrams(self, text):
         # text_batch has shape (batch_size, length)
         return torch.stack([text[i : i + 2] for i in range(len(text) - 1)])
 
-    @classmethod
-    def get_bigram_match_count(cls, query, doc):
+    def get_bigram_match_count(self, query, doc):
         bigram_matches = 0
-        query_bigrams = cls.get_bigrams(query)
-        doc_bigrams = cls.get_bigrams(doc)
+        query_bigrams = self.get_bigrams(query)
+        doc_bigrams = self.get_bigrams(doc)
 
         for q_bigram in query_bigrams:
             bigram_matches += len(torch.all((doc_bigrams == q_bigram), dim=1).nonzero())
         return bigram_matches / len(doc_bigrams)
 
-    @classmethod
-    def get_exact_match_count(cls, query, single_doc, query_idf):
+    def get_exact_match_count(self, query, single_doc, query_idf):
         exact_match_count = 0
         exact_match_idf = 0
         for i, q_word in enumerate(query):
@@ -228,8 +212,7 @@ class POSITDRMM(Reranker):
 
         return exact_match_count / len(single_doc), exact_match_idf / len(single_doc)
 
-    @classmethod
-    def get_exact_match_stats(cls, query_idf_batch, query_batch, doc_batch):
+    def get_exact_match_stats(self, query_idf_batch, query_batch, doc_batch):
         """
         The extra 4 features that must be combined to the relevant score.
         See https://www.aclweb.org/anthology/D18-1211.pdf section 4.1 beginning.
@@ -247,11 +230,11 @@ class POSITDRMM(Reranker):
 
             # Remove pad tokens from the doc so that pad-token in query and pad-token in doc does not result in an exact
             # match count
-            cleaned_doc = cls.clean(curr_doc)
+            cleaned_doc = self.clean(curr_doc)
 
-            curr_exact_matches, curr_exact_matches_idf = cls.get_exact_match_count(query, cleaned_doc, query_idf)
+            curr_exact_matches, curr_exact_matches_idf = self.get_exact_match_count(query, cleaned_doc, query_idf)
             exact_matches[batch] = curr_exact_matches
             exact_match_idf[batch] = curr_exact_matches_idf
-            bigram_matches[batch] = cls.get_bigram_match_count(query, cleaned_doc)
+            bigram_matches[batch] = self.get_bigram_match_count(query, cleaned_doc)
 
         return exact_matches.reshape(batch_size, 1), exact_match_idf.reshape(batch_size, 1), bigram_matches.reshape(batch_size, 1)
