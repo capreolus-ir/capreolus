@@ -1,16 +1,16 @@
 import hashlib
 import logging
 import os
-import requests
 import sys
 from glob import glob
 
-import spacy
-import scispacy
-import numpy as np
-from tqdm import tqdm
-from lxml import etree
 import matplotlib.pyplot as plt
+import numpy as np
+import requests
+import scispacy
+import spacy
+from lxml import etree
+from tqdm import tqdm
 
 from capreolus.utils.loginit import get_logger
 
@@ -24,7 +24,7 @@ class Anserini:
         for path in sys.path:
             jar_path = "{0}/pyserini/resources/jars/".format(path)
             if os.path.exists(jar_path):
-                fat_jar_path = glob(os.path.join(jar_path, "anserini-*-fatjar.jar"))
+                fat_jar_path = glob(os.path.join(jar_path, "anserini-0.9*-fatjar.jar"))
                 if fat_jar_path:
                     return max(fat_jar_path, key=os.path.getctime)
 

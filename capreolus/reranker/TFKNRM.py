@@ -1,8 +1,8 @@
 import tensorflow as tf
+from profane import ConfigOption, Dependency
 
-from capreolus.reranker.common import RbfKernelBankTF, similarity_matrix_tf
 from capreolus.reranker import Reranker
-from capreolus.registry import Dependency
+from capreolus.reranker.common import RbfKernelBankTF, similarity_matrix_tf
 
 
 class TFKNRM_Class(tf.keras.Model):
@@ -55,18 +55,18 @@ class TFKNRM_Class(tf.keras.Model):
         return tf.stack([posdoc_score, negdoc_score], axis=1)
 
 
+@Reranker.register
 class TFKNRM(Reranker):
-    name = "TFKNRM"
-    dependencies = {
-        "extractor": Dependency(module="extractor", name="embedtext"),
-        "trainer": Dependency(module="trainer", name="tensorflow"),
-    }
+    module_name = "TFKNRM"
+    dependencies = [
+        Dependency(key="extractor", module="extractor", name="embedtext"),
+        Dependency(key="trainer", module="trainer", name="tensorflow"),
+    ]
+    config_spec = [
+        ConfigOption("gradkernels", True, "backprop through mus and sigmas"),
+        ConfigOption("finetune", False, "fine tune the embedding layer"),  # TODO check save when True
+    ]
 
-    @staticmethod
-    def config():
-        gradkernels = True  # backprop through mus and sigmas
-        finetune = False  # Fine tune the embedding
-
-    def build(self):
-        self.model = TFKNRM_Class(self["extractor"], self.cfg)
+    def build_model(self):
+        self.model = TFKNRM_Class(self.extractor, self.config)
         return self.model

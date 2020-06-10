@@ -1,9 +1,10 @@
 import torch
 import torch.nn as nn
+from profane import ConfigOption, Dependency
 
+from capreolus.reranker import Reranker
 from capreolus.reranker.common import create_emb_layer
 from capreolus.utils.loginit import get_logger
-from capreolus.reranker import Reranker
 
 logger = get_logger(__name__)  # pylint: disable=invalid-name
 
@@ -128,21 +129,22 @@ class DUET_class(nn.Module):
         return lm_score + dm_score
 
 
+@Reranker.register
 class DUET(Reranker):
-    name = "DUET"
-    citation = """Bhaskar Mitra, Fernando Diaz, and Nick Craswell. 2017. Learning to Match using Local and Distributed Representations of Text for Web Search. In WWW'17."""
+    module_name = "DUET"
+    description = """Bhaskar Mitra, Fernando Diaz, and Nick Craswell. 2017. Learning to Match using Local and Distributed Representations of Text for Web Search. In WWW'17."""
 
-    @staticmethod
-    def config():
-        nfilters = 10  # number of filters for both local and distrbuted model
-        lmhidden = 30  # ffw hidden layer dimension for local model
-        nhidden = 699  # ffw hidden layer dimension for local model
-        idfweight = True  # control whether to weight each query word with its idf value in local model
-        activation = "relu"  # activation for ffw layers, shoule be either 'tanh' or 'relu'
+    config_spec = [
+        ConfigOption("nfilter", 10, "number of filters for both local and distrbuted model"),
+        ConfigOption("lmhidden", 30, "ffw hidden layer dimension for local model"),
+        ConfigOption("nhidden", 699, "ffw hidden layer dimension for local model"),
+        ConfigOption("idfweight", True, "whether to weight each query word with its idf value in local model"),
+        ConfigOption("activation", "relu", "ffw layer activation: tanh or relu"),
+    ]
 
-    def build(self):
+    def build_model(self):
         if not hasattr(self, "model"):
-            self.model = DUET_class(self["extractor"], self.cfg)
+            self.model = DUET_class(self.extractor, self.config)
         return self.model
 
     def score(self, d):

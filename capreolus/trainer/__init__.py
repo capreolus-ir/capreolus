@@ -1,3 +1,7 @@
+from profane import import_all_modules
+
+# import_all_modules(__file__, __package__)
+
 import hashlib
 import math
 import os
@@ -6,6 +10,8 @@ import time
 import uuid
 from collections import defaultdict
 from copy import copy
+
+from profane import ModuleBase, Dependency, ConfigOption, constants
 import tensorflow as tf
 import tensorflow_ranking as tfr
 import numpy as np
@@ -14,19 +20,20 @@ from keras import Sequential, layers
 from keras.layers import Dense
 from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
-from capreolus.registry import ModuleBase, RegisterableModule, Dependency, MAX_THREADS
+
 from capreolus.reranker.common import pair_hinge_loss, pair_softmax_loss
 from capreolus.searcher import Searcher
 from capreolus.utils.loginit import get_logger
 from capreolus.utils.common import plot_metrics, plot_loss
 from capreolus import evaluator
-from capreolus.registry import RESULTS_BASE_PATH
 
 logger = get_logger(__name__)  # pylint: disable=invalid-name
+RESULTS_BASE_PATH = constants["RESULTS_BASE_PATH"]
 
 
-class Trainer(ModuleBase, metaclass=RegisterableModule):
+class Trainer(ModuleBase):
     module_type = "trainer"
+    requires_random_seed = True
 
     def get_paths_for_early_stopping(self, train_output_path, dev_output_path):
         os.makedirs(dev_output_path, exist_ok=True)
@@ -42,39 +49,41 @@ class Trainer(ModuleBase, metaclass=RegisterableModule):
         return dev_best_weight_fn, weights_output_path, info_output_path, loss_fn
 
 
+@Trainer.register
 class PytorchTrainer(Trainer):
-    name = "pytorch"
-    dependencies = {}
+    module_name = "pytorch"
+    config_spec = [
+        ConfigOption("batch", 32, "batch size"),
+        ConfigOption("niters", 20, "number of iterations to train for"),
+        ConfigOption("itersize", 512, "number of training instances in one iteration"),
+        ConfigOption("gradacc", 1, "number of batches to accumulate over before updating weights"),
+        ConfigOption("lr", 0.001, "learning rate"),
+        ConfigOption("softmaxloss", False, "True to use softmax loss (over pairs) or False to use hinge loss"),
+        ConfigOption("fastforward", False),
+        ConfigOption("validatefreq", 1),
+        ConfigOption("boardname", "default"),
+    ]
+    config_keys_not_in_path = ["fastforward", "boardname"]
 
-    @staticmethod
-    def config():
-        batch = 32  # batch size
-        niters = 20  # number of iterations to train for
-        itersize = 512  # number of training instances in one iteration (epoch)
-        gradacc = 1  # number of batches to accumulate over before updating weights
-        lr = 0.001  # learning rate
-        softmaxloss = False  # True to use softmax loss (over pairs) or False to use hinge loss
-
-        interactive = False  # True for training with Notebook or False for command line environment
-        fastforward = False
-        validatefreq = 1
-        boardname = "default"
-
+    def build(self):
         # sanity checks
-        if batch < 1:
+        if self.config["batch"] < 1:
             raise ValueError("batch must be >= 1")
 
-        if niters <= 0:
+        if self.config["niters"] <= 0:
             raise ValueError("niters must be > 0")
 
-        if itersize < batch:
+        if self.config["itersize"] < self.config["batch"]:
             raise ValueError("itersize must be >= batch")
 
-        if gradacc < 1 or not float(gradacc).is_integer():
+        if self.config["gradacc"] < 1 or not float(self.config["gradacc"]).is_integer():
             raise ValueError("gradacc must be an integer >= 1")
 
-        if lr <= 0:
+        if self.config["lr"] <= 0:
             raise ValueError("lr must be > 0")
+
+        torch.manual_seed(self.config["seed"])
+        torch.cuda.manual_seed_all(self.config["seed"])
 
     def single_train_iteration(self, reranker, train_dataloader):
         """Train model for one iteration using instances from train_dataloader.
@@ -90,8 +99,8 @@ class PytorchTrainer(Trainer):
 
         iter_loss = []
         batches_since_update = 0
-        batches_per_epoch = (self.cfg["itersize"] // self.cfg["batch"]) or 1
-        batches_per_step = self.cfg["gradacc"]
+        batches_per_epoch = (self.config["itersize"] // self.config["batch"]) or 1
+        batches_per_step = self.config["gradacc"]
 
         for bi, batch in tqdm(enumerate(train_dataloader), desc="Iter progression"):
             # TODO make sure _prepare_batch_with_strings equivalent is happening inside the sampler
@@ -195,17 +204,14 @@ class PytorchTrainer(Trainer):
 
         """
         # Set up logging
-        summary_writer = SummaryWriter(RESULTS_BASE_PATH / "runs" / self.cfg["boardname"], comment=train_output_path)
-        hyperparams = dict(self.cfg)
-        hyperparams.update(dict(reranker.cfg))
-        hyperparams.update(dict(reranker["extractor"].cfg))
-        # summary_writer.add_hparams(hyperparams, {"hparams/fake": 0})
+        # TODO why not put this under train_output_path?
+        summary_writer = SummaryWriter(RESULTS_BASE_PATH / "runs" / self.config["boardname"], comment=train_output_path)
 
         self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
         model = reranker.model.to(self.device)
-        self.optimizer = torch.optim.Adam(filter(lambda param: param.requires_grad, model.parameters()), lr=self.cfg["lr"])
+        self.optimizer = torch.optim.Adam(filter(lambda param: param.requires_grad, model.parameters()), lr=self.config["lr"])
 
-        if self.cfg["softmaxloss"]:
+        if self.config["softmaxloss"]:
             self.loss = pair_softmax_loss
         else:
             self.loss = pair_hinge_loss
@@ -214,11 +220,11 @@ class PytorchTrainer(Trainer):
             train_output_path, dev_output_path
         )
 
-        initial_iter = self.fastforward_training(reranker, weights_output_path, loss_fn) if self.cfg["fastforward"] else 0
-        logger.info("starting training from iteration %s/%s", initial_iter, self.cfg["niters"])
+        initial_iter = self.fastforward_training(reranker, weights_output_path, loss_fn) if self.config["fastforward"] else 0
+        logger.info("starting training from iteration %s/%s", initial_iter, self.config["niters"])
 
         train_dataloader = torch.utils.data.DataLoader(
-            train_dataset, batch_size=self.cfg["batch"], pin_memory=True, num_workers=0
+            train_dataset, batch_size=self.config["batch"], pin_memory=True, num_workers=0
         )
         # dataiter = iter(train_dataloader)
         # sample_input = dataiter.next()
@@ -237,18 +243,18 @@ class PytorchTrainer(Trainer):
             train_loss = self.load_loss_file(loss_fn)
 
             # are we done training?
-            if initial_iter < self.cfg["niters"]:
+            if initial_iter < self.config["niters"]:
                 logger.debug("fastforwarding train_dataloader to iteration %s", initial_iter)
-                batches_per_epoch = self.cfg["itersize"] // self.cfg["batch"]
+                batches_per_epoch = self.config["itersize"] // self.config["batch"]
                 for niter in range(initial_iter):
                     for bi, batch in enumerate(train_dataloader):
                         if (bi + 1) % batches_per_epoch == 0:
                             break
 
         dev_best_metric = -np.inf
-        validation_frequency = self.cfg["validatefreq"]
+        validation_frequency = self.config["validatefreq"]
         train_start_time = time.time()
-        for niter in range(initial_iter, self.cfg["niters"]):
+        for niter in range(initial_iter, self.config["niters"]):
             model.train()
 
             iter_start_time = time.time()
@@ -267,7 +273,7 @@ class PytorchTrainer(Trainer):
                 preds = self.predict(reranker, dev_data, pred_fn)
 
                 # log dev metrics
-                metrics = evaluator.eval_runs(preds, qrels, ["ndcg_cut_20", "map", "P_20"])
+                metrics = evaluator.eval_runs(preds, qrels, ["ndcg_cut_20", "map", "P_20"], relevance_level=1)  # TODO rel level
                 logger.info("dev metrics: %s", " ".join([f"{metric}={v:0.3f}" for metric, v in sorted(metrics.items())]))
                 summary_writer.add_scalar("ndcg_cut_20", metrics["ndcg_cut_20"], niter)
                 summary_writer.add_scalar("map", metrics["map"], niter)
@@ -282,13 +288,15 @@ class PytorchTrainer(Trainer):
             summary_writer.add_scalar("training_loss", iter_loss_tensor.item(), niter)
             reranker.add_summary(summary_writer, niter)
             summary_writer.flush()
-        print("training loss: ", train_loss)
+        logger.info("training loss: %s", train_loss)
         logger.info("Training took {}".format(time.time() - train_start_time))
         summary_writer.close()
 
+        # TODO should we write a /done so that training can be skipped if possible when fastforward=False? or in Task?
+
     def load_best_model(self, reranker, train_output_path):
         self.optimizer = torch.optim.Adam(
-            filter(lambda param: param.requires_grad, reranker.model.parameters()), lr=self.cfg["lr"]
+            filter(lambda param: param.requires_grad, reranker.model.parameters()), lr=self.config["lr"]
         )
 
         dev_best_weight_fn = train_output_path / "dev.best"
@@ -313,10 +321,10 @@ class PytorchTrainer(Trainer):
         model.eval()
 
         preds = {}
-        pred_dataloader = torch.utils.data.DataLoader(pred_data, batch_size=self.cfg["batch"], pin_memory=True, num_workers=0)
+        pred_dataloader = torch.utils.data.DataLoader(pred_data, batch_size=self.config["batch"], pin_memory=True, num_workers=0)
         with torch.autograd.no_grad():
             for batch in tqdm(pred_dataloader, desc="Predicting on dev"):
-                if len(batch["qid"]) != self.cfg["batch"]:
+                if len(batch["qid"]) != self.config["batch"]:
                     batch = self.fill_incomplete_batch(batch)
 
                 batch = {k: v.to(self.device) if not isinstance(v, list) else v for k, v in batch.items()}
@@ -338,9 +346,9 @@ class PytorchTrainer(Trainer):
         If the values are just a simple list, use the first element of the list to pad the batch
         If the values are tensors/numpy arrays, use repeat() along the batch dimension
         """
-        logger.info("Filling in an incomplete batch")
-        repeat_times = math.ceil(self.cfg["batch"] / len(batch["qid"]))
-        diff = self.cfg["batch"] - len(batch["qid"])
+        # logger.debug("filling in an incomplete batch")
+        repeat_times = math.ceil(self.config["batch"] / len(batch["qid"]))
+        diff = self.config["batch"] - len(batch["qid"])
 
         def pad(v):
             if isinstance(v, np.ndarray) or torch.is_tensor(v):
@@ -348,7 +356,7 @@ class PytorchTrainer(Trainer):
             else:
                 _v = v + [v[0]] * diff
 
-            return _v[: self.cfg["batch"]]
+            return _v[: self.config["batch"]]
 
         batch = {k: pad(v) for k, v in batch.items()}
         return batch
@@ -387,7 +395,9 @@ class TrecCheckpointCallback(tf.keras.callbacks.Callback):
         if (epoch + 1) % self.validate_freq == 0:
             predictions = self.model.predict(self.dev_records, verbose=1, workers=8, use_multiprocessing=True)
             trec_preds = self.get_preds_in_trec_format(predictions, self.dev_data)
-            metrics = evaluator.eval_runs(trec_preds, dict(self.qrels), ["ndcg_cut_20", "map", "P_20"])
+            metrics = evaluator.eval_runs(
+                trec_preds, dict(self.qrels), ["ndcg_cut_20", "map", "P_20"], relevance_level=1
+            )  # TODO rel level
             logger.info("dev metrics: %s", " ".join([f"{metric}={v:0.3f}" for metric, v in sorted(metrics.items())]))
 
             # TODO: Make the metric configurable
@@ -412,16 +422,33 @@ class TrecCheckpointCallback(tf.keras.callbacks.Callback):
         return dict(pred_dict)
 
 
+@Trainer.register
 class TensorFlowTrainer(Trainer):
-    name = "tensorflow"
-    dependencies = {}
+    module_name = "tensorflow"
 
-    def __init__(self, *args, **kwargs):
-        super(TensorFlowTrainer, self).__init__(*args, **kwargs)
+    config_spec = [
+        ConfigOption("batch", 32, "batch size"),
+        ConfigOption("niters", 20, "number of iterations to train for"),
+        ConfigOption("itersize", 512, "number of training instances in one iteration"),
+        # ConfigOption("gradacc", 1, "number of batches to accumulate over before updating weights"),
+        ConfigOption("lr", 0.001, "learning rate"),
+        ConfigOption("loss", "pairwise_hinge_loss", "must be one of tfr.losses.RankingLossKey"),
+        # ConfigOption("fastforward", False),
+        ConfigOption("validatefreq", 1),
+        ConfigOption("boardname", "default"),
+        ConfigOption("usecache", False),
+        ConfigOption("tpuname", None),
+        ConfigOption("tpuzone", None),
+        ConfigOption("storage", None),
+    ]
+    config_keys_not_in_path = ["fastforward", "boardname", "usecache", "tpuname", "tpuzone", "storage"]
+
+    def build(self):
+        tf.random.set_seed(self.config["seed"])
 
         # Use TPU if available, otherwise resort to GPU/CPU
         try:
-            self.tpu = tf.distribute.cluster_resolver.TPUClusterResolver(tpu=self.cfg["tpuname"], zone=self.cfg["tpuzone"])
+            self.tpu = tf.distribute.cluster_resolver.TPUClusterResolver(tpu=self.config["tpuname"], zone=self.config["tpuzone"])
         except ValueError:
             self.tpu = None
             logger.info("Could not find the tpu")
@@ -441,37 +468,13 @@ class TensorFlowTrainer(Trainer):
         self.validate()
 
     def validate(self):
-        if self.tpu and any([self.cfg["storage"] is None, self.cfg["tpuname"] is None, self.cfg["tpuzone"] is None]):
+        if self.tpu and any([self.config["storage"] is None, self.config["tpuname"] is None, self.config["tpuzone"] is None]):
             raise ValueError("storage, tpuname and tpuzone configs must be provided when training on TPU")
-        if self.tpu and self.cfg["storage"] and not self.cfg["storage"].startswith("gs://"):
+        if self.tpu and self.config["storage"] and not self.config["storage"].startswith("gs://"):
             raise ValueError("For TPU utilization, the storage config should start with 'gs://'")
 
-    @staticmethod
-    def config():
-        batch = 32  # batch size
-        niters = 20  # number of iterations to train for
-        itersize = 512  # number of training instances in one iteration (epoch)
-        gradacc = 1  # number of batches to accumulate over before updating weights
-        lr = 0.001  # learning rate
-        softmaxloss = False  # True to use softmax loss (over pairs) or False to use hinge loss
-
-        interactive = False  # True for training with Notebook or False for command line environment
-        fastforward = False
-        warmupsteps = 1
-        validatefreq = 1
-        usecache = False
-        tpuname = None
-        tpuzone = None
-        storage = None
-        boardname = "default"
-
-        # Must be one of tfr.losses.RankingLossKey
-        loss = "pairwise_hinge_loss"
-
-    def get_optimizer(self, reranker):
-        adam = tf.keras.optimizers.Adam(learning_rate=self.cfg["lr"], epsilon=1e-6)
-
-        return reranker.modify_optimizer(adam)
+    def get_optimizer(self):
+        return tf.keras.optimizers.Adam(learning_rate=self.config["lr"])
 
     def fastforward_training(self, reranker, weights_path, loss_fn):
         # TODO: Fix fast forwarding
@@ -481,7 +484,7 @@ class TensorFlowTrainer(Trainer):
         # TODO: Do the train_output_path modification at one place?
         if self.tpu:
             train_output_path = "{0}/{1}/{2}".format(
-                self.cfg["storage"], "train_output", hashlib.md5(str(train_output_path).encode("utf-8")).hexdigest()
+                self.config["storage"], "train_output", hashlib.md5(str(train_output_path).encode("utf-8")).hexdigest()
             )
 
         reranker.model.load_weights("{0}/dev.best".format(train_output_path))
@@ -495,38 +498,38 @@ class TensorFlowTrainer(Trainer):
         return min(self.cfg["lr"] * ((epoch+1)/warmup_steps), self.cfg["lr"])
 
     def train(self, reranker, train_dataset, train_output_path, dev_data, dev_output_path, qrels, metric):
-        # summary_writer = tf.summary.create_file_writer("{0}/capreolus_tensorboard/{1}".format(self.cfg["storage"], self.cfg["boardname"]))
+        # summary_writer = tf.summary.create_file_writer("{0}/capreolus_tensorboard/{1}".format(self.config["storage"], self.config["boardname"]))
 
         # Because TPUs can't work with local files
         if self.tpu:
             train_output_path = "{0}/{1}/{2}".format(
-                self.cfg["storage"], "train_output", hashlib.md5(str(train_output_path).encode("utf-8")).hexdigest()
+                self.config["storage"], "train_output", hashlib.md5(str(train_output_path).encode("utf-8")).hexdigest()
             )
 
         os.makedirs(dev_output_path, exist_ok=True)
         initial_iter = self.fastforward_training(reranker, dev_output_path, None)
-        logger.info("starting training from iteration %s/%s", initial_iter, self.cfg["niters"])
+        logger.info("starting training from iteration %s/%s", initial_iter, self.config["niters"])
 
         strategy_scope = self.strategy.scope()
         with strategy_scope:
             train_records = self.get_tf_train_records(reranker, train_dataset)
             dev_records = self.get_tf_dev_records(reranker, dev_data)
-            trec_callback = TrecCheckpointCallback(qrels, dev_data, dev_records, train_output_path, self.cfg["validatefreq"])
+            trec_callback = TrecCheckpointCallback(qrels, dev_data, dev_records, train_output_path, self.config["validatefreq"])
             learning_rate_callback = tf.keras.callbacks.LearningRateScheduler(self.do_warmup)
             tensorboard_callback = tf.keras.callbacks.TensorBoard(
-                log_dir="{0}/capreolus_tensorboard/{1}".format(self.cfg["storage"], self.cfg["boardname"])
+                log_dir="{0}/capreolus_tensorboard/{1}".format(self.config["storage"], self.config["boardname"])
             )
-            reranker.build()
+            reranker.build_model()  # TODO needed here?
 
-            self.optimizer = self.get_optimizer(reranker)
-            loss = tfr.keras.losses.get(self.cfg["loss"])
+            self.optimizer = self.get_optimizer()
+            loss = tfr.keras.losses.get(self.config["loss"])
             reranker.model.compile(optimizer=self.optimizer, loss=loss)
 
             train_start_time = time.time()
             reranker.model.fit(
                 train_records.prefetch(tf.data.experimental.AUTOTUNE),
-                epochs=self.cfg["niters"],
-                steps_per_epoch=self.cfg["itersize"],
+                epochs=self.config["niters"],
+                steps_per_epoch=self.config["itersize"],
                 callbacks=[tensorboard_callback, trec_callback, learning_rate_callback],
                 workers=8,
                 use_multiprocessing=True,
@@ -579,7 +582,7 @@ class TensorFlowTrainer(Trainer):
         """
         dir_name = self.get_tf_record_cache_path(dataset)
 
-        tf_features = [reranker["extractor"].create_tf_feature(sample) for sample in dataset]
+        tf_features = [reranker.extractor.create_tf_feature(sample) for sample in dataset]
 
         return [self.write_tf_record_to_file(dir_name, tf_features)]
 
@@ -595,15 +598,15 @@ class TensorFlowTrainer(Trainer):
         tf_features = []
         tf_record_filenames = []
 
-        for niter in tqdm(range(0, self.cfg["niters"]), desc="Converting data to tf records"):
-            for sample_idx, sample in tqdm(enumerate(dataset), desc="data for 1 iter"):
-                tf_features.append(reranker["extractor"].create_tf_feature(sample))
+        for niter in tqdm(range(0, self.config["niters"]), desc="Converting data to tf records"):
+            for sample_idx, sample in enumerate(dataset):
+                tf_features.append(reranker.extractor.create_tf_feature(sample))
 
                 if len(tf_features) > 20000:
                     tf_record_filenames.append(self.write_tf_record_to_file(dir_name, tf_features))
                     tf_features = []
 
-                if sample_idx + 1 >= self.cfg["itersize"] * self.cfg["batch"]:
+                if sample_idx + 1 >= self.config["itersize"] * self.config["batch"]:
                     break
 
         if len(tf_features):
@@ -617,7 +620,7 @@ class TensorFlowTrainer(Trainer):
         If using TPUs, this will be a gcs path.
         """
         if self.tpu:
-            return "{0}/capreolus_tfrecords/{1}".format(self.cfg["storage"], dataset.get_hash())
+            return "{0}/capreolus_tfrecords/{1}".format(self.config["storage"], dataset.get_hash())
         else:
             base_path = self.get_cache_path()
             return "{0}/{1}".format(base_path, dataset.get_hash())
@@ -632,7 +635,7 @@ class TensorFlowTrainer(Trainer):
     def load_tf_records_from_file(self, reranker, filenames, batch_size):
         raw_dataset = tf.data.TFRecordDataset(filenames)
         tf_records_dataset = raw_dataset.batch(batch_size, drop_remainder=True).map(
-            reranker["extractor"].parse_tf_example, num_parallel_calls=tf.data.experimental.AUTOTUNE
+            reranker.extractor.parse_tf_example, num_parallel_calls=tf.data.experimental.AUTOTUNE
         )
 
         return tf_records_dataset
@@ -650,11 +653,12 @@ class TensorFlowTrainer(Trainer):
         1. Returns tf records from cache (disk) if applicable
         2. Else, converts the dataset into tf records, writes them to disk, and returns them
         """
-        if self.cfg["usecache"] and self.cache_exists(dataset):
+        if self.config["usecache"] and self.cache_exists(dataset):
             return self.load_cached_tf_records(reranker, dataset, 1)
         else:
             tf_record_filenames = self.convert_to_tf_dev_record(reranker, dataset)
-            return self.load_tf_records_from_file(reranker, tf_record_filenames, 1)
+            # TODO use actual batch size here. see issue #52
+            return self.load_tf_records_from_file(reranker, tf_record_filenames, 1)  # self.config["batch"])
 
     def get_tf_train_records(self, reranker, dataset):
         """
@@ -662,11 +666,11 @@ class TensorFlowTrainer(Trainer):
         2. Else, converts the dataset into tf records, writes them to disk, and returns them
         """
 
-        if self.cfg["usecache"] and self.cache_exists(dataset):
-            return self.load_cached_tf_records(reranker, dataset, self.cfg["batch"])
+        if self.config["usecache"] and self.cache_exists(dataset):
+            return self.load_cached_tf_records(reranker, dataset, self.config["batch"])
         else:
             tf_record_filenames = self.convert_to_tf_train_record(reranker, dataset)
-            return self.load_tf_records_from_file(reranker, tf_record_filenames, self.cfg["batch"])
+            return self.load_tf_records_from_file(reranker, tf_record_filenames, self.config["batch"])
 
     def predict(self, reranker, pred_data, pred_fn):
         """Predict query-document scores on `pred_data` using `model` and write a corresponding run file to `pred_fn`

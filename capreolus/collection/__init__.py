@@ -1,3 +1,7 @@
+from profane import import_all_modules
+
+# import_all_modules(__file__, __package__)
+
 import os
 import math
 import shutil
@@ -9,18 +13,17 @@ from tqdm import tqdm
 from zipfile import ZipFile
 from pathlib import Path
 import pandas as pd
+from profane import ModuleBase, Dependency, ConfigOption, constants
 
-from capreolus.registry import ModuleBase, RegisterableModule, PACKAGE_PATH
 from capreolus.utils.common import download_file, hash_file, remove_newline
 from capreolus.utils.loginit import get_logger
 from capreolus.utils.trec import anserini_index_to_trec_docs, document_to_trectxt
 
 logger = get_logger(__name__)
+PACKAGE_PATH = constants["PACKAGE_PATH"]
 
 
-class Collection(ModuleBase, metaclass=RegisterableModule):
-    """the module base class"""
-
+class Collection(ModuleBase):
     module_type = "collection"
     is_large_collection = False
     _path = None
@@ -72,27 +75,25 @@ class Collection(ModuleBase, metaclass=RegisterableModule):
         """
 
         # first, see if the path was provided as a config option
-        if "path" in self.cfg and self.validate_document_path(self.cfg["path"]):
-            return self.cfg["path"]
+        if "path" in self.config and self.validate_document_path(self.config["path"]):
+            return self.config["path"]
 
         # if not, see if the collection can be obtained through its download_if_missing method
         return self.download_if_missing()
 
     def download_if_missing(self):
         raise IOError(
-            f"a download URL is not configured for collection={self.name} and the collection path does not exist; you must manually place the document collection at this path in order to use this collection"
+            f"a download URL is not configured for collection={self.module_name} and the collection path does not exist; you must manually place the document collection at this path in order to use this collection"
         )
 
 
+@Collection.register
 class Robust04(Collection):
-    name = "robust04"
+    module_name = "robust04"
     collection_type = "TrecCollection"
     generator_type = "DefaultLuceneDocumentGenerator"
     config_keys_not_in_path = ["path"]
-
-    @staticmethod
-    def config():
-        path = "Aquaint-TREC-3-4"
+    config_spec = [ConfigOption("path", "Aquaint-TREC-3-4", "path to corpus")]
 
     def download_if_missing(self):
         return self.download_index(
@@ -144,7 +145,7 @@ class Robust04(Collection):
         archive_file = os.path.join(tmp_dir, "archive_file")
         os.makedirs(document_dir, exist_ok=True)
         os.makedirs(tmp_dir, exist_ok=True)
-        logger.info("downloading index for missing collection %s to temporary file %s", self.name, archive_file)
+        logger.info("downloading index for missing collection %s to temporary file %s", self.module_name, archive_file)
         download_file(url, archive_file, expected_hash=sha256)
 
         logger.info("extracting index to %s (before moving to correct cache path)", tmp_dir)
@@ -173,8 +174,9 @@ class Robust04(Collection):
         return document_dir
 
 
+@Collection.register
 class DummyCollection(Collection):
-    name = "dummy"
+    module_name = "dummy"
     _path = PACKAGE_PATH / "data" / "dummy" / "data"
     collection_type = "TrecCollection"
     generator_type = "DefaultLuceneDocumentGenerator"
@@ -184,15 +186,16 @@ class DummyCollection(Collection):
         return "dummy_trec_doc" in os.listdir(path)
 
 
+@Collection.register
 class ANTIQUE(Collection):
-    name = "antique"
+    module_name = "antique"
     _path = PACKAGE_PATH / "data" / "antique-collection"
 
     collection_type = "TrecCollection"
     generator_type = "DefaultLuceneDocumentGenerator"
 
     def download_if_missing(self):
-        url = "https://ciir.cs.umass.edu/downloads/Antique/antique-collection.txt"
+        url = "http://ciir.cs.umass.edu/downloads/Antique/antique-collection.txt"
         cachedir = self.get_cache_path()
         document_dir = os.path.join(cachedir, "documents")
         coll_filename = os.path.join(document_dir, "antique-collection.txt")
@@ -229,39 +232,38 @@ class ANTIQUE(Collection):
 
     def _validate_document_path(self, path):
         """ Checks that the sha256sum is correct """
-        return hash_file(path) == "409e0960f918970977ceab9e5b1d372f45395af25d53b95644bdc9ccbbf973da"
+        return (
+            hash_file(os.path.join(path, "antique-collection.txt"))
+            == "409e0960f918970977ceab9e5b1d372f45395af25d53b95644bdc9ccbbf973da"
+        )
 
 
+@Collection.register
 class MSMarco(Collection):
-    name = "msmarco"
+    module_name = "msmarco"
     config_keys_not_in_path = ["path"]
     collection_type = "TrecCollection"
     generator_type = "DefaultLuceneDocumentGenerator"
-
-    @staticmethod
-    def config():
-        path = "/GW/NeuralIR/nobackup/msmarco/trec_format"
+    config_spec = [ConfigOption("path", "/GW/NeuralIR/nobackup/msmarco/trec_format", "path to corpus")]
 
 
+@Collection.register
 class CodeSearchNet(Collection):
-    name = "codesearchnet"
+    module_name = "codesearchnet"
     url = "https://s3.amazonaws.com/code-search-net/CodeSearchNet/v2"
     collection_type = "TrecCollection"  # TODO: any other supported type?
     generator_type = "DefaultLuceneDocumentGenerator"
-
-    @staticmethod
-    def config():
-        lang = "ruby"
+    config_spec = [ConfigOption("lang", "ruby", "CSN language dataset to use")]
 
     def download_if_missing(self):
         cachedir = self.get_cache_path()
         document_dir = cachedir / "documents"
-        coll_filename = document_dir / ("csn-" + self.cfg["lang"] + "-collection.txt")
+        coll_filename = document_dir / ("csn-" + self.config["lang"] + "-collection.txt")
 
         if coll_filename.exists():
             return document_dir
 
-        zipfile = self.cfg["lang"] + ".zip"
+        zipfile = self.config["lang"] + ".zip"
         lang_url = f"{self.url}/{zipfile}"
         tmp_dir = cachedir / "tmp"
         zip_path = tmp_dir / zipfile
@@ -276,12 +278,12 @@ class CodeSearchNet(Collection):
         with ZipFile(zip_path, "r") as zipobj:
             zipobj.extractall(tmp_dir)
 
-        pkl_path = tmp_dir / (self.cfg["lang"] + "_dedupe_definitions_v2.pkl")
+        pkl_path = tmp_dir / (self.config["lang"] + "_dedupe_definitions_v2.pkl")
         self._pkl2trec(pkl_path, coll_filename)
         return document_dir
 
     def _pkl2trec(self, pkl_path, trec_path):
-        lang = self.cfg["lang"]
+        lang = self.config["lang"]
         with open(pkl_path, "rb") as f:
             codes = pickle.load(f)
 
@@ -293,19 +295,15 @@ class CodeSearchNet(Collection):
         fout.close()
 
 
+@Collection.register
 class COVID(Collection):
-    name = "covid"
+    module_name = "covid"
     url = "https://ai2-semanticscholar-cord-19.s3-us-west-2.amazonaws.com/historical_releases/cord-19_%s.tar.gz"
     generator_type = "Cord19Generator"
+    config_spec = [ConfigOption("coll_type", "abstract", "one of: abstract, fulltext, paragraph"), ConfigOption("round", 3)]
 
-    @staticmethod
-    def config():
-        coll_type = "abstract"  # "fulltext"  # options: abstract, fulltext, paragraph
-        round = 3  # 3 / 2 / 1
-
-    def __init__(self, cfg):
-        super().__init__(cfg)
-        coll_type, round = cfg["coll_type"], cfg["round"]
+    def build(self):
+        coll_type, round = self.config["coll_type"], self.config["round"]
         type2coll = {
             "abstract": "Cord19AbstractCollection",
             "fulltext": "Cord19FullTextCollection",
@@ -352,26 +350,27 @@ class COVID(Collection):
 
     def transform_metadata(self, root_path):
         """
-        the transformation is necessary for dataset round 1 and 2 according to
-        https://discourse.cord-19.semanticscholar.org/t/faqs-about-cord-19-dataset/94
+            the transformation is necessary for dataset round 1 and 2 according to
+            https://discourse.cord-19.semanticscholar.org/t/faqs-about-cord-19-dataset/94
 
-        the assumed directory under root_path:
-        ./root_path
-            ./metadata.csv
-            ./comm_use_subset
-            ./noncomm_use_subset
-            ./custom_license
-            ./biorxiv_medrxiv
-            ./archive
+            the assumed directory under root_path:
+            ./root_path
+                ./metadata.csv
+                ./comm_use_subset
+                ./noncomm_use_subset
+                ./custom_license
+                ./biorxiv_medrxiv
+                ./archive
 
-        In a nutshell:
-        1. renaming:
-            Microsoft Academic Paper ID -> mag_id;
-            WHO #Covidence -> who_covidence_id
-        2. update:
-            has_pdf_parse -> pdf_json_files  # e.g. document_parses/pmc_json/PMC125340.xml.json
-            has_pmc_xml_parse -> pmc_json_files
+            In a nutshell:
+            1. renaming:
+                Microsoft Academic Paper ID -> mag_id;
+                WHO #Covidence -> who_covidence_id
+            2. update:
+                has_pdf_parse -> pdf_json_files  # e.g. document_parses/pmc_json/PMC125340.xml.json
+                has_pmc_xml_parse -> pmc_json_files
         """
+
         metadata_csv = str(root_path / "metadata.csv")
         orifiles = ["arxiv", "custom_license", "biorxiv_medrxiv", "comm_use_subset", "noncomm_use_subset"]
         for fn in orifiles:

@@ -1,10 +1,12 @@
 import torch
-from torch import nn
 import torch.nn.functional as F
+from profane import ConfigOption, Dependency
+from torch import nn
 from torch.autograd import Variable
+
 from capreolus.reranker import Reranker
-from capreolus.utils.loginit import get_logger
 from capreolus.reranker.common import create_emb_layer
+from capreolus.utils.loginit import get_logger
 
 logger = get_logger(__name__)  # pylint: disable=invalid-name
 
@@ -123,19 +125,18 @@ class POSITDRMM_class(nn.Module):
 dtype = torch.FloatTensor
 
 
+@Reranker.register
 class POSITDRMM(Reranker):
-    description = """Ryan McDonald, George Brokos, and Ion Androutsopoulos. 2018. Deep Relevance Ranking Using Enhanced Document-Query Interactions. In EMNLP'18."""
-    name = "POSITDRMM"
+    description = """Ryan McDonald, George Brokos, and Ion Androutsopoulos. 2018.
+                     Deep Relevance Ranking Using Enhanced Document-Query Interactions. In EMNLP'18."""
+    module_name = "POSITDRMM"
 
-    @staticmethod
-    def config():
-        pass
-
-    def build(self):
-        config = dict(self.cfg)
-        config["batch"] = self["trainer"].cfg["batch"]
-        config.update(self["extractor"].cfg)
-        self.model = POSITDRMM_class(self["extractor"], config)
+    def build_model(self):
+        if not hasattr(self, "model"):
+            config = dict(self.config)
+            config["batch"] = self.trainer.config["batch"]
+            config.update(self.extractor.config)
+            self.model = POSITDRMM_class(self.extractor, config)
 
         return self.model
 
@@ -149,8 +150,8 @@ class POSITDRMM(Reranker):
         neg_exact_matches, neg_exact_match_idf, neg_bigram_matches = self.get_exact_match_stats(
             query_idf, query_sentence, neg_sentence
         )
-        pos_bm25 = self.get_bm25_scores(data["qid"], data["posdocid"])
-        neg_bm25 = self.get_bm25_scores(data["qid"], data["negdocid"])
+        pos_bm25 = self.get_searcher_scores(data["qid"], data["posdocid"])
+        neg_bm25 = self.get_searcher_scores(data["qid"], data["negdocid"])
         posdoc_extra = torch.cat((pos_exact_matches, pos_exact_match_idf, pos_bigram_matches, pos_bm25), dim=1).to(device)
         negdoc_extra = torch.cat((neg_exact_matches, neg_exact_match_idf, neg_bigram_matches, neg_bm25), dim=1).to(device)
         return self.model(query_sentence, query_idf, pos_sentence, neg_sentence, posdoc_extra, negdoc_extra)
@@ -165,7 +166,7 @@ class POSITDRMM(Reranker):
         pos_exact_matches, pos_exact_match_idf, pos_bigram_matches = self.get_exact_match_stats(
             query_idf, query_sentence, pos_sentence
         )
-        pos_bm25 = self.get_bm25_scores(qids, posdoc_ids)
+        pos_bm25 = self.get_searcher_scores(qids, posdoc_ids)
         posdoc_extra = torch.cat((pos_exact_matches, pos_exact_match_idf, pos_bigram_matches, pos_bm25), dim=1).to(device)
 
         return self.model.test_forward(query_sentence, query_idf, pos_sentence, posdoc_extra)
@@ -173,12 +174,12 @@ class POSITDRMM(Reranker):
     def zero_grad(self, *args, **kwargs):
         self.model.zero_grad(*args, **kwargs)
 
-    def get_bm25_scores(self, qids, doc_ids):
+    def get_searcher_scores(self, qids, doc_ids):
         scores = torch.zeros((len(doc_ids)))
         for i, doc_id in enumerate(doc_ids):
-            # The bm25_scores attribute is set from RerankTask.train()
+            # The searcher_scores attribute is set from RerankTask.train()
             # TODO: Remove this temporary hack and figure out a way to pass these kind of features cleanly
-            scores[i] = self.bm25_scores[qids[i]][doc_id]
+            scores[i] = self.searcher_scores[qids[i]][doc_id]
 
         return scores.reshape(len(doc_ids), 1)
 
@@ -186,7 +187,7 @@ class POSITDRMM(Reranker):
         """
         Remove pad tokens from the text
         """
-        return text[text != self["extractor"].pad]
+        return text[text != self.extractor.pad]
 
     def get_bigrams(self, text):
         # text_batch has shape (batch_size, length)

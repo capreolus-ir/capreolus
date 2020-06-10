@@ -1,8 +1,11 @@
-import torch
-from torch import nn
 import math
+
+import torch
 import torch.nn.functional as F
+from profane import ConfigOption, Dependency
+from torch import nn
 from torch.autograd import Variable
+
 from capreolus.reranker import Reranker
 from capreolus.reranker.common import create_emb_layer
 
@@ -318,15 +321,12 @@ class HiNT_main(nn.Module):
         return pos_scores
 
 
+@Reranker.register
 class HINT(Reranker):
-    name = "HINT"
+    module_name = "HINT"
     description = """Yixing Fan, Jiafeng Guo, Yanyan Lan, Jun Xu, Chengxiang Zhai, and Xueqi Cheng. 2018. Modeling Diverse Relevance Patterns in Ad-hoc Retrieval. In SIGIR'18."""
 
-    @staticmethod
-    def config():
-        spatialGRU = 2
-        LSTMdim = 6
-        kmax = 10
+    config_spec = [ConfigOption("spatialGRU", 2), ConfigOption("LSTMdim", 6), ConfigOption("kmax", 10)]
 
     def test(self, query_sentence, query_idf, pos_sentence, *args, **kwargs):
         return self.model.test_forward(query_sentence, query_idf, pos_sentence)
@@ -347,10 +347,11 @@ class HINT(Reranker):
     def zero_grad(self, *args, **kwargs):
         self.model.zero_grad(*args, **kwargs)
 
-    def build(self):
-        config = dict(self.cfg)
-        config.update(self["extractor"].cfg)
-        config["batch"] = self["trainer"].cfg["batch"]
-        self.model = HiNT_main(self["extractor"], config)
+    def build_model(self):
+        if not hasattr(self, "model"):
+            config = dict(self.config)
+            config.update(self.extractor.config)
+            config["batch"] = self.trainer.config["batch"]
+            self.model = HiNT_main(self.extractor, config)
 
         return self.model

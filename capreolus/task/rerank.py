@@ -1,152 +1,152 @@
 import random
 import os
-
+from pathlib import Path
 
 import numpy as np
 import torch
+from profane import ModuleBase, Dependency, ConfigOption, constants
 
 from capreolus.sampler import TrainDataset, PredDataset
 from capreolus.searcher import Searcher
 from capreolus.task import Task
-from capreolus.registry import RESULTS_BASE_PATH, CACHE_BASE_PATH
 from capreolus import evaluator
 from capreolus.utils.loginit import get_logger
 
 logger = get_logger(__name__)
 
 
-def describe(config, modules):
-    output_path = _pipeline_path(config, modules)
-    return Task.describe_pipeline(config, modules, output_path)
+@Task.register
+class RerankTask(Task):
+    module_name = "rerank"
+    config_spec = [
+        ConfigOption("fold", "s1", "fold to run"),
+        ConfigOption("optimize", "map", "metric to maximize on the dev set"),  # affects train() because we check to save weights
+    ]
+    dependencies = [
+        Dependency(key="benchmark", module="benchmark", name="wsdm20demo", provide_this=True, provide_children=["collection"]),
+        Dependency(key="rank", module="task", name="rank"),
+        Dependency(key="reranker", module="reranker", name="KNRM"),
+    ]
 
+    commands = ["train", "evaluate", "traineval"] + Task.help_commands
+    default_command = "describe"
 
-def train(config, modules):
-    random.seed(config["seed"])
-    np.random.seed(config["seed"])
-    torch.manual_seed(config["seed"])
-    torch.cuda.manual_seed_all(config["seed"])
+    def traineval(self):
+        self.train()
+        self.evaluate()
 
-    metric = "map"
-    fold = config["fold"]
+    def train(self):
+        fold = self.config["fold"]
 
-    searcher = modules["searcher"]
-    benchmark = modules["benchmark"]
-    reranker = modules["reranker"]
+        self.rank.search()
+        rank_results = self.rank.evaluate()
+        best_search_run_path = rank_results["path"][fold]
+        best_search_run = Searcher.load_trec_run(best_search_run_path)
 
-    if "index" in searcher.modules:
-        searcher["index"].create_index()
+        return self.rerank_run(best_search_run, self.get_results_path())
 
-    topics_fn = benchmark.topic_file
-    searcher_cache_dir = os.path.join(searcher.get_cache_path(), benchmark.name)
-    searcher_run_dir = searcher.query_from_file(topics_fn, searcher_cache_dir)
+    def rerank_run(self, best_search_run, train_output_path, include_train=False):
+        if not isinstance(train_output_path, Path):
+            train_output_path = Path(train_output_path)
 
-    results = evaluator.search_best_run(searcher_run_dir, benchmark, metric)
-    print("score: ", results["score"])
-    # end of tmp
-    best_search_run_path = results["path"][fold]
-    best_search_run = searcher.load_trec_run(best_search_run_path)
-
-    docids = set(docid for querydocs in best_search_run.values() for docid in querydocs)
-    reranker["extractor"].create(qids=best_search_run.keys(), docids=docids, topics=benchmark.topics[benchmark.query_type])
-    reranker.build()
-    reranker.bm25_scores = best_search_run
-
-    train_run = {qid: docs for qid, docs in best_search_run.items() if qid in benchmark.folds[fold]["train_qids"]}
-    dev_run = {qid: docs for qid, docs in best_search_run.items() if qid in benchmark.folds[fold]["predict"]["dev"]}
-
-    train_dataset = TrainDataset(qid_docid_to_rank=train_run, qrels=benchmark.qrels, extractor=reranker["extractor"])
-    dev_dataset = PredDataset(qid_docid_to_rank=dev_run, extractor=reranker["extractor"])
-
-    train_output_path = _pipeline_path(config, modules)
-    dev_output_path = train_output_path / "pred" / "dev"
-    reranker["trainer"].train(reranker, train_dataset, train_output_path, dev_dataset, dev_output_path, benchmark.qrels, metric)
-
-
-def evaluate(config, modules):
-    metric = "map"
-    fold = config["fold"]
-    train_output_path = _pipeline_path(config, modules)
-    test_output_path = train_output_path / "pred" / "test" / "best"
-
-    searcher = modules["searcher"]
-    benchmark = modules["benchmark"]
-    reranker = modules["reranker"]
-
-    if os.path.exists(test_output_path):
-        test_preds = Searcher.load_trec_run(test_output_path)
-    else:
-        topics_fn = benchmark.topic_file
-        searcher_cache_dir = os.path.join(searcher.get_cache_path(), benchmark.name)
-        searcher_run_dir = searcher.query_from_file(topics_fn, searcher_cache_dir)
-
-        best_search_run_path = evaluator.search_best_run(searcher_run_dir, benchmark, metric)["path"][fold]
-        best_search_run = searcher.load_trec_run(best_search_run_path)
+        fold = self.config["fold"]
+        dev_output_path = train_output_path / "pred" / "dev"
+        logger.debug("results path: %s", train_output_path)
 
         docids = set(docid for querydocs in best_search_run.values() for docid in querydocs)
-        reranker["extractor"].create(qids=best_search_run.keys(), docids=docids, topics=benchmark.topics[benchmark.query_type])
-        reranker.build()
-        reranker.bm25_scores = best_search_run
+        self.reranker.extractor.preprocess(
+            qids=best_search_run.keys(), docids=docids, topics=self.benchmark.topics[self.benchmark.query_type]
+        )
+        self.reranker.build_model()
+        self.reranker.searcher_scores = best_search_run
 
-        reranker["trainer"].load_best_model(reranker, train_output_path)
+        train_run = {qid: docs for qid, docs in best_search_run.items() if qid in self.benchmark.folds[fold]["train_qids"]}
+        dev_run = {qid: docs for qid, docs in best_search_run.items() if qid in self.benchmark.folds[fold]["predict"]["dev"]}
 
-        test_run = {qid: docs for qid, docs in best_search_run.items() if qid in benchmark.folds[fold]["predict"]["test"]}
-        test_dataset = PredDataset(qid_docid_to_rank=test_run, extractor=reranker["extractor"])
+        train_dataset = TrainDataset(qid_docid_to_rank=train_run, qrels=self.benchmark.qrels, extractor=self.reranker.extractor)
+        dev_dataset = PredDataset(qid_docid_to_rank=dev_run, extractor=self.reranker.extractor)
 
-        test_preds = reranker["trainer"].predict(reranker, test_dataset, test_output_path)
+        self.reranker.trainer.train(
+            self.reranker,
+            train_dataset,
+            train_output_path,
+            dev_dataset,
+            dev_output_path,
+            self.benchmark.qrels,
+            self.config["optimize"],
+        )
 
-    metrics = evaluator.eval_runs(test_preds, benchmark.qrels, ["ndcg_cut_20", "ndcg_cut_10", "map", "P_20", "P_10"])
-    print("test metrics for fold=%s:" % fold, metrics)
+        self.reranker.trainer.load_best_model(self.reranker, train_output_path)
+        dev_output_path = train_output_path / "pred" / "dev" / "best"
+        dev_preds = self.reranker.trainer.predict(self.reranker, dev_dataset, dev_output_path)
 
-    print("\ncomputing metrics across all folds")
-    avg = {}
-    found = 0
-    for fold in benchmark.folds:
-        pred_path = _pipeline_path(config, modules, fold=fold) / "pred" / "test" / "best"
-        if not os.path.exists(pred_path):
-            print("\tfold=%s results are missing and will not be included" % fold)
-            continue
+        test_run = {qid: docs for qid, docs in best_search_run.items() if qid in self.benchmark.folds[fold]["predict"]["test"]}
+        test_dataset = PredDataset(qid_docid_to_rank=test_run, extractor=self.reranker.extractor)
+        test_output_path = train_output_path / "pred" / "test" / "best"
+        test_preds = self.reranker.trainer.predict(self.reranker, test_dataset, test_output_path)
 
-        found += 1
-        preds = Searcher.load_trec_run(pred_path)
-        metrics = evaluator.eval_runs(preds, benchmark.qrels, ["ndcg_cut_20", "ndcg_cut_10", "map", "P_20", "P_10"])
-        for metric, val in metrics.items():
-            avg.setdefault(metric, []).append(val)
+        preds = {"dev": dev_preds, "test": test_preds}
 
-    avg = {k: np.mean(v) for k, v in avg.items()}
-    print(f"average metrics across {found}/{len(benchmark.folds)} folds:", avg)
+        if include_train:
+            train_dataset = PredDataset(qid_docid_to_rank=train_run, extractor=self.reranker.extractor)
+            train_output_path = train_output_path / "pred" / "train" / "best"
+            train_preds = self.reranker.trainer.predict(self.reranker, train_dataset, train_output_path)
+            preds["train"] = train_preds
 
+        return preds
 
-def _pipeline_path(config, modules, fold=None):
-    pipeline_cfg = {k: v for k, v in config.items() if k not in modules and k not in ["expid", "fold"]}
-    pipeline_path = "_".join(["task-rerank"] + [f"{k}-{v}" for k, v in sorted(pipeline_cfg.items())])
+    def evaluate(self):
+        fold = self.config["fold"]
+        train_output_path = self.get_results_path()
+        test_output_path = train_output_path / "pred" / "test" / "best"
+        logger.debug("results path: %s", train_output_path)
 
-    if not fold:
-        fold = config["fold"]
+        if os.path.exists(test_output_path):
+            test_preds = Searcher.load_trec_run(test_output_path)
+        else:
+            self.rank.search()
+            rank_results = self.rank.evaluate()
+            best_search_run_path = rank_results["path"][fold]
+            best_search_run = Searcher.load_trec_run(best_search_run_path)
 
-    output_path = (
-        RESULTS_BASE_PATH
-        / config["expid"]
-        / modules["collection"].get_module_path()
-        / modules["searcher"].get_module_path(include_provided=False)
-        / modules["reranker"].get_module_path(include_provided=False)
-        / modules["benchmark"].get_module_path()
-        / pipeline_path
-        / fold
-    )
-    return output_path
+            docids = set(docid for querydocs in best_search_run.values() for docid in querydocs)
+            self.reranker.extractor.preprocess(
+                qids=best_search_run.keys(), docids=docids, topics=self.benchmark.topics[self.benchmark.query_type]
+            )
+            self.reranker.build_model()
+            self.reranker.searcher_scores = best_search_run
 
+            self.reranker.trainer.load_best_model(self.reranker, train_output_path)
 
-class RerankTask(Task):
-    def pipeline_config():
-        expid = "debug"
-        seed = 123_456
-        fold = "s1"
-        # rundocsonly = True  # use only docs from the searcher as pos/neg training instances (i.e., not all qrels)
+            test_run = {
+                qid: docs for qid, docs in best_search_run.items() if qid in self.benchmark.folds[fold]["predict"]["test"]
+            }
+            test_dataset = PredDataset(qid_docid_to_rank=test_run, extractor=self.reranker.extractor)
 
-    name = "rerank"
-    module_order = ["collection", "searcher", "reranker", "benchmark"]
-    module_defaults = {"searcher": "BM25", "reranker": "KNRM", "collection": "robust04", "benchmark": "wsdm20demo"}
-    config_functions = [pipeline_config]
-    config_overrides = []
-    commands = {"train": train, "evaluate": evaluate, "describe": describe}
-    default_command = "describe"
+            test_preds = self.reranker.trainer.predict(self.reranker, test_dataset, test_output_path)
+
+        metrics = evaluator.eval_runs(test_preds, self.benchmark.qrels, evaluator.DEFAULT_METRICS, self.benchmark.relevance_level)
+        logger.info("rerank: fold=%s test metrics: %s", fold, metrics)
+
+        print("\ncomputing metrics across all folds")
+        avg = {}
+        found = 0
+        for fold in self.benchmark.folds:
+            # TODO fix by using multiple Tasks
+            from pathlib import Path
+
+            pred_path = Path(test_output_path.as_posix().replace("fold-" + self.config["fold"], "fold-" + fold))
+            if not os.path.exists(pred_path):
+                print("\tfold=%s results are missing and will not be included" % fold)
+                continue
+
+            found += 1
+            preds = Searcher.load_trec_run(pred_path)
+            metrics = evaluator.eval_runs(preds, self.benchmark.qrels, evaluator.DEFAULT_METRICS, self.benchmark.relevance_level)
+            for metric, val in metrics.items():
+                avg.setdefault(metric, []).append(val)
+
+        avg = {k: np.mean(v) for k, v in avg.items()}
+        logger.info("rerank: average cross-validated metrics when choosing iteration based on '%s':", self.config["optimize"])
+        for metric, score in sorted(avg.items()):
+            logger.info("%15s: %0.4f", metric, score)
