@@ -83,6 +83,7 @@ class DRMMTKS_class(nn.Module):
 
 dtype = torch.FloatTensor
 
+
 @Reranker.register
 class DRMMTKS(Reranker):
     # refernce: https://github.com/NTMC-Community/MatchZoo-py/blob/master/matchzoo/models/drmmtks.py
