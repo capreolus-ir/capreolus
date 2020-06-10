@@ -195,7 +195,7 @@ class ANTIQUE(Collection):
     generator_type = "DefaultLuceneDocumentGenerator"
 
     def download_if_missing(self):
-        url = "https://ciir.cs.umass.edu/downloads/Antique/antique-collection.txt"
+        url = "http://ciir.cs.umass.edu/downloads/Antique/antique-collection.txt"
         cachedir = self.get_cache_path()
         document_dir = os.path.join(cachedir, "documents")
         coll_filename = os.path.join(document_dir, "antique-collection.txt")
@@ -232,7 +232,10 @@ class ANTIQUE(Collection):
 
     def _validate_document_path(self, path):
         """ Checks that the sha256sum is correct """
-        return hash_file(path) == "409e0960f918970977ceab9e5b1d372f45395af25d53b95644bdc9ccbbf973da"
+        return (
+            hash_file(os.path.join(path, "antique-collection.txt"))
+            == "409e0960f918970977ceab9e5b1d372f45395af25d53b95644bdc9ccbbf973da"
+        )
 
 
 @Collection.register
@@ -347,26 +350,27 @@ class COVID(Collection):
 
     def transform_metadata(self, root_path):
         """
-        the transformation is necessary for dataset round 1 and 2 according to
-        https://discourse.cord-19.semanticscholar.org/t/faqs-about-cord-19-dataset/94
+            the transformation is necessary for dataset round 1 and 2 according to
+            https://discourse.cord-19.semanticscholar.org/t/faqs-about-cord-19-dataset/94
 
-        the assumed directory under root_path:
-        ./root_path
-            ./metadata.csv
-            ./comm_use_subset
-            ./noncomm_use_subset
-            ./custom_license
-            ./biorxiv_medrxiv
-            ./archive
+            the assumed directory under root_path:
+            ./root_path
+                ./metadata.csv
+                ./comm_use_subset
+                ./noncomm_use_subset
+                ./custom_license
+                ./biorxiv_medrxiv
+                ./archive
 
-        In a nutshell:
-        1. renaming:
-            Microsoft Academic Paper ID -> mag_id;
-            WHO #Covidence -> who_covidence_id
-        2. update:
-            has_pdf_parse -> pdf_json_files  # e.g. document_parses/pmc_json/PMC125340.xml.json
-            has_pmc_xml_parse -> pmc_json_files
+            In a nutshell:
+            1. renaming:
+                Microsoft Academic Paper ID -> mag_id;
+                WHO #Covidence -> who_covidence_id
+            2. update:
+                has_pdf_parse -> pdf_json_files  # e.g. document_parses/pmc_json/PMC125340.xml.json
+                has_pmc_xml_parse -> pmc_json_files
         """
+
         metadata_csv = str(root_path / "metadata.csv")
         orifiles = ["arxiv", "custom_license", "biorxiv_medrxiv", "comm_use_subset", "noncomm_use_subset"]
         for fn in orifiles:

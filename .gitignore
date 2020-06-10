@@ -2,6 +2,7 @@
 __pycache__/
 *.py[cod]
 *$py.class
+.pytest_cache/
 
 # editor tmp files
 *~
@@ -15,13 +16,7 @@ __pycache__/
 # notebooks
 .ipynb_checkpoints/
 .idea/
-# scripts with credentials
-queue.sh
-queue_cpu.sh
-
 .DS_Store
-
-.pytest_cache/
 
 # ide files
 /.vscode
@@ -32,3 +27,5 @@ queue_cpu.sh
 /cache
 /results
 
+# docs
+docs/_build

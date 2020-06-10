@@ -1,6 +1,6 @@
 import random
 import os
-from pathlib import Path
+
 
 import numpy as np
 import torch
@@ -16,16 +16,18 @@ logger = get_logger(__name__)
 
 
 @Task.register
-class RerankTask(Task):
-    module_name = "rerank"
+class ReRerankTask(Task):
+    module_name = "rererank"
     config_spec = [
         ConfigOption("fold", "s1", "fold to run"),
-        ConfigOption("optimize", "map", "metric to maximize on the dev set"),  # affects train() because we check to save weights
+        ConfigOption("optimize", "map", "metric to maximize on the dev set"),
+        ConfigOption("topn", 100, "number of stage two results to rerank"),
     ]
     dependencies = [
         Dependency(key="benchmark", module="benchmark", name="wsdm20demo", provide_this=True, provide_children=["collection"]),
-        Dependency(key="rank", module="task", name="rank"),
-        Dependency(key="reranker", module="reranker", name="KNRM"),
+        Dependency(key="rank", module="task", name="rank", provide_this=True),
+        Dependency(key="rerank1", module="task", name="rerank"),
+        Dependency(key="rerank2", module="task", name="rerank"),
     ]
 
     commands = ["train", "evaluate", "traineval"] + Task.help_commands
@@ -37,68 +39,22 @@ class RerankTask(Task):
 
     def train(self):
         fold = self.config["fold"]
+        logger.debug("results path: %s", self.get_results_path())
 
         self.rank.search()
         rank_results = self.rank.evaluate()
         best_search_run_path = rank_results["path"][fold]
         best_search_run = Searcher.load_trec_run(best_search_run_path)
 
-        return self.rerank_run(best_search_run, self.get_results_path())
+        second_stage_results = self.rerank1.rerank_run(best_search_run, self.rerank1.get_results_path(), include_train=True)
+        second_stage_topn = {
+            qid: dict(sorted(docids.items(), key=lambda x: x[1], reverse=True)[: self.config["topn"]])
+            for split in ("train", "dev", "test")
+            for qid, docids in second_stage_results[split].items()
+        }
 
-    def rerank_run(self, best_search_run, train_output_path, include_train=False):
-        if not isinstance(train_output_path, Path):
-            train_output_path = Path(train_output_path)
-
-        fold = self.config["fold"]
-        dev_output_path = train_output_path / "pred" / "dev"
-        logger.debug("results path: %s", train_output_path)
-
-        docids = set(docid for querydocs in best_search_run.values() for docid in querydocs)
-        self.reranker.extractor.preprocess(
-            qids=best_search_run.keys(), docids=docids, topics=self.benchmark.topics[self.benchmark.query_type]
-        )
-        self.reranker.build_model()
-        self.reranker.searcher_scores = best_search_run
-
-        train_run = {qid: docs for qid, docs in best_search_run.items() if qid in self.benchmark.folds[fold]["train_qids"]}
-        dev_run = {qid: docs for qid, docs in best_search_run.items() if qid in self.benchmark.folds[fold]["predict"]["dev"]}
-
-        train_dataset = TrainDataset(
-            qid_docid_to_rank=train_run,
-            qrels=self.benchmark.qrels,
-            extractor=self.reranker.extractor,
-            relevance_level=self.benchmark.train_relevance_level,
-        )
-        dev_dataset = PredDataset(qid_docid_to_rank=dev_run, extractor=self.reranker.extractor)
-
-        self.reranker.trainer.train(
-            self.reranker,
-            train_dataset,
-            train_output_path,
-            dev_dataset,
-            dev_output_path,
-            self.benchmark.qrels,
-            self.config["optimize"],
-        )
-
-        self.reranker.trainer.load_best_model(self.reranker, train_output_path)
-        dev_output_path = train_output_path / "pred" / "dev" / "best"
-        dev_preds = self.reranker.trainer.predict(self.reranker, dev_dataset, dev_output_path)
-
-        test_run = {qid: docs for qid, docs in best_search_run.items() if qid in self.benchmark.folds[fold]["predict"]["test"]}
-        test_dataset = PredDataset(qid_docid_to_rank=test_run, extractor=self.reranker.extractor)
-        test_output_path = train_output_path / "pred" / "test" / "best"
-        test_preds = self.reranker.trainer.predict(self.reranker, test_dataset, test_output_path)
-
-        preds = {"dev": dev_preds, "test": test_preds}
-
-        if include_train:
-            train_dataset = PredDataset(qid_docid_to_rank=train_run, extractor=self.reranker.extractor)
-            train_output_path = train_output_path / "pred" / "train" / "best"
-            train_preds = self.reranker.trainer.predict(self.reranker, train_dataset, train_output_path)
-            preds["train"] = train_preds
-
-        return preds
+        third_stage_results = self.rerank2.rerank_run(second_stage_topn, self.get_results_path())
+        return third_stage_results
 
     def evaluate(self):
         fold = self.config["fold"]

@@ -205,9 +205,9 @@ class BM25(Searcher, AnseriniSearcherMixIn):
     def query(self, query):
         self.index.create_index()
         searcher = pysearch.SimpleSearcher(self.index.get_index_path().as_posix())
-        searcher.set_bm25_similarity(self.config["k1"], self.config["b"])
+        searcher.set_bm25(self.config["k1"], self.config["b"])
 
-        hits = searcher.search(query)
+        hits = searcher.search(query, k=self.config["hits"])
         return OrderedDict({hit.docid: hit.score for hit in hits})
 
 

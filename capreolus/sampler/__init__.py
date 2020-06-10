@@ -19,7 +19,7 @@ class TrainDataset(torch.utils.data.IterableDataset):
     Samples training data. Intended to be used with a pytorch DataLoader
     """
 
-    def __init__(self, qid_docid_to_rank, qrels, extractor, relevance_level=0):
+    def __init__(self, qid_docid_to_rank, qrels, extractor, relevance_level=1):
         self.extractor = extractor
 
         # remove qids from qid_docid_to_rank that do not have relevance labels in the qrels

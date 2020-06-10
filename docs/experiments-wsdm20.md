@@ -16,9 +16,9 @@ If you are using zsh rather than bash, replace `$CFG` with `${=CFG}` in the line
 export CFG="reranker=DRMM histType=LCH gateType=IDF nodes=5 nbins=29"
 export SHARED_CFG="benchmark=robust04.title.wsdm20demo expid=reproduce.wsdm20demo niters=50 keepstops=False"
 for FOLDIDX in s1 s2 s3 s4 s5; do
-  python train.py with $CFG $SHARED_CFG fold=$FOLDIDX
+  capreolus train with $CFG $SHARED_CFG fold=$FOLDIDX
 done
-python train.py evaluate with $CFG $SHARED_CFG fold=$FOLDIDX
+capreolus evaluate with $CFG $SHARED_CFG fold=$FOLDIDX
 ```
 
 #### KNRM
@@ -26,9 +26,9 @@ python train.py evaluate with $CFG $SHARED_CFG fold=$FOLDIDX
 export CFG="reranker=KNRM"
 export SHARED_CFG="benchmark=robust04.title.wsdm20demo expid=reproduce.wsdm20demo niters=50 keepstops=False"
 for FOLDIDX in s1 s2 s3 s4 s5; do
-  python train.py with $CFG $SHARED_CFG fold=$FOLDIDX
+  capreolus train with $CFG $SHARED_CFG fold=$FOLDIDX
 done
-python train.py evaluate with $CFG $SHARED_CFG fold=$FOLDIDX
+capreolus evaluate with $CFG $SHARED_CFG fold=$FOLDIDX
 ```
 
 #### ConvKNRM
@@ -36,9 +36,9 @@ python train.py evaluate with $CFG $SHARED_CFG fold=$FOLDIDX
 export CFG="reranker=ConvKNRM filters=300"
 export SHARED_CFG="benchmark=robust04.title.wsdm20demo expid=reproduce.wsdm20demo niters=50 keepstops=False"
 for FOLDIDX in s1 s2 s3 s4 s5; do
-  python train.py with $CFG $SHARED_CFG fold=$FOLDIDX
+  capreolus train with $CFG $SHARED_CFG fold=$FOLDIDX
 done
-python train.py evaluate with $CFG $SHARED_CFG fold=$FOLDIDX
+capreolus evaluate with $CFG $SHARED_CFG fold=$FOLDIDX
 ```
 
 #### PACRR
@@ -46,9 +46,9 @@ python train.py evaluate with $CFG $SHARED_CFG fold=$FOLDIDX
 export CFG="reranker=PACRR nfilters=32 kmax=2"
 export SHARED_CFG="benchmark=robust04.title.wsdm20demo expid=reproduce.wsdm20demo niters=50 keepstops=False"
 for FOLDIDX in s1 s2 s3 s4 s5; do
-  python train.py with $CFG $SHARED_CFG fold=$FOLDIDX
+  capreolus train with $CFG $SHARED_CFG fold=$FOLDIDX
 done
-python train.py evaluate with $CFG $SHARED_CFG fold=$FOLDIDX
+capreolus evaluate with $CFG $SHARED_CFG fold=$FOLDIDX
 ```
 
 #### POSITDRMM
@@ -56,9 +56,9 @@ python train.py evaluate with $CFG $SHARED_CFG fold=$FOLDIDX
 export CFG="reranker=POSITDRMM lr=0.001"
 export SHARED_CFG="benchmark=robust04.title.wsdm20demo expid=reproduce.wsdm20demo niters=50 keepstops=False"
 for FOLDIDX in s1 s2 s3 s4 s5; do
-  python train.py with $CFG $SHARED_CFG fold=$FOLDIDX
+  capreolus train with $CFG $SHARED_CFG fold=$FOLDIDX
 done
-python train.py evaluate with $CFG $SHARED_CFG fold=$FOLDIDX
+capreolus evaluate with $CFG $SHARED_CFG fold=$FOLDIDX
 ```
 
 #### HINT
@@ -66,9 +66,9 @@ python train.py evaluate with $CFG $SHARED_CFG fold=$FOLDIDX
 export CFG="reranker=HINT LSTMdim=6 kmax=10 batch=128 lr=5e-3"
 export SHARED_CFG="benchmark=robust04.title.wsdm20demo expid=reproduce.wsdm20demo niters=50 keepstops=False"
 for FOLDIDX in s1 s2 s3 s4 s5; do
-  python train.py with $CFG $SHARED_CFG fold=$FOLDIDX
+  capreolus train with $CFG $SHARED_CFG fold=$FOLDIDX
 done
-python train.py evaluate with $CFG $SHARED_CFG fold=$FOLDIDX
+capreolus evaluate with $CFG $SHARED_CFG fold=$FOLDIDX
 ```
 
 #### DeepTileBars
@@ -76,9 +76,9 @@ python train.py evaluate with $CFG $SHARED_CFG fold=$FOLDIDX
 export CFG="reranker=DeepTileBar"
 export SHARED_CFG="benchmark=robust04.title.wsdm20demo expid=reproduce.wsdm20demo niters=50 keepstops=False"
 for FOLDIDX in s1 s2 s3 s4 s5; do
-  python train.py with $CFG $SHARED_CFG fold=$FOLDIDX
+  capreolus train with $CFG $SHARED_CFG fold=$FOLDIDX
 done
-python train.py evaluate with $CFG $SHARED_CFG fold=$FOLDIDX
+capreolus evaluate with $CFG $SHARED_CFG fold=$FOLDIDX
 ```
 
 #### DUET
@@ -86,9 +86,9 @@ python train.py evaluate with $CFG $SHARED_CFG fold=$FOLDIDX
 export CFG="reranker=DUET"
 export SHARED_CFG="benchmark=robust04.title.wsdm20demo expid=reproduce.wsdm20demo niters=50 keepstops=False"
 for FOLDIDX in s1 s2 s3 s4 s5; do
-  python train.py with $CFG $SHARED_CFG fold=$FOLDIDX
+  capreolus train with $CFG $SHARED_CFG fold=$FOLDIDX
 done
-python train.py evaluate with $CFG $SHARED_CFG fold=$FOLDIDX
+capreolus evaluate with $CFG $SHARED_CFG fold=$FOLDIDX
 ```
 
 #### DSSM
@@ -96,9 +96,9 @@ python train.py evaluate with $CFG $SHARED_CFG fold=$FOLDIDX
 export CFG="reranker=DSSM datamode=trigram"
 export SHARED_CFG="benchmark=robust04.title.wsdm20demo expid=reproduce.wsdm20demo niters=50 keepstops=False"
 for FOLDIDX in s1 s2 s3 s4 s5; do
-  python train.py with $CFG $SHARED_CFG fold=$FOLDIDX
+  capreolus train with $CFG $SHARED_CFG fold=$FOLDIDX
 done
-python train.py evaluate with $CFG $SHARED_CFG fold=$FOLDIDX
+capreolus evaluate with $CFG $SHARED_CFG fold=$FOLDIDX
 ```
 
 #### CDSSM
@@ -106,9 +106,9 @@ python train.py evaluate with $CFG $SHARED_CFG fold=$FOLDIDX
 export CFG="reranker=CDSSM nfilter=1 nhiddens=30 nkernel=30 windowsize=4"
 export SHARED_CFG="benchmark=robust04.title.wsdm20demo expid=reproduce.wsdm20demo niters=50 keepstops=False"
 for FOLDIDX in s1 s2 s3 s4 s5; do
-  python train.py with $CFG $SHARED_CFG fold=$FOLDIDX
+  capreolus train with $CFG $SHARED_CFG fold=$FOLDIDX
 done
-python train.py evaluate with $CFG $SHARED_CFG fold=$FOLDIDX
+capreolus evaluate with $CFG $SHARED_CFG fold=$FOLDIDX
 ```
 
 ### Non-determinism
