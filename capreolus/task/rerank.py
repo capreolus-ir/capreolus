@@ -67,7 +67,7 @@ class RerankTask(Task):
             qid_docid_to_rank=train_run,
             qrels=self.benchmark.qrels,
             extractor=self.reranker.extractor,
-            relevance_level=self.benchmark.train_relevance_level,
+            relevance_level=self.benchmark.relevance_level,
         )
         dev_dataset = PredDataset(qid_docid_to_rank=dev_run, extractor=self.reranker.extractor)
 
