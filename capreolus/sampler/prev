@@ -19,7 +19,7 @@ class TrainDataset(torch.utils.data.IterableDataset):
     Samples training data. Intended to be used with a pytorch DataLoader
     """
 
-    def __init__(self, qid_docid_to_rank, qrels, extractor, relevance_level=1):
+    def __init__(self, qid_docid_to_rank, qrels, extractor):
         self.extractor = extractor
 
         # remove qids from qid_docid_to_rank that do not have relevance labels in the qrels
@@ -31,14 +31,12 @@ class TrainDataset(torch.utils.data.IterableDataset):
 
         self.qid_docid_to_rank = qid_docid_to_rank
         self.qid_to_reldocs = {
-            qid: [docid for docid in docids if qrels[qid].get(docid, 0) >= relevance_level]
-            for qid, docids in qid_docid_to_rank.items()
+            qid: [docid for docid in docids if qrels[qid].get(docid, 0) > 0] for qid, docids in qid_docid_to_rank.items()
         }
 
         # TODO option to include only negdocs in a top k
         self.qid_to_negdocs = {
-            qid: [docid for docid in docids if qrels[qid].get(docid, 0) < relevance_level]
-            for qid, docids in qid_docid_to_rank.items()
+            qid: [docid for docid in docids if qrels[qid].get(docid, 0) <= 0] for qid, docids in qid_docid_to_rank.items()
         }
 
         # remove any ids that do not have both relevant and non-relevant documents for training
@@ -47,10 +45,12 @@ class TrainDataset(torch.utils.data.IterableDataset):
             posdocs = len(self.qid_to_reldocs[qid])
             negdocs = len(self.qid_to_negdocs[qid])
             total_samples += posdocs * negdocs
-            if posdocs == 0 or negdocs == 0:
-                logger.debug("removing training qid=%s with %s positive docs and %s negative docs", qid, posdocs, negdocs)
-                del self.qid_to_reldocs[qid]
-                del self.qid_to_negdocs[qid]
+
+            # later: TODO: not to remove these
+            # if posdocs == 0 or negdocs == 0:
+            #     logger.warning("removing training qid=%s with %s positive docs and %s negative docs", qid, posdocs, negdocs)
+            #     del self.qid_to_reldocs[qid]
+            #     del self.qid_to_negdocs[qid]
 
         self.total_samples = total_samples
 
@@ -66,7 +66,7 @@ class TrainDataset(torch.utils.data.IterableDataset):
     def get_total_samples(self):
         return self.total_samples
 
-    def generator_func(self):
+    def generator_func_prev(self):
         # Convert each query and doc id to the corresponding feature/embedding and yield
         while True:
             all_qids = sorted(self.qid_to_reldocs)
@@ -86,6 +86,59 @@ class TrainDataset(torch.utils.data.IterableDataset):
                     logger.warning(
                         "skipping training pair with missing features: qid=%s posid=%s negid=%s", qid, posdocid, negdocid
                     )
+
+    def generator_func(self):
+        # Convert each query and doc id to the corresponding feature/embedding and yield
+        while True:
+            all_qids = sorted(self.qid_to_reldocs)
+            if len(all_qids) == 0:
+                raise RuntimeError("TrainDataset has no valid qids")
+
+            random.shuffle(all_qids)
+
+            posqid = random.choice(all_qids)
+            while not self.qid_to_reldocs[posqid]:
+                posqid = random.choice(all_qids)
+            posdocid = random.choice(self.qid_to_reldocs[posqid])
+
+            negqid = random.choice(all_qids)
+            while not self.qid_to_reldocs[negqid]:
+                negqid = random.choice(all_qids)
+            negdocid = random.choice(self.qid_to_negdocs[negqid])
+
+            try:
+                # yield self.extractor.id2vec(qid, posdocid, negdocid)
+                yield self.extractor.id2vec(posqid, posdocid, negdocid, neg_qid=negqid)
+            except MissingDocError:
+                # at training time we warn but ignore on missing docs
+                logger.warning(
+                    "skipping training pair with missing features: qid=%s posid=%s negid=%s", posqid, posdocid, negdocid
+                )
+
+    def generator_func_2(self):
+        # Convert each query and doc id to the corresponding feature/embedding and yield
+        all_qids = sorted(self.qid_to_reldocs)
+        if len(all_qids) == 0:
+            raise RuntimeError("TrainDataset has no valid qids")
+
+        while True:
+            all_pairs = []
+            for qid in all_qids:
+                docs = self.qid_to_reldocs[qid]
+                for negdoc in docs:
+                    posqid = random.choice(all_qids)
+                    while not self.qid_to_reldocs[posqid]:
+                        posqid = random.choice(all_qids)
+                    posdocid = random.choice(self.qid_to_reldocs[posqid])
+                    all_pairs.append((posqid, posdocid, qid, negdoc))
+
+            random.shuffle(all_pairs)
+            for posqid, posdocid, negqid, negdocid in all_pairs:
+                try:
+                    yield self.extractor.id2vec(posqid, posdocid, negdocid, neg_qid=negqid)
+                except MissingDocError:
+                    # at training time we warn but ignore on missing docs
+                    logger.warning( "skipping training pair with missing features: qid=%s posid=%s negid=%s", posqid, posdocid, negdocid )
 
     def __iter__(self):
         """

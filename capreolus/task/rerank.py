@@ -63,7 +63,12 @@ class RerankTask(Task):
         train_run = {qid: docs for qid, docs in best_search_run.items() if qid in self.benchmark.folds[fold]["train_qids"]}
         dev_run = {qid: docs for qid, docs in best_search_run.items() if qid in self.benchmark.folds[fold]["predict"]["dev"]}
 
-        train_dataset = TrainDataset(qid_docid_to_rank=train_run, qrels=self.benchmark.qrels, extractor=self.reranker.extractor)
+        train_dataset = TrainDataset(
+            qid_docid_to_rank=train_run,
+            qrels=self.benchmark.qrels,
+            extractor=self.reranker.extractor,
+            relevance_level=self.benchmark.train_relevance_level,
+        )
         dev_dataset = PredDataset(qid_docid_to_rank=dev_run, extractor=self.reranker.extractor)
 
         self.reranker.trainer.train(
