@@ -1,6 +1,5 @@
 from profane import import_all_modules
 
-# import_all_modules(__file__, __package__)
 
 import json
 import os
@@ -65,6 +64,8 @@ class DummyBenchmark(Benchmark):
 
 @Benchmark.register
 class WSDM20Demo(Benchmark):
+    """ Robust04 benchmark equivalent to robust04.yang19 """
+
     module_name = "wsdm20demo"
     dependencies = [Dependency(key="collection", module="collection", name="robust04")]
     qrel_file = PACKAGE_PATH / "data" / "qrels.robust2004.txt"
@@ -75,6 +76,12 @@ class WSDM20Demo(Benchmark):
 
 @Benchmark.register
 class Robust04Yang19(Benchmark):
+    """Robust04 benchmark using the folds from Yang et al. [1]
+
+    [1] Wei Yang, Kuang Lu, Peilin Yang, and Jimmy Lin. 2019. Critically Examining the "Neural Hype": Weak Baselines and the Additivity of Effectiveness Gains from Neural Ranking Models. SIGIR 2019.
+
+    """
+
     module_name = "robust04.yang19"
     dependencies = [Dependency(key="collection", module="collection", name="robust04")]
     qrel_file = PACKAGE_PATH / "data" / "qrels.robust2004.txt"
@@ -85,6 +92,11 @@ class Robust04Yang19(Benchmark):
 
 @Benchmark.register
 class ANTIQUE(Benchmark):
+    """A Non-factoid Question Answering Benchmark from Hashemi et al. [1]
+
+    [1] Helia Hashemi, Mohammad Aliannejadi, Hamed Zamani, and W. Bruce Croft. 2020. ANTIQUE: A non-factoid question answering benchmark. ECIR 2020.
+    """
+
     module_name = "antique"
     dependencies = [Dependency(key="collection", module="collection", name="antique")]
     qrel_file = PACKAGE_PATH / "data" / "qrels.antique.txt"
@@ -302,6 +314,8 @@ class CodeSearchNetChallenge(Benchmark):
 
 @Benchmark.register
 class COVID(Benchmark):
+    """ Ongoing TREC-COVID bechmark from https://ir.nist.gov/covidSubmit """
+
     module_name = "covid"
     dependencies = [Dependency(key="collection", module="collection", name="covid")]
     data_dir = PACKAGE_PATH / "data" / "covid"
@@ -319,9 +333,8 @@ class COVID(Benchmark):
         if self.config["round"] == self.lastest_round and not self.config["excludeknown"]:
             logger.warning(f"No evaluation can be done for the lastest round in exclude-known mode")
 
-        cfg_string = "_".join([f"{k}={v}" for k, v in self.config.items() if k != "name"])
-        data_dir = self.data_dir / cfg_string
-        data_dir.mkdir(exist_ok=True)
+        data_dir = self.get_cache_path() / "documents"
+        data_dir.mkdir(exist_ok=True, parents=True)
 
         self.qrel_ignore = f"{data_dir}/ignore.qrel.txt"
         self.qrel_file = f"{data_dir}/qrel.txt"
@@ -475,3 +488,6 @@ class CovidQA(Benchmark):
         json.dump({"s1": {"train_qids": all_qids, "predict": {"dev": all_qids, "test": all_qids}}}, open(self.fold_file, "w"))
         topic_f.close()
         qrel_f.close()
+
+
+import_all_modules(__file__, __package__)
