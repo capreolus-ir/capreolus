@@ -19,7 +19,7 @@ class TrainDataset(torch.utils.data.IterableDataset):
     Samples training data. Intended to be used with a pytorch DataLoader
     """
 
-    def __init__(self, qid_docid_to_rank, qrels, extractor):
+    def __init__(self, qid_docid_to_rank, qrels, extractor, relevance_level=1):
         self.extractor = extractor
 
         # remove qids from qid_docid_to_rank that do not have relevance labels in the qrels
@@ -31,12 +31,14 @@ class TrainDataset(torch.utils.data.IterableDataset):
 
         self.qid_docid_to_rank = qid_docid_to_rank
         self.qid_to_reldocs = {
-            qid: [docid for docid in docids if qrels[qid].get(docid, 0) > 0] for qid, docids in qid_docid_to_rank.items()
+            qid: [docid for docid in docids if qrels[qid].get(docid, 0) >= relevance_level]
+            for qid, docids in qid_docid_to_rank.items()
         }
 
         # TODO option to include only negdocs in a top k
         self.qid_to_negdocs = {
-            qid: [docid for docid in docids if qrels[qid].get(docid, 0) <= 0] for qid, docids in qid_docid_to_rank.items()
+            qid: [docid for docid in docids if qrels[qid].get(docid, 0) < relevance_level]
+            for qid, docids in qid_docid_to_rank.items()
         }
 
         # remove any ids that do not have both relevant and non-relevant documents for training
