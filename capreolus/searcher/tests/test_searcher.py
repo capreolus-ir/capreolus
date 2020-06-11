@@ -3,10 +3,10 @@ import numpy as np
 import pytest
 from profane import module_registry
 
+from capreolus.utils.trec import load_trec_topics
 from capreolus.benchmark import DummyBenchmark
 from capreolus.searcher import Searcher, BM25, BM25Grid
 from capreolus.tests.common_fixtures import tmpdir_as_cache, dummy_index
-
 
 skip_searchers = {"bm25staticrob04yang19", "BM25Grid", "BM25Postprocess", "axiomatic"}
 searchers = set(module_registry.get_module_names("searcher")) - skip_searchers
@@ -18,6 +18,24 @@ def test_searcher_runnable(tmpdir_as_cache, tmpdir, dummy_index, searcher_name):
     searcher = Searcher.create(searcher_name, provide={"index": dummy_index})
     output_dir = searcher.query_from_file(topics_fn, os.path.join(searcher.get_cache_path(), DummyBenchmark.module_name))
     assert os.path.exists(os.path.join(output_dir, "done"))
+
+
+@pytest.mark.parametrize("searcher_name", searchers)
+def test_searcher_query(tmpdir_as_cache, tmpdir, dummy_index, searcher_name):
+    topics_fn = DummyBenchmark.topic_file
+    query = list(load_trec_topics(topics_fn)["title"].values())[0]
+    nhits = 1
+    searcher = Searcher.create(searcher_name, config={"hits": nhits}, provide={"index": dummy_index})
+    results = searcher.query(query)
+    if searcher_name == "SPL":
+        # if searcher_name != "BM25":
+        return
+
+    print(results.values())
+    if isinstance(list(results.values())[0], dict):
+        assert all(len(d) == nhits for d in results.values())
+    else:
+        assert len(results) == nhits
 
 
 def test_searcher_bm25(tmpdir_as_cache, tmpdir, dummy_index):
