@@ -396,9 +396,9 @@ class AxiomaticSemanticMatching(Searcher, AnseriniSearcherMixIn):
         conditionals = ""
 
         anserini_param_str = "-axiom -axiom.deterministic -axiom.r {0} -axiom.n {1} -axiom.beta {2} -axiom.top {3}".format(
-            *[list2str(config[k], " ") for k in ["r", "n", "beta", "top"]])
-        anserini_param_str += " -bm25 -bm25.k1 {0} -bm25.b {1} ".format(
-            *[list2str(config[k], " ") for k in ["k1", "b"]])
+            *[list2str(config[k], " ") for k in ["r", "n", "beta", "top"]]
+        )
+        anserini_param_str += " -bm25 -bm25.k1 {0} -bm25.b {1} ".format(*[list2str(config[k], " ") for k in ["k1", "b"]])
         anserini_param_str += f" -hits {hits}"
         self._anserini_query_from_file(topicsfn, anserini_param_str, output_path, config["fields"])
 
@@ -451,8 +451,7 @@ class QLJM(Searcher, AnseriniSearcherMixIn):
     ]
 
     def _query_from_file(self, topicsfn, output_path, config):
-        anserini_param_str = "-qljm -qljm.lambda {0} -hits {1}".format(
-            list2str(config["lam"], delimiter=" "), config["hits"])
+        anserini_param_str = "-qljm -qljm.lambda {0} -hits {1}".format(list2str(config["lam"], delimiter=" "), config["hits"])
 
         self._anserini_query_from_file(topicsfn, anserini_param_str, output_path, config["fields"])
 
@@ -571,10 +570,8 @@ class SDM(Searcher, AnseriniSearcherMixIn):
 
     def _query_from_file(self, topicsfn, output_path, config):
         hits = config["hits"]
-        anserini_param_str = "-sdm -sdm.tw {0} -sdm.ow {1} -sdm.uw {2}".format(
-            *[config[k] for k in ["tw", "ow", "uw"]])
-        anserini_param_str += " -bm25 -bm25.k1 {0} -bm25.b {1}".format(
-            *[list2str(config[k], " ") for k in ["k1", "b"]])
+        anserini_param_str = "-sdm -sdm.tw {0} -sdm.ow {1} -sdm.uw {2}".format(*[config[k] for k in ["tw", "ow", "uw"]])
+        anserini_param_str += " -bm25 -bm25.k1 {0} -bm25.b {1}".format(*[list2str(config[k], " ") for k in ["k1", "b"]])
         anserini_param_str += f" -hits {hits}"
         self._anserini_query_from_file(topicsfn, anserini_param_str, output_path, config["fields"])
 
