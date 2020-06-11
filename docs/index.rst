@@ -14,6 +14,7 @@ Looking for the code? `Find Capreolus on GitHub. <https://github.com/capreolus-i
    :maxdepth: 2
    :caption: Contents:
 
+   quick
    installation
    cli
 

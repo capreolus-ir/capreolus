@@ -12,13 +12,13 @@ OpenJDK 64-Bit Server VM (build 11.0.5+10-post-Ubuntu-0ubuntu1.119.04, mixed mod
 ```
 
 ### Python
-Setup a Python 3.7+ environment in your home directory. We recommend using Conda for performance reasons, but this is not strictly necessary.
+Setup a Python 3.6+ environment in your home directory. We recommend using Conda for performance reasons, but this is not strictly necessary.
 
- a) *Recommended conda approach*: install [pyenv](https://github.com/pyenv/pyenv) into your home directory, and then use pyenv to install a miniconda (or anaconda) distribution with Python 3.7+.
+ a) *Recommended conda approach*: install [pyenv](https://github.com/pyenv/pyenv) into your home directory, and then use pyenv to install a miniconda (or anaconda) distribution with Python 3.6+.
  
- b) Alternate conda approach: [install a miniconda distribution](https://docs.conda.io/projects/conda/en/latest/user-guide/install/) with Python 3.7+.
+ b) Alternate conda approach: [install a miniconda distribution](https://docs.conda.io/projects/conda/en/latest/user-guide/install/) with Python 3.6+.
  
- c) Alternate approach with system Python: install Python 3.7+ with your system's package manager (e.g., `sudo apt install python3`). If you do not create and activate a virtual environment (*venv*) as described below, you will need to use `sudo` when installing packages with `pip` below.
+ c) Alternate approach with system Python: install Python 3.6+ with your system's package manager (e.g., `sudo apt install python3`). If you do not create and activate a virtual environment (*venv*) as described below, you will need to use `sudo` when installing packages with `pip` below.
  
  You may optionally [setup a virtual environment using `venv`](https://docs.python.org/3/tutorial/venv.html) to isolate Capreolus and its dependencies from other packages. This is especially useful if using a system Python, because it allows you to install packages (for your own user) without `sudo`.
  
