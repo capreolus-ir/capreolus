@@ -43,7 +43,7 @@ Capreolus pipelines are composed of self-contained modules corresponding to "IR 
 `RankTask` declares dependencies on a `Searcher` module and a `Benchmark` module, which it uses to query a document collection and to obtain experimental data (i.e., topics, relevance judgments, and folds), respectively. The `Searcher` depends on an `Index`. Both the `Index` and `Benchmark` depend on a `Collection`. In this example, `RankTask` requires that the same `Collection` be provided to both.
 </p>
 
-Let's construct this graph one module at a time. First, `Collection` and `Benchmark`:
+Let's construct this graph one module at a time.
 ```python
 # Previously, the Benchmark specified a dependency on the 'robust04' collection specifically.
 # Now we specify "robust04" ourselves.
@@ -57,7 +57,7 @@ Let's construct this graph one module at a time. First, `Collection` and `Benchm
     {'title': {'301': 'International Organized Crime', '302': 'Poliomyelitis and Post-Polio', ... }
 ```
 
-Next, we can build `Index` and `Searcher`. The module types do more than just pointing to data.
+Next, we can build `Index` and `Searcher`. These module types do more than just pointing to data.
 ```python
 >>> index = Index.create("anserini", {"stemmer": "porter"}, provide={"collection": collection})
 >>> index.create_index()  # returns immediately if the index already exists
@@ -80,9 +80,18 @@ Finally, we can emulate the `RankTask.search()` method we called earlier:
         results[qid] = searcher.query(topic)
 ```
 To get metrics, we could then pass `results` to `capreolus.evaluator.eval_runs()`:
-``` eval_rst
+```eval_rst
 .. autoapifunction:: capreolus.evaluator.eval_runs
 ```
 
 
 ## Creating New Modules
+
+Capreolus modules implement the Capreolus module API plus an API specific to the module type.
+The module API consists of four attributes:
+- `module_type`: a string indicating the module's type, like "index" or "benchmark"
+- `module_name`: a string indicating the module's name, like "anserini" or "robust04.yang19"
+- `config_spec`: a list of `ConfigOption` objects, e.g. `ConfigOption("stemmer", default_value="none", description="stemmer to use")`
+- `dependencies` a list of `Dependency` objects; e.g., `Dependency(key="collection", module="collection", name="robust04")`
+
+A module's config options are automatically handled by the configuration system. When the module is created, any dependencies that are not explicitly passed with `provide={key: object}` are automatically created.
