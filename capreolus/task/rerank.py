@@ -79,6 +79,7 @@ class RerankTask(Task):
             dev_output_path,
             self.benchmark.qrels,
             self.config["optimize"],
+            self.benchmark.relevance_level,
         )
 
         self.reranker.trainer.load_best_model(self.reranker, train_output_path)
