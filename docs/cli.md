@@ -1,4 +1,4 @@
-# Running Experiments with the CLI
+# Command Line Interface
 Capreolus provides a command line interface for running experiments using pipelines that are described by `Task` modules. To create a new pipeline, you'll need to create a new `Task` before using the CLI.
 
 Capreolus takes a functional approach to describing an experiment. An experiment is simply a pipeline plus a set of configuration options specifying both classes to use for the pipeline's modules and configuration options associated with each module.
