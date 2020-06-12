@@ -36,11 +36,11 @@ task.searcheval()
 
 
 <p style="text-align: justify">
-Capreolus pipelines are composed of self-contained modules corresponding to "IR primitives", which can also be used individually. Each module declares any module dependencies it needs to perform its function. The pipeline itself, which can be viewed as a dependency graph, is represented by a `Task` module.
+Capreolus pipelines are composed of self-contained modules corresponding to "IR primitives", which can also be used individually. Each module declares any module dependencies it needs to perform its function. The pipeline itself, which can be viewed as a dependency graph, is represented by a <code class="docutils literal notranslate"><span class="pre">Task</span></code> module.
 </p>
 
 <p style="text-align: justify">
-`RankTask` declares dependencies on a `Searcher` module and a `Benchmark` module, which it uses to query a document collection and to obtain experimental data (i.e., topics, relevance judgments, and folds), respectively. The `Searcher` depends on an `Index`. Both the `Index` and `Benchmark` depend on a `Collection`. In this example, `RankTask` requires that the same `Collection` be provided to both.
+<code class="docutils literal notranslate"><span class="pre">RankTask</span></code> declares dependencies on a <code class="docutils literal notranslate"><span class="pre">Searcher</span></code> module and a <code class="docutils literal notranslate"><span class="pre">Benchmark</span></code> module, which it uses to query a document collection and to obtain experimental data (i.e., topics, relevance judgments, and folds), respectively. The <code class="docutils literal notranslate"><span class="pre">Searcher</span></code> depends on an <code class="docutils literal notranslate"><span class="pre">Index</span></code>. Both the <code class="docutils literal notranslate"><span class="pre">Index</span></code> and <code class="docutils literal notranslate"><span class="pre">Benchmark</span></code> depend on a <code class="docutils literal notranslate"><span class="pre">Collection</span></code>. In this example, <code class="docutils literal notranslate"><span class="pre">RankTask</span></code> requires that the same <code class="docutils literal notranslate"><span class="pre">Collection</span></code> be provided to both.
 </p>
 
 Let's construct this graph one module at a time.
@@ -91,7 +91,9 @@ Capreolus modules implement the Capreolus module API plus an API specific to the
 The module API consists of four attributes:
 - `module_type`: a string indicating the module's type, like "index" or "benchmark"
 - `module_name`: a string indicating the module's name, like "anserini" or "robust04.yang19"
-- `config_spec`: a list of `ConfigOption` objects, e.g. `ConfigOption("stemmer", default_value="none", description="stemmer to use")`
-- `dependencies` a list of `Dependency` objects; e.g., `Dependency(key="collection", module="collection", name="robust04")`
+- `config_spec`: a list of `ConfigOption` objects, for example, `ConfigOption("stemmer", default_value="none", description="stemmer to use")`
+- `dependencies` a list of `Dependency` objects; for example, `Dependency(key="collection", module="collection", name="robust04")`
 
-A module's config options are automatically handled by the configuration system. When the module is created, any dependencies that are not explicitly passed with `provide={key: object}` are automatically created.
+When the module is created, any dependencies that are not explicitly passed with `provide={key: object}` are automatically created. The module's config options in `config_spec` and those of its dependencies are exposed as Capreolus configuration options.
+
+
