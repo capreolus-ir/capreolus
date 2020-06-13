@@ -193,7 +193,7 @@ class PytorchTrainer(Trainer):
             logger.info("attempted to load weights from %s but failed, starting at iteration 0", weights_fn)
             return 0
 
-    def train(self, reranker, train_dataset, train_output_path, dev_data, dev_output_path, qrels, metric, relevance_level):
+    def train(self, reranker, train_dataset, train_output_path, dev_data, dev_output_path, qrels, metric, relevance_level=1):
         """Train a model following the trainer's config (specifying batch size, number of iterations, etc).
 
         Args:
@@ -490,7 +490,7 @@ class TensorFlowTrainer(Trainer):
     def apply_gradients(self, weights, grads):
         self.optimizer.apply_gradients(zip(grads, weights))
 
-    def train(self, reranker, train_dataset, train_output_path, dev_data, dev_output_path, qrels, metric, relevance_level):
+    def train(self, reranker, train_dataset, train_output_path, dev_data, dev_output_path, qrels, metric, relevance_level=1):
         # summary_writer = tf.summary.create_file_writer("{0}/capreolus_tensorboard/{1}".format(self.config["storage"], self.config["boardname"]))
 
         # Because TPUs can't work with local files
