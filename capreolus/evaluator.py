@@ -64,8 +64,8 @@ def eval_runs(runs, qrels, metrics, relevance_level=1):
     Evaluate runs produced by a ranker (or loaded with Searcher.load_trec_run)
 
     Args:
-        runs: a dict in the format ``{qid: {docid: score}}``
-        qrels: dict containing relevance judgements benchmark (e.g., ``benchmark.qrels``)
+        runs: dict in the format ``{qid: {docid: score}}``
+        qrels: dict containing relevance judgements (e.g., ``benchmark.qrels``)
         metrics (str or list): metrics to calculate (e.g., ``evaluator.DEFAULT_METRICS``)
         relevance_level (int): relevance label threshold to use with non-graded metrics (equivalent to trec_eval's --level_for_rel)
 
