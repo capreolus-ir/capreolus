@@ -18,17 +18,36 @@ import sys
 sys.path.insert(0, os.path.abspath("../"))
 assert os.path.exists(os.path.abspath("../capreolus"))
 
+# from https://packaging.python.org/guides/single-sourcing-package-version/
+def read(rel_path):
+    here = os.path.abspath(os.path.dirname(__file__))
+    with open(os.path.join(here, rel_path), "rt") as fp:
+        return fp.read()
+
+
+def get_version(rel_path):
+    for line in read(rel_path).splitlines():
+        if line.startswith("__version__"):
+            delim = '"' if '"' in line else "'"
+            return line.split(delim)[1]
+    else:
+        raise RuntimeError("Unable to find version string.")
+
+
 # -- Project information -----------------------------------------------------
 
 project = "Capreolus"
 copyright = "2020"
-author = ""
+author = "Andrew Yates"
 
-# The short X.Y version
-version = "0.2"
 # The full version, including alpha/beta/rc tags
-release = "0.2.0"
-
+release = get_version("../capreolus/__init__.py")
+# The short X.Y version
+version = release
+# no need to separate these currently
+# version = ".".join(release.split(".")[:2])
+# assert version.count(".") == 1
+assert release.startswith(version)
 
 # -- General configuration ---------------------------------------------------
 

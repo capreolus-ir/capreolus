@@ -23,9 +23,25 @@ class PostInstallCommand(install):
 with open("README.md", "r") as fh:
     long_description = fh.read()
 
+# from https://packaging.python.org/guides/single-sourcing-package-version/
+def read(rel_path):
+    here = os.path.abspath(os.path.dirname(__file__))
+    with open(os.path.join(here, rel_path), "rt") as fp:
+        return fp.read()
+
+
+def get_version(rel_path):
+    for line in read(rel_path).splitlines():
+        if line.startswith("__version__"):
+            delim = '"' if '"' in line else "'"
+            return line.split(delim)[1]
+    else:
+        raise RuntimeError("Unable to find version string.")
+
+
 setuptools.setup(
     name="capreolus",
-    version="0.2.0",
+    version=get_version("capreolus/__init__.py"),
     author="Andrew Yates, Kevin Martin Jose, Xinyu Zhang, Siddhant Arora, Wei Yang, Jimmy Lin",
     author_email="",
     description="A toolkit for end-to-end neural ad hoc retrieval",

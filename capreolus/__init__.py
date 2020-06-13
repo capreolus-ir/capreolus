@@ -4,6 +4,8 @@ from pathlib import Path
 
 from profane import ConfigOption, Dependency, constants, config_list_to_dict
 
+__version__ = "0.2.1"
+
 # specify a base package that we should look for modules under (e.g., <BASE>.task)
 # constants must be specified before importing Task (or any other modules!)
 constants["BASE_PACKAGE"] = "capreolus"
