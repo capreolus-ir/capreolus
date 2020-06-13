@@ -4,6 +4,7 @@ include capreolus/data/dummy_folds.json
 include capreolus/data/dummy.yaml
 include capreolus/data/msmarcopassage.folds.json
 include capreolus/data/qrels.antique.txt
+include capreolus/data/qrels.antique_test.txt
 include capreolus/data/qrels.dummy.txt
 include capreolus/data/qrels.msmarcopassage.txt
 include capreolus/data/qrels.robust2004.txt

@@ -92,12 +92,12 @@ def eval_runfile(runfile, qrels, metrics, relevance_level):
     return _eval_runs(runs, qrels, metrics, list(qrels.keys()), relevance_level)
 
 
-def search_best_run(runfile_dir, benchmark, primary_metric, metrics=None, folds=None):
+def search_best_run(runfile_dirs, benchmark, primary_metric, metrics=None, folds=None):
     """
     Select the runfile with respect to the specified metric
 
     Args:
-        runfile_dir: the directory path to all the runfiles to select from
+        runfile_dirs: the directory path to all the runfiles to select from
         benchmark: Benchmark class
         primary_metric: str, metric used to select the best runfile , e.g. ndcg_cut_20, etc
         metrics: str or list, metric expected by be calculated on the best runs
@@ -106,6 +106,10 @@ def search_best_run(runfile_dir, benchmark, primary_metric, metrics=None, folds=
     Returns:
        a dict storing specified metric score and path to the corresponding runfile
     """
+
+    if not isinstance(runfile_dirs, (list, tuple)):
+        runfile_dirs = [runfile_dirs]
+
     metrics = [] if not metrics else ([metrics] if isinstance(metrics, str) else list(metrics))
     if primary_metric not in metrics:
         metrics = [primary_metric] + metrics
@@ -113,6 +117,7 @@ def search_best_run(runfile_dir, benchmark, primary_metric, metrics=None, folds=
     folds = {s: benchmark.folds[s] for s in [folds]} if folds else benchmark.folds
     runfiles = [
         os.path.join(runfile_dir, f)
+        for runfile_dir in runfile_dirs
         for f in os.listdir(runfile_dir)
         if (f != "done" and not os.path.isdir(os.path.join(runfile_dir, f)))
     ]

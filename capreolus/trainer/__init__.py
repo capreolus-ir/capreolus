@@ -193,7 +193,7 @@ class PytorchTrainer(Trainer):
             logger.info("attempted to load weights from %s but failed, starting at iteration 0", weights_fn)
             return 0
 
-    def train(self, reranker, train_dataset, train_output_path, dev_data, dev_output_path, qrels, metric):
+    def train(self, reranker, train_dataset, train_output_path, dev_data, dev_output_path, qrels, metric, relevance_level=1):
         """Train a model following the trainer's config (specifying batch size, number of iterations, etc).
 
         Args:
@@ -273,7 +273,7 @@ class PytorchTrainer(Trainer):
                 preds = self.predict(reranker, dev_data, pred_fn)
 
                 # log dev metrics
-                metrics = evaluator.eval_runs(preds, qrels, ["ndcg_cut_20", "map", "P_20"], relevance_level=1)  # TODO rel level
+                metrics = evaluator.eval_runs(preds, qrels, evaluator.DEFAULT_METRICS, relevance_level)
                 logger.info("dev metrics: %s", " ".join([f"{metric}={v:0.3f}" for metric, v in sorted(metrics.items())]))
                 summary_writer.add_scalar("ndcg_cut_20", metrics["ndcg_cut_20"], niter)
                 summary_writer.add_scalar("map", metrics["map"], niter)
@@ -369,7 +369,7 @@ class TrecCheckpointCallback(tf.keras.callbacks.Callback):
     Also saves the best model to disk
     """
 
-    def __init__(self, qrels, dev_data, dev_records, output_path, validate_freq=1, *args, **kwargs):
+    def __init__(self, qrels, dev_data, dev_records, output_path, metric, validate_freq, relevance_level, *args, **kwargs):
         super(TrecCheckpointCallback, self).__init__(*args, **kwargs)
         """
         qrels - a qrels dict
@@ -382,7 +382,9 @@ class TrecCheckpointCallback(tf.keras.callbacks.Callback):
         self.dev_records = dev_records
         self.output_path = output_path
         self.iter_start_time = time.time()
+        self.metric = metric
         self.validate_freq = validate_freq
+        self.relevance_level = relevance_level
 
     def save_model(self):
         self.model.save_weights("{0}/dev.best".format(self.output_path))
@@ -395,14 +397,11 @@ class TrecCheckpointCallback(tf.keras.callbacks.Callback):
         if (epoch + 1) % self.validate_freq == 0:
             predictions = self.model.predict(self.dev_records, verbose=1, workers=8, use_multiprocessing=True)
             trec_preds = self.get_preds_in_trec_format(predictions, self.dev_data)
-            metrics = evaluator.eval_runs(
-                trec_preds, dict(self.qrels), ["ndcg_cut_20", "map", "P_20"], relevance_level=1
-            )  # TODO rel level
+            metrics = evaluator.eval_runs(trec_preds, dict(self.qrels), evaluator.DEFAULT_METRICS, self.relevance_level)
             logger.info("dev metrics: %s", " ".join([f"{metric}={v:0.3f}" for metric, v in sorted(metrics.items())]))
 
-            # TODO: Make the metric configurable
-            if metrics["ndcg_cut_20"] > self.best_metric:
-                self.best_metric = metrics["ndcg_cut_20"]
+            if metrics[self.metric] > self.best_metric:
+                self.best_metric = metrics[self.metric]
                 # TODO: Prevent the embedding layer weights from being saved
                 self.save_model()
 
@@ -491,7 +490,7 @@ class TensorFlowTrainer(Trainer):
     def apply_gradients(self, weights, grads):
         self.optimizer.apply_gradients(zip(grads, weights))
 
-    def train(self, reranker, train_dataset, train_output_path, dev_data, dev_output_path, qrels, metric):
+    def train(self, reranker, train_dataset, train_output_path, dev_data, dev_output_path, qrels, metric, relevance_level=1):
         # summary_writer = tf.summary.create_file_writer("{0}/capreolus_tensorboard/{1}".format(self.config["storage"], self.config["boardname"]))
 
         # Because TPUs can't work with local files
@@ -508,7 +507,15 @@ class TensorFlowTrainer(Trainer):
         with strategy_scope:
             train_records = self.get_tf_train_records(reranker, train_dataset)
             dev_records = self.get_tf_dev_records(reranker, dev_data)
-            trec_callback = TrecCheckpointCallback(qrels, dev_data, dev_records, train_output_path, self.config["validatefreq"])
+            trec_callback = TrecCheckpointCallback(
+                qrels,
+                dev_data,
+                dev_records,
+                train_output_path,
+                metric,
+                self.config["validatefreq"],
+                relevance_level=relevance_level,
+            )
             tensorboard_callback = tf.keras.callbacks.TensorBoard(
                 log_dir="{0}/capreolus_tensorboard/{1}".format(self.config["storage"], self.config["boardname"])
             )
