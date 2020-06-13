@@ -2,7 +2,7 @@ import multiprocessing
 import os
 from pathlib import Path
 
-from profane import constants, config_list_to_dict
+from profane import ConfigOption, Dependency, constants, config_list_to_dict
 
 # specify a base package that we should look for modules under (e.g., <BASE>.task)
 # constants must be specified before importing Task (or any other modules!)
@@ -17,6 +17,18 @@ import jnius_config
 from capreolus.utils.common import Anserini
 
 jnius_config.set_classpath(Anserini.get_fat_jar())
+
+
+# import capreolus.evaluator as evaluator
+# from capreolus.benchmark import Benchmark
+# from capreolus.collection import Collection
+# from capreolus.extractor import Extractor
+# from capreolus.index import Index
+# from capreolus.reranker.base import Reranker
+# from capreolus.searcher import Searcher
+# from capreolus.task.base import Task
+# from capreolus.tokenizer import Tokenizer
+# from capreolus.trainer import Trainer
 
 
 def parse_config_string(s):
