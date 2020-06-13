@@ -85,20 +85,22 @@ pygments_style = "sphinx"
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
 #
-html_theme = "alabaster"
+# html_theme = "alabaster"
 # html_theme = 'classic'
-# html_theme = "sphinx_rtd_theme"
+html_theme = "sphinx_rtd_theme"
 
 # Theme options are theme-specific and customize the look and feel of a theme
 # further.  For a list of options available for each theme, see the
 # documentation.
 #
-# html_theme_options = {}
+html_theme_options = {}
+
+github_url = "https://github.com/capreolus-ir/capreolus"
 
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,
 # so a file named "default.css" will overwrite the builtin "default.css".
-html_static_path = ["_static"]
+html_static_path = ["_static", "images"]
 
 # Custom sidebar templates, must be a dictionary that maps document names
 # to template names.
@@ -139,14 +141,14 @@ latex_elements = {
 # Grouping the document tree into LaTeX files. List of tuples
 # (source start file, target name, title,
 #  author, documentclass [howto, manual, or own class]).
-latex_documents = [(master_doc, "Capreolus.tex", "Capreolus Documentation", "", "manual")]
+# latex_documents = [(master_doc, "Capreolus.tex", "Capreolus Documentation", "", "manual")]
 
 
 # -- Options for manual page output ------------------------------------------
 
 # One entry per manual page. List of tuples
 # (source start file, name, description, authors, manual section).
-man_pages = [(master_doc, "capreolus", "Capreolus Documentation", [author], 1)]
+# man_pages = [(master_doc, "capreolus", "Capreolus Documentation", [author], 1)]
 
 
 # -- Options for Texinfo output ----------------------------------------------
@@ -181,5 +183,12 @@ def skip_check(app, what, name, obj, skip, options):
     return skip
 
 
+from recommonmark.transform import AutoStructify
+
+
 def setup(app):
     app.connect("autoapi-skip-member", skip_check)
+
+    # https://recommonmark.readthedocs.io/en/latest/auto_structify.html
+    app.add_config_value("recommonmark_config", {"enable_auto_doc_ref": False, "enable_eval_rst": True}, True)
+    app.add_transform(AutoStructify)

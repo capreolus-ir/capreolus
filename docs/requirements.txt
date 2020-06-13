@@ -2,3 +2,4 @@ cython
 sphinx
 recommonmark
 sphinx-autoapi
+profane
