@@ -91,6 +91,67 @@ class Robust04Yang19(Benchmark):
 
 
 @Benchmark.register
+class NF(Benchmark):
+    module_name = "nf"
+    dependencies = [Dependency(key="collection", module="collection", name="nf")]
+
+    qrel_file = PACKAGE_PATH / "data" / "qrels.nf.txt"
+    topic_file = PACKAGE_PATH / "data" / "topics.nf.txt"
+    fold_file = PACKAGE_PATH / "data" / "nf.json"
+
+    query_type = "title"
+
+    def __init__(self, config, provide, share_dependency_objects):
+        super().__init__(config, provide, share_dependency_objects)
+        self.download_if_missing()
+
+    def download_if_missing(self):
+        if all([f.exists() for f in [self.topic_file, self.fold_file, self.qrel_file]]):
+            return
+
+        tmp_corpus_dir = self.collection.download_raw()
+        topic_f, qrel_f = open(self.topic_file, "w", encoding="utf-8"), open(self.qrel_file, "w", encoding="utf-8")
+        set_names = ["train", "dev", "test"]
+        folds = {s: set() for s in set_names}
+        for set_name in set_names:
+            with open(tmp_corpus_dir / f"{set_name}.2-1-0.qrel") as f:
+                for line in f:
+                    line = line.replace("PLAIN-", "")
+                    qid = line.strip().split()[0]
+                    folds[set_name].add(qid)
+                    qrel_f.write(line)
+
+            topic_files = [
+                tmp_corpus_dir / f"{set_name}.{subname}.queries" for subname in ["titles", "vid-titles", "nontopic-titles"]
+            ]
+            desc_files = [tmp_corpus_dir / f"{set_name}.vid-desc.queries"]
+            qids2topics = self.align_queries(topic_files, "title")
+            qids2topics = self.align_queries(desc_files, "desc", qids2topics)
+            for qid, txts in qids2topics.items():
+                topic_f.write(topic_to_trectxt(qid, txts.get("title", None), txts.get("desc", None)))
+        json.dump(
+            {"s1": {"train_qids": list(folds["train"]), "predict": {"dev": list(folds["dev"]), "test": list(folds["test"])}}},
+            open(self.fold_file, "w"),
+        )
+        logger.info(f"nf benchmark prepared")
+
+    def align_queries(self, files, field, qid2queries=None):
+        if not qid2queries:
+            qid2queries = {}
+        for fn in files:
+            with open(fn, "r", encoding="utf-8") as f:
+                for line in f:
+                    qid, txt = line.strip().split("\t")
+                    if qid not in qid2queries:
+                        qid2queries[qid] = {field: txt}
+                    else:
+                        if field in qid2queries[qid]:
+                            logger.warning(f"Overwriting title for query {qid}")
+                        qid2queries[qid][field] = txt
+        return qid2queries
+
+
+@Benchmark.register
 class ANTIQUE(Benchmark):
     """A Non-factoid Question Answering Benchmark from Hashemi et al. [1]
 
