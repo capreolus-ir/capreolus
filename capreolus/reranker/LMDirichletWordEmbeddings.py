@@ -1,3 +1,7 @@
+import json
+import os
+from os.path import join, exists
+
 from capreolus.registry import Dependency
 from capreolus.reranker import Reranker
 from capreolus.utils.loginit import get_logger
@@ -36,9 +40,25 @@ class LMDirichletWordEmbeddingsReranker(Reranker):
         return a
 
     def score_document(self, queryvocab, docid, qid, mu):
-        return -1 * sum(
-            self.score_document_term(term, docid, qid, mu) for term in queryvocab
-        )
+        term_scores = {}
+        scoresum = 0
+        for term in queryvocab:
+            temp = -1 * self.score_document_term(term, docid, qid, mu)
+            term_scores[term] = temp
+            scoresum += temp
+
+        os.makedirs(self.get_docscore_cache_path(), exist_ok=True)
+        outf = join(self.get_docscore_cache_path(), f"{qid}_{docid}")
+        if not exists(outf):
+            with open(outf, 'w') as f:
+                term_scores["OVERALL_SCORE"] = scoresum
+                sorted_scores = {k: v for k, v in sorted(term_scores.items(), key=lambda item: item[1], reverse=True)}
+                f.write(json.dumps(sorted_scores, indent=4))
+
+        return scoresum
+        # return -1 * sum(
+        #     self.score_document_term(term, docid, qid, mu) for term in queryvocab
+        # )
 
     def score_document_term(self, term, docid, qid, mu):
         querytp = self["extractor"].qid_termprob[qid][term]

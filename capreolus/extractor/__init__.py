@@ -404,12 +404,6 @@ class DocStats(Extractor):
 
 class DocStatsEmbedding(DocStats):
     name = "docstatsembedding"
-    dependencies = {# TODO is this okay like this? if this is changed here, would the parent functions also use differently??
-        "index": Dependency(module="index", name="anserini", config_overrides={"indexstops": True, "stemmer": "none"}),
-        # "tokenizer": Dependency(module="tokenizer", name="anserini", config_overrides={"keepstops": False}),
-        "tokenizerquery": Dependency(module="tokenizer", name="spacy", config_overrides={"keepstops": False, 'removesmallerlen': 2}), #removesmallerlen is actually only used for user profile (not the short queries) but I cannot separate them
-        "tokenizer": Dependency(module="tokenizer", name="spacy", config_overrides={"keepstops": False}),
-    }
 
     embed_names = {
         "glove6b": "glove-wiki-gigaword-300",
@@ -459,7 +453,7 @@ class DocStatsEmbedding(DocStats):
 
         return nu/de
 
-    def id2vec(self, qid, posid, negid=None, query=None):#todo change this later ...
+    def id2vec(self, qid, posid, negid=None, query=None):#todo change this later or delete it...
         if query is not None:
             if qid is None:
                 query = self["tokenizer"].tokenize(query)
