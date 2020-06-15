@@ -10,7 +10,6 @@ from collections import defaultdict, OrderedDict
 
 import numpy as np
 from profane import ModuleBase, Dependency, ConfigOption, constants
-from pyserini.search import pysearch
 
 from capreolus.utils.common import Anserini
 from capreolus.utils.loginit import get_logger
