@@ -109,6 +109,9 @@ class NF(Benchmark):
         super().__init__(config, provide, share_dependency_objects)
         self.download_if_missing()
 
+    def _transform_qid(self, raw):
+        return raw.replace("PLAIN-", "")
+
     def download_if_missing(self):
         if all([f.exists() for f in [self.topic_file, self.fold_file, self.qrel_file]]):
             return
@@ -120,7 +123,7 @@ class NF(Benchmark):
         for set_name in set_names:
             with open(tmp_corpus_dir / f"{set_name}.2-1-0.qrel") as f:
                 for line in f:
-                    line = line.replace("PLAIN-", "")
+                    line = self._transform_qid(line)
                     qid = line.strip().split()[0]
                     folds[set_name].add(qid)
                     qrel_f.write(line)
@@ -146,6 +149,7 @@ class NF(Benchmark):
             with open(fn, "r", encoding="utf-8") as f:
                 for line in f:
                     qid, txt = line.strip().split("\t")
+                    qid = self._transform_qid(qid)
                     if qid not in qid2queries:
                         qid2queries[qid] = {field: txt}
                     else:
