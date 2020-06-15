@@ -79,7 +79,6 @@ class Robust04Yang19(Benchmark):
     """Robust04 benchmark using the folds from Yang et al. [1]
 
     [1] Wei Yang, Kuang Lu, Peilin Yang, and Jimmy Lin. 2019. Critically Examining the "Neural Hype": Weak Baselines and the Additivity of Effectiveness Gains from Neural Ranking Models. SIGIR 2019.
-
     """
 
     module_name = "robust04.yang19"
@@ -92,6 +91,11 @@ class Robust04Yang19(Benchmark):
 
 @Benchmark.register
 class NF(Benchmark):
+    """ A Full-Text Learning to Rank Dataset for Medical Information Retrieval [1]
+
+    [1] Vera Boteva, Demian Gholipour, Artem Sokolov and Stefan Riezler. A Full-Text Learning to Rank Dataset for Medical Information Retrieval Proceedings of the 38th European Conference on Information Retrieval (ECIR), Padova, Italy, 2016
+    """
+
     module_name = "nf"
     dependencies = [Dependency(key="collection", module="collection", name="nf")]
 
@@ -125,8 +129,8 @@ class NF(Benchmark):
                 tmp_corpus_dir / f"{set_name}.{subname}.queries" for subname in ["titles", "vid-titles", "nontopic-titles"]
             ]
             desc_files = [tmp_corpus_dir / f"{set_name}.vid-desc.queries"]
-            qids2topics = self.align_queries(topic_files, "title")
-            qids2topics = self.align_queries(desc_files, "desc", qids2topics)
+            qids2topics = self._align_queries(topic_files, "title")
+            qids2topics = self._align_queries(desc_files, "desc", qids2topics)
             for qid, txts in qids2topics.items():
                 topic_f.write(topic_to_trectxt(qid, txts.get("title", None), txts.get("desc", None)))
         json.dump(
@@ -135,7 +139,7 @@ class NF(Benchmark):
         )
         logger.info(f"nf benchmark prepared")
 
-    def align_queries(self, files, field, qid2queries=None):
+    def _align_queries(self, files, field, qid2queries=None):
         if not qid2queries:
             qid2queries = {}
         for fn in files:
