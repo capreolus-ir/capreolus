@@ -101,8 +101,9 @@ class NF(Benchmark):
     config_spec = [
         ConfigOption(
             key="fields",
-            default_value="all",  # options: "all_fields", "all_titles", "nontopics", "vid_title", "vid_desc"
-            description="query fields included in topic file",
+            default_value="all",
+            description="query fields included in topic file, "
+            "options: 'all_fields', 'all_titles', 'nontopics', 'vid_title', 'vid_desc'",
         )
     ]
 
