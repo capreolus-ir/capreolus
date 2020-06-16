@@ -98,7 +98,13 @@ class NF(Benchmark):
 
     module_name = "nf"
     dependencies = [Dependency(key="collection", module="collection", name="nf")]
-    config_spec = [ConfigOption(key="fields", default_value="all", description="query fields included in topic file")]
+    config_spec = [
+        ConfigOption(
+            key="fields",
+            default_value="all",  # options: "all_fields", "all_titles", "nontopics", "vid_title", "vid_desc"
+            description="query fields included in topic file",
+        )
+    ]
 
     qrel_file = PACKAGE_PATH / "data" / "qrels.nf.txt"
     test_qrel_file = PACKAGE_PATH / "data" / "test.qrels.nf.txt"
@@ -108,7 +114,18 @@ class NF(Benchmark):
 
     def __init__(self, config, provide, share_dependency_objects):
         super().__init__(config, provide, share_dependency_objects)
-        fields = self.config["fields"] + "-field"
+        fields = self.config["fields"]
+        self.field2kws = {
+            "all_fields": ["all"],
+            "nontopics": ["nontopic-titles"],
+            "vid_title": ["vid-titles"],
+            "vid_desc": ["vid-desc"],
+            "all_titles": ["titles", "vid-titles", "nontopic-titles"],
+        }
+
+        if fields not in self.field2kws:
+            raise ValueError(f"Unexpected fields value: {fields}")
+
         self.topic_file = PACKAGE_PATH / "data" / f"topics.nf.{fields}.txt"
         self.download_if_missing()
 
@@ -137,19 +154,11 @@ class NF(Benchmark):
                         test_qrel_f.write(line)
                     qrel_f.write(line)
 
-            field2files, qids2topics = {}, {}
-            if self.config["fields"] == "all":
-                field2files["title"] = [tmp_corpus_dir / f"{set_name}.all.queries"]
-            else:
-                field2files["title"] = [
-                    tmp_corpus_dir / f"{set_name}.{subname}.queries" for subname in ["titles", "vid-titles", "nontopic-titles"]
-                ]
-                field2files["desc"] = [tmp_corpus_dir / f"{set_name}.vid-desc.queries"]
+            files = [tmp_corpus_dir / f"{set_name}.{keyword}.queries" for keyword in self.field2kws[self.config["fields"]]]
+            qids2topics = self._align_queries(files, "title")
 
-            for field, files in field2files.items():
-                qids2topics = self._align_queries(files, field, qids2topics)
             for qid, txts in qids2topics.items():
-                topic_f.write(topic_to_trectxt(qid, txts.get("title", None), txts.get("desc", None)))
+                topic_f.write(topic_to_trectxt(qid, txts["title"]))
 
         json.dump(
             {"s1": {"train_qids": list(folds["train"]), "predict": {"dev": list(folds["dev"]), "test": list(folds["test"])}}},
