@@ -113,6 +113,7 @@ class NF(Benchmark):
         self.download_if_missing()
 
     def _transform_qid(self, raw):
+        """ NFCorpus dataset specific, remove prefix in query id since anserini convert all qid to integer """
         return raw.replace("PLAIN-", "")
 
     def download_if_missing(self):
