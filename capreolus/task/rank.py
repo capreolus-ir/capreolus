@@ -12,7 +12,11 @@ logger = get_logger(__name__)  # pylint: disable=invalid-name
 class RankTask(Task):
     module_name = "rank"
     requires_random_seed = False
-    config_spec = [ConfigOption("optimize", "map", "metric to maximize on the dev set"), ConfigOption("filter", False)]
+    config_spec = [
+        ConfigOption("filter", False),
+        ConfigOption("optimize", "map", "metric to maximize on the dev set"),
+        ConfigOption("metrics", "default", "metrics reported for evaluation", value_type="strlist"),
+    ]
     config_keys_not_in_path = ["optimize"]  # only used for choosing best result; does not affect search()
     dependencies = [
         Dependency(key="benchmark", module="benchmark", name="wsdm20demo", provide_this=True, provide_children=["collection"]),
@@ -44,8 +48,10 @@ class RankTask(Task):
         return search_results_folder
 
     def evaluate(self):
+        metrics = self.config["metrics"] if self.config["metrics"] != ["default"] else evaluator.DEFAULT_METRICS
+
         best_results = evaluator.search_best_run(
-            self.get_results_path(), self.benchmark, primary_metric=self.config["optimize"], metrics=evaluator.DEFAULT_METRICS
+            self.get_results_path(), self.benchmark, primary_metric=self.config["optimize"], metrics=metrics
         )
 
         for fold, path in best_results["path"].items():

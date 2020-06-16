@@ -99,34 +99,38 @@ class NF(Benchmark):
     module_name = "nf"
     dependencies = [Dependency(key="collection", module="collection", name="nf")]
     config_spec = [
+        ConfigOption(key="labelrange", default_value="0-2", description="range of dataset qrels, options: 0-2, 1-3"),
         ConfigOption(
             key="fields",
             default_value="all",
             description="query fields included in topic file, "
             "options: 'all_fields', 'all_titles', 'nontopics', 'vid_title', 'vid_desc'",
-        )
+        ),
     ]
 
-    qrel_file = PACKAGE_PATH / "data" / "qrels.nf.txt"
-    test_qrel_file = PACKAGE_PATH / "data" / "test.qrels.nf.txt"
     fold_file = PACKAGE_PATH / "data" / "nf.json"
 
     query_type = "title"
 
     def __init__(self, config, provide, share_dependency_objects):
         super().__init__(config, provide, share_dependency_objects)
-        fields = self.config["fields"]
+        fields, label_range = self.config["fields"], self.config["labelrange"]
         self.field2kws = {
             "all_fields": ["all"],
             "nontopics": ["nontopic-titles"],
             "vid_title": ["vid-titles"],
             "vid_desc": ["vid-desc"],
-            "all_titles": ["titles", "vid-titles", "nontopic-titles"],
+            "all_titles": ["nontopic-titles", "vid-titles", "nontopic-titles"],
         }
+        self.labelrange2kw = {"0-2": "2-1-0", "1-3": "3-2-1"}
 
         if fields not in self.field2kws:
-            raise ValueError(f"Unexpected fields value: {fields}")
+            raise ValueError(f"Unexpected fields value: {fields}, expect: {', '.join(self.field2kws.keys())}")
+        if label_range not in self.labelrange2kw:
+            raise ValueError(f"Unexpected label range: {label_range}, expect: {', '.join(self.field2kws.keys())}")
 
+        self.qrel_file = PACKAGE_PATH / "data" / f"qrels.nf.{label_range}.txt"
+        self.test_qrel_file = PACKAGE_PATH / "data" / f"test.qrels.nf.{label_range}.txt"
         self.topic_file = PACKAGE_PATH / "data" / f"topics.nf.{fields}.txt"
         self.download_if_missing()
 
@@ -145,8 +149,9 @@ class NF(Benchmark):
 
         set_names = ["train", "dev", "test"]
         folds = {s: set() for s in set_names}
+        qrel_kw = self.labelrange2kw[self.config["labelrange"]]
         for set_name in set_names:
-            with open(tmp_corpus_dir / f"{set_name}.2-1-0.qrel") as f:
+            with open(tmp_corpus_dir / f"{set_name}.{qrel_kw}.qrel") as f:
                 for line in f:
                     line = self._transform_qid(line)
                     qid = line.strip().split()[0]
