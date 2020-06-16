@@ -1,7 +1,7 @@
 from profane import import_all_modules
 
-
 import json
+import re
 import os
 import gzip
 import pickle
@@ -98,15 +98,18 @@ class NF(Benchmark):
 
     module_name = "nf"
     dependencies = [Dependency(key="collection", module="collection", name="nf")]
+    config_spec = [ConfigOption(key="fields", default_value="all", description="query fields included in topic file")]
 
     qrel_file = PACKAGE_PATH / "data" / "qrels.nf.txt"
-    topic_file = PACKAGE_PATH / "data" / "topics.nf.txt"
+    test_qrel_file = PACKAGE_PATH / "data" / "test.qrels.nf.txt"
     fold_file = PACKAGE_PATH / "data" / "nf.json"
 
     query_type = "title"
 
     def __init__(self, config, provide, share_dependency_objects):
         super().__init__(config, provide, share_dependency_objects)
+        fields = self.config["fields"] + "-field"
+        self.topic_file = PACKAGE_PATH / "data" / f"topics.nf.{fields}.txt"
         self.download_if_missing()
 
     def _transform_qid(self, raw):
@@ -117,7 +120,10 @@ class NF(Benchmark):
             return
 
         tmp_corpus_dir = self.collection.download_raw()
-        topic_f, qrel_f = open(self.topic_file, "w", encoding="utf-8"), open(self.qrel_file, "w", encoding="utf-8")
+        topic_f = open(self.topic_file, "w", encoding="utf-8")
+        qrel_f = open(self.qrel_file, "w", encoding="utf-8")
+        test_qrel_f = open(self.test_qrel_file, "w", encoding="utf-8")
+
         set_names = ["train", "dev", "test"]
         folds = {s: set() for s in set_names}
         for set_name in set_names:
@@ -126,20 +132,32 @@ class NF(Benchmark):
                     line = self._transform_qid(line)
                     qid = line.strip().split()[0]
                     folds[set_name].add(qid)
+                    if set_name == "test":
+                        test_qrel_f.write(line)
                     qrel_f.write(line)
 
-            topic_files = [
-                tmp_corpus_dir / f"{set_name}.{subname}.queries" for subname in ["titles", "vid-titles", "nontopic-titles"]
-            ]
-            desc_files = [tmp_corpus_dir / f"{set_name}.vid-desc.queries"]
-            qids2topics = self._align_queries(topic_files, "title")
-            qids2topics = self._align_queries(desc_files, "desc", qids2topics)
+            field2files, qids2topics = {}, {}
+            if self.config["fields"] == "all":
+                field2files["title"] = [tmp_corpus_dir / f"{set_name}.all.queries"]
+            else:
+                field2files["title"] = [
+                    tmp_corpus_dir / f"{set_name}.{subname}.queries" for subname in ["titles", "vid-titles", "nontopic-titles"]
+                ]
+                field2files["desc"] = [tmp_corpus_dir / f"{set_name}.vid-desc.queries"]
+
+            for field, files in field2files.items():
+                qids2topics = self._align_queries(files, field, qids2topics)
             for qid, txts in qids2topics.items():
                 topic_f.write(topic_to_trectxt(qid, txts.get("title", None), txts.get("desc", None)))
+
         json.dump(
             {"s1": {"train_qids": list(folds["train"]), "predict": {"dev": list(folds["dev"]), "test": list(folds["test"])}}},
             open(self.fold_file, "w"),
         )
+
+        topic_f.close()
+        qrel_f.close()
+        test_qrel_f.close()
         logger.info(f"nf benchmark prepared")
 
     def _align_queries(self, files, field, qid2queries=None):
@@ -150,6 +168,7 @@ class NF(Benchmark):
                 for line in f:
                     qid, txt = line.strip().split("\t")
                     qid = self._transform_qid(qid)
+                    txt = " ".join(re.sub("[^A-Za-z]", " ", txt).split()[:1020])
                     if qid not in qid2queries:
                         qid2queries[qid] = {field: txt}
                     else:
