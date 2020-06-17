@@ -17,7 +17,7 @@ class RankTask(Task):
         ConfigOption("optimize", "map", "metric to maximize on the dev set"),
         ConfigOption("metrics", "default", "metrics reported for evaluation", value_type="strlist"),
     ]
-    config_keys_not_in_path = ["optimize"]  # only used for choosing best result; does not affect search()
+    config_keys_not_in_path = ["optimize", "metrics"]  # only used for choosing best result; does not affect search()
     dependencies = [
         Dependency(key="benchmark", module="benchmark", name="wsdm20demo", provide_this=True, provide_children=["collection"]),
         Dependency(key="searcher", module="searcher", name="BM25"),
