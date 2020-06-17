@@ -49,7 +49,7 @@ class RankTask(Task):
         return search_results_folder
 
     def evaluate(self):
-        metrics = self.config["metrics"] if self.config["metrics"] != ["default"] else evaluator.DEFAULT_METRICS
+        metrics = self.config["metrics"] if list(self.config["metrics"]) != ["default"] else evaluator.DEFAULT_METRICS
 
         best_results = evaluator.search_best_run(
             self.get_results_path(), self.benchmark, primary_metric=self.config["optimize"], metrics=metrics
