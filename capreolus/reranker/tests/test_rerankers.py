@@ -6,7 +6,7 @@ import torch
 from pymagnitude import Magnitude
 
 from capreolus.benchmark import DummyBenchmark
-from capreolus.extractor import EmbedText
+from capreolus.extractor.embedtext import EmbedText
 from capreolus.extractor.bagofwords import BagOfWords
 from capreolus.extractor.deeptileextractor import DeepTileExtractor
 from capreolus.reranker.CDSSM import CDSSM
