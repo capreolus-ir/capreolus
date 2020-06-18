@@ -21,16 +21,17 @@ from capreolus.utils.common import Anserini
 jnius_config.set_classpath(Anserini.get_fat_jar())
 
 
-# import capreolus.evaluator as evaluator
-# from capreolus.benchmark import Benchmark
-# from capreolus.collection import Collection
-# from capreolus.extractor import Extractor
-# from capreolus.index import Index
-# from capreolus.reranker.base import Reranker
-# from capreolus.searcher import Searcher
-# from capreolus.task.base import Task
-# from capreolus.tokenizer import Tokenizer
-# from capreolus.trainer import Trainer
+import capreolus.evaluator as evaluator
+from capreolus.benchmark import Benchmark
+from capreolus.collection import Collection
+from capreolus.extractor import Extractor
+from capreolus.index import Index
+from capreolus.reranker.base import Reranker
+from capreolus.searcher import Searcher
+from capreolus.task.base import Task
+from capreolus.tokenizer import Tokenizer
+from capreolus.trainer import Trainer
+from capreolus.utils.loginit import get_logger
 
 
 def parse_config_string(s):

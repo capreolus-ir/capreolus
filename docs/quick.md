@@ -20,7 +20,7 @@ $ capreolus rank.searcheval with searcher.name=BM25 \
 
 Let's run the same pipeline using the Python API:
 ```python
-from capreolus.task.rank import RankTask
+from capreolus.task import RankTask
 
 task = RankTask({'searcher': {'name': 'BM25', 'index': {'stemmer': 'porter'}, 'b': '0.8'},
                  'benchmark': {'name': 'robust04.yang19',
@@ -104,10 +104,7 @@ The `Task` module API specifies two additional class attributes: `commands` and 
 Let's create a new task that mirrors the graph we constructed manually, except with two separate `Searcher` objects. We'll save the results from both searchers and measure their effectiveness on the validation queries to decide which searcher to report test set results on.
 
 ```python
-from capreolus import evaluator, Dependency, ConfigOption
-from capreolus.searcher import Searcher
-from capreolus.task import Task
-from capreolus.utils.loginit import get_logger
+from capreolus import evaluator, get_logger, Dependency, ConfigOption, Searcher, Task
 
 logger = get_logger(__name__)  # pylint: disable=invalid-name
 
