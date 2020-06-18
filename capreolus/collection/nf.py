@@ -26,7 +26,7 @@ class NF(Collection):
         os.makedirs(tmp_dir, exist_ok=True)
 
         if not tmp_tar_fn.exists():
-            download_file(self.url, tmp_tar_fn, "e2325ace35d02185a22e96bb52e72e62f2caf45a4975757c81a1c4087d8c59e9")
+            download_file(self.url, tmp_tar_fn, "ebc026d4a8bef3f866148b727e945a2073eb4045ede9b7de95dd50fd086b4256")
 
         with tarfile.open(tmp_tar_fn) as f:
             f.extractall(tmp_dir)
