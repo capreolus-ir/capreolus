@@ -17,13 +17,8 @@ benchmarks = set(module_registry.get_module_names("benchmark"))
 
 
 @pytest.mark.parametrize("benchmark_name", benchmarks)
-def test_benchmark_creatable(tmpdir_as_cache, benchmark_name):
-    benchmark = Benchmark.create(benchmark_name)
-
-
-@pytest.mark.parametrize("benchmark_name", benchmarks)
 @pytest.mark.download
-def test_benchmark_downloadable(tmpdir_as_cache, benchmark_name):
+def test_benchmark_creatable(tmpdir_as_cache, benchmark_name):
     benchmark = Benchmark.create(benchmark_name)
     if hasattr(benchmark, "download_if_missing"):
         benchmark.download_if_missing()
