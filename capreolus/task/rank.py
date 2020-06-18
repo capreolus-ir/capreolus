@@ -20,7 +20,7 @@ class RankTask(Task):
     config_keys_not_in_path = ["optimize", "metrics"]  # affect only evaluation but not search()
 
     dependencies = [
-        Dependency(key="benchmark", module="benchmark", name="wsdm20demo", provide_this=True, provide_children=["collection"]),
+        Dependency(key="benchmark", module="benchmark", name="nf", provide_this=True, provide_children=["collection"]),
         Dependency(key="searcher", module="searcher", name="BM25"),
     ]
 
