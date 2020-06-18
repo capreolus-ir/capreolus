@@ -2,7 +2,7 @@ import multiprocessing
 import os
 from pathlib import Path
 
-from profane import ConfigOption, Dependency, constants, config_list_to_dict
+from profane import ConfigOption, Dependency, ModuleBase, constants, config_list_to_dict, module_registry
 
 __version__ = "0.2.1"
 
@@ -21,7 +21,10 @@ from capreolus.utils.common import Anserini
 jnius_config.set_classpath(Anserini.get_fat_jar())
 
 
+from capreolus.utils.loginit import get_logger
 import capreolus.evaluator as evaluator
+
+
 from capreolus.benchmark import Benchmark
 from capreolus.collection import Collection
 from capreolus.extractor import Extractor
@@ -31,7 +34,6 @@ from capreolus.searcher import Searcher
 from capreolus.task.base import Task
 from capreolus.tokenizer import Tokenizer
 from capreolus.trainer import Trainer
-from capreolus.utils.loginit import get_logger
 
 
 def parse_config_string(s):
