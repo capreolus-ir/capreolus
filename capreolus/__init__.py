@@ -21,16 +21,15 @@ from capreolus.utils.common import Anserini
 jnius_config.set_classpath(Anserini.get_fat_jar())
 
 
+# note: order is important to avoid circular imports
 from capreolus.utils.loginit import get_logger
 import capreolus.evaluator as evaluator
-
-
 from capreolus.benchmark import Benchmark
 from capreolus.collection import Collection
-from capreolus.extractor import Extractor
 from capreolus.index import Index
-from capreolus.reranker.base import Reranker
 from capreolus.searcher import Searcher
+from capreolus.extractor import Extractor
+from capreolus.reranker.base import Reranker
 from capreolus.task.base import Task
 from capreolus.tokenizer import Tokenizer
 from capreolus.trainer import Trainer
