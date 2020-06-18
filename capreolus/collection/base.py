@@ -58,6 +58,10 @@ class Collection(ModuleBase):
         if "path" in self.config and self.validate_document_path(self.config["path"]):
             return self.config["path"]
 
+        # second, see if the path is hardcoded (e.g., for the dummy collection")
+        if self._path and self.validate_document_path(self._path):
+            return self._path
+
         # if not, see if the collection can be obtained through its download_if_missing method
         return self.download_if_missing()
 

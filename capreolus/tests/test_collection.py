@@ -21,8 +21,7 @@ def test_collection_creatable(tmpdir_as_cache, collection_name):
 @pytest.mark.download
 def test_collection_downloadable(tmpdir_as_cache, collection_name):
     collection = Collection.create(collection_name)
-    if hasattr(collection, "download_if_missing"):
-        collection.find_document_path()
+    collection.find_document_path()
 
 
 @pytest.mark.download
