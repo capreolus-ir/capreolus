@@ -39,42 +39,42 @@ def prepare_task(fullcommand, config):
 
 
 help = """
-    Usage:
-          capreolus COMMAND [(with CONFIG...)] [options]
-          capreolus help [COMMAND]
-          capreolus (-h | --help)
+Usage:
+    capreolus COMMAND [(with CONFIG...)] [options]
+    capreolus help [COMMAND]
+    capreolus (-h | --help)
 
 
-        Options:
-          -h --help                     Print this help message and exit.
-          -l VALUE --loglevel=VALUE     Set the log level: DEBUG, INFO, WARNING, ERROR, or CRITICAL.
-          -p VALUE --priority=VALUE     Sets the priority for a queued up experiment. No effect without -q flag.
-          -q --queue                    Queue this run, and do not start it.
+    Options:
+      -h --help                     Print this help message and exit.
+      -l VALUE --loglevel=VALUE     Set the log level: DEBUG, INFO, WARNING, ERROR, or CRITICAL.
+      -p VALUE --priority=VALUE     Sets the priority for a queued up experiment. No effect without -q flag.
+      -q --queue                    Queue this run, and do not start it.
 
 
-        Arguments:
-          PIPELINE  Name of pipeline to run, which consists of a Task and a command (see below for a list)
-          CONFIG    Configuration assignments of the form foo.bar=17
+    Arguments:
+      PIPELINE  Name of pipeline to run, which consists of a Task and a command (see below for a list)
+      CONFIG    Configuration assignments of the form foo.bar=17
 
 
-        Tasks and their commands:
-          rank.search             search a collection using queries from a benchmark
-          rank.evaluate           evaluate the result of rank.search
-          rank.searcheval         run rank.search followed by rank.evaluate
+    Tasks and their commands:
+      rank.search             search a collection using queries from a benchmark
+      rank.evaluate           evaluate the result of rank.search
+      rank.searcheval         run rank.search followed by rank.evaluate
 
-          rerank.train            run rank.search and train a model to rerank the results
-          rerank.evaluate         evaluate the result of rerank.train
-          rerank.traineval        run rerank.train followed by rerank.evaluate
+      rerank.train            run rank.search and train a model to rerank the results
+      rerank.evaluate         evaluate the result of rerank.train
+      rerank.traineval        run rerank.train followed by rerank.evaluate
 
-          rererank.train          run rerank.train and train a (second) model to rerank the results
-          rererank.evaluate       evaluate the result of rererank.train
-          rererank.traineval      run rererank.train followed by rererank.evaluate
+      rererank.train          run rerank.train and train a (second) model to rerank the results
+      rererank.evaluate       evaluate the result of rererank.train
+      rererank.traineval      run rererank.train followed by rererank.evaluate
 
-          tutorial.run            task from the "Getting Started" tutorial
+      tutorial.run            task from the "Getting Started" tutorial
 
-        All tasks additionally support the following help commands: describe, print_config, print_pipeline
-          e.g., capreolus rank.print_config with searcher=BM25
-       """
+    All tasks additionally support the following help commands: describe, print_config, print_pipeline
+      e.g., capreolus rank.print_config with searcher=BM25
+"""
 
 if __name__ == "__main__":
     # hack to make docopt print full help message if no arguments are give
