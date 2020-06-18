@@ -39,7 +39,7 @@ def prepare_task(fullcommand, config):
 
 
 help = """
-        Usage:
+    Usage:
           capreolus COMMAND [(with CONFIG...)] [options]
           capreolus help [COMMAND]
           capreolus (-h | --help)
