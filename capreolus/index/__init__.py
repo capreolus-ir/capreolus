@@ -5,6 +5,14 @@ logger = get_logger(__name__)  # pylint: disable=invalid-name
 
 
 class Index(ModuleBase):
+    """Base class for Index modules. The purpose of an Index module is to represent an inverted index that can be queried with a :class:`~capreolus.searcher.Searcher` module and used to obtain documents and collection statistics.
+
+    Modules should provide:
+        - a ``_create_index`` method that creates an index on the ``Collection`` dependency
+        - a ``get_doc(docid)`` and a ``get_docs(docid)`` method
+        - a ``get_df(term)`` method
+    """
+
     module_type = "index"
     dependencies = [Dependency(key="collection", module="collection")]
 
