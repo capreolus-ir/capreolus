@@ -9,7 +9,7 @@
 
 ## Command Line Interface
 
-Use the `RankTask` pipeline to rank documents using a `Searcher` on an [Anserini](https://anserini.io) `Index` built on [NFCorpus](https://www.cl.uni-heidelberg.de/statnlpgroup/nfcorpus/), which contains biomedical documents and queries. NFCorpus is publicly available and will be automatically downloaded.
+Use the `RankTask` pipeline to rank documents using a `Searcher` on an [Anserini](https://anserini.io) `Index` built on [NFCorpus](https://www.cl.uni-heidelberg.de/statnlpgroup/nfcorpus/), which contains biomedical documents and queries. NFCorpus was published by Boteva et al. in ECIR 2016. This dataset is publicly available and will be automatically downloaded by Capreolus.
 
 ```bash
 $ capreolus rank.searcheval with benchmark.name=nf \
@@ -20,10 +20,12 @@ The `searcheval` command instructs `RankTask` to query NFCorpus and evaluate the
 ```bash
 INFO - capreolus.task.rank.evaluate - rank: fold=s1 best run: ...searcher-BM25_b-0.8_fields-title_hits-1000_k1-0.9/task-rank_filter-False/searcher
 INFO - capreolus.task.rank.evaluate - rank: cross-validated results when optimizing for 'map':
-INFO - capreolus.task.rank.evaluate -             map: 0.2109
-INFO - capreolus.task.rank.evaluate -     ndcg_cut_10: 0.4034
+INFO - capreolus.task.rank.evaluate -             map: 0.1361
+INFO - capreolus.task.rank.evaluate -     ndcg_cut_10: 0.2906
 ...
 ```
+
+These results are comparable with the *all titles* results in the [NFCorpus paper](https://www.cl.uni-heidelberg.de/~riezler/publications/papers/ECIR2016.pdf), which reports a MAP of 0.1251 for BM25 (Table 2). The Benchmark's ``fields`` config option can be used to issue other types of queries as well (e.g., ``benchmark.fields=all_fields``).
 
 ```eval_rst
 .. important:: Capreolus Benchmarks define *folds* to use; each fold specifies training, dev (validation), and test queries.
@@ -80,18 +82,16 @@ Next, we can build `Index` and `Searcher`. These module types do more than just 
 ```python
 >>> index = Index.create("anserini", {"stemmer": "porter"}, provide={"collection": collection})
 >>> index.create_index()  # returns immediately if the index already exists
-#TODO UPDATE
 >>> index.get_df("foods")
 0
 >>> index.get_df("food")
-2822
+1011
 # Next, a Searcher to query the index
-#TODO UPDATE
 >>> searcher = Searcher.create("BM25", {"hits": 3}, provide={"index": index})
->>> searcher.query("organized")
-OrderedDict([('FBIS4-2046', 4.867800235748291),
-             ('FBIS3-2553', 4.822000026702881),
-             ('FBIS3-23578', 4.754199981689453)])
+>>> searcher.query("foods")
+OrderedDict([('MED-1761', 1.213), 
+             ('MED-2742', 1.212),
+             ('MED-1046', 1.2058)])
 ```
 
 Finally, we can emulate the `RankTask.search()` method we called earlier:
@@ -112,8 +112,8 @@ Capreolus modules implement the Capreolus module API plus an API specific to the
 The module API consists of four attributes:
 - `module_type`: a string indicating the module's type, like "index" or "benchmark"
 - `module_name`: a string indicating the module's name, like "anserini" or "nf"
-- `config_spec`: a list of `ConfigOption` objects, for example, `ConfigOption("stemmer", default_value="none", description="stemmer to use")`
-- `dependencies` a list of `Dependency` objects; for example, `Dependency(key="collection", module="collection", name="nf")`
+- `config_spec`: a list of `ConfigOption` objects. For example, `[ConfigOption("stemmer", default_value="none", description="stemmer to use")]`
+- `dependencies` a list of `Dependency` objects. For example, `[Dependency(key="collection", module="collection", name="nf")]`
 
 When the module is created, any dependencies that are not explicitly passed with `provide={key: object}` are automatically created. The module's config options in `config_spec` and those of its dependencies are exposed as Capreolus configuration options.
 
@@ -125,7 +125,8 @@ The `Task` module API specifies two additional class attributes: `commands` and 
 Let's create a new task that mirrors the graph we constructed manually, except with two separate `Searcher` objects. We'll save the results from both searchers and measure their effectiveness on the validation queries to decide which searcher to report test set results on.
 
 ```python
-from capreolus import evaluator, get_logger, Dependency, ConfigOption, Searcher, Task
+from capreolus import evaluator, get_logger, Dependency, ConfigOption
+from capreolus.task import Task
 
 logger = get_logger(__name__)  # pylint: disable=invalid-name
 
@@ -171,4 +172,18 @@ class TutorialTask(Task):
         return best_results
 
 ```
-    
+
+```eval_rst
+.. note:: The module needs to be registered in order for Capreolus to find it. Registration happens when the ``@Task.register`` decorator is applied, so no additional steps are needed to use the new Task via the Python API. When using the Task via the CLI, the ``tutorial.py`` file containing it needs to be imported in order for the Task to be registered. This can be accomplished by placing the file inside the ``capreolus.tasks`` package (see ``capreolus.task.__path__``). However, in this case, the above Task is already provided with Capreolus as ``tasks/tutorial.py``.
+```
+
+Let's try running the Task we just declared via the Python API.
+
+```python
+>>> task = TutorialTask()
+>>> results = task.run()
+>>> results['score']['map']
+0.14798308699242727
+```
+
+
