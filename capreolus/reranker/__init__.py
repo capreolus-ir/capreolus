@@ -5,6 +5,14 @@ from capreolus import ConfigOption, Dependency, ModuleBase
 
 
 class Reranker(ModuleBase):
+    """Base class for Reranker modules. The purpose of a Reranker is to predict relevance scores for input documents. Rerankers are generally supervised methods implemented in PyTorch or TensorFlow.
+
+    Modules should provide:
+        - a ``build_model`` method that initializes the model used
+        - a ``score`` and a ``test`` method that take a representation created by an :class:`~capreolus.extractor.Extractor` module as input and return document scores
+        - a ``load_weights`` and a ``save_weights`` method, if the base class' PyTorch methods cannot be used
+    """
+
     module_type = "reranker"
     dependencies = [
         Dependency(key="extractor", module="extractor", name="embedtext"),
