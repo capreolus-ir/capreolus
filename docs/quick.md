@@ -186,4 +186,15 @@ Let's try running the Task we just declared via the Python API.
 0.14798308699242727
 ```
 
+Each module type's base class describes the module API that should be implemented to create new modules of that type.
+Check out the API documentation to learn more:
+<a href="autoapi/capreolus/benchmark/index.html">Benchmark</a>, 
+<a href="autoapi/capreolus/collection/index.html">Collection</a>, 
+<a href="autoapi/capreolus/extractor/index.html">Extractor</a>, 
+<a href="autoapi/capreolus/index/index.html">Index</a>, 
+<a href="autoapi/capreolus/reranker/index.html">Reranker</a>, 
+<a href="autoapi/capreolus/searcher/index.html">Searcher</a>, 
+<a href="autoapi/capreolus/task/index.html">Task</a>, 
+<a href="autoapi/capreolus/tokenizer/index.html">Tokenizer</a>, and
+<a href="autoapi/capreolus/trainer/index.html">Trainer</a>.
 
