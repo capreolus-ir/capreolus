@@ -9,11 +9,27 @@
 
 ## Command Line Interface
 
-Use the `RankTask` pipeline to rank documents using a `Searcher` on an [Anserini](https://anserini.io) `Index` built on robust04. (The index will be automatically downloaded if `benchmark.collection.path` is invalid.)
+Use the `RankTask` pipeline to rank documents using a `Searcher` on an [Anserini](https://anserini.io) `Index` built on [NFCorpus](https://www.cl.uni-heidelberg.de/statnlpgroup/nfcorpus/), which contains biomedical documents and queries. NFCorpus is publicly available and will be automatically downloaded.
+
+```bash
+$ capreolus rank.searcheval with benchmark.name=nf \
+  searcher.name=BM25 searcher.index.stemmer=porter searcher.b=0.8
 ```
-$ capreolus rank.searcheval with searcher.name=BM25 \
-  searcher.index.stemmer=porter searcher.b=0.8 \
-  benchmark.name=robust04.yang19 benchmark.collection.path=/path/to/trec45
+
+The `searcheval` command instructs `RankTask` to query NFCorpus and evaluate the Searcher's performance on NFCorpus' test queries. The command will output results like this:
+```bash
+INFO - capreolus.task.rank.evaluate - rank: fold=s1 best run: ...searcher-BM25_b-0.8_fields-title_hits-1000_k1-0.9/task-rank_filter-False/searcher
+INFO - capreolus.task.rank.evaluate - rank: cross-validated results when optimizing for 'map':
+INFO - capreolus.task.rank.evaluate -             map: 0.2109
+INFO - capreolus.task.rank.evaluate -     ndcg_cut_10: 0.4034
+...
+```
+
+```eval_rst
+.. important:: Capreolus Benchmarks define *folds* to use; each fold specifies training, dev (validation), and test queries.
+          Tasks respect these folds when calculating metrics.
+          NFCorpus defines a fixed test set, which corresponds to having a *single fold* in Capreolus.
+          When running a benchmark that uses multiple folds with cross-validation, like *robust04*, the results reported are averaged over the benchmark's test sets.
 ```
 
 ## Python API
@@ -23,13 +39,12 @@ Let's run the same pipeline using the Python API:
 from capreolus.task import RankTask
 
 task = RankTask({'searcher': {'name': 'BM25', 'index': {'stemmer': 'porter'}, 'b': '0.8'},
-                 'benchmark': {'name': 'robust04.yang19',
-                               'collection': {'path': '/path/to/trec45'}}})
+                 'benchmark': {'name': 'nf'}})
 task.searcheval()
 ```
 
 ```eval_rst
-.. note:: The ``capreolus.parse_config_string`` convenience method can transform a config string like ``searcher.name=BM25 benchmark.name=robust04.yang`` into a config dict as shown above.
+.. note:: The ``capreolus.parse_config_string`` convenience method can transform a config string like ``searcher.name=BM25 benchmark.name=nf`` into a config dict as shown above.
 ```
 
 <img style="float: right" src="_static/ranktask.png">
@@ -43,29 +58,35 @@ Capreolus pipelines are composed of self-contained modules corresponding to "IR 
 <code class="docutils literal notranslate"><span class="pre">RankTask</span></code> declares dependencies on a <code class="docutils literal notranslate"><span class="pre">Searcher</span></code> module and a <code class="docutils literal notranslate"><span class="pre">Benchmark</span></code> module, which it uses to query a document collection and to obtain experimental data (i.e., topics, relevance judgments, and folds), respectively. The <code class="docutils literal notranslate"><span class="pre">Searcher</span></code> depends on an <code class="docutils literal notranslate"><span class="pre">Index</span></code>. Both the <code class="docutils literal notranslate"><span class="pre">Index</span></code> and <code class="docutils literal notranslate"><span class="pre">Benchmark</span></code> depend on a <code class="docutils literal notranslate"><span class="pre">Collection</span></code>. In this example, <code class="docutils literal notranslate"><span class="pre">RankTask</span></code> requires that the same <code class="docutils literal notranslate"><span class="pre">Collection</span></code> be provided to both.
 </p>
 
+```python
+from capreolus import Benchmark, Collection, Index, Searcher
+```
+
 Let's construct this graph one module at a time.
 ```python
-# Previously, the Benchmark specified a dependency on the 'robust04' collection specifically.
-# Now we specify "robust04" ourselves.
->>> collection = Collection.create("robust04", config={'path': '/path/to/trec45'})
+# Previously, the Benchmark specified a dependency on the 'nf' collection specifically.
+# Now we create this Collection directly.
+>>> collection = Collection.create("nf")
 >>> collection.get_path_and_types()
-    ("/path/to/trec45", "TrecCollection", "DefaultLuceneDocumentGenerator")
+    ("/path/to/collection-nf/documents", "TrecCollection", "DefaultLuceneDocumentGenerator")
 # Next, create a Benchmark and pass it the collection object directly.
 # This is an alternative to automatically creating the collection as a dependency.
->>> benchmark = Benchmark.create("robust04.yang19", provide={'collection': collection})
->>> benchmark.topics
-    {'title': {'301': 'International Organized Crime', '302': 'Poliomyelitis and Post-Polio', ... }
+>>> benchmark = Benchmark.create("nf", provide={'collection': collection})
+>>> benchmark.topics["title"]
+    {'56': 'foods for glaucoma', '68': 'what is actually in chicken nuggets', ... }
 ```
 
 Next, we can build `Index` and `Searcher`. These module types do more than just pointing to data.
 ```python
 >>> index = Index.create("anserini", {"stemmer": "porter"}, provide={"collection": collection})
 >>> index.create_index()  # returns immediately if the index already exists
->>> index.get_df("organized")
+#TODO UPDATE
+>>> index.get_df("foods")
 0
->>> index.get_df("organiz")
-3048
+>>> index.get_df("food")
+2822
 # Next, a Searcher to query the index
+#TODO UPDATE
 >>> searcher = Searcher.create("BM25", {"hits": 3}, provide={"index": index})
 >>> searcher.query("organized")
 OrderedDict([('FBIS4-2046', 4.867800235748291),
@@ -90,9 +111,9 @@ To get metrics, we could then pass `results` to `capreolus.evaluator.eval_runs()
 Capreolus modules implement the Capreolus module API plus an API specific to the module type.
 The module API consists of four attributes:
 - `module_type`: a string indicating the module's type, like "index" or "benchmark"
-- `module_name`: a string indicating the module's name, like "anserini" or "robust04.yang19"
+- `module_name`: a string indicating the module's name, like "anserini" or "nf"
 - `config_spec`: a list of `ConfigOption` objects, for example, `ConfigOption("stemmer", default_value="none", description="stemmer to use")`
-- `dependencies` a list of `Dependency` objects; for example, `Dependency(key="collection", module="collection", name="robust04")`
+- `dependencies` a list of `Dependency` objects; for example, `Dependency(key="collection", module="collection", name="nf")`
 
 When the module is created, any dependencies that are not explicitly passed with `provide={key: object}` are automatically created. The module's config options in `config_spec` and those of its dependencies are exposed as Capreolus configuration options.
 
