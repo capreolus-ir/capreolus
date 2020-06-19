@@ -51,10 +51,16 @@ class NF(Collection):
         return document_dir
 
     def _convert_to_trec(self, inp_fns, outp_file):
+        # train.docs, dev.docs, and test.docs have some overlap, so we check for duplicate docids
+        seen_docids = set()
+
         for inp_fn in inp_fns:
             assert os.path.exists(inp_fn)
 
             with open(inp_fn, "rt", encoding="utf-8") as f:
                 for line in f:
                     docid, doc = line.strip().split("\t")
-                    outp_file.write(f"<DOC>\n<DOCNO>{docid}</DOCNO>\n<TEXT>\n{doc}\n</TEXT>\n</DOC>\n")
+
+                    if docid not in seen_docids:
+                        outp_file.write(f"<DOC>\n<DOCNO>{docid}</DOCNO>\n<TEXT>\n{doc}\n</TEXT>\n</DOC>\n")
+                        seen_docids.add(docid)

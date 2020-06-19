@@ -23,7 +23,7 @@ class NF(Benchmark):
         ConfigOption(key="labelrange", default_value="0-2", description="range of dataset qrels, options: 0-2, 1-3"),
         ConfigOption(
             key="fields",
-            default_value="all_fields",
+            default_value="all_titles",
             description="query fields included in topic file, "
             "options: 'all_fields', 'all_titles', 'nontopics', 'vid_title', 'vid_desc'",
         ),
