@@ -6,6 +6,13 @@ logger = get_logger(__name__)  # pylint: disable=invalid-name
 
 
 class Trainer(ModuleBase):
+    """Base class for Trainer modules. The purpose of a Trainer is to train a :class:`~capreolus.reranker.Reranker` module and use it to make predictions. Capreolus provides two trainers: :class:`~capreolus.trainer.pytorch.PytorchTrainer` and :class:`~capreolus.trainer.tensorflow.TensorFlowTrainer`
+
+    Modules should provide:
+        - a ``train`` method that trains a reranker on training and dev (validation) data
+        - a ``predict`` method that uses a reranker to make predictions on data
+    """
+
     module_type = "trainer"
     requires_random_seed = True
 
