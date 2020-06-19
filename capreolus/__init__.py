@@ -32,7 +32,7 @@ from capreolus.extractor import Extractor
 from capreolus.reranker import Reranker
 from capreolus.tokenizer import Tokenizer
 from capreolus.trainer import Trainer
-# from capreolus.task import Task
+from capreolus.task import Task
 
 
 def parse_config_string(s):
