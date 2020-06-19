@@ -2,6 +2,14 @@ from capreolus import ModuleBase, Dependency, ConfigOption, constants, module_re
 
 
 class Task(ModuleBase):
+    """Base class for Task modules. The purpose of a Task is to describe a Capreolus pipeline and serve as the pipeline's entry point. Tasks provide one or more commands that provide entry points while sharing the Task's configuration options and dependencies.
+
+    Modules should provide:
+        - a ``commands`` attribute containing the names of methods that can serve as pipeline entry points (*Task commands*). Each command will be accessible via the CLI using the syntax ``capreolus <task name>.<command name> ...``
+        - a ``default_command`` attribute containing the name of a command to run if none is given
+        - methods (taking only the *self* argument) that correspond to each command defined
+    """
+
     module_type = "task"
     commands = []
     help_commands = ["describe", "print_config", "print_paths", "print_pipeline"]

@@ -14,6 +14,15 @@ def list2str(l, delimiter="-"):
 
 
 class Searcher(ModuleBase):
+    """Base class for Searcher modules. The purpose of a Searcher is to query a collection via an :class:`~capreolus.index.Index` module.
+
+    Similar to Rerankers, Searchers return a list of documents and their relevance scores for a given query.
+    Searchers are unsupervised and efficient, whereas Rerankers are supervised and do not use an inverted index directly.
+
+    Modules should provide:
+        - a ``query(string)`` and a ``query_from_file(path)`` method that return document scores
+    """
+
     module_type = "searcher"
 
     @staticmethod
