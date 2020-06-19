@@ -5,16 +5,23 @@ from capreolus.utils.trec import load_qrels, load_trec_topics
 
 
 class Benchmark(ModuleBase):
-    """the module base class"""
+    """Base class for Benchmark modules. The purpose of a Benchmark is to provide the data needed to run an experiment, such as queries, folds, and relevance judgments.
+
+    Modules should provide:
+        - a ``topics`` dict mapping query ids (*qids*) to *queries*
+        - a ``qrels`` dict mapping *qids* to *docids* and *relevance labels*
+        - a ``folds`` dict mapping a fold name to *training*, *dev* (validation), and *testing* qids
+        - if these can be loaded from files in standard formats, they can be specified by setting the ``topic_file``, ``qrel_file``, and ``fold_file``, respectively, rather than by setting the above attributes directly
+    """
 
     module_type = "benchmark"
     qrel_file = None
     topic_file = None
     fold_file = None
     query_type = None
-    # documents with a relevance label >= relevance_level will be considered relevant
-    # corresponds to trec_eval's --level_for_rel (and passed to pytrec_eval as relevance_level)
     relevance_level = 1
+    """ Documents with a relevance label >= relevance_level will be considered relevant.
+    This corresponds to trec_eval's --level_for_rel (and is passed to pytrec_eval as relevance_level). """
 
     @property
     def qrels(self):
