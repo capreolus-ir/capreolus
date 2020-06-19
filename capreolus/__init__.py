@@ -29,8 +29,8 @@ from capreolus.collection import Collection
 from capreolus.index import Index
 from capreolus.searcher import Searcher
 from capreolus.extractor import Extractor
-from capreolus.reranker.base import Reranker
-from capreolus.task.base import Task
+from capreolus.reranker import Reranker
+from capreolus.task import Task
 from capreolus.tokenizer import Tokenizer
 from capreolus.trainer import Trainer
 

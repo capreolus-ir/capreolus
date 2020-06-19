@@ -2,7 +2,7 @@ import math
 import os
 import subprocess
 
-from .base import Index
+from . import Index
 from capreolus import ModuleBase, Dependency, ConfigOption, constants, get_logger
 from capreolus.utils.common import Anserini
 

@@ -1,6 +1,12 @@
+from capreolus import ModuleBase, Dependency, ConfigOption
+
+
+class Tokenizer(ModuleBase):
+    module_type = "tokenizer"
+
+
 from profane import import_all_modules
 
-from .base import Tokenizer
 from .anserini import AnseriniTokenizer
 from .bert import BertTokenizer
 

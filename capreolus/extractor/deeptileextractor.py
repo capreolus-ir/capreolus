@@ -13,7 +13,7 @@ from pymagnitude import Magnitude, MagnitudeUtils
 from tqdm import tqdm
 from profane import ConfigOption, Dependency, constants
 
-from capreolus.extractor import Extractor
+from . import Extractor
 from capreolus.utils.common import padlist
 from capreolus.utils.loginit import get_logger
 

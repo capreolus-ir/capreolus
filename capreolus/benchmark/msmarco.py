@@ -1,4 +1,4 @@
-from profane import ModuleBase, Dependency, ConfigOption, constants
+from capreolus import constants, ConfigOption, Dependency
 from . import Benchmark
 
 PACKAGE_PATH = constants["PACKAGE_PATH"]

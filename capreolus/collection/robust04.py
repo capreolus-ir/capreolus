@@ -2,7 +2,7 @@ import os
 import shutil
 import tarfile
 
-from .base import Collection
+from . import Collection
 from capreolus import ModuleBase, Dependency, ConfigOption, constants
 from capreolus.utils.common import download_file, hash_file, remove_newline
 from capreolus.utils.loginit import get_logger

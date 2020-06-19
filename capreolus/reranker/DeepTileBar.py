@@ -2,10 +2,10 @@ import copy
 
 import torch
 import torch.nn.functional as F
-from profane import ConfigOption, Dependency
 from torch import nn
 from torch.autograd import Variable
 
+from capreolus import ConfigOption, Dependency
 from capreolus.extractor.deeptileextractor import DeepTileExtractor
 from capreolus.reranker import Reranker
 from capreolus.utils.loginit import get_logger

@@ -6,7 +6,7 @@ import numpy as np
 import tensorflow as tf
 from tqdm import tqdm
 
-from .base import Extractor
+from . import Extractor
 from capreolus import ModuleBase, Dependency, ConfigOption, constants, get_logger
 from capreolus.utils.common import padlist
 from capreolus.utils.exceptions import MissingDocError

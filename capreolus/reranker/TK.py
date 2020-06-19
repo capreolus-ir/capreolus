@@ -1,11 +1,11 @@
 import math
 
 import torch
-from profane import ConfigOption, Dependency
 from torch import nn
 from torch.nn import TransformerEncoder, TransformerEncoderLayer
-
 from allennlp.modules.matrix_attention import CosineMatrixAttention
+
+from capreolus import ConfigOption, Dependency
 from capreolus.reranker import Reranker
 from capreolus.reranker.common import SimilarityMatrix, create_emb_layer
 from capreolus.utils.loginit import get_logger

@@ -1,7 +1,7 @@
 import os
 import tarfile
 
-from .base import Collection
+from . import Collection
 from capreolus import constants, get_logger
 from capreolus.utils.common import download_file
 

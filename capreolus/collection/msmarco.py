@@ -1,4 +1,4 @@
-from .base import Collection
+from . import Collection
 from capreolus import ConfigOption
 
 # @Collection.register

@@ -9,7 +9,7 @@ import tensorflow_ranking as tfr
 import numpy as np
 from tqdm import tqdm
 
-from .base import Trainer
+from . import Trainer
 from capreolus import ModuleBase, Dependency, ConfigOption, Searcher, constants, evaluator, get_logger
 from capreolus.utils.common import plot_metrics, plot_loss
 

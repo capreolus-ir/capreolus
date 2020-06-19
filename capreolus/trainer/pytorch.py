@@ -7,7 +7,7 @@ import torch
 from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
 
-from .base import Trainer
+from . import Trainer
 from capreolus import ModuleBase, Dependency, ConfigOption, Searcher, constants, evaluator, get_logger
 from capreolus.reranker.common import pair_hinge_loss, pair_softmax_loss
 from capreolus.utils.common import plot_metrics, plot_loss

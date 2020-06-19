@@ -1,6 +1,6 @@
 import os
 
-from .base import Collection
+from . import Collection
 from capreolus import constants, get_logger
 
 logger = get_logger(__name__)

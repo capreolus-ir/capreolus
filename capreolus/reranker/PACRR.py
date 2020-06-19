@@ -1,8 +1,8 @@
 import torch
-from profane import ConfigOption, Dependency
 from torch import nn
 from torch.nn import functional as F
 
+from capreolus import ConfigOption, Dependency
 from capreolus.reranker import Reranker
 
 # TODO add shuffle, cascade, disambig?
