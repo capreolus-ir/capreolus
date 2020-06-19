@@ -7,6 +7,12 @@ logger = get_logger(__name__)
 
 
 class Extractor(ModuleBase):
+    """Base class for Extractor modules. The purpose of an Extractor is to convert queries and documents to a representation suitable for use with a :class:`~capreolus.reranker.Reranker` module.
+
+    Modules should provide:
+        - an ``id2vec(qid, posid, negid=None)`` method that converts the given query and document ids to an appropriate representation
+    """
+
     module_type = "extractor"
 
     def _extend_stoi(self, toks_list, calc_idf=False):
