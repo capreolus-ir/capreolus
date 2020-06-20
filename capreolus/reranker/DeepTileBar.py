@@ -172,7 +172,8 @@ class DeepTileBar_class(nn.Module):
 
 @Reranker.register
 class DeepTileBar(Reranker):
-    description = """Zhiwen Tang and Grace Hui Yang. 2019. DeepTileBars: Visualizing Term Distribution for Neural Information Retrieval. In AAAI'19."""
+    """Zhiwen Tang and Grace Hui Yang. 2019. DeepTileBars: Visualizing Term Distribution for Neural Information Retrieval. In AAAI'19."""
+
     module_name = "DeepTileBar"
 
     dependencies = [

@@ -146,9 +146,9 @@ class TK_class(nn.Module):
 
 @Reranker.register
 class TK(Reranker):
+    """Sebastian Hofstätter, Markus Zlabinger, and Allan Hanbury. 2019. TU Wien @ TREC Deep Learning '19 -- Simple Contextualization for Re-ranking. In TREC '19."""
+
     module_name = "TK"
-    description = """Sebastian Hofstätter, Markus Zlabinger, and Allan Hanbury. 2019.
-                     TU Wien @ TREC Deep Learning '19 -- Simple Contextualization for Re-ranking. In TREC '19."""
 
     config_spec = [
         ConfigOption("gradkernels", True, "backprop through mus and sigmas"),

@@ -74,7 +74,8 @@ dtype = torch.FloatTensor
 
 @Reranker.register
 class CDSSM(Reranker):
-    description = """Yelong Shen, Xiaodong He, Jianfeng Gao, Li Deng, and Grégoire Mesnil. 2014. A Latent Semantic Model with Convolutional-Pooling Structure for Information Retrieval. In CIKM'14."""
+    """Yelong Shen, Xiaodong He, Jianfeng Gao, Li Deng, and Grégoire Mesnil. 2014. A Latent Semantic Model with Convolutional-Pooling Structure for Information Retrieval. In CIKM'14."""
+
     module_name = "CDSSM"
 
     config_spec = [

@@ -127,8 +127,8 @@ dtype = torch.FloatTensor
 
 @Reranker.register
 class POSITDRMM(Reranker):
-    description = """Ryan McDonald, George Brokos, and Ion Androutsopoulos. 2018.
-                     Deep Relevance Ranking Using Enhanced Document-Query Interactions. In EMNLP'18."""
+    """Ryan McDonald, George Brokos, and Ion Androutsopoulos. 2018. Deep Relevance Ranking Using Enhanced Document-Query Interactions. In EMNLP'18."""
+
     module_name = "POSITDRMM"
 
     def build_model(self):

@@ -53,7 +53,10 @@ class TFVanillaBert_Class(tf.keras.Model):
 
 @Reranker.register
 class TFVanillaBERT(Reranker):
+    """TensorFlow implementation of Vanilla BERT."""
+
     module_name = "TFVanillaBERT"
+
     dependencies = [
         Dependency(key="extractor", module="extractor", name="berttext"),
         Dependency(key="trainer", module="trainer", name="tensorflow"),

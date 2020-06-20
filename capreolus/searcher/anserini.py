@@ -139,7 +139,7 @@ class PostprocessMixin:
 
 @Searcher.register
 class BM25(Searcher, AnseriniSearcherMixIn):
-    """ BM25 with fixed k1 and b. """
+    """ Anserini BM25. This searcher's parameters can also be specified as lists indicating parameters to grid search (e.g., ``"0.4,0.6,0.8"`` or ``"0.4..1,0.2"``). """
 
     module_name = "BM25"
 
@@ -171,7 +171,7 @@ class BM25(Searcher, AnseriniSearcherMixIn):
 
 @Searcher.register
 class BM25Grid(Searcher, AnseriniSearcherMixIn):
-    """ BM25 with a grid search for k1 and b. Search is from 0.1 to bmax/k1max in 0.1 increments """
+    """ Deprecated. BM25 with a grid search for k1 and b. Search is from 0.1 to bmax/k1max in 0.1 increments """
 
     module_name = "BM25Grid"
     dependencies = [Dependency(key="index", module="index", name="anserini")]
@@ -197,6 +197,7 @@ class BM25Grid(Searcher, AnseriniSearcherMixIn):
 
 @Searcher.register
 class BM25RM3(Searcher, AnseriniSearcherMixIn):
+    """ Anserini BM25 with RM3 expansion. This searcher's parameters can also be specified as lists indicating parameters to grid search (e.g., ``"0.4,0.6,0.8"`` or ``"0.4..1,0.2"``). """
 
     module_name = "BM25RM3"
     dependencies = [Dependency(key="index", module="index", name="anserini")]
@@ -273,9 +274,7 @@ class StaticBM25RM3Rob04Yang19(Searcher):
 
 @Searcher.register
 class BM25PRF(Searcher, AnseriniSearcherMixIn):
-    """
-    BM25 with PRF
-    """
+    """ Anserini BM25 PRF. This searcher's parameters can also be specified as lists indicating parameters to grid search (e.g., ``"0.4,0.6,0.8"`` or ``"0.4..1,0.2"``). """
 
     module_name = "BM25PRF"
 
@@ -308,10 +307,7 @@ class BM25PRF(Searcher, AnseriniSearcherMixIn):
 
 @Searcher.register
 class AxiomaticSemanticMatching(Searcher, AnseriniSearcherMixIn):
-    """
-    TODO: Add more info on retrieval method
-    Also, BM25 is hard-coded to be the scoring model
-    """
+    """ Anserini BM25 with Axiomatic query expansion. This searcher's parameters can also be specified as lists indicating parameters to grid search (e.g., ``"0.4,0.6,0.8"`` or ``"0.4..1,0.2"``). """
 
     module_name = "axiomatic"
     dependencies = [Dependency(key="index", module="index", name="anserini")]
@@ -342,7 +338,7 @@ class AxiomaticSemanticMatching(Searcher, AnseriniSearcherMixIn):
 
 @Searcher.register
 class DirichletQL(Searcher, AnseriniSearcherMixIn):
-    """ Dirichlet QL with a fixed mu """
+    """ Anserini QL with Dirichlet smoothing. This searcher's parameters can also be specified as lists indicating parameters to grid search (e.g., ``"0.4,0.6,0.8"`` or ``"0.4..1,0.2"``). """
 
     module_name = "DirichletQL"
     dependencies = [Dependency(key="index", module="index", name="anserini")]
@@ -373,9 +369,7 @@ class DirichletQL(Searcher, AnseriniSearcherMixIn):
 
 @Searcher.register
 class QLJM(Searcher, AnseriniSearcherMixIn):
-    """
-    QL with Jelinek-Mercer smoothing
-    """
+    """ Anserini QL with Jelinek-Mercer smoothing. This searcher's parameters can also be specified as lists indicating parameters to grid search (e.g., ``"0.4,0.6,0.8"`` or ``"0.4..1,0.2"``). """
 
     module_name = "QLJM"
     dependencies = [Dependency(key="index", module="index", name="anserini")]
@@ -395,9 +389,7 @@ class QLJM(Searcher, AnseriniSearcherMixIn):
 
 @Searcher.register
 class INL2(Searcher, AnseriniSearcherMixIn):
-    """
-    I(n)L2 scoring model
-    """
+    """ Anserini I(n)L2 scoring model. This searcher does not support list parameters. """
 
     module_name = "INL2"
     dependencies = [Dependency(key="index", module="index", name="anserini")]
@@ -416,7 +408,7 @@ class INL2(Searcher, AnseriniSearcherMixIn):
 @Searcher.register
 class SPL(Searcher, AnseriniSearcherMixIn):
     """
-    SPL scoring model
+    Anserini SPL scoring model. This searcher does not support list parameters.
     """
 
     module_name = "SPL"
@@ -439,7 +431,7 @@ class SPL(Searcher, AnseriniSearcherMixIn):
 @Searcher.register
 class F2Exp(Searcher, AnseriniSearcherMixIn):
     """
-    F2Exp scoring model
+    F2Exp scoring model. This searcher does not support list parameters.
     """
 
     module_name = "F2Exp"
@@ -462,7 +454,7 @@ class F2Exp(Searcher, AnseriniSearcherMixIn):
 @Searcher.register
 class F2Log(Searcher, AnseriniSearcherMixIn):
     """
-    F2Log scoring model
+    F2Log scoring model. This searcher does not support list parameters.
     """
 
     module_name = "F2Log"
@@ -485,8 +477,7 @@ class F2Log(Searcher, AnseriniSearcherMixIn):
 @Searcher.register
 class SDM(Searcher, AnseriniSearcherMixIn):
     """
-    Sequential Dependency Model
-    The scoring model is hardcoded to be BM25 (TODO: Make it configurable?)
+    Anserini BM25 with the Sequential Dependency Model. This searcher supports list parameters for only k1 and b.
     """
 
     module_name = "SDM"

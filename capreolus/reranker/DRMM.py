@@ -122,8 +122,9 @@ dtype = torch.FloatTensor
 
 @Reranker.register
 class DRMM(Reranker):
+    """Jiafeng Guo, Yixing Fan, Qingyao Ai, and W. Bruce Croft. 2016. A Deep Relevance Matching Model for Ad-hoc Retrieval. In CIKM'16."""
+
     module_name = "DRMM"
-    description = """Jiafeng Guo, Yixing Fan, Qingyao Ai, and W. Bruce Croft. 2016. A Deep Relevance Matching Model for Ad-hoc Retrieval. In CIKM'16."""
 
     config_spec = [
         ConfigOption("nbins", 29, "number of bins in matching histogram"),

@@ -86,9 +86,10 @@ dtype = torch.FloatTensor
 
 @Reranker.register
 class DRMMTKS(Reranker):
-    # refernce: https://github.com/NTMC-Community/MatchZoo-py/blob/master/matchzoo/models/drmmtks.py
+    """Jiafeng Guo, Yixing Fan, Qingyao Ai, and W. Bruce Croft. 2016. A Deep Relevance Matching Model for Ad-hoc Retrieval. In CIKM'16."""
+
+    # reference: https://github.com/NTMC-Community/MatchZoo-py/blob/master/matchzoo/models/drmmtks.py
     module_name = "DRMMTKS"
-    description = """Jiafeng Guo, Yixing Fan, Qingyao Ai, and W. Bruce Croft. 2016. A Deep Relevance Matching Model for Ad-hoc Retrieval. In CIKM'16."""
 
     config_spec = [
         ConfigOption("topk", 10, "number of bins in matching histogram"),

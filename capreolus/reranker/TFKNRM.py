@@ -57,7 +57,13 @@ class TFKNRM_Class(tf.keras.Model):
 
 @Reranker.register
 class TFKNRM(Reranker):
+    """TensorFlow implementation of KNRM.
+
+       Chenyan Xiong, Zhuyun Dai, Jamie Callan, Zhiyuan Liu, and Russell Power. 2017. End-to-End Neural Ad-hoc Ranking with Kernel Pooling. In SIGIR'17.
+    """
+
     module_name = "TFKNRM"
+
     dependencies = [
         Dependency(key="extractor", module="extractor", name="embedtext"),
         Dependency(key="trainer", module="trainer", name="tensorflow"),
