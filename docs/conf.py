@@ -37,7 +37,7 @@ def get_version(rel_path):
 # -- Project information -----------------------------------------------------
 
 project = "Capreolus"
-copyright = "2020"
+copyright = "2020 Andrew Yates"
 author = "Andrew Yates"
 
 # The full version, including alpha/beta/rc tags

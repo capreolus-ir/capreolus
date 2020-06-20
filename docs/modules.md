@@ -77,9 +77,6 @@ For a complete list of modules, run the command `capreolus modules` or see the <
    
    .. autoapiattribute:: module_name
       :noindex:
-      
-   .. autoapiattribute:: dependencies
-      :noindex:
 ```
 
 ```eval_rst
@@ -88,10 +85,6 @@ For a complete list of modules, run the command `capreolus modules` or see the <
    
    .. autoapiattribute:: module_name
       :noindex:
-      
-   .. autoapiattribute:: dependencies
-      :noindex:
-
 ```
 
 ## Searchers
