@@ -15,6 +15,11 @@ PACKAGE_PATH = constants["PACKAGE_PATH"]
 
 @Collection.register
 class CodeSearchNet(Collection):
+    """CodeSearchNet Corpus. [1]
+
+       [1] Hamel Husain, Ho-Hsiang Wu, Tiferet Gazit, Miltiadis Allamanis, and Marc Brockschmidt. 2019. CodeSearchNet Challenge: Evaluating the State of Semantic Code Search. arXiv 2019.
+    """
+
     module_name = "codesearchnet"
     url = "https://s3.amazonaws.com/code-search-net/CodeSearchNet/v2"
     collection_type = "TrecCollection"  # TODO: any other supported type?

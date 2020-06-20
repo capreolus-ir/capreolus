@@ -103,6 +103,7 @@ Finally, we can emulate the `RankTask.search()` method we called earlier:
 To get metrics, we could then pass `results` to `capreolus.evaluator.eval_runs()`:
 ```eval_rst
 .. autoapifunction:: capreolus.evaluator.eval_runs
+   :noindex:
 ```
 
 
@@ -186,6 +187,7 @@ Let's try running the Task we just declared via the Python API.
 0.14798308699242727
 ```
 
+### Module APIs
 Each module type's base class describes the module API that should be implemented to create new modules of that type.
 Check out the API documentation to learn more:
 <a href="autoapi/capreolus/benchmark/index.html">Benchmark</a>, 
@@ -198,3 +200,7 @@ Check out the API documentation to learn more:
 <a href="autoapi/capreolus/tokenizer/index.html">Tokenizer</a>, and
 <a href="autoapi/capreolus/trainer/index.html">Trainer</a>.
 
+
+## Next Steps
+- Learn more about [running pipelines using the command line interface](cli.md)
+- View what [Capreolus modules](modules.md) are available

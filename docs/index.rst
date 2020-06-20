@@ -17,6 +17,7 @@ Looking for the code? `Find Capreolus on GitHub. <https://github.com/capreolus-i
    quick
    installation
    cli
+   modules
 
 .. Indices and tables
 ==================

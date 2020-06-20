@@ -12,6 +12,11 @@ PACKAGE_PATH = constants["PACKAGE_PATH"]
 
 @Collection.register
 class ANTIQUE(Collection):
+    """A Non-factoid Question Answering Benchmark from Hashemi et al. [1]
+
+    [1] Helia Hashemi, Mohammad Aliannejadi, Hamed Zamani, and W. Bruce Croft. 2020. ANTIQUE: A non-factoid question answering benchmark. ECIR 2020.
+    """
+
     module_name = "antique"
     _path = PACKAGE_PATH / "data" / "antique-collection"
 

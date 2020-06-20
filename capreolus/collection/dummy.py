@@ -9,6 +9,8 @@ PACKAGE_PATH = constants["PACKAGE_PATH"]
 
 @Collection.register
 class DummyCollection(Collection):
+    """ Tiny collection for testing """
+
     module_name = "dummy"
     _path = PACKAGE_PATH / "data" / "dummy" / "data"
     collection_type = "TrecCollection"
