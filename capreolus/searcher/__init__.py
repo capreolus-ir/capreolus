@@ -84,4 +84,6 @@ class Searcher(ModuleBase):
 
 from profane import import_all_modules
 
+from .anserini import BM25, BM25RM3, SDM
+
 import_all_modules(__file__, __package__)

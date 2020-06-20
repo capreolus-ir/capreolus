@@ -89,5 +89,8 @@ class Collection(ModuleBase):
 from profane import import_all_modules
 
 from .dummy import DummyCollection
+from .antique import ANTIQUE
+from .nf import NF
+from .robust04 import Robust04
 
 import_all_modules(__file__, __package__)
