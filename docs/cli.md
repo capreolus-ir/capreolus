@@ -38,6 +38,7 @@ module type=reranker
 .. note:: Results and cached objects are stored in ``~/.capreolus/results/`` and ``~/.capreolus/cache/`` by default. Set the ``CAPREOLUS_RESULTS`` and ``CAPREOLUS_CACHE`` environment variables to change these locations. For example: ``export CAPREOLUS_CACHE=/data/capreolus/cache``
 ```
 
+### RankTask
 - Use `RankTask` with the [NFCorpus](https://www.cl.uni-heidelberg.de/statnlpgroup/nfcorpus/) `Benchmark`. This will download the collection, create an index, and search for the NFCorpus topics. The `Benchmark` specifies a dependency on `collection.name=nf` and provides the corresponding topics and relevance judgments.
 
 ```
@@ -53,6 +54,7 @@ $ capreolus rank.searcheval with \
   searcher.name=BM25RM3 searcher.fbDocs=5-10-15 searcher.fbTerms=5-25-50
 ```
 
+### RerankTask
 - Use `RerankTask` to run the same `RankTask` pipeline optimized for recall@1000, and then train a `Reranker` optimized for P@20 on the first fold provided by the `Benchmark`. We limit training to two iterations (`niters`) of size `itersize` to keep the training process from taking too long.
 
 ```
@@ -64,4 +66,5 @@ $ capreolus rerank.traineval with \
 
 <img src="_static/reranktask.png" style="display: block; margin-left: auto; margin-right: auto">
 
+### ReRerankTask
 - The `ReRerankTask` demonstrates pipeline flexibility by adding a second reranking step on top of the output from `RerankTask`. Run `capreolus rererank.print_config` to see the configuration options it expects. *(Hint: it consists of a `RankTask` name `rank` as before, followed by a `RerankTask` named `rerank1`, followed by another `RerankTask` named `rerank2`.)*
