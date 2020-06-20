@@ -23,7 +23,7 @@ class RerankTask(Task):
         ConfigOption("optimize", "map", "metric to maximize on the dev set"),  # affects train() because we check to save weights
     ]
     dependencies = [
-        Dependency(key="benchmark", module="benchmark", name="nf", provide_this=True, provide_children=["collection"]),
+        Dependency(key="benchmark", module="benchmark", name="robust04.yang19", provide_this=True, provide_children=["collection"]),
         Dependency(key="rank", module="task", name="rank"),
         Dependency(key="reranker", module="reranker", name="KNRM"),
     ]
