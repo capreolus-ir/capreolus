@@ -5,7 +5,9 @@ For a complete list of modules, run the command `capreolus modules` or see the <
 
 ```eval_rst
 .. important:: When using Capreolus' configuration system, modules are selected by specifying their ``module_name``.
-   For example, the ``NF`` benchmark can be selected with the ``benchmark.name=nf`` config string, the equivalent config dictionary ``{"benchmark": {"name": "nf"}}``, or imported as the class ``benchmark.nf.NF``.
+   For example, the ``NF`` benchmark can be selected with the ``benchmark.name=nf`` config string or the equivalent config dictionary ``{"benchmark": {"name": "nf"}}``.
+   
+   The corresponding class can be created as ``benchmark.nf.NF(config=..., provide=...)`` or created by name with ``Benchmark.create("nf", config=..., provide=...)``.
 ```
 
 ## Benchmarks
