@@ -33,8 +33,7 @@ class NF(Benchmark):
 
     query_type = "title"
 
-    def __init__(self, config, provide, share_dependency_objects):
-        super().__init__(config, provide, share_dependency_objects)
+    def build(self):
         fields, label_range = self.config["fields"], self.config["labelrange"]
         self.field2kws = {
             "all_fields": ["all"],
