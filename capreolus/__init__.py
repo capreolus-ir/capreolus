@@ -4,7 +4,7 @@ from pathlib import Path
 
 from profane import ConfigOption, Dependency, ModuleBase, constants, config_list_to_dict, module_registry
 
-__version__ = "0.2.1"
+__version__ = "0.2.2"
 
 # specify a base package that we should look for modules under (e.g., <BASE>.task)
 # constants must be specified before importing Task (or any other modules!)
