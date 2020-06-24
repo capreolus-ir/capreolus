@@ -1,11 +1,11 @@
 import os
 import numpy as np
 import pytest
-from profane import module_registry
 
+from capreolus import module_registry
 from capreolus.utils.trec import load_trec_topics
 from capreolus.benchmark import DummyBenchmark
-from capreolus.searcher import Searcher, BM25, BM25Grid
+from capreolus.searcher.anserini import Searcher, BM25, BM25Grid
 from capreolus.tests.common_fixtures import tmpdir_as_cache, dummy_index
 
 skip_searchers = {"bm25staticrob04yang19", "BM25Grid", "BM25Postprocess", "axiomatic"}

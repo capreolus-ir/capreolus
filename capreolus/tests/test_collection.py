@@ -3,8 +3,25 @@ import shutil
 
 import pytest
 
+from capreolus import Collection, module_registry
 from capreolus.index import AnseriniIndex
-from capreolus.collection import ANTIQUE, CodeSearchNet
+from capreolus.collection.antique import ANTIQUE
+from capreolus.collection.codesearchnet import CodeSearchNet
+from capreolus.tests.common_fixtures import tmpdir_as_cache
+
+collections = set(module_registry.get_module_names("collection"))
+
+
+@pytest.mark.parametrize("collection_name", collections)
+def test_collection_creatable(tmpdir_as_cache, collection_name):
+    collection = Collection.create(collection_name)
+
+
+@pytest.mark.parametrize("collection_name", collections)
+@pytest.mark.download
+def test_collection_downloadable(tmpdir_as_cache, collection_name):
+    collection = Collection.create(collection_name)
+    collection.find_document_path()
 
 
 @pytest.mark.download

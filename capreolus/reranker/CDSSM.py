@@ -1,7 +1,7 @@
 import torch
-from profane import ConfigOption, Dependency
 from torch import nn
 
+from capreolus import ConfigOption, Dependency
 from capreolus.reranker import Reranker
 from capreolus.reranker.common import create_emb_layer
 
@@ -74,7 +74,8 @@ dtype = torch.FloatTensor
 
 @Reranker.register
 class CDSSM(Reranker):
-    description = """Yelong Shen, Xiaodong He, Jianfeng Gao, Li Deng, and Grégoire Mesnil. 2014. A Latent Semantic Model with Convolutional-Pooling Structure for Information Retrieval. In CIKM'14."""
+    """Yelong Shen, Xiaodong He, Jianfeng Gao, Li Deng, and Grégoire Mesnil. 2014. A Latent Semantic Model with Convolutional-Pooling Structure for Information Retrieval. In CIKM'14."""
+
     module_name = "CDSSM"
 
     config_spec = [

@@ -1,9 +1,9 @@
 import torch
 import torch.nn.functional as F
-from profane import ConfigOption, Dependency
 from torch import nn
 from torch.autograd import Variable
 
+from capreolus import ConfigOption, Dependency
 from capreolus.reranker import Reranker
 from capreolus.reranker.common import create_emb_layer
 from capreolus.utils.loginit import get_logger
@@ -127,8 +127,8 @@ dtype = torch.FloatTensor
 
 @Reranker.register
 class POSITDRMM(Reranker):
-    description = """Ryan McDonald, George Brokos, and Ion Androutsopoulos. 2018.
-                     Deep Relevance Ranking Using Enhanced Document-Query Interactions. In EMNLP'18."""
+    """Ryan McDonald, George Brokos, and Ion Androutsopoulos. 2018. Deep Relevance Ranking Using Enhanced Document-Query Interactions. In EMNLP'18."""
+
     module_name = "POSITDRMM"
 
     def build_model(self):

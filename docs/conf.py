@@ -37,7 +37,7 @@ def get_version(rel_path):
 # -- Project information -----------------------------------------------------
 
 project = "Capreolus"
-copyright = "2020"
+copyright = "2020 Andrew Yates"
 author = "Andrew Yates"
 
 # The full version, including alpha/beta/rc tags
@@ -189,6 +189,7 @@ todo_include_todos = True
 
 napoleon_google_docstring = True
 
+# autoapi_keep_files = True
 autoapi_type = "python"
 autoapi_dirs = ["../capreolus"]
 autoapi_ignore = ["*tests/*", "flycheck_*"]

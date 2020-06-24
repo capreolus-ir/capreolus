@@ -2,10 +2,10 @@ import copy
 
 import torch
 import torch.nn.functional as F
-from profane import ConfigOption, Dependency
 from torch import nn
 from torch.autograd import Variable
 
+from capreolus import ConfigOption, Dependency
 from capreolus.extractor.deeptileextractor import DeepTileExtractor
 from capreolus.reranker import Reranker
 from capreolus.utils.loginit import get_logger
@@ -172,7 +172,8 @@ class DeepTileBar_class(nn.Module):
 
 @Reranker.register
 class DeepTileBar(Reranker):
-    description = """Zhiwen Tang and Grace Hui Yang. 2019. DeepTileBars: Visualizing Term Distribution for Neural Information Retrieval. In AAAI'19."""
+    """Zhiwen Tang and Grace Hui Yang. 2019. DeepTileBars: Visualizing Term Distribution for Neural Information Retrieval. In AAAI'19."""
+
     module_name = "DeepTileBar"
 
     dependencies = [

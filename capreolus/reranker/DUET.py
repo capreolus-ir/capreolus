@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
-from profane import ConfigOption, Dependency
 
+from capreolus import ConfigOption, Dependency
 from capreolus.reranker import Reranker
 from capreolus.reranker.common import create_emb_layer
 from capreolus.utils.loginit import get_logger
@@ -131,8 +131,9 @@ class DUET_class(nn.Module):
 
 @Reranker.register
 class DUET(Reranker):
+    """Bhaskar Mitra, Fernando Diaz, and Nick Craswell. 2017. Learning to Match using Local and Distributed Representations of Text for Web Search. In WWW'17."""
+
     module_name = "DUET"
-    description = """Bhaskar Mitra, Fernando Diaz, and Nick Craswell. 2017. Learning to Match using Local and Distributed Representations of Text for Web Search. In WWW'17."""
 
     config_spec = [
         ConfigOption("nfilter", 10, "number of filters for both local and distrbuted model"),

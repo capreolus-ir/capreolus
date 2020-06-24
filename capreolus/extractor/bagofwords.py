@@ -1,9 +1,9 @@
 import pickle
 import os
 import time
-from profane import Dependency, ConfigOption
 
-from capreolus.extractor import Extractor
+from capreolus import Dependency, ConfigOption
+from . import Extractor
 from capreolus.tokenizer import Tokenizer
 from capreolus.utils.loginit import get_logger
 from tqdm import tqdm

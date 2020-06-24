@@ -1,11 +1,11 @@
 import math
 
 import torch
-from profane import ConfigOption, Dependency
 from torch import nn
 from torch.nn import TransformerEncoder, TransformerEncoderLayer
-
 from allennlp.modules.matrix_attention import CosineMatrixAttention
+
+from capreolus import ConfigOption, Dependency
 from capreolus.reranker import Reranker
 from capreolus.reranker.common import SimilarityMatrix, create_emb_layer
 from capreolus.utils.loginit import get_logger
@@ -146,9 +146,9 @@ class TK_class(nn.Module):
 
 @Reranker.register
 class TK(Reranker):
+    """Sebastian Hofstätter, Markus Zlabinger, and Allan Hanbury. 2019. TU Wien @ TREC Deep Learning '19 -- Simple Contextualization for Re-ranking. In TREC '19."""
+
     module_name = "TK"
-    description = """Sebastian Hofstätter, Markus Zlabinger, and Allan Hanbury. 2019.
-                     TU Wien @ TREC Deep Learning '19 -- Simple Contextualization for Re-ranking. In TREC '19."""
 
     config_spec = [
         ConfigOption("gradkernels", True, "backprop through mus and sigmas"),

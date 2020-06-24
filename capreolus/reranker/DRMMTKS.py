@@ -1,8 +1,8 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from profane import ConfigOption, Dependency
 
+from capreolus import ConfigOption, Dependency
 from capreolus.reranker import Reranker
 from capreolus.reranker.common import create_emb_layer
 from capreolus.utils.loginit import get_logger
@@ -86,9 +86,10 @@ dtype = torch.FloatTensor
 
 @Reranker.register
 class DRMMTKS(Reranker):
-    # refernce: https://github.com/NTMC-Community/MatchZoo-py/blob/master/matchzoo/models/drmmtks.py
+    """Jiafeng Guo, Yixing Fan, Qingyao Ai, and W. Bruce Croft. 2016. A Deep Relevance Matching Model for Ad-hoc Retrieval. In CIKM'16."""
+
+    # reference: https://github.com/NTMC-Community/MatchZoo-py/blob/master/matchzoo/models/drmmtks.py
     module_name = "DRMMTKS"
-    description = """Jiafeng Guo, Yixing Fan, Qingyao Ai, and W. Bruce Croft. 2016. A Deep Relevance Matching Model for Ad-hoc Retrieval. In CIKM'16."""
 
     config_spec = [
         ConfigOption("topk", 10, "number of bins in matching histogram"),

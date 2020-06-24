@@ -4,7 +4,7 @@ import torch.utils.data
 import numpy as np
 
 from capreolus.benchmark import DummyBenchmark
-from capreolus.extractor import EmbedText
+from capreolus.extractor.embedtext import EmbedText
 from capreolus.sampler import TrainDataset, PredDataset
 from capreolus.tests.common_fixtures import tmpdir_as_cache, dummy_index
 

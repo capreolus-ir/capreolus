@@ -4,12 +4,14 @@ import nltk
 from nltk import TextTilingTokenizer
 from pymagnitude import Magnitude, MagnitudeUtils
 import numpy as np
+import pytest
 
+from capreolus import Extractor, module_registry
 from capreolus.collection import DummyCollection
 from capreolus.index import AnseriniIndex
 from capreolus.tokenizer import AnseriniTokenizer
 from capreolus.benchmark import DummyBenchmark
-from capreolus.extractor import EmbedText
+from capreolus.extractor.embedtext import EmbedText
 from capreolus.tests.common_fixtures import tmpdir_as_cache, dummy_index
 
 from capreolus.utils.exceptions import MissingDocError
@@ -18,6 +20,14 @@ from capreolus.extractor.deeptileextractor import DeepTileExtractor
 
 MAXQLEN = 8
 MAXDOCLEN = 7
+
+extractors = set(module_registry.get_module_names("extractor"))
+
+
+@pytest.mark.parametrize("extractor_name", extractors)
+def test_extractor_creatable(tmpdir_as_cache, dummy_index, extractor_name):
+    provide = {"index": dummy_index, "collection": dummy_index.collection}
+    extractor = Extractor.create(extractor_name, provide=provide)
 
 
 def test_embedtext_creation(monkeypatch):

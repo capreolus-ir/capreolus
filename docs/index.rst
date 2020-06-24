@@ -17,12 +17,15 @@ Looking for the code? `Find Capreolus on GitHub. <https://github.com/capreolus-i
    quick
    installation
    cli
+   modules
 
 .. Indices and tables
 ==================
 * :ref:`genindex`
 * :ref:`modindex`
 * :ref:`search`
+
+Authors: Andrew Yates, Kevin Martin Jose, Xinyu Zhang, Siddhant Arora, Wei Yang, Jimmy Lin
 
 Looking for the previous "search-then-rerank" pipeline that was presented in the WSDM'20 demo paper?
 Check out Capreolus v0.1 and `the corresponding documentation. <https://capreolus.ai/en/v0.1.4/>`_

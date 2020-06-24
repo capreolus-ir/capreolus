@@ -1,8 +1,8 @@
 import matplotlib.pyplot as plt
 import torch
-from profane import ConfigOption, Dependency
 from torch import nn
 
+from capreolus import ConfigOption, Dependency
 from capreolus.reranker import Reranker
 from capreolus.reranker.common import RbfKernelBank, SimilarityMatrix, create_emb_layer
 from capreolus.utils.loginit import get_logger
@@ -60,9 +60,9 @@ class KNRM_class(nn.Module):
 
 @Reranker.register
 class KNRM(Reranker):
+    """Chenyan Xiong, Zhuyun Dai, Jamie Callan, Zhiyuan Liu, and Russell Power. 2017. End-to-End Neural Ad-hoc Ranking with Kernel Pooling. In SIGIR'17."""
+
     module_name = "KNRM"
-    description = """Chenyan Xiong, Zhuyun Dai, Jamie Callan, Zhiyuan Liu, and Russell Power. 2017.
-                  End-to-End Neural Ad-hoc Ranking with Kernel Pooling. In SIGIR'17."""
 
     config_spec = [
         ConfigOption("gradkernels", True, "backprop through mus and sigmas"),

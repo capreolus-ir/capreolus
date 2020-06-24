@@ -3,13 +3,25 @@ import pickle
 import pytest
 from tqdm import tqdm
 
+from capreolus import Benchmark, module_registry
 from capreolus.utils.loginit import get_logger
 from capreolus.utils.common import remove_newline
-from capreolus.benchmark import CodeSearchNetCorpus as CodeSearchNetCodeSearchNetCorpusBenchmark
-from capreolus.benchmark import CodeSearchNetChallenge as CodeSearchNetCodeSearchNetChallengeBenchmark
-from capreolus.collection import CodeSearchNet as CodeSearchNetCollection
+from capreolus.benchmark.codesearchnet import CodeSearchNetCorpus as CodeSearchNetCodeSearchNetCorpusBenchmark
+from capreolus.benchmark.codesearchnet import CodeSearchNetChallenge as CodeSearchNetCodeSearchNetChallengeBenchmark
+from capreolus.collection.codesearchnet import CodeSearchNet as CodeSearchNetCollection
+from capreolus.tests.common_fixtures import tmpdir_as_cache
 
 logger = get_logger(__name__)
+
+benchmarks = set(module_registry.get_module_names("benchmark"))
+
+
+@pytest.mark.parametrize("benchmark_name", benchmarks)
+@pytest.mark.download
+def test_benchmark_creatable(tmpdir_as_cache, benchmark_name):
+    benchmark = Benchmark.create(benchmark_name)
+    if hasattr(benchmark, "download_if_missing"):
+        benchmark.download_if_missing()
 
 
 @pytest.mark.download

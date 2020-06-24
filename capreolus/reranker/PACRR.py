@@ -1,8 +1,8 @@
 import torch
-from profane import ConfigOption, Dependency
 from torch import nn
 from torch.nn import functional as F
 
+from capreolus import ConfigOption, Dependency
 from capreolus.reranker import Reranker
 
 # TODO add shuffle, cascade, disambig?
@@ -85,9 +85,9 @@ class PACRRConvMax2dModule(torch.nn.Module):
 
 @Reranker.register
 class PACRR(Reranker):
+    """Kai Hui, Andrew Yates, Klaus Berberich, and Gerard de Melo. 2017. PACRR: A Position-Aware Neural IR Model for Relevance Matching. EMNLP 2017. """
+
     module_name = "PACRR"
-    description = """Kai Hui, Andrew Yates, Klaus Berberich, and Gerard de Melo. EMNLP 2017.
-                  PACRR: A Position-Aware Neural IR Model for Relevance Matching. """
 
     config_spec = [
         ConfigOption("mingram", 1, "minimum length of ngram used"),

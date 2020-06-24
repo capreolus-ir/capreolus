@@ -1,7 +1,7 @@
 import tensorflow as tf
-from profane import ConfigOption, Dependency
 from transformers import TFBertForSequenceClassification
 
+from capreolus import ConfigOption, Dependency
 from capreolus.reranker import Reranker
 from capreolus.utils.loginit import get_logger
 
@@ -53,7 +53,10 @@ class TFVanillaBert_Class(tf.keras.Model):
 
 @Reranker.register
 class TFVanillaBERT(Reranker):
+    """TensorFlow implementation of Vanilla BERT."""
+
     module_name = "TFVanillaBERT"
+
     dependencies = [
         Dependency(key="extractor", module="extractor", name="berttext"),
         Dependency(key="trainer", module="trainer", name="tensorflow"),

@@ -1,7 +1,7 @@
 import torch
-from profane import ConfigOption, Dependency
 from torch import nn
 
+from capreolus import ConfigOption, Dependency
 from capreolus.reranker import Reranker
 from capreolus.reranker.common import RbfKernelBank, SimilarityMatrix, create_emb_layer
 from capreolus.utils.loginit import get_logger
@@ -79,8 +79,9 @@ class ConvKNRM_class(nn.Module):
 
 @Reranker.register
 class ConvKNRM(Reranker):
+    """Zhuyun Dai, Chenyan Xiong, Jamie Callan, and Zhiyuan Liu. 2018. Convolutional Neural Networks for Soft-Matching N-Grams in Ad-hoc Search. In WSDM'18."""
+
     module_name = "ConvKNRM"
-    description = """Zhuyun Dai, Chenyan Xiong, Jamie Callan, and Zhiyuan Liu. 2018. Convolutional Neural Networks for Soft-Matching N-Grams in Ad-hoc Search. In WSDM'18."""
 
     config_spec = [
         ConfigOption("gradkernels", True, "backprop through mus and sigmas"),

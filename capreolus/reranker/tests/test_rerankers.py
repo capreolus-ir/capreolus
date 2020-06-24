@@ -5,8 +5,9 @@ import pytest
 import torch
 from pymagnitude import Magnitude
 
+from capreolus import Reranker, module_registry
 from capreolus.benchmark import DummyBenchmark
-from capreolus.extractor import EmbedText
+from capreolus.extractor.embedtext import EmbedText
 from capreolus.extractor.bagofwords import BagOfWords
 from capreolus.extractor.deeptileextractor import DeepTileExtractor
 from capreolus.reranker.CDSSM import CDSSM
@@ -22,6 +23,15 @@ from capreolus.sampler import PredDataset, TrainDataset
 from capreolus.tests.common_fixtures import dummy_index, tmpdir_as_cache
 from capreolus.tokenizer import AnseriniTokenizer
 from capreolus.trainer import PytorchTrainer, TensorFlowTrainer
+
+
+rerankers = set(module_registry.get_module_names("reranker"))
+
+
+@pytest.mark.parametrize("reranker_name", rerankers)
+def test_reranker_creatable(tmpdir_as_cache, dummy_index, reranker_name):
+    provide = {"collection": dummy_index.collection, "index": dummy_index}
+    reranker = Reranker.create(reranker_name, provide=provide)
 
 
 def test_knrm_pytorch(dummy_index, tmpdir, tmpdir_as_cache, monkeypatch):
