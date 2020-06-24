@@ -272,7 +272,7 @@ class DocStats(Extractor):
                 with open(entoutf, 'w') as f:
                     f.write(json.dumps(qentities, indent=4))
 
-            logger.debug(f"{self.entity_strategy}: {qentities}")
+#            logger.debug(f"{self.entity_strategy}: {qentities}")
             for e in qentities:
                 qdesc.append(self["entitylinking"].get_entity_description(e))
 
@@ -418,7 +418,11 @@ class DocStatsEmbedding(DocStats):
 
     @staticmethod
     def config():
-        super().config()#TODO does this work??
+        entity_strategy = None
+
+        if entity_strategy not in [None, 'all', 'domain', 'specific_domainrel']:  # TODO add strategies
+            raise ValueError(f"invalid entity usage strategy (or not implemented): {entity_strategy}")
+        
         embeddings = "w2vnews"
 
     def _get_pretrained_emb(self):

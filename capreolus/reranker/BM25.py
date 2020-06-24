@@ -60,7 +60,7 @@ class BM25Reranker(Reranker):
             term_scores["OVERALL_SCORE"] = "-"
             accumulated_scores["OVERALL_SCORE"] = scoresum
             sorted_acc_scores = {k: v for k, v in sorted(accumulated_scores.items(), key=lambda item: item[1], reverse=True)}
-            final_scores = {k: (v, term_scores[k]) for k, v in sorted_acc_scores}
+            final_scores = {k: (v, term_scores[k]) for k, v in sorted_acc_scores.items()}
             f.write(json.dumps(final_scores, indent=4))
         
         return scoresum

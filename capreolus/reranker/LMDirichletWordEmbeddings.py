@@ -30,6 +30,9 @@ class LMDirichletWordEmbeddingsReranker(Reranker):
     def build(self):
         return self
 
+    def get_docscore_cache_path(self):
+        return self.get_cache_path() / 'docscores'
+
     def test(self, d):
         if not hasattr(self["extractor"], "doc_len"):
             raise RuntimeError("reranker's extractor has not been created yet. try running the task's train() method first.")
