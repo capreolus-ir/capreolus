@@ -34,6 +34,7 @@ class EntitySpecificity(ModuleBase, metaclass=RegisterableModule):
         logger.debug(f"number of entities: {len(entities)}")
 
         counts_of_win = {}
+        # this is run permutation(len(entities), 2) (since 2 the rank_entity computes the 2 sides a->b and b->a)
         for i in range(0, len(entities)):#TODO: this is very slow, when we have like 40 ich entities.... let's do sth
             for j in range(i+1, len(entities)):
                 ranked_pair = self.rank_entity_pair_by_specificity(entities[i], entities[j])

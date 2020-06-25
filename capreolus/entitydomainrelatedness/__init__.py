@@ -30,7 +30,7 @@ class DomainRelatedness(EntityDomainRelatedness):
 
     @staticmethod
     def config():
-        strategy = 'centroid-k100'
+        strategy = 'centroid-k100' #TODO: if implementing another domain-representative strategy, have to change the similarity caceh as well. (better to do it anyways at some point)
         domain_relatedness_threshold = 0.4
         return_top = -1
 
