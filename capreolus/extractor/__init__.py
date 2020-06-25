@@ -1,6 +1,7 @@
 import json
 import logging
 import os
+import re
 from collections import defaultdict, Counter
 from os.path import join, exists
 
@@ -195,20 +196,27 @@ class DocStats(Extractor):
         "entitylinking": Dependency(module="entitylinking", name='ambiversenlu'),
         "domainrelatedness": Dependency(module='entitydomainrelatedness', name='wiki2vecrepresentative', config_overrides={"strategy": "centroid-k100"},),
         "entityspecificity": Dependency(module='entityspecificity', name='higherneighborhoodmean', config_overrides={"return_top": 10, "k": 100, 'ranking_strategy': 'greedy_most_outlinks_withrm'}),
-#        "entityspecificity": Dependency(module='entityspecificity', name='twohoppath'),
-
+#       "entityspecificity": Dependency(module='entityspecificity', name='twohoppath'),
     }
 
     @staticmethod
     def config():
         entity_strategy = None
+        filter_query = None
 
         if entity_strategy not in [None, 'all', 'domain', 'specific_domainrel']:  # TODO add strategies
             raise ValueError(f"invalid entity usage strategy (or not implemented): {entity_strategy}")
 
+        if filter_query is not None and not re.match(r"^(domain|user)_specific_k(\d+|-1)$", filter_query):#todo maybe alpha for reweighting?
+            raise ValueError(f"invalid filter query: {filter_query}")
+
     @property
     def entity_strategy(self):
         return self.cfg["entity_strategy"]
+
+    @property
+    def filter_query(self):
+        return self.cfg["filter_query"]
 
     def exist(self):
         return hasattr(self, "doc_tf")
@@ -282,7 +290,64 @@ class DocStats(Extractor):
             self.qid2toks[qid] = query
             q_count = Counter(query)
             self.qid_termprob[qid] = {k: (v/len(query)) for k, v in q_count.items()}
-            if logger.level in [logging.DEBUG, logging.NOTSET]:#since I just wanted to use this as a debug step, I didn't read from it when it was available
+
+        # here we remove (keep-topk) or reweight the query terms:
+        # this does not work for inputs which is only the query (or coupled with it)
+        if self.filter_query is not None:
+            m = re.match(r"^(domain|user)_specific_k(\d+|-1)$", self.filter_query)
+            if m:
+                filter_by = m.group(1)
+                filter_topk = int(m.group(2))
+
+            reweighted_qid_termprob = {}
+            if filter_by == 'domain':
+                pass
+            elif filter_by == 'user':
+                user_profile_tfs = {}
+                total_len = 0
+                voc = set()
+                for qid in qids:
+                    uid = qid.split("_")[1]
+                    if uid not in user_profile_tfs:
+                        print(uid)
+                        tfs = self.qid_termprob[qid]
+                        mintf = min(tfs.values())
+                        voc.update(tfs.keys())
+                        profile_len = 1 / mintf
+                        total_len += profile_len
+                        user_profile_tfs = tfs # just to have them with user id and uniquely
+                GU = {}
+                for v in voc:
+                    nu = 0
+                    for uid, tfs in user_profile_tfs.items():
+                        if v in tfs:
+                            nu += tfs[v]
+                    GU[v] = nu / total_len
+
+                for qid in qids:
+                    tfs = self.qid_termprob[qid]
+                    reweighted_qid_termprob[qid] = {}
+                    for v in tfs:
+                        reweighted_qid_termprob[qid][v] = tfs[v] / GU[v]
+
+                for qid in qids:
+                    # to get reweighted term frequencies (a probability distribution)
+                    # we will divide every weight by the sum of the all of the weights.
+                    sum_vals = sum(reweighted_qid_termprob[qid].values())
+                    self.qid_termprob[qid] = {k: v/sum_vals for k, v in reweighted_qid_termprob.items()}
+
+                    # to get the query tokens (in another word word counts for query)
+                    # we cannot simply multiply this reweighted tf with the doc lenght
+                    # so we assume that the term with smallest reweighted tf occured once
+                    # and calculate counts based on that. Finally we use round to convert them to integers.
+                    min_reweighted_tf = min(self.qid_termprob[qid].values())
+                    query_token_counts = {k: round(v / min_reweighted_tf) for k, v in self.qid_termprob[qid].items()}
+                    self.qid2toks[qid] = []
+                    for k, v in query_token_counts.items():
+                        self.qid2toks[qid] += list(np.repeat(k, v))
+
+        for qid in qids:
+            if logger.level in [logging.DEBUG, logging.NOTSET]:  # since I just wanted to use this as a debug step, I didn't read from it when it was available
                 tfoutf = join(self.get_profile_term_prob_cache_path(), get_file_name(qid, self["entitylinking"].get_benchmark_name(), self["entitylinking"].get_benchmark_querytype()))
                 if not exists(tfoutf):
                     with open(tfoutf, 'w') as f:
@@ -422,7 +487,7 @@ class DocStatsEmbedding(DocStats):
 
         if entity_strategy not in [None, 'all', 'domain', 'specific_domainrel']:  # TODO add strategies
             raise ValueError(f"invalid entity usage strategy (or not implemented): {entity_strategy}")
-        
+
         embeddings = "w2vnews"
 
     def _get_pretrained_emb(self):
