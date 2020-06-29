@@ -266,6 +266,7 @@ class DocStats(Extractor):
         os.makedirs(self.get_selected_entities_cache_path(), exist_ok=True)
 
         # self.qid2toks = {}
+        self.qidlen = {}
         self.qid_termprob = {}
         for qid in qids:
             qtext = topics[qid]
@@ -288,6 +289,7 @@ class DocStats(Extractor):
             query = self["tokenizer"].tokenize(qtext)
 
             # self.qid2toks[qid] = query
+            self.qidlen[qid] = len(query)
             q_count = Counter(query)
             self.qid_termprob[qid] = {k: (v/len(query)) for k, v in q_count.items()}
 
@@ -352,11 +354,13 @@ class DocStats(Extractor):
                     # we cannot simply multiply this reweighted tf with the doc lenght
                     # so we assume that the term with smallest reweighted tf occured once
                     # and calculate counts based on that. Finally we use round to convert them to integers.
-                    # min_reweighted_tf = min(self.qid_termprob[qid].values())
+                    min_reweighted_tf = min(self.qid_termprob[qid].values())
                     # query_token_counts = {k: round(v / min_reweighted_tf) for k, v in self.qid_termprob[qid].items()}
                     # self.qid2toks[qid] = []
                     # for k, v in query_token_counts.items():
                     #     self.qid2toks[qid] += np.repeat(k, v).tolist()
+                    self.qidlen[qid] = 1/min_reweighted_tf
+
 
         for qid in qids:
             if logger.level in [logging.DEBUG, logging.NOTSET]:  # since I just wanted to use this as a debug step, I didn't read from it when it was available

@@ -40,8 +40,9 @@ class BM25Reranker(Reranker):
         # avg_doc_len = self["extractor"].query_avg_doc_len[d["qid"]]
         # return [self.score_document(query, d["qid"], docid, avg_doc_len) for docid in [d["posdocid"]]]
         querytf = self["extractor"].qid_termprob[d["qid"]]
+        querylen = self["extractor"].qidlen[d["qid"]]
         avg_doc_len = self["extractor"].query_avg_doc_len[d["qid"]]
-        return [self.score_document_tf(querytf, d["qid"], docid, avg_doc_len) for docid in [d["posdocid"]]]
+        return [self.score_document_tf(querytf, querylen, d["qid"], docid, avg_doc_len) for docid in [d["posdocid"]]]
 
     def score_document(self, query, qid, docid, avg_doc_len):
         # TODO is it correct to skip over terms that don't appear to be in the idf vocab?
@@ -69,7 +70,7 @@ class BM25Reranker(Reranker):
         return scoresum
         #return sum(self.score_document_term(term, docid, avg_doc_len) for term in query)
 
-    def score_document_tf(self, querytf, qid, docid, avg_doc_len):
+    def score_document_tf(self, querytf, querylen, qid, docid, avg_doc_len):
         # TODO is it correct to skip over terms that don't appear to be in the idf vocab?
         term_scores = {}
         accumulated_scores = {}
@@ -77,8 +78,8 @@ class BM25Reranker(Reranker):
         for term, tf in querytf.items():
             termsccore = self.score_document_term(term, docid, avg_doc_len)
             term_scores[term] = termsccore
-            accumulated_scores[term] = termsccore * tf
-            scoresum += (termsccore * tf)
+            accumulated_scores[term] = termsccore * round(tf * querylen)
+            scoresum += accumulated_scores[term]
 
         os.makedirs(self.get_docscore_cache_path(), exist_ok=True)
         outf = join(self.get_docscore_cache_path(), f"{qid}_{docid}")
