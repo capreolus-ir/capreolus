@@ -309,13 +309,12 @@ class DocStats(Extractor):
                 for qid in qids:
                     uid = qid.split("_")[1]
                     if uid not in user_profile_tfs:
-                        print(uid)
                         tfs = self.qid_termprob[qid]
                         mintf = min(tfs.values())
                         voc.update(tfs.keys())
                         profile_len = 1 / mintf
                         total_len += profile_len
-                        user_profile_tfs = tfs # just to have them with user id and uniquely
+                        user_profile_tfs[uid] = tfs # just to have them with user id and uniquely
                 GU = {}
                 for v in voc:
                     nu = 0
@@ -334,7 +333,7 @@ class DocStats(Extractor):
                     # to get reweighted term frequencies (a probability distribution)
                     # we will divide every weight by the sum of the all of the weights.
                     sum_vals = sum(reweighted_qid_termprob[qid].values())
-                    self.qid_termprob[qid] = {k: v/sum_vals for k, v in reweighted_qid_termprob.items()}
+                    self.qid_termprob[qid] = {k: v/sum_vals for k, v in reweighted_qid_termprob[qid].items()}
 
                     # to get the query tokens (in another word word counts for query)
                     # we cannot simply multiply this reweighted tf with the doc lenght
@@ -344,7 +343,7 @@ class DocStats(Extractor):
                     query_token_counts = {k: round(v / min_reweighted_tf) for k, v in self.qid_termprob[qid].items()}
                     self.qid2toks[qid] = []
                     for k, v in query_token_counts.items():
-                        self.qid2toks[qid] += list(np.repeat(k, v))
+                        self.qid2toks[qid] += np.repeat(k, v).tolist()
 
         for qid in qids:
             if logger.level in [logging.DEBUG, logging.NOTSET]:  # since I just wanted to use this as a debug step, I didn't read from it when it was available
