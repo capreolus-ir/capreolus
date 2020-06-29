@@ -45,6 +45,7 @@ class BM25Reranker(Reranker):
         term_scores = {}
         accumulated_scores = {}
         scoresum = 0
+        print(query)
         for term in query:
             temp = self.score_document_term(term, docid, avg_doc_len)
             if term not in accumulated_scores:

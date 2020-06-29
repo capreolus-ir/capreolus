@@ -303,25 +303,34 @@ class DocStats(Extractor):
             if filter_by == 'domain':
                 pass
             elif filter_by == 'user':
-                user_profile_tfs = {}
-                total_len = 0
-                voc = set()
-                for qid in qids:
-                    uid = qid.split("_")[1]
-                    if uid not in user_profile_tfs:
-                        tfs = self.qid_termprob[qid]
-                        mintf = min(tfs.values())
-                        voc.update(tfs.keys())
-                        profile_len = 1 / mintf
-                        total_len += profile_len
-                        user_profile_tfs[uid] = tfs # just to have them with user id and uniquely
-                GU = {}
-                for v in voc:
-                    nu = 0
-                    for uid, tfs in user_profile_tfs.items():
-                        if v in tfs:
-                            nu += tfs[v]
-                    GU[v] = nu / total_len
+                # create G (the accumulated other corpus of all users)
+                goutf = join(self.get_profile_term_prob_cache_path(), "allusers")
+                if exists(goutf):
+                    with open(goutf, 'r') as f:
+                        GU = json.loads(f.read())
+                else:
+                    user_profile_tfs = {}
+                    total_len = 0
+                    voc = set()
+                    for qid in qids:
+                        uid = qid.split("_")[1]
+                        if uid not in user_profile_tfs:
+                            print(uid)
+                            tfs = self.qid_termprob[qid]
+                            mintf = min(tfs.values())
+                            voc.update(tfs.keys())
+                            profile_len = 1 / mintf
+                            total_len += profile_len
+                            user_profile_tfs[uid] = tfs # just to have them with user id and uniquely
+                    GU = {}
+                    for v in voc:
+                        nu = 0
+                        for uid, tfs in user_profile_tfs.items():
+                            if v in tfs:
+                                nu += tfs[v]
+                        GU[v] = nu / total_len
+                    with open(goutf, 'w') as f:
+                        f.write(json.dumps(GU))
 
                 for qid in qids:
                     tfs = self.qid_termprob[qid]
