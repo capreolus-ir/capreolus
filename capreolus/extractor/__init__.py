@@ -265,7 +265,7 @@ class DocStats(Extractor):
             os.makedirs(self.get_profile_term_prob_cache_path(), exist_ok=True)
         os.makedirs(self.get_selected_entities_cache_path(), exist_ok=True)
 
-        self.qid2toks = {}
+        # self.qid2toks = {}
         self.qid_termprob = {}
         for qid in qids:
             qtext = topics[qid]
@@ -287,7 +287,7 @@ class DocStats(Extractor):
             qtext += "\n" + "\n".join(qdesc)
             query = self["tokenizer"].tokenize(qtext)
 
-            self.qid2toks[qid] = query
+            # self.qid2toks[qid] = query
             q_count = Counter(query)
             self.qid_termprob[qid] = {k: (v/len(query)) for k, v in q_count.items()}
 
@@ -333,26 +333,30 @@ class DocStats(Extractor):
                         f.write(json.dumps(GU))
 
                 for qid in qids:
-                    tfs = self.qid_termprob[qid]
-                    reweighted_qid_termprob[qid] = {}
-                    for v in tfs:
-                        reweighted_qid_termprob[qid][v] = tfs[v] / GU[v]
+                    tfoutf = join(self.get_profile_term_prob_cache_path(), get_file_name(qid, self["entitylinking"].get_benchmark_name(), self["entitylinking"].get_benchmark_querytype()))
+                    if exists(tfoutf):
+                        with open(tfoutf, 'r') as f:
+                            self.qid_termprob[qid] = json.loads(f.read())
+                    else:
+                        tfs = self.qid_termprob[qid]
+                        reweighted_qid_termprob[qid] = {}
+                        for v in tfs:
+                            reweighted_qid_termprob[qid][v] = tfs[v] / GU[v]
 
-                for qid in qids:
-                    # to get reweighted term frequencies (a probability distribution)
-                    # we will divide every weight by the sum of the all of the weights.
-                    sum_vals = sum(reweighted_qid_termprob[qid].values())
-                    self.qid_termprob[qid] = {k: v/sum_vals for k, v in reweighted_qid_termprob[qid].items()}
+                        # to get reweighted term frequencies (a probability distribution)
+                        # we will divide every weight by the sum of the all of the weights.
+                        sum_vals = sum(reweighted_qid_termprob[qid].values())
+                        self.qid_termprob[qid] = {k: v/sum_vals for k, v in reweighted_qid_termprob[qid].items()}
 
                     # to get the query tokens (in another word word counts for query)
                     # we cannot simply multiply this reweighted tf with the doc lenght
                     # so we assume that the term with smallest reweighted tf occured once
                     # and calculate counts based on that. Finally we use round to convert them to integers.
-                    min_reweighted_tf = min(self.qid_termprob[qid].values())
-                    query_token_counts = {k: round(v / min_reweighted_tf) for k, v in self.qid_termprob[qid].items()}
-                    self.qid2toks[qid] = []
-                    for k, v in query_token_counts.items():
-                        self.qid2toks[qid] += np.repeat(k, v).tolist()
+                    # min_reweighted_tf = min(self.qid_termprob[qid].values())
+                    # query_token_counts = {k: round(v / min_reweighted_tf) for k, v in self.qid_termprob[qid].items()}
+                    # self.qid2toks[qid] = []
+                    # for k, v in query_token_counts.items():
+                    #     self.qid2toks[qid] += np.repeat(k, v).tolist()
 
         for qid in qids:
             if logger.level in [logging.DEBUG, logging.NOTSET]:  # since I just wanted to use this as a debug step, I didn't read from it when it was available
