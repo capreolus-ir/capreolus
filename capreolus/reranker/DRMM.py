@@ -4,7 +4,7 @@ import torch.nn.functional as F
 
 from capreolus import ConfigOption, Dependency
 from capreolus.reranker import Reranker
-from capreolus.reranker.common import create_emb_layer
+from capreolus.reranker.common import SimilarityMatrix, create_emb_layer
 from capreolus.utils.loginit import get_logger
 
 logger = get_logger(__name__)  # pylint: disable=invalid-name
@@ -20,6 +20,7 @@ class DRMM_class(nn.Module):
         self.gate_type = config["gateType"]
 
         self.embedding = create_emb_layer(extractor.embeddings, non_trainable=True)
+        self.simmat = SimilarityMatrix(self.embedding)
 
         self.ffw = nn.Sequential(nn.Linear(self.nbins + 1, self.nodes), nn.Tanh(), nn.Linear(self.nodes, 1), nn.Tanh())
 
@@ -48,13 +49,13 @@ class DRMM_class(nn.Module):
         """
 
         # compute cos similarity
-        q_norm = torch.sqrt((queries * queries).sum(dim=-1) + 1e-7)[:, :, None] + 1e-7
-        d_norm = torch.sqrt((documents * documents).sum(dim=-1) + 1e-7)[:, None, :] + 1e-7
+        # q_norm = torch.sqrt((queries * queries).sum(dim=-1) + 1e-7)[:, :, None] + 1e-7
+        # d_norm = torch.sqrt((documents * documents).sum(dim=-1) + 1e-7)[:, None, :] + 1e-7
+        # sim_matrix = torch.bmm(queries, documents.transpose(2, 1))  # (B, Tq, Td)
+        # sim_matrix = sim_matrix / q_norm
+        # sim_matrix = sim_matrix / d_norm  # (B, Tq, Td)
 
-        sim_matrix = torch.bmm(queries, documents.transpose(2, 1))  # (B, Tq, Td)
-        sim_matrix = sim_matrix / q_norm
-        sim_matrix = sim_matrix / d_norm  # (B, Tq, Td)
-
+        sim_matrix = self.simmat(queries, documents)
         sim_matrix += (1 - d_masks[:, None, :]) * 1e7  # assign large number on <PAD> pos
         hist = torch.zeros([sim_matrix.size(0), sim_matrix.size(1), self.nbins + 1], dtype=torch.float)
 
@@ -101,13 +102,11 @@ class DRMM_class(nn.Module):
         query_sent_mask = (query_sentence != 0).to(sentence.device).float()  # (B, Tq)
         sent_mask = (sentence != 0).to(sentence.device).float()  # (B, Td)
 
-        x = self.embedding(sentence).to(sentence.device)
-        query_x = self.embedding(query_sentence).to(sentence.device).float()
-
-        hist_vec = self._hist_map(query_x, x, sent_mask).to(sentence.device)
+        hist_vec = self._hist_map(query_sentence, sentence, sent_mask).to(sentence.device)
         ffw_vec = self.ffw(hist_vec).squeeze().to(sentence.device)  # (B, T1)
 
         query_idf = query_idf.float()
+        query_x = self.embedding(query_sentence).to(sentence.device).float()
         w = self._term_gate(query_x, query_idf, query_sent_mask)  # （B, T1）
 
         x = (w * ffw_vec).sum(dim=-1, keepdim=True)  # (B, 1)

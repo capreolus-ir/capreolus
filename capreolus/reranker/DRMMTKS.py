@@ -4,7 +4,7 @@ import torch.nn.functional as F
 
 from capreolus import ConfigOption, Dependency
 from capreolus.reranker import Reranker
-from capreolus.reranker.common import create_emb_layer
+from capreolus.reranker.common import SimilarityMatrix, create_emb_layer
 from capreolus.utils.loginit import get_logger
 
 logger = get_logger(__name__)  # pylint: disable=invalid-name
@@ -17,6 +17,8 @@ class DRMMTKS_class(nn.Module):
         self.gate_type = config["gateType"]
 
         self.embedding = create_emb_layer(extractor.embeddings, non_trainable=config["freezeemb"])
+        self.simmat = SimilarityMatrix(self.embedding)
+
         self.ffw = nn.Sequential(nn.Linear(self.topk, 1), nn.Tanh())
 
         gate_inp_dim = 1 if self.gate_type == "IDF" else self.embedding.weight.size(-1)
@@ -26,22 +28,6 @@ class DRMMTKS_class(nn.Module):
         # initialize FC and gate weight in the same way as MatchZoo
         nn.init.uniform_(self.ffw[0].weight, -0.1, 0.1)
         nn.init.uniform_(self.gates.weight, -0.01, 0.01)
-
-    def _sim(self, queries, documents):
-        """
-        Args:
-            queries: (B, Tq, H)
-            documents: (B, Td, H)
-
-        Returns: (B, Tq, 6)
-        """
-        q_norm = torch.sqrt((queries * queries).sum(dim=-1) + 1e-7)[:, :, None] + 1e-7
-        d_norm = torch.sqrt((documents * documents).sum(dim=-1) + 1e-7)[:, None, :] + 1e-7
-
-        sim_matrix = torch.bmm(queries, documents.transpose(2, 1))  # (B, Q, D)
-        sim_matrix = sim_matrix / q_norm
-        sim_matrix = sim_matrix / d_norm
-        return sim_matrix
 
     def _term_gate(self, queries, query_idf, q_masks):
         """
@@ -66,11 +52,7 @@ class DRMMTKS_class(nn.Module):
         sent_pad_pos = (doc == 0).float()  # (B, D)
         query_idf = query_idf.float()
 
-        query, doc = self.embedding(query), self.embedding(doc)
-
-        cos_mat = self._sim(query, doc)  # (B, Q, D)
-        cos_mat = cos_mat - 1e5 * (sent_pad_pos[:, None, :])
-
+        cos_mat = self.simmat(query, doc)
         topk, _ = torch.topk(cos_mat, k=self.topk, dim=-1)  # (B, Q, k)
         ffw_vec = self.ffw(topk).squeeze()  # (B, Q)
 

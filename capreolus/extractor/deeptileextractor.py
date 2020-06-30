@@ -50,9 +50,9 @@ class DeepTileExtractor(Extractor):
         ConfigOption("tilechannels", 3),
         ConfigOption("embeddings", "glove6b"),
         ConfigOption("passagelen", 20),
-        ConfigOption("maxqlen", 8),
+        ConfigOption("maxqlen", 4),
         ConfigOption("maxdoclen", 800),
-        ConfigOption("usecache", False),
+        ConfigOption("usecache", True),
     ]
 
     def _get_pretrained_emb(self):
