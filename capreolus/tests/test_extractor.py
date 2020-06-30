@@ -83,9 +83,9 @@ def test_embedtext_id2vec(monkeypatch):
 
 def test_slowembedtext_creation(monkeypatch):
     def fake_magnitude_embedding(*args, **kwargs):
-        return Magnitude(None)
+        return np.zeros((1, 8), dtype=np.float32), {0: "<pad>"}, {"<pad>": 0}
 
-    monkeypatch.setattr(SlowEmbedText, "_get_pretrained_emb", fake_magnitude_embedding)
+    monkeypatch.setattr(SlowEmbedText, "_load_pretrained_embeddings", fake_magnitude_embedding)
 
     index_cfg = {"name": "anserini", "indexstops": False, "stemmer": "porter", "collection": {"name": "dummy"}}
     index = AnseriniIndex(index_cfg)
@@ -122,9 +122,9 @@ def test_slowembedtext_creation(monkeypatch):
 
 def test_slowembedtext_id2vec(monkeypatch):
     def fake_magnitude_embedding(*args, **kwargs):
-        return Magnitude(None)
+        return np.zeros((1, 8), dtype=np.float32), {0: "<pad>"}, {"<pad>": 0}
 
-    monkeypatch.setattr(SlowEmbedText, "_get_pretrained_emb", fake_magnitude_embedding)
+    monkeypatch.setattr(SlowEmbedText, "_load_pretrained_embeddings", fake_magnitude_embedding)
 
     extractor_cfg = {
         "name": "slowembedtext",
@@ -176,9 +176,9 @@ def test_slowembedtext_id2vec(monkeypatch):
 
 def test_slowembedtext_caching(dummy_index, monkeypatch):
     def fake_magnitude_embedding(*args, **kwargs):
-        return Magnitude(None)
+        return np.zeros((1, 8), dtype=np.float32), {0: "<pad>"}, {"<pad>": 0}
 
-    monkeypatch.setattr(SlowEmbedText, "_get_pretrained_emb", fake_magnitude_embedding)
+    monkeypatch.setattr(SlowEmbedText, "_load_pretrained_embeddings", fake_magnitude_embedding)
 
     extractor_cfg = {
         "name": "slowembedtext",
@@ -394,7 +394,7 @@ def test_bagofwords_caching(dummy_index, monkeypatch):
     def fake_magnitude_embedding(*args, **kwargs):
         return Magnitude(None)
 
-    monkeypatch.setattr(SlowEmbedText, "_get_pretrained_emb", fake_magnitude_embedding)
+    monkeypatch.setattr(SlowEmbedText, "_load_pretrained_embeddings", fake_magnitude_embedding)
 
     extractor_cfg = {"name": "bagofwords", "datamode": "trigram", "maxqlen": 4, "maxdoclen": 800, "usecache": True}
     extractor = BagOfWords(extractor_cfg, provide={"index": dummy_index})

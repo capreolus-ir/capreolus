@@ -8,6 +8,7 @@ from pymagnitude import Magnitude, MagnitudeUtils
 from tqdm import tqdm
 
 from . import Extractor
+from .common import load_pretrained_embeddings
 from capreolus import ModuleBase, Dependency, ConfigOption, constants, get_logger
 from capreolus.utils.common import padlist
 from capreolus.utils.exceptions import MissingDocError
@@ -33,12 +34,6 @@ class EmbedText(Extractor):
     ]
 
     pad_tok = "<pad>"
-    embed_paths = {
-        "glove6b": "glove/light/glove.6B.300d",
-        "glove6b.50d": "glove/light/glove.6B.50d",
-        "w2vnews": "word2vec/light/GoogleNews-vectors-negative300",
-        "fasttext": "fasttext/light/wiki-news-300d-1M-subword",
-    }
 
     def build(self):
         self._embedding_cache = constants["CACHE_BASE_PATH"] / "embeddings"
@@ -47,47 +42,11 @@ class EmbedText(Extractor):
         self.embeddings, self.stoi, self.itos = None, None, None
         self._next_oov_index = -1
 
-    def _load_vocab(self):
-        stoi, itos = {}, {}
-        with open(self._vocab_cache, "rt") as f:
-            for idx, line in enumerate(f):
-                term = line.strip()
-                stoi[term] = idx
-                itos[idx] = term
-
-        assert itos[0] == self.pad_tok
-        return stoi, itos
-
     def _load_pretrained_embeddings(self):
         if self.embeddings is not None:
             return
 
-        if self._numpy_cache.exists() and self._vocab_cache.exists():
-            logger.debug("loading embeddings from %s", self._numpy_cache)
-            self.stoi, self.itos = self._load_vocab()
-            self.embeddings = np.load(self._numpy_cache, mmap_mode="r").reshape(len(self.stoi), -1)
-            return
-
-        logger.debug("preparing embeddings and vocab")
-        magnitude = Magnitude(
-            MagnitudeUtils.download_model(self.embed_paths[self.config["embeddings"]], download_dir=self._embedding_cache)
-        )
-
-        terms, vectors = zip(*((term, vector) for term, vector in magnitude))
-        pad_vector = np.zeros(magnitude.dim, dtype=np.float32)
-        terms = [self.pad_tok] + list(terms)
-        vectors = np.array([pad_vector] + list(vectors), dtype=np.float32)
-        itos = {idx: term for idx, term in enumerate(terms)}
-
-        logger.debug("saving embeddings to %s", self._numpy_cache)
-        np.save(self._numpy_cache, vectors, allow_pickle=False)
-        with open(self._vocab_cache, "w") as outf:
-            for idx, term in sorted(itos.items()):
-                print(term, file=outf)
-
-        self.itos = itos
-        self.stoi = {term: idx for idx, term in itos.items()}
-        self.embeddings = vectors
+        self.embeddings, self.itos, self.stoi = load_pretrained_embeddings(self.config["embeddings"])
 
     def get_tf_feature_description(self):
         feature_description = {

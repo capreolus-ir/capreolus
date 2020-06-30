@@ -8,6 +8,7 @@ from pymagnitude import Magnitude, MagnitudeUtils
 from tqdm import tqdm
 
 from . import Extractor
+from .common import load_pretrained_embeddings
 from capreolus import ModuleBase, Dependency, ConfigOption, constants, get_logger
 from capreolus.utils.common import padlist
 from capreolus.utils.exceptions import MissingDocError
@@ -36,16 +37,6 @@ class SlowEmbedText(Extractor):
 
     pad = 0
     pad_tok = "<pad>"
-    embed_paths = {
-        "glove6b": "glove/light/glove.6B.300d",
-        "glove6b.50d": "glove/light/glove.6B.50d",
-        "w2vnews": "word2vec/light/GoogleNews-vectors-negative300",
-        "fasttext": "fasttext/light/wiki-news-300d-1M-subword",
-    }
-
-    def _get_pretrained_emb(self):
-        magnitude_cache = constants["CACHE_BASE_PATH"] / "magnitude/"
-        return Magnitude(MagnitudeUtils.download_model(self.embed_paths[self.config["embeddings"]], download_dir=magnitude_cache))
 
     def load_state(self, qids, docids):
         with open(self.get_state_cache_file_path(qids, docids), "rb") as f:
@@ -116,18 +107,20 @@ class SlowEmbedText(Extractor):
     def _get_idf(self, toks):
         return [self.idf.get(tok, 0) for tok in toks]
 
+    def _load_pretrained_embeddings(self):
+        return load_pretrained_embeddings(self.config["embeddings"])
+
     def _build_embedding_matrix(self):
         assert len(self.stoi) > 1  # needs more vocab than self.pad_tok
 
-        magnitude_emb = self._get_pretrained_emb()
-        emb_dim = magnitude_emb.dim
-        embed_vocab = set(term for term, _ in magnitude_emb)
+        embeddings, _, embedding_stoi = self._load_pretrained_embeddings()
+        emb_dim = embeddings.shape[-1]
         embed_matrix = np.zeros((len(self.stoi), emb_dim), dtype=np.float32)
 
         n_missed = 0
         for term, idx in tqdm(self.stoi.items()):
-            if term in embed_vocab:
-                embed_matrix[idx] = magnitude_emb.query(term)
+            if term in embedding_stoi:
+                embed_matrix[idx] = embeddings[embedding_stoi[term]]
             elif term == self.pad_tok:
                 embed_matrix[idx] = np.zeros(emb_dim)
             else:
