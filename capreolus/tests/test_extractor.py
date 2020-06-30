@@ -11,7 +11,7 @@ from capreolus.collection import DummyCollection
 from capreolus.index import AnseriniIndex
 from capreolus.tokenizer import AnseriniTokenizer
 from capreolus.benchmark import DummyBenchmark
-from capreolus.extractor.embedtext import EmbedText
+from capreolus.extractor.slowembedtext import SlowEmbedText
 from capreolus.tests.common_fixtures import tmpdir_as_cache, dummy_index
 
 from capreolus.utils.exceptions import MissingDocError
@@ -30,17 +30,17 @@ def test_extractor_creatable(tmpdir_as_cache, dummy_index, extractor_name):
     extractor = Extractor.create(extractor_name, provide=provide)
 
 
-def test_embedtext_creation(monkeypatch):
+def test_slowembedtext_creation(monkeypatch):
     def fake_magnitude_embedding(*args, **kwargs):
         return Magnitude(None)
 
-    monkeypatch.setattr(EmbedText, "_get_pretrained_emb", fake_magnitude_embedding)
+    monkeypatch.setattr(SlowEmbedText, "_get_pretrained_emb", fake_magnitude_embedding)
 
     index_cfg = {"name": "anserini", "indexstops": False, "stemmer": "porter", "collection": {"name": "dummy"}}
     index = AnseriniIndex(index_cfg)
 
     extractor_cfg = {
-        "name": "embedtext",
+        "name": "slowembedtext",
         "embeddings": "glove6b",
         "zerounk": True,
         "calcidf": True,
@@ -48,7 +48,7 @@ def test_embedtext_creation(monkeypatch):
         "maxdoclen": MAXDOCLEN,
         "usecache": False,
     }
-    extractor = EmbedText(extractor_cfg, provide={"index": index})
+    extractor = SlowEmbedText(extractor_cfg, provide={"index": index})
     benchmark = DummyBenchmark()
 
     qids = list(benchmark.qrels.keys())  # ["301"]
@@ -69,14 +69,14 @@ def test_embedtext_creation(monkeypatch):
     return extractor
 
 
-def test_embedtext_id2vec(monkeypatch):
+def test_slowembedtext_id2vec(monkeypatch):
     def fake_magnitude_embedding(*args, **kwargs):
         return Magnitude(None)
 
-    monkeypatch.setattr(EmbedText, "_get_pretrained_emb", fake_magnitude_embedding)
+    monkeypatch.setattr(SlowEmbedText, "_get_pretrained_emb", fake_magnitude_embedding)
 
     extractor_cfg = {
-        "name": "embedtext",
+        "name": "slowembedtext",
         "embeddings": "glove6b",
         "zerounk": True,
         "calcidf": True,
@@ -84,7 +84,7 @@ def test_embedtext_id2vec(monkeypatch):
         "maxdoclen": MAXDOCLEN,
         "usecache": False,
     }
-    extractor = EmbedText(extractor_cfg, provide={"collection": DummyCollection()})
+    extractor = SlowEmbedText(extractor_cfg, provide={"collection": DummyCollection()})
     benchmark = DummyBenchmark()
 
     qids = list(benchmark.qrels.keys())  # ["301"]
@@ -123,14 +123,14 @@ def test_embedtext_id2vec(monkeypatch):
     assert error_thrown
 
 
-def test_embedtext_caching(dummy_index, monkeypatch):
+def test_slowembedtext_caching(dummy_index, monkeypatch):
     def fake_magnitude_embedding(*args, **kwargs):
         return Magnitude(None)
 
-    monkeypatch.setattr(EmbedText, "_get_pretrained_emb", fake_magnitude_embedding)
+    monkeypatch.setattr(SlowEmbedText, "_get_pretrained_emb", fake_magnitude_embedding)
 
     extractor_cfg = {
-        "name": "embedtext",
+        "name": "slowembedtext",
         "embeddings": "glove6b",
         "zerounk": True,
         "calcidf": True,
@@ -138,7 +138,7 @@ def test_embedtext_caching(dummy_index, monkeypatch):
         "maxdoclen": MAXDOCLEN,
         "usecache": True,
     }
-    extractor = EmbedText(extractor_cfg, provide={"index": dummy_index})
+    extractor = SlowEmbedText(extractor_cfg, provide={"index": dummy_index})
     benchmark = DummyBenchmark()
 
     qids = list(benchmark.qrels.keys())  # ["301"]
@@ -151,7 +151,7 @@ def test_embedtext_caching(dummy_index, monkeypatch):
 
     assert extractor.is_state_cached(qids, docids)
 
-    new_extractor = EmbedText(extractor_cfg, provide={"index": dummy_index})
+    new_extractor = SlowEmbedText(extractor_cfg, provide={"index": dummy_index})
 
     assert new_extractor.is_state_cached(qids, docids)
     new_extractor._build_vocab(qids, docids, benchmark.topics[benchmark.query_type])
@@ -343,7 +343,7 @@ def test_bagofwords_caching(dummy_index, monkeypatch):
     def fake_magnitude_embedding(*args, **kwargs):
         return Magnitude(None)
 
-    monkeypatch.setattr(EmbedText, "_get_pretrained_emb", fake_magnitude_embedding)
+    monkeypatch.setattr(SlowEmbedText, "_get_pretrained_emb", fake_magnitude_embedding)
 
     extractor_cfg = {"name": "bagofwords", "datamode": "trigram", "maxqlen": 4, "maxdoclen": 800, "usecache": True}
     extractor = BagOfWords(extractor_cfg, provide={"index": dummy_index})
