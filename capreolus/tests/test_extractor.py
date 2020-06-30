@@ -11,6 +11,7 @@ from capreolus.collection import DummyCollection
 from capreolus.index import AnseriniIndex
 from capreolus.tokenizer import AnseriniTokenizer
 from capreolus.benchmark import DummyBenchmark
+from capreolus.extractor.embedtext import EmbedText
 from capreolus.extractor.slowembedtext import SlowEmbedText
 from capreolus.tests.common_fixtures import tmpdir_as_cache, dummy_index
 
@@ -28,6 +29,56 @@ extractors = set(module_registry.get_module_names("extractor"))
 def test_extractor_creatable(tmpdir_as_cache, dummy_index, extractor_name):
     provide = {"index": dummy_index, "collection": dummy_index.collection}
     extractor = Extractor.create(extractor_name, provide=provide)
+
+
+def test_embedtext_id2vec(monkeypatch):
+    def fake_load_embeddings(self):
+        vocab = ["<pad>", "lessdummy", "dummy", "doc", "hello", "greetings", "world", "from", "outer", "space"]
+        self.embeddings = np.random.random((len(vocab), 50))
+        self.embeddings[0, :] = 0
+        self.stoi = {term: idx for idx, term in enumerate(vocab)}
+        self.itos = {v: k for k, v in self.stoi.items()}
+
+    monkeypatch.setattr(EmbedText, "_load_pretrained_embeddings", fake_load_embeddings)
+
+    extractor_cfg = {"name": "embedtext", "embeddings": "glove6b", "calcidf": True, "maxqlen": MAXQLEN, "maxdoclen": MAXDOCLEN}
+    extractor = EmbedText(extractor_cfg, provide={"collection": DummyCollection()})
+    benchmark = DummyBenchmark()
+
+    qids = list(benchmark.qrels.keys())  # ["301"]
+    qid = qids[0]
+    docids = list(benchmark.qrels[qid].keys())
+
+    extractor.preprocess(qids, docids, benchmark.topics[benchmark.query_type])
+
+    docid1, docid2 = docids[0], docids[1]
+    data = extractor.id2vec(qid, docid1, docid2)
+    q, d1, d2, idf = [data[k] for k in ["query", "posdoc", "negdoc", "idfs"]]
+
+    assert q.shape[0] == idf.shape[0]
+
+    topics = benchmark.topics[benchmark.query_type]
+    # emb_path = "glove/light/glove.6B.300d"
+    # fullemb = Magnitude(MagnitudeUtils.download_model(emb_path))
+
+    assert len(q) == MAXQLEN
+    assert len(d1) == MAXDOCLEN
+    assert len(d2) == MAXDOCLEN
+
+    assert len([w for w in q if w.sum() != 0]) == len(topics[qid].strip().split()[:MAXQLEN])
+    assert len([w for w in d1 if w.sum() != 0]) == len(extractor.index.get_doc(docid1).strip().split()[:MAXDOCLEN])
+    assert len([w for w in d2 if w.sum() != 0]) == len(extractor.index.get_doc(docid2).strip().split()[:MAXDOCLEN])
+
+    # check MissDocError
+    error_thrown = False
+    try:
+        extractor.id2vec(qid, "0000000", "111111")
+    except MissingDocError as err:
+        error_thrown = True
+        assert err.related_qid == qid
+        assert err.missed_docid == "0000000"
+
+    assert error_thrown
 
 
 def test_slowembedtext_creation(monkeypatch):
