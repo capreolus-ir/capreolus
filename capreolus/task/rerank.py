@@ -109,30 +109,11 @@ class RerankTask(Task):
         test_output_path = train_output_path / "pred" / "test" / "best"
         logger.debug("results path: %s", train_output_path)
 
-        if os.path.exists(test_output_path):
-            test_preds = Searcher.load_trec_run(test_output_path)
-        else:
-            self.rank.search()
-            rank_results = self.rank.evaluate()
-            best_search_run_path = rank_results["path"][fold]
-            best_search_run = Searcher.load_trec_run(best_search_run_path)
+        if not os.path.exists(test_output_path):
+            logger.error("could not find predictions; run the train command before evaluate")
+            raise ValueError("could not find predictions; run the train command before evaluate")
 
-            docids = set(docid for querydocs in best_search_run.values() for docid in querydocs)
-            self.reranker.extractor.preprocess(
-                qids=best_search_run.keys(), docids=docids, topics=self.benchmark.topics[self.benchmark.query_type]
-            )
-            self.reranker.build_model()
-            self.reranker.searcher_scores = best_search_run
-
-            self.reranker.trainer.load_best_model(self.reranker, train_output_path)
-
-            test_run = {
-                qid: docs for qid, docs in best_search_run.items() if qid in self.benchmark.folds[fold]["predict"]["test"]
-            }
-            test_dataset = PredDataset(qid_docid_to_rank=test_run, extractor=self.reranker.extractor)
-
-            test_preds = self.reranker.trainer.predict(self.reranker, test_dataset, test_output_path)
-
+        test_preds = Searcher.load_trec_run(test_output_path)
         metrics = evaluator.eval_runs(test_preds, self.benchmark.qrels, evaluator.DEFAULT_METRICS, self.benchmark.relevance_level)
         logger.info("rerank: fold=%s test metrics: %s", fold, metrics)
 
@@ -141,8 +122,6 @@ class RerankTask(Task):
         found = 0
         for fold in self.benchmark.folds:
             # TODO fix by using multiple Tasks
-            from pathlib import Path
-
             pred_path = Path(test_output_path.as_posix().replace("fold-" + self.config["fold"], "fold-" + fold))
             if not os.path.exists(pred_path):
                 print("\tfold=%s results are missing and will not be included" % fold)
