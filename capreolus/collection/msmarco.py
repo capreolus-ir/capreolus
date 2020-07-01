@@ -1,5 +1,3 @@
-from . import Collection
-from capreolus import ConfigOption
 
 # @Collection.register
 # class MSMarco(Collection):

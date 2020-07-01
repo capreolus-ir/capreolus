@@ -3,7 +3,6 @@ from pathlib import Path
 
 from profane import constants
 
-from capreolus.collection import DummyCollection
 from capreolus.index import AnseriniIndex
 
 

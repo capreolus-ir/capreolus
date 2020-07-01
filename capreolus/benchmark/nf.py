@@ -4,7 +4,7 @@ import re
 from . import Benchmark
 from capreolus import constants, ConfigOption, Dependency
 from capreolus.utils.loginit import get_logger
-from capreolus.utils.trec import load_qrels, load_trec_topics, topic_to_trectxt
+from capreolus.utils.trec import topic_to_trectxt
 
 logger = get_logger(__name__)
 PACKAGE_PATH = constants["PACKAGE_PATH"]

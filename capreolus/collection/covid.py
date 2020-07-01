@@ -8,8 +8,8 @@ from pathlib import Path
 import pandas as pd
 
 from . import Collection
-from capreolus import ModuleBase, Dependency, ConfigOption, constants
-from capreolus.utils.common import download_file, hash_file, remove_newline
+from capreolus import ConfigOption, constants
+from capreolus.utils.common import download_file
 from capreolus.utils.loginit import get_logger
 
 logger = get_logger(__name__)

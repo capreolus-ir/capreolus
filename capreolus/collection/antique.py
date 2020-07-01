@@ -2,7 +2,7 @@ import os
 import shutil
 
 from . import Collection
-from capreolus import ModuleBase, Dependency, ConfigOption, constants
+from capreolus import constants
 from capreolus.utils.common import download_file, hash_file
 from capreolus.utils.loginit import get_logger
 

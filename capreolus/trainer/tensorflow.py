@@ -10,8 +10,7 @@ import numpy as np
 from tqdm import tqdm
 
 from . import Trainer
-from capreolus import ModuleBase, Dependency, ConfigOption, Searcher, constants, evaluator, get_logger
-from capreolus.utils.common import plot_metrics, plot_loss
+from capreolus import ConfigOption, Searcher, constants, evaluator, get_logger
 
 logger = get_logger(__name__)  # pylint: disable=invalid-name
 RESULTS_BASE_PATH = constants["RESULTS_BASE_PATH"]

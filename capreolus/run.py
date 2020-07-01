@@ -1,8 +1,6 @@
 import logging
-import multiprocessing
 import os
 import sys
-from pathlib import Path
 
 from docopt import docopt
 from profane import DBManager, config_list_to_dict, constants

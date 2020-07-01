@@ -10,7 +10,6 @@ from capreolus import Reranker, module_registry
 from capreolus.benchmark import DummyBenchmark
 from capreolus.extractor.embedtext import EmbedText
 from capreolus.extractor.slowembedtext import SlowEmbedText
-from capreolus.extractor.bagofwords import BagOfWords
 from capreolus.extractor.deeptileextractor import DeepTileExtractor
 from capreolus.reranker.CDSSM import CDSSM
 from capreolus.reranker.DeepTileBar import DeepTileBar

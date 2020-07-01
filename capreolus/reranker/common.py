@@ -1,5 +1,4 @@
 import tensorflow as tf
-import tensorflow.keras.backend as K
 import torch
 from tensorflow.keras.layers import Layer
 
