@@ -1,4 +1,4 @@
-from profane import ModuleBase, Dependency, ConfigOption, constants
+from profane import ConfigOption, Dependency
 
 from capreolus import evaluator
 from capreolus.task import Task

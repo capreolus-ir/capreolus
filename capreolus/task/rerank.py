@@ -1,10 +1,7 @@
-import random
 import os
 from pathlib import Path
 
-import numpy as np
-import torch
-from profane import ModuleBase, Dependency, ConfigOption, constants
+from profane import ConfigOption, Dependency
 
 from capreolus.sampler import TrainDataset, PredDataset
 from capreolus.searcher import Searcher

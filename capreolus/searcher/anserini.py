@@ -1,15 +1,13 @@
 import os
 import math
 import subprocess
-from collections import defaultdict, OrderedDict
 
 import numpy as np
 
 from . import Searcher
-from capreolus import ModuleBase, Dependency, ConfigOption, constants
+from capreolus import ConfigOption, Dependency, constants
 from capreolus.utils.common import Anserini
 from capreolus.utils.loginit import get_logger
-from capreolus.utils.trec import topic_to_trectxt
 
 logger = get_logger(__name__)  # pylint: disable=invalid-name
 MAX_THREADS = constants["MAX_THREADS"]

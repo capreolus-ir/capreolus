@@ -4,8 +4,8 @@ from tqdm import tqdm
 from zipfile import ZipFile
 
 from . import Collection
-from capreolus import ModuleBase, Dependency, ConfigOption, constants
-from capreolus.utils.common import download_file, hash_file, remove_newline
+from capreolus import ConfigOption, constants
+from capreolus.utils.common import download_file, remove_newline
 from capreolus.utils.loginit import get_logger
 from capreolus.utils.trec import document_to_trectxt
 

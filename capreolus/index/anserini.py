@@ -3,7 +3,7 @@ import os
 import subprocess
 
 from . import Index
-from capreolus import ModuleBase, Dependency, ConfigOption, constants, get_logger
+from capreolus import ConfigOption, constants, get_logger
 from capreolus.utils.common import Anserini
 
 logger = get_logger(__name__)  # pylint: disable=invalid-name

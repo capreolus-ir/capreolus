@@ -1,5 +1,5 @@
 from . import Benchmark
-from capreolus import constants, ConfigOption, Dependency
+from capreolus import Dependency, constants
 from capreolus.utils.loginit import get_logger
 
 logger = get_logger(__name__)

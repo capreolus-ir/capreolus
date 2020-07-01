@@ -2,7 +2,7 @@ from collections import defaultdict
 
 import nltk
 from nltk import TextTilingTokenizer
-from pymagnitude import Magnitude, MagnitudeUtils
+from pymagnitude import Magnitude
 import numpy as np
 import pytest
 

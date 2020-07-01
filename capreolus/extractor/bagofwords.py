@@ -1,12 +1,9 @@
 import pickle
 import os
-import time
 
 from capreolus import Dependency, ConfigOption
 from . import Extractor
-from capreolus.tokenizer import Tokenizer
 from capreolus.utils.loginit import get_logger
-from tqdm import tqdm
 import numpy as np
 from collections import Counter, defaultdict
 
