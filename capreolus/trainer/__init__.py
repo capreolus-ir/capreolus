@@ -25,7 +25,7 @@ class Trainer(ModuleBase):
         os.makedirs(info_output_path, exist_ok=True)
 
         loss_fn = info_output_path / "loss.txt"
-        metrics_fn = dev_output_path / "metrics.json"
+        # metrics_fn = dev_output_path / "metrics.json"
 
         return dev_best_weight_fn, weights_output_path, info_output_path, loss_fn
 
