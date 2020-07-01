@@ -22,8 +22,6 @@ from capreolus.reranker.TFKNRM import TFKNRM
 from capreolus.reranker.TK import TK
 from capreolus.sampler import PredDataset, TrainDataset
 from capreolus.tests.common_fixtures import dummy_index, tmpdir_as_cache
-from capreolus.tokenizer import AnseriniTokenizer
-from capreolus.trainer import PytorchTrainer, TensorFlowTrainer
 
 
 rerankers = set(module_registry.get_module_names("reranker"))

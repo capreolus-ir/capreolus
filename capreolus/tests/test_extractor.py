@@ -13,11 +13,11 @@ from capreolus.tokenizer import AnseriniTokenizer
 from capreolus.benchmark import DummyBenchmark
 from capreolus.extractor.embedtext import EmbedText
 from capreolus.extractor.slowembedtext import SlowEmbedText
-from capreolus.tests.common_fixtures import tmpdir_as_cache, dummy_index
 
 from capreolus.utils.exceptions import MissingDocError
 from capreolus.extractor.bagofwords import BagOfWords
 from capreolus.extractor.deeptileextractor import DeepTileExtractor
+from capreolus.tests.common_fixtures import tmpdir_as_cache, dummy_index
 
 MAXQLEN = 8
 MAXDOCLEN = 7
