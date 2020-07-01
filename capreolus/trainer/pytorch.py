@@ -156,7 +156,7 @@ class PytorchTrainer(Trainer):
         try:
             reranker.load_weights(weights_fn, self.optimizer)
             return last_loss_iteration + 1
-        except:
+        except:  # lgtm [py/catch-base-exception]
             logger.info("attempted to load weights from %s but failed, starting at iteration 0", weights_fn)
             return 0
 

@@ -135,7 +135,7 @@ def anserini_index_to_trec_docs(index_dir, output_dir, expected_doc_count):
         try:
             docid = index_reader_utils.convertLuceneDocidToDocid(reader, i)
             docids.add(docid)
-        except:
+        except:  # lgtm [py/catch-base-exception]
             # we reached the end?
             pass
 
