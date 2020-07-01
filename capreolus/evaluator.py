@@ -150,9 +150,11 @@ def search_best_run(runfile_dirs, benchmark, primary_metric, metrics=None, folds
 def interpolate_runs(run1, run2, qids, alpha):
     out = {}
     for qid in qids:
-        out[qid] = {}
         assert len(run1[qid]) == len(run2[qid])
+        if len(run1[qid]) == 0:
+            continue
 
+        out[qid] = {}
         min1, max1 = min(run1[qid].values()), max(run1[qid].values())
         min2, max2 = min(run2[qid].values()), max(run2[qid].values())
         for docid, score1 in run1[qid].items():
