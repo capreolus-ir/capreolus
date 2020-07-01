@@ -1,7 +1,8 @@
 import os
 
-from . import Collection
 from capreolus import constants, get_logger
+
+from . import Collection
 
 logger = get_logger(__name__)
 PACKAGE_PATH = constants["PACKAGE_PATH"]

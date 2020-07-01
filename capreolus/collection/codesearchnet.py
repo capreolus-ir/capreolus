@@ -1,13 +1,14 @@
 import pickle
-
-from tqdm import tqdm
 from zipfile import ZipFile
 
-from . import Collection
+from tqdm import tqdm
+
 from capreolus import ConfigOption, constants
 from capreolus.utils.common import download_file, remove_newline
 from capreolus.utils.loginit import get_logger
 from capreolus.utils.trec import document_to_trectxt
+
+from . import Collection
 
 logger = get_logger(__name__)
 PACKAGE_PATH = constants["PACKAGE_PATH"]

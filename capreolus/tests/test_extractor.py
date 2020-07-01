@@ -1,23 +1,22 @@
 from collections import defaultdict
 
 import nltk
-from nltk import TextTilingTokenizer
-from pymagnitude import Magnitude
 import numpy as np
 import pytest
+from nltk import TextTilingTokenizer
+from pymagnitude import Magnitude
 
 from capreolus import Extractor, module_registry
-from capreolus.collection import DummyCollection
-from capreolus.index import AnseriniIndex
-from capreolus.tokenizer import AnseriniTokenizer
 from capreolus.benchmark import DummyBenchmark
-from capreolus.extractor.embedtext import EmbedText
-from capreolus.extractor.slowembedtext import SlowEmbedText
-
-from capreolus.utils.exceptions import MissingDocError
+from capreolus.collection import DummyCollection
 from capreolus.extractor.bagofwords import BagOfWords
 from capreolus.extractor.deeptileextractor import DeepTileExtractor
-from capreolus.tests.common_fixtures import tmpdir_as_cache, dummy_index
+from capreolus.extractor.embedtext import EmbedText
+from capreolus.extractor.slowembedtext import SlowEmbedText
+from capreolus.index import AnseriniIndex
+from capreolus.tests.common_fixtures import dummy_index, tmpdir_as_cache
+from capreolus.tokenizer import AnseriniTokenizer
+from capreolus.utils.exceptions import MissingDocError
 
 MAXQLEN = 8
 MAXDOCLEN = 7

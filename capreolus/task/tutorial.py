@@ -1,4 +1,4 @@
-from capreolus import evaluator, Dependency, ConfigOption
+from capreolus import ConfigOption, Dependency, evaluator
 from capreolus.task import Task
 from capreolus.utils.loginit import get_logger
 
