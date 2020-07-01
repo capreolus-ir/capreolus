@@ -249,7 +249,7 @@ class TensorFlowTrainer(Trainer):
         """
         dir_name = self.get_tf_record_cache_path(dataset)
 
-        total_samples = dataset.get_total_samples()
+        # total_samples = dataset.get_total_samples()
         tf_features = []
         tf_record_filenames = []
 
