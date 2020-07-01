@@ -1,4 +1,4 @@
-from capreolus import ModuleBase, Dependency, ConfigOption, constants, module_registry
+from capreolus import ModuleBase, constants, module_registry
 
 
 class Task(ModuleBase):
