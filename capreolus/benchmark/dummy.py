@@ -1,5 +1,6 @@
-from . import Benchmark
 from capreolus import Dependency, constants
+
+from . import Benchmark
 
 PACKAGE_PATH = constants["PACKAGE_PATH"]
 

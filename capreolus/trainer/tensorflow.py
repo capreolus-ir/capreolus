@@ -4,13 +4,14 @@ import time
 import uuid
 from collections import defaultdict
 
+import numpy as np
 import tensorflow as tf
 import tensorflow_ranking as tfr
-import numpy as np
 from tqdm import tqdm
 
-from . import Trainer
 from capreolus import ConfigOption, Searcher, constants, evaluator, get_logger
+
+from . import Trainer
 
 logger = get_logger(__name__)  # pylint: disable=invalid-name
 RESULTS_BASE_PATH = constants["RESULTS_BASE_PATH"]

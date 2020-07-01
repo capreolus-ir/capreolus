@@ -1,9 +1,10 @@
 import os
 import tarfile
 
-from . import Collection
 from capreolus import constants, get_logger
 from capreolus.utils.common import download_file
+
+from . import Collection
 
 logger = get_logger(__name__)
 PACKAGE_PATH = constants["PACKAGE_PATH"]

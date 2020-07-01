@@ -1,13 +1,14 @@
-import os
 import math
+import os
 import subprocess
 
 import numpy as np
 
-from . import Searcher
 from capreolus import ConfigOption, Dependency, constants
 from capreolus.utils.common import Anserini
 from capreolus.utils.loginit import get_logger
+
+from . import Searcher
 
 logger = get_logger(__name__)  # pylint: disable=invalid-name
 MAX_THREADS = constants["MAX_THREADS"]

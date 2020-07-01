@@ -1,11 +1,13 @@
-import pickle
 import os
-
-from capreolus import Dependency, ConfigOption
-from . import Extractor
-from capreolus.utils.loginit import get_logger
-import numpy as np
+import pickle
 from collections import Counter, defaultdict
+
+import numpy as np
+
+from capreolus import ConfigOption, Dependency
+from capreolus.utils.loginit import get_logger
+
+from . import Extractor
 
 logger = get_logger(__name__)  # pylint: disable=invalid-name
 

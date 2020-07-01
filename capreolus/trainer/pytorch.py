@@ -7,9 +7,10 @@ import torch
 from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
 
-from . import Trainer
 from capreolus import ConfigOption, Searcher, constants, evaluator, get_logger
 from capreolus.reranker.common import pair_hinge_loss, pair_softmax_loss
+
+from . import Trainer
 
 logger = get_logger(__name__)  # pylint: disable=invalid-name
 RESULTS_BASE_PATH = constants["RESULTS_BASE_PATH"]

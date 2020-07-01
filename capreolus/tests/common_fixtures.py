@@ -1,6 +1,6 @@
-import pytest
 from pathlib import Path
 
+import pytest
 from profane import constants
 
 from capreolus.index import AnseriniIndex

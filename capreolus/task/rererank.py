@@ -1,13 +1,12 @@
 import os
 
-
 import numpy as np
 from profane import ConfigOption, Dependency
 
+from capreolus import evaluator
 from capreolus.sampler import PredDataset
 from capreolus.searcher import Searcher
 from capreolus.task import Task
-from capreolus import evaluator
 from capreolus.utils.loginit import get_logger
 
 logger = get_logger(__name__)

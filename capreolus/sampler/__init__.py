@@ -1,10 +1,10 @@
-import random
 import hashlib
+import random
+
 import torch.utils.data
 
 from capreolus.utils.exceptions import MissingDocError
 from capreolus.utils.loginit import get_logger
-
 
 logger = get_logger(__name__)
 

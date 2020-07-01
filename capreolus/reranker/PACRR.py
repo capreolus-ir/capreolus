@@ -4,7 +4,6 @@ from torch.nn import functional as F
 
 from capreolus import ConfigOption
 from capreolus.reranker import Reranker
-
 # TODO add shuffle, cascade, disambig?
 from capreolus.reranker.common import SimilarityMatrix, create_emb_layer
 
