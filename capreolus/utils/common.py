@@ -11,6 +11,7 @@ from tqdm import tqdm
 import matplotlib.pyplot as plt
 
 from capreolus.utils.loginit import get_logger
+from capreolus.utils.trec import load_trec_topics
 
 logger = get_logger(__name__)  # pylint: disable=invalid-name
 
@@ -164,3 +165,14 @@ def get_file_name(fid, benchmark_name, benchmark_querytype):
             return re.sub(r'(\d+)_(.+)', r'\g<2>', fid)
     else:
         return fid
+
+
+def get_user_profiles(queryfn):
+    topics = load_trec_topics(queryfn)['title']
+    profiles = {}
+    for quid in topics:
+        uid = quid.split("_")[1]
+        if uid not in profiles:
+            profiles[uid] = topics[quid]
+
+    return profiles

@@ -10,7 +10,7 @@ from pymagnitude import Magnitude, MagnitudeUtils
 
 from capreolus.registry import ModuleBase, RegisterableModule, Dependency, CACHE_BASE_PATH
 from capreolus.utils.loginit import get_logger
-from capreolus.utils.common import padlist, get_file_name
+from capreolus.utils.common import padlist, get_file_name, get_user_profiles
 from capreolus.utils.exceptions import MissingDocError
 
 logger = get_logger(__name__)
@@ -207,7 +207,7 @@ class DocStats(Extractor):
         if entity_strategy not in [None, 'all', 'domain', 'specific_domainrel']:  # TODO add strategies
             raise ValueError(f"invalid entity usage strategy (or not implemented): {entity_strategy}")
 
-        if filter_query is not None and not re.match(r"^(domain|user)_specific_k(\d+|-1)$", filter_query):#todo maybe alpha for reweighting?
+        if filter_query is not None and not re.match(r"^(domain|user)_specific_k(\d+|-1)$", filter_query):
             raise ValueError(f"invalid filter query: {filter_query}")
 
     @property
@@ -299,11 +299,74 @@ class DocStats(Extractor):
             m = re.match(r"^(domain|user)_specific_k(\d+|-1)$", self.filter_query)
             if m:
                 filter_by = m.group(1)
-                filter_topk = int(m.group(2))
+                filter_topk = int(m.group(2)) #TODO implement
+
+            profiletype = self["entitylinking"].get_benchmark_querytype()
+            if profiletype == 'query':
+                raise ValueError(f"query word filter cannot be used for querytype: query")
+            if profiletype in ['basicprofile', 'chatprofile'] and filter_by == 'domain':
+                raise ValueError(f"domain_specific query filter cannot be used on {profiletype} (without a specified domain)")
 
             reweighted_qid_termprob = {}
             if filter_by == 'domain':
-                pass
+                baseprofiletype = profiletype.split("_")[0]
+                domainprofiletype = profiletype[profiletype.find("_") + 1:]
+
+                # todo change: now it can only be used for KITT data so later change it to adapt to any
+                benchmarkdir = "/GW/PKB/work/data_personalization/TREC_format/" # change these when rebasing to use the benchmark as inherited dependency
+                userfullprofiles = get_user_profiles(join(benchmarkdir, baseprofiletype))
+                print(userfullprofiles)
+                exit(-1)
+                GD = {}
+                for qid in qids:
+                    uid = qid.split("_")[1]
+                    if uid not in GD:
+                        entoutf = join(self.get_selected_entities_cache_path(), get_file_name(qid, self["entitylinking"].get_benchmark_name(), baseprofiletype))
+                        if exists(entoutf):
+                            with open(entoutf, 'r') as f:
+                                qentities = json.loads(f.read())
+                        else:
+                            raise RuntimeError(
+                                f"This is not implemented! You should have already have the entities for the full profile in the cache to use this.")
+
+                        for e in qentities:
+                            qdesc.append(self["entitylinking"].get_entity_description(e))
+
+                        qtext = userfullprofiles[uid]
+                        qtext += "\n" + "\n".join(qdesc)
+                        query = self["tokenizer"].tokenize(qtext)
+
+                        q_count = Counter(query)
+                        GD[uid] = {k: (v / len(query)) for k, v in q_count.items()}
+
+                for qid in qids:
+                    uid = qid.split("_")[1]
+                    tfoutf = join(self.get_profile_term_prob_cache_path(), get_file_name(qid, self["entitylinking"].get_benchmark_name(), self["entitylinking"].get_benchmark_querytype()))
+                    if exists(tfoutf):
+                        with open(tfoutf, 'r') as f:
+                            self.qid_termprob[qid] = json.loads(f.read())
+                    else:
+                        tfs = self.qid_termprob[qid]
+                        reweighted_qid_termprob[qid] = {}
+                        for v in tfs:
+                            reweighted_qid_termprob[qid][v] = tfs[v] / GD[uid][v]
+
+                        # to get reweighted term frequencies (a probability distribution)
+                        # we will divide every weight by the sum of the all of the weights.
+                        sum_vals = sum(reweighted_qid_termprob[qid].values())
+                        self.qid_termprob[qid] = {k: v/sum_vals for k, v in reweighted_qid_termprob[qid].items()}
+
+                    # to get the query tokens (in another word word counts for query)
+                    # we cannot simply multiply this reweighted tf with the doc lenght
+                    # so we assume that the term with smallest reweighted tf occured once
+                    # and calculate counts based on that. Finally we use round to convert them to integers.
+                    min_reweighted_tf = min(self.qid_termprob[qid].values())
+                    # query_token_counts = {k: round(v / min_reweighted_tf) for k, v in self.qid_termprob[qid].items()}
+                    # self.qid2toks[qid] = []
+                    # for k, v in query_token_counts.items():
+                    #     self.qid2toks[qid] += np.repeat(k, v).tolist()
+                    self.qidlen[qid] = 1/min_reweighted_tf
+
             elif filter_by == 'user':
                 # create G (the accumulated other corpus of all users)
                 goutf = join(self.get_profile_term_prob_cache_path(), "allusers")
@@ -472,13 +535,13 @@ class DocStats(Extractor):
             raise NotImplementedError("TODO implement other entity strategies (by first implementing measures)")
 
     def id2vec(self, qid, posid, negid=None, query=None):#todo (ask) where is it used?
-        if query is not None:
-            if qid is None:
-                query = self["tokenizer"].tokenize(query)
-            else:
-                raise RuntimeError("received both a qid and query, but only one can be passed")
-        else:
-            query = self.qid2toks[qid]
+        # if query is not None:
+        #     if qid is None:
+        #         query = self["tokenizer"].tokenize(query)
+        #     else:
+        #         raise RuntimeError("received both a qid and query, but only one can be passed")
+        # else:
+        #     query = self.qid_termprob[qid]
 
         return {"qid": qid, "posdocid": posid, "negdocid": negid}
 
@@ -539,12 +602,12 @@ class DocStatsEmbedding(DocStats):
         return nu/de
 
     def id2vec(self, qid, posid, negid=None, query=None):#todo change this later or delete it...
-        if query is not None:
-            if qid is None:
-                query = self["tokenizer"].tokenize(query)
-            else:
-                raise RuntimeError("received both a qid and query, but only one can be passed")
-        else:
-            query = self.qid2toks[qid]
+        # if query is not None:
+        #     if qid is None:
+        #         query = self["tokenizer"].tokenize(query)
+        #     else:
+        #         raise RuntimeError("received both a qid and query, but only one can be passed")
+        # else:
+        #     query = self.qid2toks[qid]
 
         return {"qid": qid, "posdocid": posid, "negdocid": negid}
