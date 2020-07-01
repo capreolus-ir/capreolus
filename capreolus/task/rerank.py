@@ -107,8 +107,8 @@ class RerankTask(Task):
         logger.debug("results path: %s", train_output_path)
 
         if not os.path.exists(test_output_path):
-            logger.error("could not find predictions; run the train command before evaluate")
-            raise ValueError("could not find predictions; run the train command before evaluate")
+            logger.error("could not find predictions; run the train command first")
+            raise ValueError("could not find predictions; run the train command first")
 
         test_preds = Searcher.load_trec_run(test_output_path)
         metrics = evaluator.eval_runs(test_preds, self.benchmark.qrels, evaluator.DEFAULT_METRICS, self.benchmark.relevance_level)

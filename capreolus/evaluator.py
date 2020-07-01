@@ -140,7 +140,30 @@ def search_best_run(runfile_dirs, benchmark, primary_metric, metrics=None, folds
     for s, score_dict in best_scores.items():
         test_qids = folds[s]["predict"]["test"]
         test_runs.update({qid: v for qid, v in Searcher.load_trec_run(score_dict["path"]).items() if qid in test_qids})
+        # TODO test_qrels unused?
         test_qrels.update({qid: v for qid, v in benchmark.qrels.items() if qid in test_qids})
 
     scores = eval_runs(test_runs, benchmark.qrels, metrics, benchmark.relevance_level)
     return {"score": scores, "path": {s: v["path"] for s, v in best_scores.items()}}
+
+
+def interpolate_runs(run1, run2, qids, alpha):
+    out = {}
+    for qid in qids:
+        out[qid] = {}
+        assert len(run1[qid]) == len(run2[qid])
+
+        min1, max1 = min(run1[qid].values()), max(run1[qid].values())
+        min2, max2 = min(run2[qid].values()), max(run2[qid].values())
+        for docid, score1 in run1[qid].items():
+            if docid not in run2[qid]:
+                score2 = min2
+                logger.warning("using minimum score for missing qid=%s docid=%s", qid, docid)
+            else:
+                score2 = run2[qid][docid]
+            score1 = (score1 - min1) / (max1 - min1)
+            score2 = (score2 - min2) / (max2 - min2)
+            out[qid][docid] = alpha * score1 + (1 - alpha) * score2
+
+    return out
+
