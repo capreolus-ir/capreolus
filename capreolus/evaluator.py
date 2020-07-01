@@ -167,3 +167,32 @@ def interpolate_runs(run1, run2, qids, alpha):
 
     return out
 
+
+def interpolated_eval(run1, run2, benchmark, primary_metric, metrics=None):
+    metrics = [] if not metrics else ([metrics] if isinstance(metrics, str) else list(metrics))
+    if primary_metric not in metrics:
+        metrics = [primary_metric] + metrics
+
+    test_runs = {}
+    alphas = {}
+    for s, v in benchmark.folds.items():
+        best_metric = None
+        dev_qids = set(v["predict"]["dev"])
+        dev1, dev2 = run1[s]["dev"], run2[s]["dev"]
+
+        for alpha in np.arange(0, 1.001, 0.05):
+            interpolated_run = interpolate_runs(dev1, dev2, dev_qids, alpha)
+            metrics = eval_runs(interpolated_run, benchmark.qrels, metrics, benchmark.relevance_level)
+
+            if best_metric is None or metrics[primary_metric] > best_metric:
+                alphas[s] = alpha
+
+        test_qids = set(v["predict"]["test"])
+        test1, test2 = run1[s]["test"], run2[s]["test"]
+        interpolated_test_run = interpolate_runs(test1, test2, test_qids, alphas[s])
+        for qid in test_qids:
+            assert qid not in test_runs
+            test_runs[qid] = interpolated_test_run[qid].copy()
+
+    scores = eval_runs(test_runs, benchmark.qrels, metrics, benchmark.relevance_level)
+    return {"score": scores, "alphas": None}
