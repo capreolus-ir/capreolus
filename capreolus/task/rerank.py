@@ -150,8 +150,11 @@ class RerankTask(Task):
         )
 
         for metric, score in sorted(cv_metrics.items()):
-            logger.info("%15s: %0.4f", metric, score)
-            logger.info("%15s: %0.4f", "[interp]" + metric, interpolated_results["scores"][metric])
+            logger.info("%25s: %0.4f", metric, score)
+
+        logger.info("interpolated with alphas = %s", sorted(interpolated_results["alphas"].values()))
+        for metric, score in sorted(interpolated_results["score"].items()):
+            logger.info("%25s: %0.4f", metric + " [interp]", score)
 
         return {
             "fold_test_metrics": fold_test_metrics,

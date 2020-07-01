@@ -195,4 +195,4 @@ def interpolated_eval(run1, run2, benchmark, primary_metric, metrics=None):
             test_runs[qid] = interpolated_test_run[qid].copy()
 
     scores = eval_runs(test_runs, benchmark.qrels, metrics, benchmark.relevance_level)
-    return {"score": scores, "alphas": None}
+    return {"score": scores, "alphas": alphas}
