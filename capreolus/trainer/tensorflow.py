@@ -253,7 +253,7 @@ class TensorFlowTrainer(Trainer):
         tf_features = []
         tf_record_filenames = []
 
-        for niter in tqdm(range(0, self.config["niters"]), desc="Converting data to tf records"):
+        for _ in tqdm(range(0, self.config["niters"]), desc="Converting data to tf records"):
             for sample_idx, sample in enumerate(dataset):
                 tf_features.append(reranker.extractor.create_tf_feature(sample))
 
