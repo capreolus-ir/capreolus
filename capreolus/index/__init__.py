@@ -1,4 +1,4 @@
-from capreolus import ModuleBase, Dependency, ConfigOption, get_logger
+from capreolus import Dependency, ModuleBase, get_logger
 
 
 logger = get_logger(__name__)  # pylint: disable=invalid-name

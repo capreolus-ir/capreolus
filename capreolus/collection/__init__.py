@@ -1,6 +1,6 @@
 import os
 
-from capreolus import ModuleBase, Dependency, ConfigOption, constants
+from capreolus import ModuleBase
 
 
 class Collection(ModuleBase):
