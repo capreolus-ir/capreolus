@@ -1,4 +1,3 @@
-
 # @Collection.register
 # class MSMarco(Collection):
 #     module_name = "msmarco"

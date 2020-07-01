@@ -1,4 +1,3 @@
-
 import pytest
 
 from capreolus import Collection, module_registry

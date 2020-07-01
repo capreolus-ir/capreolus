@@ -1,7 +1,7 @@
 import pytest
 
 from capreolus import Benchmark, Task, module_registry
-from capreolus.tests.common_fixtures import dummy_index, tmpdir_as_cache
+from capreolus.tests.common_fixtures import tmpdir_as_cache, dummy_index
 
 
 tasks = set(module_registry.get_module_names("task"))

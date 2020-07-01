@@ -1,8 +1,8 @@
 import pytest
 
 from capreolus import module_registry
-from capreolus.collection import Collection, DummyCollection
-from capreolus.index import Index, AnseriniIndex
+from capreolus.collection import DummyCollection
+from capreolus.index import Index
 from capreolus.tests.common_fixtures import tmpdir_as_cache, dummy_index
 
 
