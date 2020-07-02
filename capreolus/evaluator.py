@@ -140,12 +140,12 @@ def search_best_run(runfile_dirs, benchmark, primary_metric, metrics=None, folds
             if score > best_scores[s][primary_metric]:
                 best_scores[s] = {primary_metric: score, "path": runfile}
 
-    test_runs, test_qrels = {}, {}
+    test_runs = {}
     for s, score_dict in best_scores.items():
         test_qids = folds[s]["predict"]["test"]
+        # any empty (no results) queries need to be added so they contribute zeros to the average
+        test_runs.update({qid: {} for qid in test_qids})
         test_runs.update({qid: v for qid, v in Searcher.load_trec_run(score_dict["path"]).items() if qid in test_qids})
-        # TODO test_qrels unused?
-        test_qrels.update({qid: v for qid, v in benchmark.qrels.items() if qid in test_qids})
 
     scores = eval_runs(test_runs, benchmark.qrels, metrics, benchmark.relevance_level)
     return {"score": scores, "path": {s: v["path"] for s, v in best_scores.items()}}
