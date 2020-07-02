@@ -200,6 +200,7 @@ def interpolated_eval(run1, run2, benchmark, primary_metric, metrics=None):
             metrics = eval_runs(interpolated_run, benchmark.qrels, metrics, benchmark.relevance_level)
 
             if best_metric is None or metrics[primary_metric] > best_metric:
+                best_metric = metrics[primary_metric]
                 alphas[s] = alpha
 
         test_qids = set(v["predict"]["test"])
