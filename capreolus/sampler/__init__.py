@@ -1,15 +1,10 @@
-from profane import import_all_modules
-
-# import_all_modules(__file__, __package__)
-
-import random
-from itertools import product
 import hashlib
+import random
+
 import torch.utils.data
 
 from capreolus.utils.exceptions import MissingDocError
 from capreolus.utils.loginit import get_logger
-
 
 logger = get_logger(__name__)
 

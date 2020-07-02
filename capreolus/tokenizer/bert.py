@@ -1,7 +1,8 @@
-from . import Tokenizer
-from capreolus import ModuleBase, Dependency, ConfigOption
-
 from transformers import BertTokenizer as HFBertTokenizer
+
+from capreolus import ConfigOption
+
+from . import Tokenizer
 
 
 @Tokenizer.register

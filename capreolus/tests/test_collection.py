@@ -1,12 +1,9 @@
-import os
-import shutil
-
 import pytest
 
 from capreolus import Collection, module_registry
-from capreolus.index import AnseriniIndex
 from capreolus.collection.antique import ANTIQUE
 from capreolus.collection.codesearchnet import CodeSearchNet
+from capreolus.index import AnseriniIndex
 from capreolus.tests.common_fixtures import tmpdir_as_cache
 
 collections = set(module_registry.get_module_names("collection"))

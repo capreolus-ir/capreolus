@@ -2,11 +2,12 @@ import os
 import shutil
 import tarfile
 
-from . import Collection
-from capreolus import ModuleBase, Dependency, ConfigOption, constants
-from capreolus.utils.common import download_file, hash_file, remove_newline
+from capreolus import ConfigOption, constants
+from capreolus.utils.common import download_file
 from capreolus.utils.loginit import get_logger
-from capreolus.utils.trec import anserini_index_to_trec_docs, document_to_trectxt
+from capreolus.utils.trec import anserini_index_to_trec_docs
+
+from . import Collection
 
 logger = get_logger(__name__)
 PACKAGE_PATH = constants["PACKAGE_PATH"]

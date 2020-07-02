@@ -1,15 +1,12 @@
-import random
 import os
 
-
 import numpy as np
-import torch
-from profane import ModuleBase, Dependency, ConfigOption, constants
+from profane import ConfigOption, Dependency
 
-from capreolus.sampler import TrainDataset, PredDataset
+from capreolus import evaluator
+from capreolus.sampler import PredDataset
 from capreolus.searcher import Searcher
 from capreolus.task import Task
-from capreolus import evaluator
 from capreolus.utils.loginit import get_logger
 
 logger = get_logger(__name__)

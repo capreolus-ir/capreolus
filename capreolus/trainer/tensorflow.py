@@ -4,14 +4,14 @@ import time
 import uuid
 from collections import defaultdict
 
+import numpy as np
 import tensorflow as tf
 import tensorflow_ranking as tfr
-import numpy as np
 from tqdm import tqdm
 
+from capreolus import ConfigOption, Searcher, constants, evaluator, get_logger
+
 from . import Trainer
-from capreolus import ModuleBase, Dependency, ConfigOption, Searcher, constants, evaluator, get_logger
-from capreolus.utils.common import plot_metrics, plot_loss
 
 logger = get_logger(__name__)  # pylint: disable=invalid-name
 RESULTS_BASE_PATH = constants["RESULTS_BASE_PATH"]
@@ -249,11 +249,11 @@ class TensorFlowTrainer(Trainer):
         """
         dir_name = self.get_tf_record_cache_path(dataset)
 
-        total_samples = dataset.get_total_samples()
+        # total_samples = dataset.get_total_samples()
         tf_features = []
         tf_record_filenames = []
 
-        for niter in tqdm(range(0, self.config["niters"]), desc="Converting data to tf records"):
+        for _ in tqdm(range(0, self.config["niters"]), desc="Converting data to tf records"):
             for sample_idx, sample in enumerate(dataset):
                 tf_features.append(reranker.extractor.create_tf_feature(sample))
 

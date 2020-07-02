@@ -7,9 +7,7 @@ from glob import glob
 import matplotlib.pyplot as plt
 import numpy as np
 import requests
-import scispacy
 import spacy
-from lxml import etree
 from tqdm import tqdm
 
 from capreolus.utils.loginit import get_logger

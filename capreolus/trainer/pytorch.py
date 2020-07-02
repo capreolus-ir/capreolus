@@ -7,10 +7,10 @@ import torch
 from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
 
-from . import Trainer
-from capreolus import ModuleBase, Dependency, ConfigOption, Searcher, constants, evaluator, get_logger
+from capreolus import ConfigOption, Searcher, constants, evaluator, get_logger
 from capreolus.reranker.common import pair_hinge_loss, pair_softmax_loss
-from capreolus.utils.common import plot_metrics, plot_loss
+
+from . import Trainer
 
 logger = get_logger(__name__)  # pylint: disable=invalid-name
 RESULTS_BASE_PATH = constants["RESULTS_BASE_PATH"]
@@ -156,7 +156,7 @@ class PytorchTrainer(Trainer):
         try:
             reranker.load_weights(weights_fn, self.optimizer)
             return last_loss_iteration + 1
-        except:
+        except:  # lgtm [py/catch-base-exception]
             logger.info("attempted to load weights from %s but failed, starting at iteration 0", weights_fn)
             return 0
 

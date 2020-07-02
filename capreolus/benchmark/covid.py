@@ -1,14 +1,15 @@
-import os
 import json
+import os
 from pathlib import Path
 
 from bs4 import BeautifulSoup
 
-from . import Benchmark
-from capreolus import constants, ConfigOption, Dependency
+from capreolus import ConfigOption, Dependency, constants
+from capreolus.utils.common import download_file, get_udel_query_expander
 from capreolus.utils.loginit import get_logger
-from capreolus.utils.trec import load_qrels, load_trec_topics, topic_to_trectxt
-from capreolus.utils.common import download_file, remove_newline, get_udel_query_expander
+from capreolus.utils.trec import load_qrels, topic_to_trectxt
+
+from . import Benchmark
 
 logger = get_logger(__name__)
 PACKAGE_PATH = constants["PACKAGE_PATH"]

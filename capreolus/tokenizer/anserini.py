@@ -1,5 +1,6 @@
+from capreolus import ConfigOption
+
 from . import Tokenizer
-from capreolus import ModuleBase, Dependency, ConfigOption
 
 
 @Tokenizer.register

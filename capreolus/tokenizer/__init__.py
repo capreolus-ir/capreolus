@@ -1,4 +1,4 @@
-from capreolus import ModuleBase, Dependency, ConfigOption
+from capreolus import ModuleBase
 
 
 class Tokenizer(ModuleBase):

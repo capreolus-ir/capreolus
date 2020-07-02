@@ -3,7 +3,6 @@ import math
 import torch
 from torch import nn
 from torch.nn import TransformerEncoder, TransformerEncoderLayer
-from allennlp.modules.matrix_attention import CosineMatrixAttention
 
 from capreolus import ConfigOption, Dependency
 from capreolus.reranker import Reranker

@@ -2,7 +2,7 @@ import torch
 from torch import nn
 from torch.nn import functional as F
 
-from capreolus import ConfigOption, Dependency
+from capreolus import ConfigOption
 from capreolus.reranker import Reranker
 
 # TODO add shuffle, cascade, disambig?

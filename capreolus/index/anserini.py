@@ -2,9 +2,10 @@ import math
 import os
 import subprocess
 
-from . import Index
-from capreolus import ModuleBase, Dependency, ConfigOption, constants, get_logger
+from capreolus import ConfigOption, constants, get_logger
 from capreolus.utils.common import Anserini
+
+from . import Index
 
 logger = get_logger(__name__)  # pylint: disable=invalid-name
 MAX_THREADS = constants["MAX_THREADS"]

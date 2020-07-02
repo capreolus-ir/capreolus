@@ -1,9 +1,8 @@
-import pytest
 from pathlib import Path
 
+import pytest
 from profane import constants
 
-from capreolus.collection import DummyCollection
 from capreolus.index import AnseriniIndex
 
 

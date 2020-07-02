@@ -1,16 +1,17 @@
-import os
-import math
-import tarfile
 import filecmp
-
-from tqdm import tqdm
+import math
+import os
+import tarfile
 from pathlib import Path
+
 import pandas as pd
+from tqdm import tqdm
+
+from capreolus import ConfigOption, constants
+from capreolus.utils.common import download_file
+from capreolus.utils.loginit import get_logger
 
 from . import Collection
-from capreolus import ModuleBase, Dependency, ConfigOption, constants
-from capreolus.utils.common import download_file, hash_file, remove_newline
-from capreolus.utils.loginit import get_logger
 
 logger = get_logger(__name__)
 PACKAGE_PATH = constants["PACKAGE_PATH"]

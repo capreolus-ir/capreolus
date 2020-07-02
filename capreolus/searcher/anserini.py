@@ -1,15 +1,14 @@
-import os
 import math
+import os
 import subprocess
-from collections import defaultdict, OrderedDict
 
 import numpy as np
 
-from . import Searcher
-from capreolus import ModuleBase, Dependency, ConfigOption, constants
+from capreolus import ConfigOption, Dependency, constants
 from capreolus.utils.common import Anserini
 from capreolus.utils.loginit import get_logger
-from capreolus.utils.trec import topic_to_trectxt
+
+from . import Searcher
 
 logger = get_logger(__name__)  # pylint: disable=invalid-name
 MAX_THREADS = constants["MAX_THREADS"]
@@ -325,7 +324,6 @@ class AxiomaticSemanticMatching(Searcher, AnseriniSearcherMixIn):
 
     def _query_from_file(self, topicsfn, output_path, config):
         hits = str(config["hits"])
-        conditionals = ""
 
         anserini_param_str = "-axiom -axiom.deterministic -axiom.r {0} -axiom.n {1} -axiom.beta {2} -axiom.top {3}".format(
             *[list2str(config[k], " ") for k in ["r", "n", "beta", "top"]]

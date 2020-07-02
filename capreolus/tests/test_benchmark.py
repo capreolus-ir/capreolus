@@ -1,15 +1,16 @@
 import os
 import pickle
+
 import pytest
 from tqdm import tqdm
 
 from capreolus import Benchmark, module_registry
-from capreolus.utils.loginit import get_logger
-from capreolus.utils.common import remove_newline
-from capreolus.benchmark.codesearchnet import CodeSearchNetCorpus as CodeSearchNetCodeSearchNetCorpusBenchmark
 from capreolus.benchmark.codesearchnet import CodeSearchNetChallenge as CodeSearchNetCodeSearchNetChallengeBenchmark
+from capreolus.benchmark.codesearchnet import CodeSearchNetCorpus as CodeSearchNetCodeSearchNetCorpusBenchmark
 from capreolus.collection.codesearchnet import CodeSearchNet as CodeSearchNetCollection
 from capreolus.tests.common_fixtures import tmpdir_as_cache
+from capreolus.utils.common import remove_newline
+from capreolus.utils.loginit import get_logger
 
 logger = get_logger(__name__)
 

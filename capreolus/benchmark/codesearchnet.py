@@ -1,17 +1,18 @@
 import gzip
-import pickle
 import json
+import pickle
 from collections import defaultdict
 from pathlib import Path
 from zipfile import ZipFile
 
 from tqdm import tqdm
 
-from . import Benchmark
-from capreolus import constants, ConfigOption, Dependency
-from capreolus.utils.loginit import get_logger
-from capreolus.utils.trec import load_qrels, load_trec_topics, topic_to_trectxt
+from capreolus import ConfigOption, Dependency, constants
 from capreolus.utils.common import download_file, remove_newline
+from capreolus.utils.loginit import get_logger
+from capreolus.utils.trec import topic_to_trectxt
+
+from . import Benchmark
 
 logger = get_logger(__name__)
 PACKAGE_PATH = constants["PACKAGE_PATH"]

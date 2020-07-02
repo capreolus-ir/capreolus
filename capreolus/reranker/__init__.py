@@ -1,7 +1,7 @@
 import os
 import pickle
 
-from capreolus import ConfigOption, Dependency, ModuleBase
+from capreolus import Dependency, ModuleBase
 
 
 class Reranker(ModuleBase):

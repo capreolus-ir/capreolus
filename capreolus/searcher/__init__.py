@@ -1,7 +1,7 @@
 import os
 from collections import defaultdict, OrderedDict
 
-from capreolus import ModuleBase, Dependency, ConfigOption, constants
+from capreolus import ModuleBase, constants
 from capreolus.utils.loginit import get_logger
 from capreolus.utils.trec import topic_to_trectxt
 
