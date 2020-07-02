@@ -7,11 +7,11 @@ import tensorflow as tf
 from pymagnitude import Magnitude, MagnitudeUtils
 from tqdm import tqdm
 
-from . import Extractor
-from .common import load_pretrained_embeddings
 from capreolus import ModuleBase, Dependency, ConfigOption, constants, get_logger
 from capreolus.utils.common import padlist
 from capreolus.utils.exceptions import MissingDocError
+from . import Extractor
+from .common import load_pretrained_embeddings
 
 logger = get_logger(__name__)
 
