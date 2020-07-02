@@ -41,7 +41,7 @@ class NF(Benchmark):
             "nontopics": ["nontopic-titles"],
             "vid_title": ["vid-titles"],
             "vid_desc": ["vid-desc"],
-            "all_titles": ["nontopic-titles", "vid-titles", "nontopic-titles"],
+            "all_titles": ["titles", "vid-titles", "nontopic-titles"],
         }
         self.labelrange2kw = {"0-2": "2-1-0", "1-3": "3-2-1"}
 
