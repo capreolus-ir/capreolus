@@ -162,7 +162,7 @@ def interpolate_runs(run1, run2, qids, alpha):
             min1, max1 = min(run1[qid].values()), max(run1[qid].values())
 
             if min1 == max1:
-                min1 = 0.01 * max1
+                min1 = 0.01 * max1 - 0.01
 
         if len(run2[qid]) == 0:
             min2, max2 = 0, 1
@@ -170,7 +170,7 @@ def interpolate_runs(run1, run2, qids, alpha):
             min2, max2 = min(run2[qid].values()), max(run2[qid].values())
 
             if min2 == max2:
-                min2 = 0.01 * max2
+                min2 = 0.01 * max2 - 0.01
 
         for docid in run1[qid].keys() | run2[qid]:
             score1 = run1[qid].get(docid, min1)
