@@ -33,6 +33,10 @@ def judged(qrels, runs, n):
             logger.error(f"{q} in run files cannot be found in qrels")
             continue
 
+        if len(rundocs) == 0:
+            scores.append(0)
+            continue
+
         topn = sorted(rundocs.keys(), key=rundocs.get, reverse=True)[:n]
         score = sum(docid in qrels[q] for docid in topn) / len(topn)
         scores.append(score)
@@ -150,19 +154,26 @@ def search_best_run(runfile_dirs, benchmark, primary_metric, metrics=None, folds
 def interpolate_runs(run1, run2, qids, alpha):
     out = {}
     for qid in qids:
+        out[qid] = {}
+
         assert len(run1[qid]) == len(run2[qid])
         if len(run1[qid]) == 0:
             continue
 
-        out[qid] = {}
         min1, max1 = min(run1[qid].values()), max(run1[qid].values())
+        if min1 == max1:
+            min1 = 0.01 * max1
         min2, max2 = min(run2[qid].values()), max(run2[qid].values())
+        if min2 == max2:
+            min2 = 0.01 * max2
+
         for docid, score1 in run1[qid].items():
             if docid not in run2[qid]:
                 score2 = min2
                 logger.warning("using minimum score for missing qid=%s docid=%s", qid, docid)
             else:
                 score2 = run2[qid][docid]
+
             score1 = (score1 - min1) / (max1 - min1)
             score2 = (score2 - min2) / (max2 - min2)
             out[qid][docid] = alpha * score1 + (1 - alpha) * score2
