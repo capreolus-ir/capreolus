@@ -156,23 +156,25 @@ def interpolate_runs(run1, run2, qids, alpha):
     for qid in qids:
         out[qid] = {}
 
-        assert len(run1[qid]) == len(run2[qid])
         if len(run1[qid]) == 0:
-            continue
+            min1, max1 = 0, 1
+        else:
+            min1, max1 = min(run1[qid].values()), max(run1[qid].values())
 
-        min1, max1 = min(run1[qid].values()), max(run1[qid].values())
-        if min1 == max1:
-            min1 = 0.01 * max1
-        min2, max2 = min(run2[qid].values()), max(run2[qid].values())
-        if min2 == max2:
-            min2 = 0.01 * max2
+            if min1 == max1:
+                min1 = 0.01 * max1
 
-        for docid, score1 in run1[qid].items():
-            if docid not in run2[qid]:
-                score2 = min2
-                logger.warning("using minimum score for missing qid=%s docid=%s", qid, docid)
-            else:
-                score2 = run2[qid][docid]
+        if len(run2[qid]) == 0:
+            min2, max2 = 0, 1
+        else:
+            min2, max2 = min(run2[qid].values()), max(run2[qid].values())
+
+            if min2 == max2:
+                min2 = 0.01 * max2
+
+        for docid in run1[qid].keys() | run2[qid]:
+            score1 = run1[qid].get(docid, min1)
+            score2 = run2[qid].get(docid, min2)
 
             score1 = (score1 - min1) / (max1 - min1)
             score2 = (score2 - min2) / (max2 - min2)
