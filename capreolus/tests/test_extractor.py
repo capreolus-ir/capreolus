@@ -12,6 +12,7 @@ from capreolus.index import AnseriniIndex
 from capreolus.tokenizer import AnseriniTokenizer
 from capreolus.benchmark import DummyBenchmark
 from capreolus.extractor.embedtext import EmbedText
+from capreolus.extractor.slowembedtext import SlowEmbedText
 from capreolus.tests.common_fixtures import tmpdir_as_cache, dummy_index
 
 from capreolus.utils.exceptions import MissingDocError
@@ -30,60 +31,17 @@ def test_extractor_creatable(tmpdir_as_cache, dummy_index, extractor_name):
     extractor = Extractor.create(extractor_name, provide=provide)
 
 
-def test_embedtext_creation(monkeypatch):
-    def fake_magnitude_embedding(*args, **kwargs):
-        return Magnitude(None)
-
-    monkeypatch.setattr(EmbedText, "_get_pretrained_emb", fake_magnitude_embedding)
-
-    index_cfg = {"name": "anserini", "indexstops": False, "stemmer": "porter", "collection": {"name": "dummy"}}
-    index = AnseriniIndex(index_cfg)
-
-    extractor_cfg = {
-        "name": "embedtext",
-        "embeddings": "glove6b",
-        "zerounk": True,
-        "calcidf": True,
-        "maxqlen": MAXQLEN,
-        "maxdoclen": MAXDOCLEN,
-        "usecache": False,
-    }
-    extractor = EmbedText(extractor_cfg, provide={"index": index})
-    benchmark = DummyBenchmark()
-
-    qids = list(benchmark.qrels.keys())  # ["301"]
-    qid = qids[0]
-    docids = list(benchmark.qrels[qid].keys())
-    extractor.preprocess(qids, docids, benchmark.topics[benchmark.query_type])
-    expected_vocabs = ["lessdummy", "dummy", "doc", "hello", "greetings", "world", "from", "outer", "space", "<pad>"]
-    expected_stoi = {s: i for i, s in enumerate(expected_vocabs)}
-
-    assert set(extractor.stoi.keys()) == set(expected_stoi.keys())
-
-    assert extractor.embeddings.shape == (len(expected_vocabs), 8)
-    for i in range(extractor.embeddings.shape[0]):
-        if i == extractor.pad:
-            assert extractor.embeddings[i].sum() < 1e-5
-            continue
-
-    return extractor
-
-
 def test_embedtext_id2vec(monkeypatch):
-    def fake_magnitude_embedding(*args, **kwargs):
-        return Magnitude(None)
+    def fake_load_embeddings(self):
+        vocab = ["<pad>", "lessdummy", "dummy", "doc", "hello", "greetings", "world", "from", "outer", "space"]
+        self.embeddings = np.random.random((len(vocab), 50))
+        self.embeddings[0, :] = 0
+        self.stoi = {term: idx for idx, term in enumerate(vocab)}
+        self.itos = {v: k for k, v in self.stoi.items()}
 
-    monkeypatch.setattr(EmbedText, "_get_pretrained_emb", fake_magnitude_embedding)
+    monkeypatch.setattr(EmbedText, "_load_pretrained_embeddings", fake_load_embeddings)
 
-    extractor_cfg = {
-        "name": "embedtext",
-        "embeddings": "glove6b",
-        "zerounk": True,
-        "calcidf": True,
-        "maxqlen": MAXQLEN,
-        "maxdoclen": MAXDOCLEN,
-        "usecache": False,
-    }
+    extractor_cfg = {"name": "embedtext", "embeddings": "glove6b", "calcidf": True, "maxqlen": MAXQLEN, "maxdoclen": MAXDOCLEN}
     extractor = EmbedText(extractor_cfg, provide={"collection": DummyCollection()})
     benchmark = DummyBenchmark()
 
@@ -123,14 +81,107 @@ def test_embedtext_id2vec(monkeypatch):
     assert error_thrown
 
 
-def test_embedtext_caching(dummy_index, monkeypatch):
+def test_slowembedtext_creation(monkeypatch):
     def fake_magnitude_embedding(*args, **kwargs):
-        return Magnitude(None)
+        return np.zeros((1, 8), dtype=np.float32), {0: "<pad>"}, {"<pad>": 0}
 
-    monkeypatch.setattr(EmbedText, "_get_pretrained_emb", fake_magnitude_embedding)
+    monkeypatch.setattr(SlowEmbedText, "_load_pretrained_embeddings", fake_magnitude_embedding)
+
+    index_cfg = {"name": "anserini", "indexstops": False, "stemmer": "porter", "collection": {"name": "dummy"}}
+    index = AnseriniIndex(index_cfg)
 
     extractor_cfg = {
-        "name": "embedtext",
+        "name": "slowembedtext",
+        "embeddings": "glove6b",
+        "zerounk": True,
+        "calcidf": True,
+        "maxqlen": MAXQLEN,
+        "maxdoclen": MAXDOCLEN,
+        "usecache": False,
+    }
+    extractor = SlowEmbedText(extractor_cfg, provide={"index": index})
+    benchmark = DummyBenchmark()
+
+    qids = list(benchmark.qrels.keys())  # ["301"]
+    qid = qids[0]
+    docids = list(benchmark.qrels[qid].keys())
+    extractor.preprocess(qids, docids, benchmark.topics[benchmark.query_type])
+    expected_vocabs = ["lessdummy", "dummy", "doc", "hello", "greetings", "world", "from", "outer", "space", "<pad>"]
+    expected_stoi = {s: i for i, s in enumerate(expected_vocabs)}
+
+    assert set(extractor.stoi.keys()) == set(expected_stoi.keys())
+
+    assert extractor.embeddings.shape == (len(expected_vocabs), 8)
+    for i in range(extractor.embeddings.shape[0]):
+        if i == extractor.pad:
+            assert extractor.embeddings[i].sum() < 1e-5
+            continue
+
+    return extractor
+
+
+def test_slowembedtext_id2vec(monkeypatch):
+    def fake_magnitude_embedding(*args, **kwargs):
+        return np.zeros((1, 8), dtype=np.float32), {0: "<pad>"}, {"<pad>": 0}
+
+    monkeypatch.setattr(SlowEmbedText, "_load_pretrained_embeddings", fake_magnitude_embedding)
+
+    extractor_cfg = {
+        "name": "slowembedtext",
+        "embeddings": "glove6b",
+        "zerounk": True,
+        "calcidf": True,
+        "maxqlen": MAXQLEN,
+        "maxdoclen": MAXDOCLEN,
+        "usecache": False,
+    }
+    extractor = SlowEmbedText(extractor_cfg, provide={"collection": DummyCollection()})
+    benchmark = DummyBenchmark()
+
+    qids = list(benchmark.qrels.keys())  # ["301"]
+    qid = qids[0]
+    docids = list(benchmark.qrels[qid].keys())
+
+    extractor.preprocess(qids, docids, benchmark.topics[benchmark.query_type])
+
+    docid1, docid2 = docids[0], docids[1]
+    data = extractor.id2vec(qid, docid1, docid2)
+    q, d1, d2, idf = [data[k] for k in ["query", "posdoc", "negdoc", "idfs"]]
+
+    assert q.shape[0] == idf.shape[0]
+
+    topics = benchmark.topics[benchmark.query_type]
+    # emb_path = "glove/light/glove.6B.300d"
+    # fullemb = Magnitude(MagnitudeUtils.download_model(emb_path))
+
+    assert len(q) == MAXQLEN
+    assert len(d1) == MAXDOCLEN
+    assert len(d2) == MAXDOCLEN
+
+    assert len([w for w in q if w.sum() != 0]) == len(topics[qid].strip().split()[:MAXQLEN])
+    assert len([w for w in d1 if w.sum() != 0]) == len(extractor.index.get_doc(docid1).strip().split()[:MAXDOCLEN])
+    assert len([w for w in d2 if w.sum() != 0]) == len(extractor.index.get_doc(docid2).strip().split()[:MAXDOCLEN])
+
+    # check MissDocError
+    error_thrown = False
+    try:
+        extractor.id2vec(qid, "0000000", "111111")
+    except MissingDocError as err:
+        error_thrown = True
+        assert err.related_qid == qid
+        assert err.missed_docid == "0000000"
+
+    assert error_thrown
+
+
+def test_slowembedtext_caching(dummy_index, monkeypatch):
+    def fake_magnitude_embedding(*args, **kwargs):
+        return np.zeros((1, 8), dtype=np.float32), {0: "<pad>"}, {"<pad>": 0}
+
+    monkeypatch.setattr(SlowEmbedText, "_load_pretrained_embeddings", fake_magnitude_embedding)
+
+    extractor_cfg = {
+        "name": "slowembedtext",
         "embeddings": "glove6b",
         "zerounk": True,
         "calcidf": True,
@@ -138,7 +189,7 @@ def test_embedtext_caching(dummy_index, monkeypatch):
         "maxdoclen": MAXDOCLEN,
         "usecache": True,
     }
-    extractor = EmbedText(extractor_cfg, provide={"index": dummy_index})
+    extractor = SlowEmbedText(extractor_cfg, provide={"index": dummy_index})
     benchmark = DummyBenchmark()
 
     qids = list(benchmark.qrels.keys())  # ["301"]
@@ -151,7 +202,7 @@ def test_embedtext_caching(dummy_index, monkeypatch):
 
     assert extractor.is_state_cached(qids, docids)
 
-    new_extractor = EmbedText(extractor_cfg, provide={"index": dummy_index})
+    new_extractor = SlowEmbedText(extractor_cfg, provide={"index": dummy_index})
 
     assert new_extractor.is_state_cached(qids, docids)
     new_extractor._build_vocab(qids, docids, benchmark.topics[benchmark.query_type])
@@ -343,7 +394,7 @@ def test_bagofwords_caching(dummy_index, monkeypatch):
     def fake_magnitude_embedding(*args, **kwargs):
         return Magnitude(None)
 
-    monkeypatch.setattr(EmbedText, "_get_pretrained_emb", fake_magnitude_embedding)
+    monkeypatch.setattr(SlowEmbedText, "_load_pretrained_embeddings", fake_magnitude_embedding)
 
     extractor_cfg = {"name": "bagofwords", "datamode": "trigram", "maxqlen": 4, "maxdoclen": 800, "usecache": True}
     extractor = BagOfWords(extractor_cfg, provide={"index": dummy_index})

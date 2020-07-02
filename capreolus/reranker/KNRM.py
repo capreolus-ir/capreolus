@@ -22,7 +22,7 @@ class KNRM_class(nn.Module):
         self.kernels = RbfKernelBank(mus, sigmas, dim=1, requires_grad=config["gradkernels"])
         non_trainable = not self.p["finetune"]
         self.embedding = create_emb_layer(extractor.embeddings, non_trainable=non_trainable)
-        self.simmat = SimilarityMatrix(padding=extractor.pad)
+        self.simmat = SimilarityMatrix(self.embedding)
 
         channels = 1
         if config["singlefc"]:
@@ -37,13 +37,10 @@ class KNRM_class(nn.Module):
         return self.embedding(toks)
 
     def forward(self, doctoks, querytoks, query_idf):
-        doc = self.get_embedding(doctoks)
-        query = self.get_embedding(querytoks)
-
-        # query = torch.rand_like(query)  # debug
-        simmat = self.simmat(query, doc, querytoks, doctoks)
+        simmat = self.simmat(querytoks, doctoks)
         kernels = self.kernels(simmat)
-        BATCH, KERNELS, VIEWS, QLEN, DLEN = kernels.shape
+        VIEWS = 1
+        BATCH, KERNELS, QLEN, DLEN = kernels.shape
         kernels = kernels.reshape(BATCH, KERNELS * VIEWS, QLEN, DLEN)
         simmat = (
             simmat.reshape(BATCH, 1, VIEWS, QLEN, DLEN)

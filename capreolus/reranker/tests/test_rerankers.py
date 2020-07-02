@@ -1,6 +1,7 @@
 import os
 from pathlib import Path
 
+import numpy as np
 import pytest
 import torch
 from pymagnitude import Magnitude
@@ -8,6 +9,7 @@ from pymagnitude import Magnitude
 from capreolus import Reranker, module_registry
 from capreolus.benchmark import DummyBenchmark
 from capreolus.extractor.embedtext import EmbedText
+from capreolus.extractor.slowembedtext import SlowEmbedText
 from capreolus.extractor.bagofwords import BagOfWords
 from capreolus.extractor.deeptileextractor import DeepTileExtractor
 from capreolus.reranker.CDSSM import CDSSM
@@ -35,10 +37,12 @@ def test_reranker_creatable(tmpdir_as_cache, dummy_index, reranker_name):
 
 
 def test_knrm_pytorch(dummy_index, tmpdir, tmpdir_as_cache, monkeypatch):
-    def fake_magnitude_embedding(*args, **kwargs):
-        return Magnitude(None)
+    def fake_load_embeddings(self):
+        self.embeddings = np.zeros((1, 50))
+        self.stoi = {"<pad>": 0}
+        self.itos = {v: k for k, v in self.stoi.items()}
 
-    monkeypatch.setattr(EmbedText, "_get_pretrained_emb", fake_magnitude_embedding)
+    monkeypatch.setattr(EmbedText, "_load_pretrained_embeddings", fake_load_embeddings)
 
     reranker = KNRM(
         {
@@ -69,9 +73,9 @@ def test_knrm_pytorch(dummy_index, tmpdir, tmpdir_as_cache, monkeypatch):
 
 def test_knrm_tf(dummy_index, tmpdir, tmpdir_as_cache, monkeypatch):
     def fake_magnitude_embedding(*args, **kwargs):
-        return Magnitude(None)
+        return np.zeros((1, 8), dtype=np.float32), {0: "<pad>"}, {"<pad>": 0}
 
-    monkeypatch.setattr(EmbedText, "_get_pretrained_emb", fake_magnitude_embedding)
+    monkeypatch.setattr(SlowEmbedText, "_load_pretrained_embeddings", fake_magnitude_embedding)
 
     reranker = TFKNRM(
         {"gradkernels": True, "finetune": False, "trainer": {"niters": 1, "itersize": 4, "batch": 2}},
@@ -95,10 +99,12 @@ def test_knrm_tf(dummy_index, tmpdir, tmpdir_as_cache, monkeypatch):
 
 
 def test_pacrr(dummy_index, tmpdir, tmpdir_as_cache, monkeypatch):
-    def fake_magnitude_embedding(*args, **kwargs):
-        return Magnitude(None)
+    def fake_load_embeddings(self):
+        self.embeddings = np.zeros((1, 50))
+        self.stoi = {"<pad>": 0}
+        self.itos = {v: k for k, v in self.stoi.items()}
 
-    monkeypatch.setattr(EmbedText, "_get_pretrained_emb", fake_magnitude_embedding)
+    monkeypatch.setattr(EmbedText, "_load_pretrained_embeddings", fake_load_embeddings)
 
     reranker = PACRR(
         {
@@ -129,11 +135,6 @@ def test_pacrr(dummy_index, tmpdir, tmpdir_as_cache, monkeypatch):
 
 
 def test_dssm_unigram(dummy_index, tmpdir, tmpdir_as_cache, monkeypatch):
-    def fake_magnitude_embedding(*args, **kwargs):
-        return Magnitude(None)
-
-    monkeypatch.setattr(EmbedText, "_get_pretrained_emb", fake_magnitude_embedding)
-
     reranker = DSSM({"nhiddens": "56", "trainer": {"niters": 1, "itersize": 4, "batch": 2}}, provide={"index": dummy_index})
     extractor = reranker.extractor
     metric = "map"
@@ -154,9 +155,9 @@ def test_dssm_unigram(dummy_index, tmpdir, tmpdir_as_cache, monkeypatch):
 
 def test_tk(dummy_index, tmpdir, tmpdir_as_cache, monkeypatch):
     def fake_magnitude_embedding(*args, **kwargs):
-        return Magnitude(None)
+        return np.zeros((1, 8), dtype=np.float32), {0: "<pad>"}, {"<pad>": 0}
 
-    monkeypatch.setattr(EmbedText, "_get_pretrained_emb", fake_magnitude_embedding)
+    monkeypatch.setattr(SlowEmbedText, "_load_pretrained_embeddings", fake_magnitude_embedding)
 
     reranker = TK(
         {
@@ -194,9 +195,9 @@ def test_tk(dummy_index, tmpdir, tmpdir_as_cache, monkeypatch):
 
 def test_tk_get_mask(tmpdir, dummy_index, monkeypatch):
     def fake_magnitude_embedding(*args, **kwargs):
-        return Magnitude(None)
+        return np.zeros((1, 8), dtype=np.float32), {0: "<pad>"}, {"<pad>": 0}
 
-    monkeypatch.setattr(EmbedText, "_get_pretrained_emb", fake_magnitude_embedding)
+    monkeypatch.setattr(SlowEmbedText, "_load_pretrained_embeddings", fake_magnitude_embedding)
 
     reranker = TK(
         {
@@ -298,9 +299,9 @@ def test_deeptilebars(dummy_index, tmpdir, tmpdir_as_cache, monkeypatch):
 
 def test_HINT(dummy_index, tmpdir, tmpdir_as_cache, monkeypatch):
     def fake_magnitude_embedding(*args, **kwargs):
-        return Magnitude(None)
+        return np.zeros((1, 8), dtype=np.float32), {0: "<pad>"}, {"<pad>": 0}
 
-    monkeypatch.setattr(EmbedText, "_get_pretrained_emb", fake_magnitude_embedding)
+    monkeypatch.setattr(SlowEmbedText, "_load_pretrained_embeddings", fake_magnitude_embedding)
 
     reranker = HINT(
         {"spatialGRU": 2, "LSTMdim": 6, "kmax": 10, "trainer": {"niters": 1, "itersize": 2, "batch": 1}},
@@ -325,9 +326,9 @@ def test_HINT(dummy_index, tmpdir, tmpdir_as_cache, monkeypatch):
 
 def test_POSITDRMM(dummy_index, tmpdir, tmpdir_as_cache, monkeypatch):
     def fake_magnitude_embedding(*args, **kwargs):
-        return Magnitude(None)
+        return np.zeros((1, 8), dtype=np.float32), {0: "<pad>"}, {"<pad>": 0}
 
-    monkeypatch.setattr(EmbedText, "_get_pretrained_emb", fake_magnitude_embedding)
+    monkeypatch.setattr(SlowEmbedText, "_load_pretrained_embeddings", fake_magnitude_embedding)
 
     reranker = POSITDRMM({"trainer": {"niters": 1, "itersize": 4, "batch": 2}}, provide={"index": dummy_index})
     extractor = reranker.extractor
@@ -349,9 +350,9 @@ def test_POSITDRMM(dummy_index, tmpdir, tmpdir_as_cache, monkeypatch):
 
 def test_CDSSM(dummy_index, tmpdir, tmpdir_as_cache, monkeypatch):
     def fake_magnitude_embedding(*args, **kwargs):
-        return Magnitude(None)
+        return np.zeros((1, 8), dtype=np.float32), {0: "<pad>"}, {"<pad>": 0}
 
-    monkeypatch.setattr(EmbedText, "_get_pretrained_emb", fake_magnitude_embedding)
+    monkeypatch.setattr(SlowEmbedText, "_load_pretrained_embeddings", fake_magnitude_embedding)
 
     reranker = CDSSM(
         {

@@ -130,6 +130,10 @@ class POSITDRMM(Reranker):
     """Ryan McDonald, George Brokos, and Ion Androutsopoulos. 2018. Deep Relevance Ranking Using Enhanced Document-Query Interactions. In EMNLP'18."""
 
     module_name = "POSITDRMM"
+    dependencies = [
+        Dependency(key="extractor", module="extractor", name="slowembedtext"),
+        Dependency(key="trainer", module="trainer", name="pytorch"),
+    ]
 
     def build_model(self):
         if not hasattr(self, "model"):

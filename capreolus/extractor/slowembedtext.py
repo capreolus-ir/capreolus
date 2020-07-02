@@ -17,8 +17,8 @@ logger = get_logger(__name__)
 
 
 @Extractor.register
-class EmbedText(Extractor):
-    module_name = "embedtext"
+class SlowEmbedText(Extractor):
+    module_name = "slowembedtext"
     requires_random_seed = True
     dependencies = [
         Dependency(
@@ -28,25 +28,29 @@ class EmbedText(Extractor):
     ]
     config_spec = [
         ConfigOption("embeddings", "glove6b"),
+        ConfigOption("zerounk", False),
         ConfigOption("calcidf", True),
         ConfigOption("maxqlen", 4),
         ConfigOption("maxdoclen", 800),
+        ConfigOption("usecache", False),
     ]
 
+    pad = 0
     pad_tok = "<pad>"
 
-    def build(self):
-        self._embedding_cache = constants["CACHE_BASE_PATH"] / "embeddings"
-        self._numpy_cache = self._embedding_cache / (self.config["embeddings"] + ".npy")
-        self._vocab_cache = self._embedding_cache / (self.config["embeddings"] + ".vocab.txt")
-        self.embeddings, self.stoi, self.itos = None, None, None
-        self._next_oov_index = -1
+    def load_state(self, qids, docids):
+        with open(self.get_state_cache_file_path(qids, docids), "rb") as f:
+            state_dict = pickle.load(f)
+            self.qid2toks = state_dict["qid2toks"]
+            self.docid2toks = state_dict["docid2toks"]
+            self.stoi = state_dict["stoi"]
+            self.itos = state_dict["itos"]
 
-    def _load_pretrained_embeddings(self):
-        if self.embeddings is not None:
-            return
-
-        self.embeddings, self.itos, self.stoi = load_pretrained_embeddings(self.config["embeddings"])
+    def cache_state(self, qids, docids):
+        os.makedirs(self.get_cache_path(), exist_ok=True)
+        with open(self.get_state_cache_file_path(qids, docids), "wb") as f:
+            state_dict = {"qid2toks": self.qid2toks, "docid2toks": self.docid2toks, "stoi": self.stoi, "itos": self.itos}
+            pickle.dump(state_dict, f, protocol=-1)
 
     def get_tf_feature_description(self):
         feature_description = {
@@ -85,38 +89,77 @@ class EmbedText(Extractor):
 
         return (posdoc, negdoc, query, query_idf), label
 
+    def _build_vocab(self, qids, docids, topics):
+        if self.is_state_cached(qids, docids) and self.config["usecache"]:
+            self.load_state(qids, docids)
+            logger.info("Vocabulary loaded from cache")
+        else:
+            tokenize = self.tokenizer.tokenize
+            self.qid2toks = {qid: tokenize(topics[qid]) for qid in qids}
+            self.docid2toks = {docid: tokenize(self.index.get_doc(docid)) for docid in docids}
+            self._extend_stoi(self.qid2toks.values(), calc_idf=self.config["calcidf"])
+            self._extend_stoi(self.docid2toks.values(), calc_idf=self.config["calcidf"])
+            self.itos = {i: s for s, i in self.stoi.items()}
+            logger.info(f"vocabulary constructed, with {len(self.itos)} terms in total")
+            if self.config["usecache"]:
+                self.cache_state(qids, docids)
+
     def _get_idf(self, toks):
         return [self.idf.get(tok, 0) for tok in toks]
 
+    def _load_pretrained_embeddings(self):
+        return load_pretrained_embeddings(self.config["embeddings"])
+
+    def _build_embedding_matrix(self):
+        assert len(self.stoi) > 1  # needs more vocab than self.pad_tok
+
+        embeddings, _, embedding_stoi = self._load_pretrained_embeddings()
+        emb_dim = embeddings.shape[-1]
+        embed_matrix = np.zeros((len(self.stoi), emb_dim), dtype=np.float32)
+
+        n_missed = 0
+        for term, idx in tqdm(self.stoi.items()):
+            if term in embedding_stoi:
+                embed_matrix[idx] = embeddings[embedding_stoi[term]]
+            elif term == self.pad_tok:
+                embed_matrix[idx] = np.zeros(emb_dim)
+            else:
+                n_missed += 1
+                embed_matrix[idx] = np.zeros(emb_dim) if self.config["zerounk"] else np.random.normal(scale=0.5, size=emb_dim)
+
+        logger.info(f"embedding matrix {self.config['embeddings']} constructed, with shape {embed_matrix.shape}")
+        if n_missed > 0:
+            logger.warning(f"{n_missed}/{len(self.stoi)} (%.3f) term missed" % (n_missed / len(self.stoi)))
+
+        self.embeddings = embed_matrix
+
+    def exist(self):
+        return (
+            hasattr(self, "embeddings")
+            and self.embeddings is not None
+            and isinstance(self.embeddings, np.ndarray)
+            and 0 < len(self.stoi) == self.embeddings.shape[0]
+        )
+
     def preprocess(self, qids, docids, topics):
-        self._load_pretrained_embeddings()
+        if self.exist():
+            return
 
         self.index.create_index()
 
-        self.qid2toks = {}
-        self.docid2toks = {}
+        self.itos = {self.pad: self.pad_tok}
+        self.stoi = {self.pad_tok: self.pad}
+        self.qid2toks = defaultdict(list)
+        self.docid2toks = defaultdict(list)
         self.idf = defaultdict(lambda: 0)
+        self.embeddings = None
+        # self.cache = self.load_cache()    # TODO
 
-        for qid in qids:
-            if qid not in self.qid2toks:
-                self.qid2toks[qid] = self.tokenizer.tokenize(topics[qid])
-                self._add_oov_to_vocab(self.qid2toks[qid])
-
-    def get_doc_tokens(self, docid):
-        if docid not in self.docid2toks:
-            self.docid2toks[docid] = self.tokenizer.tokenize(self.index.get_doc(docid))
-            self._add_oov_to_vocab(self.docid2toks[docid])
-
-        return self.docid2toks[docid]
-
-    def _add_oov_to_vocab(self, tokens):
-        for tok in tokens:
-            if tok not in self.stoi:
-                self.stoi[tok] = self._next_oov_index
-                self.itos[self._next_oov_index] = tok
-                self._next_oov_index -= 1
+        self._build_vocab(qids, docids, topics)
+        self._build_embedding_matrix()
 
     def _tok2vec(self, toks):
+        # return [self.embeddings[self.stoi[tok]] for tok in toks]
         return [self.stoi[tok] for tok in toks]
 
     def id2vec(self, qid, posid, negid=None):
@@ -124,7 +167,7 @@ class EmbedText(Extractor):
 
         # TODO find a way to calculate qlen/doclen stats earlier, so we can log them and check sanity of our values
         qlen, doclen = self.config["maxqlen"], self.config["maxdoclen"]
-        posdoc = self.get_doc_tokens(posid)
+        posdoc = self.docid2toks.get(posid, None)
         if not posdoc:
             raise MissingDocError(qid, posid)
 
@@ -145,7 +188,7 @@ class EmbedText(Extractor):
         }
 
         if negid:
-            negdoc = self.get_doc_tokens(negid)
+            negdoc = self.docid2toks.get(negid, None)
             if not negdoc:
                 raise MissingDocError(qid, negid)
 

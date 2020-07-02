@@ -327,6 +327,10 @@ class HINT(Reranker):
 
     module_name = "HINT"
 
+    dependencies = [
+        Dependency(key="extractor", module="extractor", name="slowembedtext"),
+        Dependency(key="trainer", module="trainer", name="pytorch"),
+    ]
     config_spec = [ConfigOption("spatialGRU", 2), ConfigOption("LSTMdim", 6), ConfigOption("kmax", 10)]
 
     def test(self, query_sentence, query_idf, pos_sentence, *args, **kwargs):

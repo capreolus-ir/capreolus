@@ -39,6 +39,48 @@ def similarity_matrix_tf(query_embed, doc_embed, query_tok, doc_tok, padding):
 
 
 class SimilarityMatrix(torch.nn.Module):
+    def __init__(self, embedding):
+        super().__init__()
+        self.embedding = embedding
+        self.padding = 0
+
+    def remove_padding(self, sim, query_tok, doc_tok, BAT, A, B):
+        nul = torch.zeros_like(sim)
+        sim = torch.where(query_tok.reshape(BAT, A, 1).expand(BAT, A, B) == self.padding, nul, sim)
+        sim = torch.where(doc_tok.reshape(BAT, 1, B).expand(BAT, A, B) == self.padding, nul, sim)
+        return sim
+
+    def exact_match_matrix(self, query_tok, doc_tok, BAT, A, B):
+        sim = (query_tok.reshape(BAT, A, 1).expand(BAT, A, B) == doc_tok.reshape(BAT, 1, B).expand(BAT, A, B)).float()
+        sim = self.remove_padding(sim, query_tok, doc_tok, BAT, A, B)
+        return sim
+
+    def cosine_similarity_matrix(self, query_tok, doc_tok, BAT, A, B):
+        a_emb, b_emb = self.embedding(query_tok), self.embedding(doc_tok)
+        a_denom = a_emb.norm(p=2, dim=2).reshape(BAT, A, 1).expand(BAT, A, B) + 1e-9  # avoid 0div
+        b_denom = b_emb.norm(p=2, dim=2).reshape(BAT, 1, B).expand(BAT, A, B) + 1e-9  # avoid 0div
+        perm = b_emb.permute(0, 2, 1)
+        sim = a_emb.bmm(perm) / (a_denom * b_denom)
+        sim = self.remove_padding(sim, query_tok, doc_tok, BAT, A, B)
+        return sim
+
+    # query_tok and doc_tok should contain integers
+    def forward(self, query_tok, doc_tok):
+        BAT, A, B = query_tok.shape[0], query_tok.shape[1], doc_tok.shape[1]
+        assert doc_tok.shape[0] == BAT
+
+        # note: all OOV terms are given negative indices and 0 is padding
+        # approach:
+        # 1. we calculate an exact match matrix on OOV terms only, and set padding to 0
+        # 2. we calculate a cosine sim matrix on in-vocab terms only, and set padding to 0
+        # 3. we sum the two matrices
+        exact_match = self.exact_match_matrix(query_tok.clamp(max=0), doc_tok.clamp(max=0), BAT, A, B)
+        cos_matrix = self.cosine_similarity_matrix(query_tok.clamp(min=0), doc_tok.clamp(min=0), BAT, A, B)
+        simmat = exact_match + cos_matrix
+        return simmat
+
+
+class StackedSimilarityMatrix(torch.nn.Module):
     # based on SimmatModule from https://github.com/Georgetown-IR-Lab/cedr/blob/master/modeling_util.py
     # which is copyright (c) 2019 Georgetown Information Retrieval Lab, MIT license
     def __init__(self, padding=0):

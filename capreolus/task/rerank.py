@@ -109,52 +109,41 @@ class RerankTask(Task):
         test_output_path = train_output_path / "pred" / "test" / "best"
         logger.debug("results path: %s", train_output_path)
 
-        if os.path.exists(test_output_path):
-            test_preds = Searcher.load_trec_run(test_output_path)
-        else:
-            self.rank.search()
-            rank_results = self.rank.evaluate()
-            best_search_run_path = rank_results["path"][fold]
-            best_search_run = Searcher.load_trec_run(best_search_run_path)
+        if not os.path.exists(test_output_path):
+            logger.error("could not find predictions; run the train command before evaluate")
+            raise ValueError("could not find predictions; run the train command before evaluate")
 
-            docids = set(docid for querydocs in best_search_run.values() for docid in querydocs)
-            self.reranker.extractor.preprocess(
-                qids=best_search_run.keys(), docids=docids, topics=self.benchmark.topics[self.benchmark.query_type]
-            )
-            self.reranker.build_model()
-            self.reranker.searcher_scores = best_search_run
-
-            self.reranker.trainer.load_best_model(self.reranker, train_output_path)
-
-            test_run = {
-                qid: docs for qid, docs in best_search_run.items() if qid in self.benchmark.folds[fold]["predict"]["test"]
-            }
-            test_dataset = PredDataset(qid_docid_to_rank=test_run, extractor=self.reranker.extractor)
-
-            test_preds = self.reranker.trainer.predict(self.reranker, test_dataset, test_output_path)
-
+        test_preds = Searcher.load_trec_run(test_output_path)
         metrics = evaluator.eval_runs(test_preds, self.benchmark.qrels, evaluator.DEFAULT_METRICS, self.benchmark.relevance_level)
         logger.info("rerank: fold=%s test metrics: %s", fold, metrics)
 
-        print("\ncomputing metrics across all folds")
-        avg = {}
-        found = 0
+        fold_preds = {}
         for fold in self.benchmark.folds:
             # TODO fix by using multiple Tasks
-            from pathlib import Path
-
             pred_path = Path(test_output_path.as_posix().replace("fold-" + self.config["fold"], "fold-" + fold))
-            if not os.path.exists(pred_path):
-                print("\tfold=%s results are missing and will not be included" % fold)
-                continue
+            if os.path.exists(pred_path):
+                fold_preds[fold] = Searcher.load_trec_run(pred_path)
 
-            found += 1
-            preds = Searcher.load_trec_run(pred_path)
-            metrics = evaluator.eval_runs(preds, self.benchmark.qrels, evaluator.DEFAULT_METRICS, self.benchmark.relevance_level)
-            for metric, val in metrics.items():
-                avg.setdefault(metric, []).append(val)
+        if len(fold_preds) != len(self.benchmark.folds):
+            logger.info(
+                "rerank: skipping cross-validated metrics because results exist for only %s/%s folds",
+                len(fold_preds),
+                len(self.benchmark.folds),
+            )
+            return {"fold_metrics": metrics, "cv_metrics": None}
 
-        avg = {k: np.mean(v) for k, v in avg.items()}
         logger.info("rerank: average cross-validated metrics when choosing iteration based on '%s':", self.config["optimize"])
-        for metric, score in sorted(avg.items()):
+        all_preds = {}
+        for preds in fold_preds.values():
+            for qid, docscores in preds.items():
+                all_preds.setdefault(qid, {})
+                for docid, score in docscores.items():
+                    all_preds[qid][docid] = score
+
+        cv_metrics = evaluator.eval_runs(
+            all_preds, self.benchmark.qrels, evaluator.DEFAULT_METRICS, self.benchmark.relevance_level
+        )
+        for metric, score in sorted(cv_metrics.items()):
             logger.info("%15s: %0.4f", metric, score)
+
+        return {"fold_metrics": metrics, "cv_metrics": cv_metrics}

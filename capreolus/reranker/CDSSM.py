@@ -78,6 +78,10 @@ class CDSSM(Reranker):
 
     module_name = "CDSSM"
 
+    dependencies = [
+        Dependency(key="extractor", module="extractor", name="slowembedtext"),
+        Dependency(key="trainer", module="trainer", name="pytorch"),
+    ]
     config_spec = [
         ConfigOption("nkernel", 3, "kernel dimension in conv"),
         ConfigOption("nfilter", 1, "number of filters in conv"),

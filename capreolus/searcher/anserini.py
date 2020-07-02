@@ -263,8 +263,9 @@ class StaticBM25RM3Rob04Yang19(Searcher):
         import shutil
 
         outfn = os.path.join(output_path, "static.run")
-        os.makedirs(output_path, exist_ok=True)
-        shutil.copy2(constants["PACKAGE_PATH"] / "data" / "rob04_yang19_rm3.run", outfn)
+        if not os.path.exists(outfn):
+            os.makedirs(output_path, exist_ok=True)
+            shutil.copy2(constants["PACKAGE_PATH"] / "data" / "rob04_yang19_rm3.run", outfn)
 
         return output_path
 

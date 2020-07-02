@@ -65,7 +65,7 @@ class TFKNRM(Reranker):
     module_name = "TFKNRM"
 
     dependencies = [
-        Dependency(key="extractor", module="extractor", name="embedtext"),
+        Dependency(key="extractor", module="extractor", name="slowembedtext"),
         Dependency(key="trainer", module="trainer", name="tensorflow"),
     ]
     config_spec = [

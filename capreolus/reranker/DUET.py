@@ -20,8 +20,8 @@ class LocalModel(nn.Module):
         else:
             raise ValueError("Unexpected activation: should be either tanh or relu")
 
-        q_len, doc_len = p["trainer"]["maxqlen"], p["trainer"]["maxdoclen"]
-        dropoutrate = p["trainer"]["dropoutrate"]
+        q_len, doc_len = p["extractor"]["maxqlen"], p["extractor"]["maxdoclen"]
+        dropoutrate = p["dropoutrate"]
         self.conv = nn.Sequential(nn.Conv2d(1, p["nfilters"], (1, doc_len)), self.activation)  # (B, 1, Q, D) -> (B, H, Q, 1)
 
         self.ffw = nn.Sequential(
@@ -65,7 +65,7 @@ class DistributedModel(nn.Module):
 
         self.embedding = create_emb_layer(extractor.embeddings, non_trainable=True)
         embsize = self.embedding.weight.shape[-1]
-        dropoutrate = p["trainer"]["dropoutrate"]
+        dropoutrate = p["dropoutrate"]
 
         self.q_conv = nn.Sequential(
             nn.Conv2d(1, p["nfilters"], (3, embsize)),
@@ -135,11 +135,16 @@ class DUET(Reranker):
 
     module_name = "DUET"
 
+    dependencies = [
+        Dependency(key="extractor", module="extractor", name="slowembedtext"),
+        Dependency(key="trainer", module="trainer", name="pytorch"),
+    ]
     config_spec = [
-        ConfigOption("nfilter", 10, "number of filters for both local and distrbuted model"),
+        ConfigOption("nfilters", 10, "number of filters for both local and distrbuted model"),
         ConfigOption("lmhidden", 30, "ffw hidden layer dimension for local model"),
         ConfigOption("nhidden", 699, "ffw hidden layer dimension for local model"),
         ConfigOption("idfweight", True, "whether to weight each query word with its idf value in local model"),
+        ConfigOption("dropoutrate", 0.5, "dropout probability"),
         ConfigOption("activation", "relu", "ffw layer activation: tanh or relu"),
     ]
 

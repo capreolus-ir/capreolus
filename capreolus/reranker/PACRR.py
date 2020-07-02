@@ -20,7 +20,7 @@ class PACRR_class(nn.Module):
         self.extractor = extractor
         self.embedding_dim = extractor.embeddings.shape[1]
         self.embedding = create_emb_layer(extractor.embeddings, non_trainable=True)
-        self.simmat = SimilarityMatrix(padding=extractor.pad)
+        self.simmat = SimilarityMatrix(self.embedding)
 
         self.ngrams = nn.ModuleList()
         for ng in range(p["mingram"], p["maxgram"] + 1):
@@ -41,9 +41,7 @@ class PACRR_class(nn.Module):
         self.combine = torch.nn.Sequential(self.linear1, nonlinearity(), self.linear2, nonlinearity(), self.linear3)
 
     def forward(self, sentence, query_sentence, query_idf):
-        doc = self.embedding(sentence)
-        query = self.embedding(query_sentence)
-        simmat = self.simmat(query, doc, query_sentence, sentence)
+        simmat = self.simmat(query_sentence, sentence)
 
         scores = [ng(simmat) for ng in self.ngrams]
         if self.p["idf"]:
@@ -73,7 +71,8 @@ class PACRRConvMax2dModule(torch.nn.Module):
         self.channels = channels
 
     def forward(self, simmat):
-        BATCH, CHANNELS, QLEN, DLEN = simmat.shape
+        BATCH, QLEN, DLEN = simmat.shape
+        simmat = simmat.reshape(BATCH, 1, QLEN, DLEN)
         if self.pad:
             simmat = self.pad(simmat)
         conv = self.activation(self.conv(simmat))
