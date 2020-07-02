@@ -54,7 +54,7 @@ setuptools.setup(
         "cython",
         "pre-commit",
         "PyYAML==5.1.1",
-        "profane",
+        "profane>=0.1.6",
         "SQLAlchemy",
         "sqlalchemy-utils",
         "psycopg2-binary",

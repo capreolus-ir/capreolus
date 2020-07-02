@@ -33,6 +33,10 @@ def judged(qrels, runs, n):
             logger.error(f"{q} in run files cannot be found in qrels")
             continue
 
+        if len(rundocs) == 0:
+            scores.append(0)
+            continue
+
         topn = sorted(rundocs.keys(), key=rundocs.get, reverse=True)[:n]
         score = sum(docid in qrels[q] for docid in topn) / len(topn)
         scores.append(score)
@@ -136,11 +140,74 @@ def search_best_run(runfile_dirs, benchmark, primary_metric, metrics=None, folds
             if score > best_scores[s][primary_metric]:
                 best_scores[s] = {primary_metric: score, "path": runfile}
 
-    test_runs, test_qrels = {}, {}
+    test_runs = {}
     for s, score_dict in best_scores.items():
         test_qids = folds[s]["predict"]["test"]
+        # any empty (no results) queries need to be added so they contribute zeros to the average
+        test_runs.update({qid: {} for qid in test_qids})
         test_runs.update({qid: v for qid, v in Searcher.load_trec_run(score_dict["path"]).items() if qid in test_qids})
-        test_qrels.update({qid: v for qid, v in benchmark.qrels.items() if qid in test_qids})
 
     scores = eval_runs(test_runs, benchmark.qrels, metrics, benchmark.relevance_level)
     return {"score": scores, "path": {s: v["path"] for s, v in best_scores.items()}}
+
+
+def interpolate_runs(run1, run2, qids, alpha):
+    out = {}
+    for qid in qids:
+        out[qid] = {}
+
+        if len(run1[qid]) == 0:
+            min1, max1 = 0, 1
+        else:
+            min1, max1 = min(run1[qid].values()), max(run1[qid].values())
+
+            if min1 == max1:
+                min1 = 0.01 * max1
+
+        if len(run2[qid]) == 0:
+            min2, max2 = 0, 1
+        else:
+            min2, max2 = min(run2[qid].values()), max(run2[qid].values())
+
+            if min2 == max2:
+                min2 = 0.01 * max2
+
+        for docid in run1[qid].keys() | run2[qid]:
+            score1 = run1[qid].get(docid, min1)
+            score2 = run2[qid].get(docid, min2)
+
+            score1 = (score1 - min1) / (max1 - min1)
+            score2 = (score2 - min2) / (max2 - min2)
+            out[qid][docid] = alpha * score1 + (1 - alpha) * score2
+
+    return out
+
+
+def interpolated_eval(run1, run2, benchmark, primary_metric, metrics=None):
+    metrics = [] if not metrics else ([metrics] if isinstance(metrics, str) else list(metrics))
+    if primary_metric not in metrics:
+        metrics = [primary_metric] + metrics
+
+    test_runs = {}
+    alphas = {}
+    for s, v in benchmark.folds.items():
+        best_metric = None
+        dev_qids = set(v["predict"]["dev"])
+        dev1, dev2 = run1[s]["dev"], run2[s]["dev"]
+
+        for alpha in np.arange(0, 1.001, 0.05):
+            interpolated_run = interpolate_runs(dev1, dev2, dev_qids, alpha)
+            metrics = eval_runs(interpolated_run, benchmark.qrels, metrics, benchmark.relevance_level)
+
+            if best_metric is None or metrics[primary_metric] > best_metric:
+                alphas[s] = alpha
+
+        test_qids = set(v["predict"]["test"])
+        test1, test2 = run1[s]["test"], run2[s]["test"]
+        interpolated_test_run = interpolate_runs(test1, test2, test_qids, alphas[s])
+        for qid in test_qids:
+            assert qid not in test_runs
+            test_runs[qid] = interpolated_test_run[qid].copy()
+
+    scores = eval_runs(test_runs, benchmark.qrels, metrics, benchmark.relevance_level)
+    return {"score": scores, "alphas": alphas}

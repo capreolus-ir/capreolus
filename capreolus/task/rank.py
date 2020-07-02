@@ -62,6 +62,6 @@ class RankTask(Task):
 
         logger.info("rank: cross-validated results when optimizing for '%s':", self.config["optimize"])
         for metric, score in sorted(best_results["score"].items()):
-            logger.info("%15s: %0.4f", metric, score)
+            logger.info("%25s: %0.4f", metric, score)
 
         return best_results

@@ -12,9 +12,6 @@ from capreolus.utils.exceptions import MissingDocError
 from . import Extractor
 from .common import load_pretrained_embeddings
 
-from . import Extractor
-from .common import load_pretrained_embeddings
-
 logger = get_logger(__name__)
 
 

@@ -109,4 +109,4 @@ class ReRerankTask(Task):
         avg = {k: np.mean(v) for k, v in avg.items()}
         logger.info("rerank: average cross-validated metrics when choosing iteration based on '%s':", self.config["optimize"])
         for metric, score in sorted(avg.items()):
-            logger.info("%15s: %0.4f", metric, score)
+            logger.info("%25s: %0.4f", metric, score)
