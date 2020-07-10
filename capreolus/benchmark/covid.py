@@ -66,7 +66,7 @@ class COVID(Benchmark):
             download_file(topic_url, topic_tmp)
         all_qids = self.xml2trectopic(topic_tmp)  # will update self.topic_file
 
-        if useprevqrels:    # use judgements in previous rounds to evaluate (for rounds without available qrels)
+        if useprevqrels:  # use judgements in previous rounds to evaluate (for rounds without available qrels)
             qrel_fn = open(self.qrel_file, "w")
             for i, qrel_url in enumerate(prev_qrel_urls):
                 qrel_tmp = tmp_dir / f"qrel-{i+1}"  # round_id = (i + 1)
