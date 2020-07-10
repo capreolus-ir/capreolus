@@ -201,10 +201,10 @@ class BM25RM3(Searcher, AnseriniSearcherMixIn):
     module_name = "BM25RM3"
     dependencies = [Dependency(key="index", module="index", name="anserini")]
     config_spec = [
-        ConfigOption("k1", [0.65, 0.70, 0.75], "controls term saturation", value_type="floatlist"),
-        ConfigOption("b", [0.60, 0.7], "controls document length normalization", value_type="floatlist"),
-        ConfigOption("fbTerms", [65, 70, 95, 100], "number of generated terms from feedback", value_type="intlist"),
-        ConfigOption("fbDocs", [5, 10, 15], "number of documents used for feedback", value_type="intlist"),
+        ConfigOption("k1", "0.9", "controls term saturation", value_type="floatlist"),
+        ConfigOption("b", "0.4", "controls document length normalization", value_type="floatlist"),
+        ConfigOption("fbTerms", [5, 25], "number of generated terms from feedback", value_type="intlist"),
+        ConfigOption("fbDocs", [5, 10], "number of documents used for feedback", value_type="intlist"),
         ConfigOption("originalQueryWeight", [0.5], "the weight of unexpended query", value_type="floatlist"),
         ConfigOption("hits", 1000, "number of results to return"),
         ConfigOption("fields", "title"),
