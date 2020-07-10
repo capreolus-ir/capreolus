@@ -235,7 +235,7 @@ class BM25PostProcess(BM25, PostprocessMixin):
         ConfigOption("hits", 1000, "number of results to return"),
         ConfigOption("topn", 1000),
         ConfigOption("fields", "title"),
-        ConfigOption("dedep", False),
+        ConfigOption("dedup", False),
     ]
 
     def query_from_file(self, topicsfn, output_path, docs_to_remove=None):
