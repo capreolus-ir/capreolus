@@ -20,8 +20,8 @@ The `searcheval` command instructs `RankTask` to query NFCorpus and evaluate the
 ```bash
 INFO - capreolus.task.rank.evaluate - rank: fold=s1 best run: ...searcher-BM25_b-0.8_fields-title_hits-1000_k1-0.9/task-rank_filter-False/searcher
 INFO - capreolus.task.rank.evaluate - rank: cross-validated results when optimizing for 'map':
-INFO - capreolus.task.rank.evaluate -             map: 0.1361
-INFO - capreolus.task.rank.evaluate -     ndcg_cut_10: 0.2906
+INFO - capreolus.task.rank.evaluate -             map: 0.1520
+INFO - capreolus.task.rank.evaluate -     ndcg_cut_10: 0.3247
 ...
 ```
 
@@ -184,7 +184,10 @@ Let's try running the Task we just declared via the Python API.
 >>> task = TutorialTask()
 >>> results = task.run()
 >>> results['score']['map']
-0.14798308699242727
+0.1855654735508547
+# looks like we got an improvement! which run was better?
+>>> results['path']
+...searcher_bm25(k1=0.9,b=0.4)_rm3(fbTerms=25,fbDocs=10,originalQueryWeight=0.5)'}
 ```
 
 ### Module APIs
