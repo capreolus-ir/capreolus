@@ -190,6 +190,8 @@ class PytorchTrainer(Trainer):
         initial_iter = self.fastforward_training(reranker, weights_output_path, loss_fn) if self.config["fastforward"] else 0
         logger.info("starting training from iteration %s/%s", initial_iter, self.config["niters"])
 
+        from torch.utils.data.dataloader import default_collate
+
         train_dataloader = torch.utils.data.DataLoader(
             train_dataset, batch_size=self.config["batch"], pin_memory=True, num_workers=0
         )
