@@ -24,17 +24,17 @@ class COVID(Benchmark):
     data_dir = PACKAGE_PATH / "data" / "covid"
     topic_url = "https://ir.nist.gov/covidSubmit/data/topics-rnd%d.xml"
     qrel_url = "https://ir.nist.gov/covidSubmit/data/qrels-rnd%d.txt"
-    lastest_round = 3
+    lastest_round = 4
 
     config_spec = [
         ConfigOption("round", 3, "TREC-COVID round to use"),
         ConfigOption("udelqexpand", False),
-        ConfigOption("excludeknown", True),
+        ConfigOption("useprevqrels", True),
     ]
 
     def build(self):
-        if self.config["round"] == self.lastest_round and not self.config["excludeknown"]:
-            logger.warning(f"No evaluation can be done for the lastest round in exclude-known mode")
+        if self.config["round"] == self.lastest_round and not self.config["useprevqrels"]:
+            logger.warning(f"No evaluation can be done for the lastest round without using previous qrels")
 
         data_dir = self.get_cache_path() / "documents"
         data_dir.mkdir(exist_ok=True, parents=True)
@@ -50,14 +50,14 @@ class COVID(Benchmark):
         if all([os.path.exists(fn) for fn in [self.qrel_file, self.qrel_ignore, self.topic_file, self.fold_file]]):
             return
 
-        rnd_i, excludeknown = self.config["round"], self.config["excludeknown"]
+        rnd_i, useprevqrels = self.config["round"], self.config["useprevqrels"]
         if rnd_i > self.lastest_round:
             raise ValueError(f"round {rnd_i} is unavailable")
 
         logger.info(f"Preparing files for covid round-{rnd_i}")
 
         topic_url = self.topic_url % rnd_i
-        qrel_ignore_urls = [self.qrel_url % i for i in range(1, rnd_i)]  # download all the qrels before current run
+        prev_qrel_urls = [self.qrel_url % i for i in range(1, rnd_i)]  # download all the qrels before current run
 
         # topic file
         tmp_dir = Path("/tmp")
@@ -66,9 +66,9 @@ class COVID(Benchmark):
             download_file(topic_url, topic_tmp)
         all_qids = self.xml2trectopic(topic_tmp)  # will update self.topic_file
 
-        if excludeknown:
+        if useprevqrels:    # use judgements in previous rounds to evaluate (for rounds without available qrels)
             qrel_fn = open(self.qrel_file, "w")
-            for i, qrel_url in enumerate(qrel_ignore_urls):
+            for i, qrel_url in enumerate(prev_qrel_urls):
                 qrel_tmp = tmp_dir / f"qrel-{i+1}"  # round_id = (i + 1)
                 if not os.path.exists(qrel_tmp):
                     download_file(qrel_url, qrel_tmp)
@@ -77,11 +77,14 @@ class COVID(Benchmark):
                         qrel_fn.write(line)
             qrel_fn.close()
 
-            f = open(self.qrel_ignore, "w")  # empty ignore file
+            f = open(self.qrel_ignore, "w")  # no qrels to remove after search
             f.close()
-        else:
+
+            labeled_qids = list(load_qrels(self.qrel_file).keys())
+
+        else:  # use judgement in current round to evaluate
             qrel_fn = open(self.qrel_ignore, "w")
-            for i, qrel_url in enumerate(qrel_ignore_urls):
+            for i, qrel_url in enumerate(prev_qrel_urls):
                 qrel_tmp = tmp_dir / f"qrel-{i+1}"  # round_id = (i + 1)
                 if not os.path.exists(qrel_tmp):
                     download_file(qrel_url, qrel_tmp)
@@ -98,8 +101,9 @@ class COVID(Benchmark):
                     for line in fin:
                         fout.write(line)
 
-        # folds: use all labeled query for train, valid, and use all of them for test set
-        labeled_qids = list(load_qrels(self.qrel_ignore).keys())
+            # folds: use all labeled query for train, valid, and use all of them for test set
+            labeled_qids = list(load_qrels(self.qrel_ignore).keys())
+
         folds = {"s1": {"train_qids": labeled_qids, "predict": {"dev": labeled_qids, "test": all_qids}}}
         json.dump(folds, open(self.fold_file, "w"))
 
