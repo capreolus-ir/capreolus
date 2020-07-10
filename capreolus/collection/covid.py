@@ -33,7 +33,7 @@ class COVID(Collection):
             "fulltext": "Cord19FullTextCollection",
             "paragraph": "Cord19ParagraphCollection",
         }
-        dates = ["2020-04-10", "2020-05-01", "2020-05-19"]
+        dates = ["2020-04-10", "2020-05-01", "2020-05-19", "2020-06-19"]
 
         if coll_type not in type2coll:
             raise ValueError(f"Unexpected coll_type: {coll_type}; expeced one of: {' '.join(type2coll.keys())}")
