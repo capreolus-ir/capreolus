@@ -24,7 +24,10 @@ class COVID(Collection):
     module_name = "covid"
     url = "https://ai2-semanticscholar-cord-19.s3-us-west-2.amazonaws.com/historical_releases/cord-19_%s.tar.gz"
     generator_type = "Cord19Generator"
-    config_spec = [ConfigOption("coll_type", "abstract", "one of: abstract, fulltext, paragraph"), ConfigOption("round", 3)]
+    config_spec = [
+        ConfigOption("round", 3),
+        ConfigOption("coll_type", "abstract", "one of: abstract, fulltext, paragraph"),
+    ]
 
     def build(self):
         coll_type, round = self.config["coll_type"], self.config["round"]
