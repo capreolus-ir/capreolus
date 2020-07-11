@@ -27,13 +27,12 @@ class COVID(Benchmark):
     lastest_round = 4
 
     config_spec = [
-        ConfigOption("round", 3, "TREC-COVID round to use"),
         ConfigOption("udelqexpand", False),
         ConfigOption("useprevqrels", True),
     ]
 
     def build(self):
-        if self.config["round"] == self.lastest_round and not self.config["useprevqrels"]:
+        if self.collection.config["round"] == self.lastest_round and not self.config["useprevqrels"]:
             logger.warning(f"No evaluation can be done for the lastest round without using previous qrels")
 
         data_dir = self.get_cache_path() / "documents"
@@ -50,7 +49,7 @@ class COVID(Benchmark):
         if all([os.path.exists(fn) for fn in [self.qrel_file, self.qrel_ignore, self.topic_file, self.fold_file]]):
             return
 
-        rnd_i, useprevqrels = self.config["round"], self.config["useprevqrels"]
+        rnd_i, useprevqrels = self.collection.config["round"], self.config["useprevqrels"]
         if rnd_i > self.lastest_round:
             raise ValueError(f"round {rnd_i} is unavailable")
 
@@ -60,9 +59,10 @@ class COVID(Benchmark):
         prev_qrel_urls = [self.qrel_url % i for i in range(1, rnd_i)]  # download all the qrels before current run
 
         # topic file
-        tmp_dir = Path("/tmp")
+        tmp_dir = self.get_cache_path() / "tmp"
         topic_tmp = tmp_dir / f"topic.round.{rnd_i}.xml"
         if not os.path.exists(topic_tmp):
+            tmp_dir.mkdir(exist_ok=True, parents=True)
             download_file(topic_url, topic_tmp)
         all_qids = self.xml2trectopic(topic_tmp)  # will update self.topic_file
 
@@ -94,10 +94,14 @@ class COVID(Benchmark):
             qrel_fn.close()
 
             if rnd_i == self.lastest_round:
+                logger.warn(f"No evaluation qrel is available for current round {rnd_i}")
                 f = open(self.qrel_file, "w")
                 f.close()
             else:
-                with open(tmp_dir / f"qrel-{rnd_i}") as fin, open(self.qrel_file, "w") as fout:
+                qrel_tmp = tmp_dir / f"qrel-{rnd_i}"
+                if not os.path.exists(qrel_tmp):
+                    download_file(self.qrel_url % rnd_i, qrel_tmp)
+                with open(qrel_tmp) as fin, open(self.qrel_file, "w") as fout:
                     for line in fin:
                         fout.write(line)
 
@@ -161,7 +165,7 @@ class CovidQA(Benchmark):
         if all([os.path.exists(f) for f in [self.qrel_file, self.topic_file, self.fold_file]]):
             return
 
-        tmp_dir = Path("/tmp")
+        tmp_dir = self.get_cache_path() / "tmp"
         topic_f = open(self.topic_file, "w", encoding="utf-8")
         qrel_f = open(self.qrel_file, "w", encoding="utf-8")
 
