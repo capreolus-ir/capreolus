@@ -65,51 +65,78 @@ class COVID(Benchmark):
             tmp_dir.mkdir(exist_ok=True, parents=True)
             download_file(topic_url, topic_tmp)
         all_qids = self.xml2trectopic(topic_tmp)  # will update self.topic_file
+        labeled_qids = set()
 
-        if useprevqrels:  # use judgements in previous rounds to evaluate (for rounds without available qrels)
-            qrel_fn = open(self.qrel_file, "w")
-            for i, qrel_url in enumerate(prev_qrel_urls):
-                qrel_tmp = tmp_dir / f"qrel-{i+1}"  # round_id = (i + 1)
-                if not os.path.exists(qrel_tmp):
-                    download_file(qrel_url, qrel_tmp)
-                with open(qrel_tmp) as f:
-                    for line in f:
-                        qrel_fn.write(line)
-            qrel_fn.close()
+        # put qrels from previous round into qrel_file if using previous judgement, else into qrel_ignore_file
+        qrel_fn = open(self.qrel_file, "w") if useprevqrels else open(self.qrel_ignore, "w")
+        for i, qrel_url in enumerate(prev_qrel_urls):
+            qrel_tmp = tmp_dir / f"qrel-{i + 1}"  # round_id = (i + 1)
+            if not os.path.exists(qrel_tmp):
+                download_file(qrel_url, qrel_tmp)
+            with open(qrel_tmp) as f:
+                for line in f:
+                    labeled_qids.add(line.strip().split()[0])
+                    qrel_fn.write(line)
+        qrel_fn.close()
 
+        if useprevqrels:  # for rounds without available qrels
             f = open(self.qrel_ignore, "w")  # no qrels to remove after search
             f.close()
+        # not use previous qrels: use judgement in current round to evaluate
+        elif rnd_i == self.lastest_round:
+            logger.warn(f"No evaluation qrel is available for current round {rnd_i}")
+            f = open(self.qrel_file, "w")
+            f.close()
+        elif rnd_i == 3:  # special case since document id changes a lot from round 2 to round 3
+            self.prep_backward_compatible_round3_qrels(tmp_dir, self.qrel_ignore, self.qrel_file)  # write results to self.qrel
+        else:  # not useprevqrels and rnd_i == 2
+            qrel_tmp = tmp_dir / f"qrel-{rnd_i}"
+            if not os.path.exists(qrel_tmp):
+                download_file(self.qrel_url % rnd_i, qrel_tmp)
+            with open(qrel_tmp) as fin, open(self.qrel_file, "w") as fout:
+                for line in fin:
+                    fout.write(line)
 
-            labeled_qids = list(load_qrels(self.qrel_file).keys())
-
-        else:  # use judgement in current round to evaluate
-            qrel_fn = open(self.qrel_ignore, "w")
-            for i, qrel_url in enumerate(prev_qrel_urls):
-                qrel_tmp = tmp_dir / f"qrel-{i+1}"  # round_id = (i + 1)
-                if not os.path.exists(qrel_tmp):
-                    download_file(qrel_url, qrel_tmp)
-                with open(qrel_tmp) as f:
-                    for line in f:
-                        qrel_fn.write(line)
-            qrel_fn.close()
-
-            if rnd_i == self.lastest_round:
-                logger.warn(f"No evaluation qrel is available for current round {rnd_i}")
-                f = open(self.qrel_file, "w")
-                f.close()
-            else:
-                qrel_tmp = tmp_dir / f"qrel-{rnd_i}"
-                if not os.path.exists(qrel_tmp):
-                    download_file(self.qrel_url % rnd_i, qrel_tmp)
-                with open(qrel_tmp) as fin, open(self.qrel_file, "w") as fout:
-                    for line in fin:
-                        fout.write(line)
-
-            # folds: use all labeled query for train, valid, and use all of them for test set
-            labeled_qids = list(load_qrels(self.qrel_ignore).keys())
-
-        folds = {"s1": {"train_qids": labeled_qids, "predict": {"dev": labeled_qids, "test": all_qids}}}
+        folds = {"s1": {"train_qids": list(labeled_qids), "predict": {"dev": list(labeled_qids), "test": all_qids}}}
         json.dump(folds, open(self.fold_file, "w"))
+
+    def prep_backward_compatible_round3_qrels(self, tmp_dir, prev_qrels_fn, tgt_qrel_fn):
+        """
+        Prepare qrels file for round 3 adaptable to previous rounds:
+            convert the new docids in qrels-covid_d3_j0.5-3.txt back to its old id
+            remove judgement existed in round1 and round2
+
+        Warning: this function should not be used when search / training is done on collection
+        released since round 4, where docids are already updated
+
+        :param tmp_dir: pathlib.Path object, sthe directory to store downloaded files
+        :param prev_qrels_fn: qrels file which store the qrels from previous rounds (round 1 and round 2)
+        :param tgt_qrel_fn: qrels file path where to store the processed round 3 qrels file
+        """
+        assert self.collection.config["round"] == 3
+
+        # donwload files
+        qrel_url = "https://ir.nist.gov/covidSubmit/data/qrels-covid_d3_j0.5-3.txt"
+        docid_map_url = "https://ir.nist.gov/covidSubmit/data/changedIds-May19.csv"
+        qrel_tmp, docid_map_tmp = tmp_dir / f"qrel-3.before-convert", tmp_dir / "round2-3.docid.map"
+        if not qrel_tmp.exists():
+            download_file(qrel_url, qrel_tmp)
+        if not docid_map_tmp.exists():
+            download_file(docid_map_url, docid_map_tmp)
+
+        with open(docid_map_tmp) as f:  # docids to revert in current qrels file
+            new2old = {line.split(",")[1]: line.split(",")[0] for line in f}  # each line: old_docid, new_docid, type
+
+        with open(prev_qrels_fn) as f:  # qrels to exclude from current qrels file
+            prev_qrels = [line for line in f]
+
+        with open(qrel_tmp) as fin,  open(tgt_qrel_fn, "w") as fout:
+            for line in fin:
+                qid, tag, docid, label = line.strip().split()
+                docid = new2old.get(docid, docid)
+                line = f"{qid} {tag}  {docid} {label}\n"  # covid qrel files have two whitespace between tag and docid
+                if line not in prev_qrels:
+                    fout.write(line)
 
     def xml2trectopic(self, xmlfile):
         with open(xmlfile, "r") as f:
