@@ -46,7 +46,7 @@ class TFBERTMaxP_Class(tf.keras.layers.Layer):
         elif self.config["aggregation"] == "first":
             passage_scores = passage_scores[:, 0]
         elif self.config["aggregation"] == "sum":
-            passage_scores = tf.math.reduce_sum(passage_scores, axis=1)
+            passage_scores = tf.math.reduce_sum(tf.nn.softmax(passage_scores), axis=1)
         else:
             raise ValueError("Unknown aggregation method: {}".format(self.config["aggregation"]))
 
