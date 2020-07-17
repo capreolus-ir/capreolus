@@ -1,10 +1,11 @@
 import os
+from collections import defaultdict
 from pathlib import Path
 
 from profane import ConfigOption, Dependency
 
 from capreolus import evaluator
-from capreolus.sampler import PredDataset, TrainDataset
+from capreolus.sampler import TrainTripletSampler, PredSampler
 from capreolus.searcher import Searcher
 from capreolus.task import Task
 from capreolus.utils.loginit import get_logger
@@ -18,6 +19,7 @@ class RerankTask(Task):
     config_spec = [
         ConfigOption("fold", "s1", "fold to run"),
         ConfigOption("optimize", "map", "metric to maximize on the dev set"),  # affects train() because we check to save weights
+        ConfigOption("threshold", 100, "Number of docids per query to evaluate during prediction"),
     ]
     dependencies = [
         Dependency(
@@ -25,6 +27,7 @@ class RerankTask(Task):
         ),
         Dependency(key="rank", module="task", name="rank"),
         Dependency(key="reranker", module="reranker", name="KNRM"),
+        Dependency(key="sampler", module="sampler", name="triplet"),
     ]
 
     commands = ["train", "evaluate", "traineval"] + Task.help_commands
@@ -49,6 +52,7 @@ class RerankTask(Task):
             train_output_path = Path(train_output_path)
 
         fold = self.config["fold"]
+        threshold = self.config["threshold"]
         dev_output_path = train_output_path / "pred" / "dev"
         logger.debug("results path: %s", train_output_path)
 
@@ -60,15 +64,25 @@ class RerankTask(Task):
         self.reranker.searcher_scores = best_search_run
 
         train_run = {qid: docs for qid, docs in best_search_run.items() if qid in self.benchmark.folds[fold]["train_qids"]}
-        dev_run = {qid: docs for qid, docs in best_search_run.items() if qid in self.benchmark.folds[fold]["predict"]["dev"]}
+        # For each qid, select the top 100 (defined by config["threshold") docs to be used in validation
+        dev_run = defaultdict(dict)
+        # This is possible because best_search_run is an OrderedDict
+        for qid, docs in best_search_run.items():
+            if qid in self.benchmark.folds[fold]["predict"]["dev"]:
+                for idx, (docid, score) in enumerate(docs.items()):
+                    if idx >= threshold:
+                        break
+                    dev_run[qid][docid] = score
 
-        train_dataset = TrainDataset(
-            qid_docid_to_rank=train_run,
-            qrels=self.benchmark.qrels,
-            extractor=self.reranker.extractor,
-            relevance_level=self.benchmark.relevance_level,
+        # Depending on the sampler chosen, the dataset may generate triplets or pairs
+        train_dataset = self.sampler
+        train_dataset.prepare(
+            train_run, self.benchmark.qrels, self.reranker.extractor, relevance_level=self.benchmark.relevance_level,
         )
-        dev_dataset = PredDataset(qid_docid_to_rank=dev_run, extractor=self.reranker.extractor)
+        dev_dataset = PredSampler()
+        dev_dataset.prepare(
+            dev_run, self.benchmark.qrels, self.reranker.extractor, relevance_level=self.benchmark.relevance_level,
+        )
 
         self.reranker.trainer.train(
             self.reranker,
@@ -85,18 +99,68 @@ class RerankTask(Task):
         dev_output_path = train_output_path / "pred" / "dev" / "best"
         dev_preds = self.reranker.trainer.predict(self.reranker, dev_dataset, dev_output_path)
 
-        test_run = {qid: docs for qid, docs in best_search_run.items() if qid in self.benchmark.folds[fold]["predict"]["test"]}
-        test_dataset = PredDataset(qid_docid_to_rank=test_run, extractor=self.reranker.extractor)
+        test_run = defaultdict(dict)
+        # This is possible because best_search_run is an OrderedDict
+        for qid, docs in best_search_run.items():
+            if qid in self.benchmark.folds[fold]["predict"]["test"]:
+                for idx, (docid, score) in enumerate(docs.items()):
+                    if idx >= threshold:
+                        break
+                    test_run[qid][docid] = score
+
+        test_dataset = PredSampler()
+        test_dataset.prepare(
+            test_run, self.benchmark.qrels, self.reranker.extractor, relevance_level=self.benchmark.relevance_level
+        )
         test_output_path = train_output_path / "pred" / "test" / "best"
         test_preds = self.reranker.trainer.predict(self.reranker, test_dataset, test_output_path)
 
         preds = {"dev": dev_preds, "test": test_preds}
 
         if include_train:
-            train_dataset = PredDataset(qid_docid_to_rank=train_run, extractor=self.reranker.extractor)
+            train_dataset = PredSampler(
+                train_run, self.benchmark.qrels, self.reranker.extractor, relevance_level=self.benchmark.relevance_level,
+            )
+
             train_output_path = train_output_path / "pred" / "train" / "best"
             train_preds = self.reranker.trainer.predict(self.reranker, train_dataset, train_output_path)
             preds["train"] = train_preds
+
+        return preds
+
+    def predict(self):
+        fold = self.config["fold"]
+        self.rank.search()
+        threshold = self.config["threshold"]
+        rank_results = self.rank.evaluate()
+        best_search_run_path = rank_results["path"][fold]
+        best_search_run = Searcher.load_trec_run(best_search_run_path)
+
+        docids = set(docid for querydocs in best_search_run.values() for docid in querydocs)
+        self.reranker.extractor.preprocess(
+            qids=best_search_run.keys(), docids=docids, topics=self.benchmark.topics[self.benchmark.query_type]
+        )
+        train_output_path = self.get_results_path()
+        self.reranker.trainer.load_best_model(self.reranker, train_output_path)
+
+        test_run = defaultdict(dict)
+        # This is possible because best_search_run is an OrderedDict
+        for qid, docs in best_search_run.items():
+            if qid in self.benchmark.folds[fold]["predict"]["test"]:
+                for idx, (docid, score) in enumerate(docs.items()):
+                    if idx >= threshold:
+                        break
+                test_run[qid][docid] = score
+
+        test_run = {qid: docs for qid, docs in best_search_run.items() if qid in self.benchmark.folds[fold]["predict"]["test"]}
+        test_dataset = PredSampler()
+        test_dataset.prepare(
+            test_run, self.benchmark.qrels, self.reranker.extractor, relevance_level=self.benchmark.relevance_level
+        )
+        test_output_path = train_output_path / "pred" / "test" / "best"
+        test_preds = self.reranker.trainer.predict(self.reranker, test_dataset, test_output_path)
+
+        preds = {"test": test_preds}
 
         return preds
 
