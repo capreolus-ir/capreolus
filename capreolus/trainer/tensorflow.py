@@ -1,98 +1,56 @@
 import hashlib
 import os
-import time
 import uuid
 from collections import defaultdict
-
-import numpy as np
+from copy import copy
 import tensorflow as tf
+from tensorflow.python.keras import backend as K
 import tensorflow_ranking as tfr
+import numpy as np
+from profane import ConfigOption
 from tqdm import tqdm
 
-from capreolus import ConfigOption, Searcher, constants, evaluator, get_logger
+from capreolus.searcher import Searcher
+from capreolus import evaluator
+from capreolus.trainer import Trainer
+from capreolus.utils.loginit import get_logger
+from capreolus.reranker.common import TFPairwiseHingeLoss, TFCategoricalCrossEntropyLoss, KerasPairModel, KerasTripletModel
 
-from . import Trainer
-
-logger = get_logger(__name__)  # pylint: disable=invalid-name
-RESULTS_BASE_PATH = constants["RESULTS_BASE_PATH"]
-
-
-class TrecCheckpointCallback(tf.keras.callbacks.Callback):
-    """
-    A callback that runs after every epoch and calculates pytrec_eval style metrics for the dev dataset.
-    See TensorflowTrainer.train() for the invocation
-    Also saves the best model to disk
-    """
-
-    def __init__(self, qrels, dev_data, dev_records, output_path, metric, validate_freq, relevance_level, *args, **kwargs):
-        super(TrecCheckpointCallback, self).__init__(*args, **kwargs)
-        """
-        qrels - a qrels dict
-        dev_data - a torch.utils.IterableDataset
-        dev_records - a BatchedDataset instance 
-        """
-        self.best_metric = -np.inf
-        self.qrels = qrels
-        self.dev_data = dev_data
-        self.dev_records = dev_records
-        self.output_path = output_path
-        self.iter_start_time = time.time()
-        self.metric = metric
-        self.validate_freq = validate_freq
-        self.relevance_level = relevance_level
-
-    def save_model(self):
-        self.model.save_weights("{0}/dev.best".format(self.output_path))
-
-    def on_epoch_begin(self, epoch, logs=None):
-        self.iter_start_time = time.time()
-
-    def on_epoch_end(self, epoch, logs=None):
-        logger.debug("Epoch {} took {}".format(epoch, time.time() - self.iter_start_time))
-        if (epoch + 1) % self.validate_freq == 0:
-            predictions = self.model.predict(self.dev_records, verbose=1, workers=8, use_multiprocessing=True)
-            trec_preds = self.get_preds_in_trec_format(predictions, self.dev_data)
-            metrics = evaluator.eval_runs(trec_preds, dict(self.qrels), evaluator.DEFAULT_METRICS, self.relevance_level)
-            logger.info("dev metrics: %s", " ".join([f"{metric}={v:0.3f}" for metric, v in sorted(metrics.items())]))
-
-            if metrics[self.metric] > self.best_metric:
-                self.best_metric = metrics[self.metric]
-                # TODO: Prevent the embedding layer weights from being saved
-                self.save_model()
-
-    @staticmethod
-    def get_preds_in_trec_format(predictions, dev_data):
-        """
-        Takes in a list of predictions and returns a dict that can be fed into pytrec_eval
-        As a side effect, also writes the predictions into a file in the trec format
-        """
-        pred_dict = defaultdict(lambda: dict())
-
-        for i, (qid, docid) in enumerate(dev_data.get_qid_docid_pairs()):
-            # Pytrec_eval has problems with high precision floats
-            pred_dict[qid][docid] = predictions[i][0].astype(np.float16).item()
-
-        return dict(pred_dict)
+logger = get_logger(__name__)
 
 
 @Trainer.register
-class TensorFlowTrainer(Trainer):
-    module_name = "tensorflow"
+class TensorflowTrainer(Trainer):
+    """
+    Trains (optionally) on the TPU.
+    Uses two optimizers with different learning rates - one for the BERT layers and another for the classifier layers.
+    Configurable warmup and decay for bertlr.
+    WARNING: The optimizers depend on specific layer names (see train()) - if your reranker does not have layers with
+    'bert' in the name, the normal learning rate will be applied to it instead of the value supplied through the
+    bertlr ConfigOption
+    """
 
+    module_name = "tensorflow"
     config_spec = [
         ConfigOption("batch", 32, "batch size"),
         ConfigOption("niters", 20, "number of iterations to train for"),
         ConfigOption("itersize", 512, "number of training instances in one iteration"),
         # ConfigOption("gradacc", 1, "number of batches to accumulate over before updating weights"),
+        ConfigOption("bertlr", 2e-5, "learning rate for bert parameters"),
         ConfigOption("lr", 0.001, "learning rate"),
+        ConfigOption("decay", 0.0, "learning rate decay"),
+        ConfigOption("warmupsteps", 0),
         ConfigOption("loss", "pairwise_hinge_loss", "must be one of tfr.losses.RankingLossKey"),
-        # ConfigOption("fastforward", False),
         ConfigOption("validatefreq", 1),
         ConfigOption("boardname", "default"),
         ConfigOption("usecache", False),
         ConfigOption("tpuname", None),
         ConfigOption("tpuzone", None),
         ConfigOption("storage", None),
+        ConfigOption("eager", False),
+        ConfigOption("decaystep", 3),
+        ConfigOption("decay", 0.96),
+        ConfigOption("decaytype", None),
     ]
     config_keys_not_in_path = ["fastforward", "boardname", "usecache", "tpuname", "tpuzone", "storage"]
 
@@ -116,8 +74,6 @@ class TensorFlowTrainer(Trainer):
             self.strategy = tf.distribute.get_strategy()
 
         # Defining some props that we will later initialize
-        self.optimizer = None
-        self.loss = None
         self.validate()
 
     def validate(self):
@@ -126,90 +82,320 @@ class TensorFlowTrainer(Trainer):
         if self.tpu and self.config["storage"] and not self.config["storage"].startswith("gs://"):
             raise ValueError("For TPU utilization, the storage config should start with 'gs://'")
 
-    def get_optimizer(self):
-        return tf.keras.optimizers.Adam(learning_rate=self.config["lr"])
-
-    def fastforward_training(self, reranker, weights_path, loss_fn):
-        # TODO: Fix fast forwarding
-        return 0
-
-    def load_best_model(self, reranker, train_output_path):
-        # TODO: Do the train_output_path modification at one place?
-        if self.tpu:
-            train_output_path = "{0}/{1}/{2}".format(
-                self.config["storage"], "train_output", hashlib.md5(str(train_output_path).encode("utf-8")).hexdigest()
-            )
-
-        reranker.model.load_weights("{0}/dev.best".format(train_output_path))
-
-    def apply_gradients(self, weights, grads):
-        self.optimizer.apply_gradients(zip(grads, weights))
-
     def train(self, reranker, train_dataset, train_output_path, dev_data, dev_output_path, qrels, metric, relevance_level=1):
-        # summary_writer = tf.summary.create_file_writer("{0}/capreolus_tensorboard/{1}".format(self.config["storage"], self.config["boardname"]))
-
-        # Because TPUs can't work with local files
         if self.tpu:
             train_output_path = "{0}/{1}/{2}".format(
                 self.config["storage"], "train_output", hashlib.md5(str(train_output_path).encode("utf-8")).hexdigest()
             )
 
         os.makedirs(dev_output_path, exist_ok=True)
-        initial_iter = self.fastforward_training(reranker, dev_output_path, None)
-        logger.info("starting training from iteration %s/%s", initial_iter, self.config["niters"])
 
+        train_records = self.get_tf_train_records(reranker, train_dataset)
+        dev_records = self.get_tf_dev_records(reranker, dev_data)
+        dev_dist_dataset = self.strategy.experimental_distribute_dataset(dev_records)
+
+        # Does not very much from https://www.tensorflow.org/tutorials/distribute/custom_training
         strategy_scope = self.strategy.scope()
         with strategy_scope:
-            train_records = self.get_tf_train_records(reranker, train_dataset)
-            dev_records = self.get_tf_dev_records(reranker, dev_data)
-            trec_callback = TrecCheckpointCallback(
-                qrels,
-                dev_data,
-                dev_records,
-                train_output_path,
-                metric,
-                self.config["validatefreq"],
-                relevance_level=relevance_level,
-            )
-            tensorboard_callback = tf.keras.callbacks.TensorBoard(
-                log_dir="{0}/capreolus_tensorboard/{1}".format(self.config["storage"], self.config["boardname"])
-            )
-            reranker.build_model()  # TODO needed here?
+            reranker.build_model()
+            wrapped_model = self.get_wrapped_model(reranker.model)
+            loss_object = self.get_loss(self.config["loss"])
+            optimizer_1 = tf.keras.optimizers.Adam(learning_rate=self.config["lr"])
+            optimizer_2 = tf.keras.optimizers.Adam(learning_rate=self.config["bertlr"])
 
-            self.optimizer = self.get_optimizer()
-            loss = tfr.keras.losses.get(self.config["loss"])
-            reranker.model.compile(optimizer=self.optimizer, loss=loss)
+            def compute_loss(labels, predictions):
+                per_example_loss = loss_object(labels, predictions)
+                return tf.nn.compute_average_loss(per_example_loss, global_batch_size=self.config["batch"])
 
-            train_start_time = time.time()
-            reranker.model.fit(
-                train_records.prefetch(tf.data.experimental.AUTOTUNE),
-                epochs=self.config["niters"],
-                steps_per_epoch=self.config["itersize"],
-                callbacks=[tensorboard_callback, trec_callback],
-                workers=8,
-                use_multiprocessing=True,
-            )
-            logger.info("Training took {}".format(time.time() - train_start_time))
+        def train_step(inputs):
+            data, labels = inputs
 
-            # Skipping dumping metrics and plotting loss since that should be done through tensorboard
+            with tf.GradientTape() as tape:
+                train_predictions = wrapped_model(data, training=True)
+                loss = compute_loss(labels, train_predictions)
 
-    def create_tf_feature(self, qid, query, query_idf, posdoc_id, posdoc, negdoc_id, negdoc):
+            gradients = tape.gradient(loss, wrapped_model.trainable_variables)
+
+            # TODO: Expose the layer names to lookout for as a ConfigOption?
+            # TODO: Crystina mentioned that hugging face models have 'bert' in all the layers (including classifiers). Handle this case
+            bert_variables = [
+                (gradients[i], variable)
+                for i, variable in enumerate(wrapped_model.trainable_variables)
+                if "bert" in variable.name and "classifier" not in variable.name
+            ]
+            classifier_vars = [
+                (gradients[i], variable)
+                for i, variable in enumerate(wrapped_model.trainable_variables)
+                if "classifier" in variable.name
+            ]
+            other_vars = [
+                (gradients[i], variable)
+                for i, variable in enumerate(wrapped_model.trainable_variables)
+                if "bert" not in variable.name and "classifier" not in variable.name
+            ]
+
+            assert len(bert_variables) + len(classifier_vars) + len(other_vars) == len(wrapped_model.trainable_variables)
+            # TODO: Clean this up for general use
+            # Making sure that we did not miss any variables
+            optimizer_1.apply_gradients(classifier_vars)
+            optimizer_2.apply_gradients(bert_variables)
+            if other_vars:
+                optimizer_1.apply_gradients(other_vars)
+
+            return loss
+
+        def test_step(inputs):
+            data, labels = inputs
+            predictions = wrapped_model.predict_step(data)
+
+            return predictions
+
+        @tf.function
+        def distributed_train_step(dataset_inputs):
+            per_replica_losses = self.strategy.run(train_step, args=(dataset_inputs,))
+
+            return self.strategy.reduce(tf.distribute.ReduceOp.SUM, per_replica_losses, axis=None)
+
+        @tf.function
+        def distributed_test_step(dataset_inputs):
+            return self.strategy.run(test_step, args=(dataset_inputs,))
+
+        best_metric = -np.inf
+        epoch = 0
+        num_batches = 0
+        total_loss = 0
+        iter_bar = tqdm(total=self.config["itersize"])
+
+        initial_lr = self.change_lr(epoch, self.config["bertlr"])
+        K.set_value(optimizer_2.lr, K.get_value(initial_lr))
+        train_records = train_records.shuffle(100000)
+        train_dist_dataset = self.strategy.experimental_distribute_dataset(train_records)
+
+        # Goes through the dataset ONCE (i.e niters * itersize * batch samples). However, the dataset may already contain multiple instances of the same sample,
+        # depending upon what Sampler was used. If you want multiple epochs, achieve it by tweaking the niters and
+        # itersize values.
+        for x in train_dist_dataset:
+            total_loss += distributed_train_step(x)
+            train_loss = total_loss / num_batches
+            num_batches += 1
+            iter_bar.update(1)
+
+            if num_batches % self.config["itersize"] == 0:
+                epoch += 1
+
+                # Do warmup and decay
+                new_lr = self.change_lr(epoch, self.config["bertlr"])
+                K.set_value(optimizer_2.lr, K.get_value(new_lr))
+
+                iter_bar.close()
+                iter_bar = tqdm(total=self.config["itersize"])
+                logger.info("train_loss for epoch {} is {}".format(epoch, train_loss))
+                train_loss = 0
+                total_loss = 0
+
+                if epoch % self.config["validatefreq"] == 0:
+                    dev_predictions = []
+                    for x in tqdm(dev_dist_dataset, desc="validation"):
+                        pred_batch = (
+                            distributed_test_step(x).values
+                            if self.strategy.num_replicas_in_sync > 1
+                            else [distributed_test_step(x)]
+                        )
+                        for p in pred_batch:
+                            dev_predictions.extend(p)
+
+                    trec_preds = self.get_preds_in_trec_format(dev_predictions, dev_data)
+                    metrics = evaluator.eval_runs(trec_preds, dict(qrels), evaluator.DEFAULT_METRICS, relevance_level)
+                    logger.info("dev metrics: %s", " ".join([f"{metric}={v:0.3f}" for metric, v in sorted(metrics.items())]))
+                    if metrics[metric] > best_metric:
+                        logger.info("Writing checkpoint")
+                        best_metric = metrics[metric]
+                        wrapped_model.save_weights("{0}/dev.best".format(train_output_path))
+
+            if num_batches >= self.config["niters"] * self.config["itersize"]:
+                break
+
+    def predict(self, reranker, pred_data, pred_fn):
+        pred_records = self.get_tf_dev_records(reranker, pred_data)
+        pred_dist_dataset = self.strategy.experimental_distribute_dataset(pred_records)
+
+        strategy_scope = self.strategy.scope()
+
+        with strategy_scope:
+            wrapped_model = self.get_wrapped_model(reranker.model)
+
+        def test_step(inputs):
+            data, labels = inputs
+            predictions = wrapped_model.predict_step(data)
+
+            return predictions
+
+        @tf.function
+        def distributed_test_step(dataset_inputs):
+            return self.strategy.run(test_step, args=(dataset_inputs,))
+
+        predictions = []
+        for x in pred_dist_dataset:
+            pred_batch = distributed_test_step(x).values
+            for p in pred_batch:
+                predictions.extend(p)
+
+        trec_preds = self.get_preds_in_trec_format(predictions, pred_data)
+        os.makedirs(os.path.dirname(pred_fn), exist_ok=True)
+        Searcher.write_trec_run(trec_preds, pred_fn)
+
+        return trec_preds
+
+    def form_tf_record_cache_path(self, dataset):
         """
-        Creates a single tf.train.Feature instance (i.e, a single sample)
+        Get the path to the directory where tf records are written to.
+        If using TPUs, this will be a gcs path.
         """
-        feature = {
-            "qid": tf.train.Feature(bytes_list=tf.train.BytesList(value=[qid.encode("utf-8")])),
-            "query": tf.train.Feature(float_list=tf.train.FloatList(value=query)),
-            "query_idf": tf.train.Feature(float_list=tf.train.FloatList(value=query_idf)),
-            "posdoc_id": tf.train.Feature(bytes_list=tf.train.BytesList(value=[posdoc_id.encode("utf-8")])),
-            "posdoc": tf.train.Feature(float_list=tf.train.FloatList(value=posdoc)),
-        }
+        total_samples = self.config["niters"] * self.config["itersize"] * self.config["batch"]
+        if self.tpu:
+            return "{0}/capreolus_tfrecords/{1}_{2}".format(self.config["storage"], dataset.get_hash(), total_samples)
+        else:
+            base_path = self.get_cache_path()
+            return "{0}/{1}_{2}".format(base_path, dataset.get_hash(), total_samples)
 
-        if negdoc_id:
-            feature["negdoc_id"] = (tf.train.Feature(bytes_list=tf.train.BytesList(value=[negdoc_id.encode("utf-8")])),)
-            feature["negdoc"] = tf.train.Feature(float_list=tf.train.FloatList(value=negdoc))
+    def find_cached_tf_records(self, dataset, required_sample_count):
+        """
+        Looks for a tf record for the passed dataset that has at least the specified number of samples
+        """
+        parent_dir = (
+            "{0}/capreolus_tfrecords/".format(self.config["storage"]) if self.tpu else "{0}".format(self.get_cache_path())
+        )
+        if not tf.io.gfile.exists(parent_dir):
+            return None
+        else:
+            child_dirs = tf.io.gfile.listdir(parent_dir)
+            required_prefix = dataset.get_hash()
 
-        return feature
+            for child_dir in child_dirs:
+                child_dir_ending = child_dir.split("_")[-1][-1]
+                # The child dir will end with '/' if it's on gcloud, but not on local disk.
+                if child_dir_ending == "/":
+                    sample_count = int(child_dir.split("_")[-1][:-1])
+                else:
+                    sample_count = int(child_dir.split("_")[-1])
+
+                prefix = "_".join(child_dir.split("_")[:-1])
+
+                # TODO: Add checks to make sure that the child dir is not empty
+                if prefix == required_prefix and sample_count >= required_sample_count:
+                    return "{0}{1}".format(parent_dir, child_dir)
+
+            return None
+
+    def get_tf_train_records(self, reranker, dataset):
+        """
+        1. Returns tf records from cache (disk) if applicable
+        2. Else, converts the dataset into tf records, writes them to disk, and returns them
+        """
+        required_samples = self.config["niters"] * self.config["itersize"] * self.config["batch"]
+        cached_tf_record_dir = self.find_cached_tf_records(dataset, required_samples)
+
+        if self.config["usecache"] and cached_tf_record_dir is not None:
+            filenames = tf.io.gfile.listdir(cached_tf_record_dir)
+            filenames = ["{0}{1}".format(cached_tf_record_dir, name) for name in filenames]
+
+            return self.load_tf_train_records_from_file(reranker, filenames, self.config["batch"])
+        else:
+            tf_record_filenames = self.convert_to_tf_train_record(reranker, dataset)
+            return self.load_tf_train_records_from_file(reranker, tf_record_filenames, self.config["batch"])
+
+    def load_tf_train_records_from_file(self, reranker, filenames, batch_size):
+        raw_dataset = tf.data.TFRecordDataset(filenames)
+        tf_records_dataset = raw_dataset.batch(batch_size, drop_remainder=True).map(
+            reranker.extractor.parse_tf_train_example, num_parallel_calls=tf.data.experimental.AUTOTUNE
+        )
+
+        return tf_records_dataset
+
+    def convert_to_tf_train_record(self, reranker, dataset):
+        """
+        Tensorflow works better if the input data is fed in as tfrecords
+        Takes in a dataset,  iterates through it, and creates multiple tf records from it.
+        Creates exactly niters * itersize * batch_size samples.
+        The exact structure of the tfrecords is defined by reranker.extractor. For example, see BertPassage.get_tf_train_feature()
+        params:
+        reranker - A capreolus.reranker.Reranker instance
+        dataset - A capreolus.sampler.Sampler instance
+        """
+        dir_name = self.form_tf_record_cache_path(dataset)
+
+        tf_features = []
+        tf_record_filenames = []
+        required_sample_count = self.config["niters"] * self.config["itersize"] * self.config["batch"]
+        sample_count = 0
+
+        iter_bar = tqdm(total=required_sample_count)
+        for sample in dataset:
+            tf_features.extend(reranker.extractor.create_tf_train_feature(sample))
+            if len(tf_features) > 20000:
+                tf_record_filenames.append(self.write_tf_record_to_file(dir_name, tf_features))
+                tf_features = []
+
+            iter_bar.update(1)
+            sample_count += 1
+            if sample_count >= required_sample_count:
+                break
+
+        iter_bar.close()
+        assert sample_count == required_sample_count, "dataset generator ran out before generating enough samples"
+        if len(tf_features):
+            tf_record_filenames.append(self.write_tf_record_to_file(dir_name, tf_features))
+
+        return tf_record_filenames
+
+    def get_tf_dev_records(self, reranker, dataset):
+        """
+        1. Returns tf records from cache (disk) if applicable
+        2. Else, converts the dataset into tf records, writes them to disk, and returns them
+        """
+        cached_tf_record_dir = self.form_tf_record_cache_path(dataset)
+        if self.config["usecache"] and tf.io.gfile.exists(cached_tf_record_dir):
+            filenames = tf.io.gfile.listdir(cached_tf_record_dir)
+            filenames = ["{0}/{1}".format(cached_tf_record_dir, name) for name in filenames]
+
+            return self.load_tf_dev_records_from_file(reranker, filenames, self.config["batch"])
+        else:
+            tf_record_filenames = self.convert_to_tf_dev_record(reranker, dataset)
+            # TODO use actual batch size here. see issue #52
+            return self.load_tf_dev_records_from_file(reranker, tf_record_filenames, self.config["batch"])
+
+    def load_tf_dev_records_from_file(self, reranker, filenames, batch_size):
+        raw_dataset = tf.data.TFRecordDataset(filenames)
+        tf_records_dataset = raw_dataset.batch(batch_size, drop_remainder=True).map(
+            reranker.extractor.parse_tf_dev_example, num_parallel_calls=tf.data.experimental.AUTOTUNE
+        )
+
+        return tf_records_dataset
+
+    def convert_to_tf_dev_record(self, reranker, dataset):
+        dir_name = self.form_tf_record_cache_path(dataset)
+        tf_features = []
+        tf_record_filenames = []
+
+        for sample in dataset:
+            tf_features.extend(reranker.extractor.create_tf_dev_feature(sample))
+            if len(tf_features) > 20000:
+                tf_record_filenames.append(self.write_tf_record_to_file(dir_name, tf_features))
+                tf_features = []
+
+        # TPU's require drop_remainder = True. But we cannot drop things from validation dataset
+        # As a workaroud, we pad the dataset with the last sample until it reaches the batch size.
+        if len(tf_features) % self.config["batch"]:
+            num_elements_to_add = self.config["batch"] - (len(tf_features) % self.config["batch"])
+            logger.debug("Number of elements to add in the last batch: {}".format(num_elements_to_add))
+            element_to_copy = tf_features[-1]
+            for i in range(num_elements_to_add):
+                tf_features.append(copy(element_to_copy))
+
+        if len(tf_features):
+            tf_record_filenames.append(self.write_tf_record_to_file(dir_name, tf_features))
+
+        return tf_record_filenames
 
     def write_tf_record_to_file(self, dir_name, tf_features):
         """
@@ -231,122 +417,77 @@ class TensorFlowTrainer(Trainer):
 
         return str(filename)
 
-    def convert_to_tf_dev_record(self, reranker, dataset):
+    @staticmethod
+    def get_preds_in_trec_format(predictions, dev_data):
         """
-        Similar to self.convert_to_tf_train_record(), but won't result in multiple files
+        Takes in a list of predictions and returns a dict that can be fed into pytrec_eval
+        As a side effect, also writes the predictions into a file in the trec format
         """
-        dir_name = self.get_tf_record_cache_path(dataset)
+        logger.debug("There are {} predictions".format(len(predictions)))
+        pred_dict = defaultdict(lambda: dict())
 
-        tf_features = [reranker.extractor.create_tf_feature(sample) for sample in dataset]
+        for i, (qid, docid) in enumerate(dev_data.get_qid_docid_pairs()):
+            # Pytrec_eval has problems with high precision floats
+            pred_dict[qid][docid] = predictions[i].numpy().astype(np.float16).item()
 
-        return [self.write_tf_record_to_file(dir_name, tf_features)]
+        return dict(pred_dict)
 
-    def convert_to_tf_train_record(self, reranker, dataset):
+    def change_lr(self, epoch, lr):
         """
-        Tensorflow works better if the input data is fed in as tfrecords
-        Takes in a dataset,  iterates through it, and creates multiple tf records from it.
-        The exact structure of the tfrecords is defined by reranker.extractor. For example, see EmbedText.get_tf_feature()
+        Apply warm up or decay depending on the current epoch
         """
-        dir_name = self.get_tf_record_cache_path(dataset)
+        warmup_steps = self.config["warmupsteps"]
+        if warmup_steps and epoch <= warmup_steps:
+            return min(lr * ((epoch + 1) / warmup_steps), lr)
+        elif self.config["decaytype"] == "exponential":
+            return lr * self.config["decay"] ** ((epoch - warmup_steps) / self.config["decaystep"])
+        elif self.config["decaytype"] == "linear":
+            return lr * (1 / (1 + self.config["decay"] * epoch))
 
-        # total_samples = dataset.get_total_samples()
-        tf_features = []
-        tf_record_filenames = []
+        return lr
 
-        for _ in tqdm(range(0, self.config["niters"]), desc="Converting data to tf records"):
-            for sample_idx, sample in enumerate(dataset):
-                tf_features.append(reranker.extractor.create_tf_feature(sample))
+    def get_loss(self, loss_name):
+        try:
+            if loss_name == "pairwise_hinge_loss":
+                loss = TFPairwiseHingeLoss(reduction=tf.keras.losses.Reduction.NONE)
+            elif loss_name == "crossentropy":
+                loss = TFCategoricalCrossEntropyLoss(from_logits=True, reduction=tf.keras.losses.Reduction.NONE)
+            else:
+                loss = tfr.keras.losses.get(loss_name)
+        except ValueError:
+            loss = tf.keras.losses.get(loss_name)
 
-                if len(tf_features) > 20000:
-                    tf_record_filenames.append(self.write_tf_record_to_file(dir_name, tf_features))
-                    tf_features = []
+        return loss
 
-                if sample_idx + 1 >= self.config["itersize"] * self.config["batch"]:
-                    break
-
-        if len(tf_features):
-            tf_record_filenames.append(self.write_tf_record_to_file(dir_name, tf_features))
-
-        return tf_record_filenames
-
-    def get_tf_record_cache_path(self, dataset):
+    def get_wrapped_model(self, model):
         """
-        Get the path to the directory where tf records are written to.
-        If using TPUs, this will be a gcs path.
+        We need a wrapped model because the logic changes slightly depending on whether the input is pointwise or pairwise:
+        1. In case of pointwise input, there's no "negative document" - so in this case we just have to execute the model's call() method
+        2. In case of pairwise input, we need to execute the model's call() method twice (one for positive doc and then again for negative doc), and then
+        stack the results together before passing to a pairwise loss function.
+
+        The alternative was to let the user manually configure everything, for example:
+        `loss=crossentropy reranker.trainer.input=pairwise ...` - we already have too many ConfigOptions :shrug:
         """
+        if self.config["loss"] == "crossentropy":
+            return KerasPairModel(model)
+
+        return KerasTripletModel(model)
+
+    def fastforward_training(self, reranker, weights_path, loss_fn):
+        # TODO: Fix fast forwarding
+        return 0
+
+    def load_best_model(self, reranker, train_output_path):
+        # TODO: Do the train_output_path modification at one place?
         if self.tpu:
-            return "{0}/capreolus_tfrecords/{1}".format(self.config["storage"], dataset.get_hash())
-        else:
-            base_path = self.get_cache_path()
-            return "{0}/{1}".format(base_path, dataset.get_hash())
+            train_output_path = "{0}/{1}/{2}".format(
+                self.config["storage"], "train_output", hashlib.md5(str(train_output_path).encode("utf-8")).hexdigest()
+            )
 
-    def cache_exists(self, dataset):
-        # TODO: Add checks to make sure that the number of files in the directory is correct
-        cache_dir = self.get_tf_record_cache_path(dataset)
-        logger.info("The cache path is {0} and does it exist? : {1}".format(cache_dir, tf.io.gfile.exists(cache_dir)))
+        reranker.build_model()
+        # Because the saved weights are that of a wrapped model.
+        wrapped_model = self.get_wrapped_model(reranker.model)
+        wrapped_model.load_weights("{0}/dev.best".format(train_output_path))
 
-        return tf.io.gfile.isdir(cache_dir)
-
-    def load_tf_records_from_file(self, reranker, filenames, batch_size):
-        raw_dataset = tf.data.TFRecordDataset(filenames)
-        tf_records_dataset = raw_dataset.batch(batch_size, drop_remainder=True).map(
-            reranker.extractor.parse_tf_example, num_parallel_calls=tf.data.experimental.AUTOTUNE
-        )
-
-        return tf_records_dataset
-
-    def load_cached_tf_records(self, reranker, dataset, batch_size):
-        logger.info("Loading TF records from cache")
-        cache_dir = self.get_tf_record_cache_path(dataset)
-        filenames = tf.io.gfile.listdir(cache_dir)
-        filenames = ["{0}/{1}".format(cache_dir, name) for name in filenames]
-
-        return self.load_tf_records_from_file(reranker, filenames, batch_size)
-
-    def get_tf_dev_records(self, reranker, dataset):
-        """
-        1. Returns tf records from cache (disk) if applicable
-        2. Else, converts the dataset into tf records, writes them to disk, and returns them
-        """
-        if self.config["usecache"] and self.cache_exists(dataset):
-            return self.load_cached_tf_records(reranker, dataset, 1)
-        else:
-            tf_record_filenames = self.convert_to_tf_dev_record(reranker, dataset)
-            # TODO use actual batch size here. see issue #52
-            return self.load_tf_records_from_file(reranker, tf_record_filenames, 1)  # self.config["batch"])
-
-    def get_tf_train_records(self, reranker, dataset):
-        """
-        1. Returns tf records from cache (disk) if applicable
-        2. Else, converts the dataset into tf records, writes them to disk, and returns them
-        """
-
-        if self.config["usecache"] and self.cache_exists(dataset):
-            return self.load_cached_tf_records(reranker, dataset, self.config["batch"])
-        else:
-            tf_record_filenames = self.convert_to_tf_train_record(reranker, dataset)
-            return self.load_tf_records_from_file(reranker, tf_record_filenames, self.config["batch"])
-
-    def predict(self, reranker, pred_data, pred_fn):
-        """Predict query-document scores on `pred_data` using `model` and write a corresponding run file to `pred_fn`
-
-        Args:
-           model (Reranker): a PyTorch Reranker
-           pred_data (IterableDataset): data to predict on
-           pred_fn (Path): path to write the prediction run file to
-
-        Returns:
-           TREC Run
-
-        """
-
-        strategy_scope = self.strategy.scope()
-        with strategy_scope:
-            pred_records = self.get_tf_dev_records(reranker, pred_data)
-            predictions = reranker.model.predict(pred_records)
-            trec_preds = TrecCheckpointCallback.get_preds_in_trec_format(predictions, pred_data)
-
-        os.makedirs(os.path.dirname(pred_fn), exist_ok=True)
-        Searcher.write_trec_run(trec_preds, pred_fn)
-
-        return trec_preds
+        return wrapped_model.model

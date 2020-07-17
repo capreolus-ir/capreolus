@@ -1,16 +1,61 @@
 import tensorflow as tf
 import torch
 from tensorflow.keras.layers import Layer
+from tensorflow.python.keras.losses import BinaryCrossentropy, CategoricalCrossentropy
+from tensorflow_ranking.python.keras.losses import PairwiseHingeLoss
 
 _hinge_loss = torch.nn.MarginRankingLoss(margin=1, reduction="mean")
 
 
-def pair_softmax_loss(pos_neg_scores):
+class KerasPairModel(tf.keras.Model):
+    def __init__(self, model, *args, **kwargs):
+        super(KerasPairModel, self).__init__(*args, **kwargs)
+        self.model = model
+
+    def call(self, x, **kwargs):
+        score = self.model.score(x, **kwargs)
+        return score
+
+    def predict_step(self, data):
+        return self.model.predict_step(data)
+
+
+class KerasTripletModel(tf.keras.Model):
+    def __init__(self, model, *args, **kwargs):
+        super(KerasTripletModel, self).__init__(*args, **kwargs)
+        self.model = model
+
+    def call(self, x, **kwargs):
+        pos_score, neg_score = self.model.score_pair(x, **kwargs)
+        stacked_score = tf.stack([pos_score, neg_score], axis=1)
+
+        return stacked_score
+
+    def predict_step(self, data):
+        return self.model.predict_step(data)
+
+
+class TFPairwiseHingeLoss(PairwiseHingeLoss):
+    def call(self, y_true, y_pred):
+        y_true = tf.reshape(y_true, [-1, 2])
+        y_pred = tf.reshape(y_pred, [-1, 2])
+
+        return super(TFPairwiseHingeLoss, self).call(y_true, y_pred)
+
+
+class TFCategoricalCrossEntropyLoss(CategoricalCrossentropy):
+    def call(self, ytrue, ypred):
+        tf.debugging.assert_equal(tf.shape(ytrue), tf.shape(ypred))
+
+        return super(TFCategoricalCrossEntropyLoss, self).call(ytrue, ypred)
+
+
+def pair_softmax_loss(pos_neg_scores, *args, **kwargs):
     scores = torch.stack(pos_neg_scores, dim=1)
     return torch.mean(1.0 - scores.softmax(dim=1)[:, 0])
 
 
-def pair_hinge_loss(pos_neg_scores):
+def pair_hinge_loss(pos_neg_scores, *args, **kwargs):
     label = torch.ones_like(pos_neg_scores[0])  # , dtype=torch.int)
     return _hinge_loss(pos_neg_scores[0], pos_neg_scores[1], label)
 

@@ -4,6 +4,7 @@ from collections import defaultdict, OrderedDict
 from capreolus import ModuleBase, constants
 from capreolus.utils.loginit import get_logger
 from capreolus.utils.trec import topic_to_trectxt
+from capreolus.utils.common import OrderedDefaultDict
 
 logger = get_logger(__name__)  # pylint: disable=invalid-name
 MAX_THREADS = constants["MAX_THREADS"]
@@ -27,7 +28,9 @@ class Searcher(ModuleBase):
 
     @staticmethod
     def load_trec_run(fn):
-        run = defaultdict(dict)
+        # Docids in the run file appear according to decreasing score, hence it makes sense to preserve this order
+        run = OrderedDefaultDict()
+
         with open(fn, "rt") as f:
             for line in f:
                 line = line.strip()

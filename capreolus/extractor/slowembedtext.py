@@ -62,7 +62,7 @@ class SlowEmbedText(Extractor):
 
         return feature_description
 
-    def create_tf_feature(self, sample):
+    def create_tf_train_feature(self, sample):
         """
         sample - output from self.id2vec()
         return - a tensorflow feature
@@ -75,9 +75,12 @@ class SlowEmbedText(Extractor):
             "negdoc": tf.train.Feature(int64_list=tf.train.Int64List(value=negdoc)),
         }
 
-        return feature
+        return [feature]
 
-    def parse_tf_example(self, example_proto):
+    def create_tf_dev_feature(self, sample):
+        return self.create_tf_train_feature(sample)
+
+    def parse_tf_train_example(self, example_proto):
         feature_description = self.get_tf_feature_description()
         parsed_example = tf.io.parse_example(example_proto, feature_description)
         posdoc = parsed_example["posdoc"]
@@ -87,6 +90,9 @@ class SlowEmbedText(Extractor):
         label = parsed_example["label"]
 
         return (posdoc, negdoc, query, query_idf), label
+
+    def parse_tf_dev_example(self, example_proto):
+        return self.parse_tf_train_example(example_proto)
 
     def _build_vocab(self, qids, docids, topics):
         if self.is_state_cached(qids, docids) and self.config["usecache"]:
@@ -161,7 +167,8 @@ class SlowEmbedText(Extractor):
         # return [self.embeddings[self.stoi[tok]] for tok in toks]
         return [self.stoi[tok] for tok in toks]
 
-    def id2vec(self, qid, posid, negid=None):
+    def id2vec(self, qid, posid, negid=None, label=None):
+        assert label is not None
         query = self.qid2toks[qid]
 
         # TODO find a way to calculate qlen/doclen stats earlier, so we can log them and check sanity of our values
@@ -184,6 +191,7 @@ class SlowEmbedText(Extractor):
             "query_idf": np.array(idfs, dtype=np.float32),
             "negdocid": "",
             "negdoc": np.zeros(self.config["maxdoclen"], dtype=np.long),
+            "label": np.array(label),
         }
 
         if negid:

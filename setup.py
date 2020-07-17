@@ -1,7 +1,6 @@
 import setuptools
 from setuptools.command.develop import develop
 from setuptools.command.install import install
-from subprocess import check_call
 import os
 
 
@@ -53,7 +52,6 @@ setuptools.setup(
         "torchvision==0.5",
         "cython",
         "pre-commit",
-        "PyYAML==5.1.1",
         "profane>=0.1.6",
         "SQLAlchemy",
         "sqlalchemy-utils",

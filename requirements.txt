@@ -1,7 +1,6 @@
 # install pytorch 1.2 from conda
 cython
 pre-commit
-PyYAML==5.1.1
 profane>=0.1.6
 SQLAlchemy>=1.3.5
 sqlalchemy-utils

@@ -14,6 +14,7 @@ class Extractor(ModuleBase):
     """
 
     module_type = "extractor"
+    requires_random_seed = True
 
     def _extend_stoi(self, toks_list, calc_idf=False):
         if not self.stoi:
@@ -57,12 +58,24 @@ class Extractor(ModuleBase):
         Returns a boolean indicating whether the state corresponding to the qids and docids passed has already
         been cached
         """
-        return os.path.exists(self.get_state_cache_file_path(qids, docids))
+        file_path = self.get_state_cache_file_path(qids, docids)
+        logger.debug("Looking for extractor cache at {}".format(file_path))
+        return os.path.exists(file_path)
 
     def _build_vocab(self, qids, docids, topics):
         raise NotImplementedError
 
     def build_from_benchmark(self, *args, **kwargs):
+        raise NotImplementedError
+
+    def id2vec(self, qid, posdocid, negdocid=None, label=None):
+        """
+        Creates a feature from the (qid, docid) pair.
+        If negdocid is supplied, that's also included in the feature (needed for training with pairwise hinge loss)
+        Label is a vector of shape [num_classes], and is supplied only when using pointwise training (i.e cross entropy)
+        When using pointwise samples, negdocid is None, and label is either [0, 1] or [1, 0] depending on whether the
+        document represented by posdocid is relevant or irrelevant respectively.
+        """
         raise NotImplementedError
 
 
