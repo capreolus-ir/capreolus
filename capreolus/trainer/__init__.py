@@ -33,6 +33,6 @@ class Trainer(ModuleBase):
 from profane import import_all_modules
 
 from .pytorch import PytorchTrainer
-from .tensorflow import TensorFlowTrainer
+from .tensorflow import TensorflowTrainer
 
 import_all_modules(__file__, __package__)

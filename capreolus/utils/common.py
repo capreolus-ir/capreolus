@@ -2,6 +2,7 @@ import hashlib
 import logging
 import os
 import sys
+from collections import OrderedDict
 from glob import glob
 
 import matplotlib.pyplot as plt
@@ -588,3 +589,10 @@ def get_udel_query_expander():
             return " ".join([w.text for w in nlp(txt.strip()).ents])
 
     return expand_query
+
+
+class OrderedDefaultDict(OrderedDict):
+    def __missing__(self, key):
+        self[key] = value = OrderedDefaultDict()
+
+        return value
