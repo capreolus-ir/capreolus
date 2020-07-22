@@ -42,6 +42,7 @@ class Birch_Class(nn.Module):
         with torch.no_grad():
             bi_scores = [self.score_passages(k[bi], doc[bi], seg[bi], mask[bi], B) for bi in range(B)]
             scores = torch.stack(bi_scores)
+            assert scores.shape == (B, self.config["numpassages"], 2)
             scores = scores[:, :, self.logit]  # take first logit?
 
             # reset weights
