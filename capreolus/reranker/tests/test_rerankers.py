@@ -27,7 +27,7 @@ from capreolus.reranker.TK import TK
 from capreolus.sampler import TrainTripletSampler, TrainPairSampler, PredSampler
 from capreolus.tests.common_fixtures import dummy_index, tmpdir_as_cache
 from capreolus.reranker.TFVanillaBert import TFVanillaBERT
-from reranker.birch import Birch
+from capreolus.reranker.birch import Birch
 
 rerankers = set(module_registry.get_module_names("reranker"))
 

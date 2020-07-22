@@ -21,7 +21,7 @@ from capreolus.extractor import Extractor
 from capreolus import get_logger
 from capreolus.utils.common import padlist
 from capreolus.utils.exceptions import MissingDocError
-from tokenizer.punkt import PunktTokenizer
+from capreolus.tokenizer.punkt import PunktTokenizer
 from . import Extractor
 
 logger = get_logger(__name__)
