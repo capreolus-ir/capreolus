@@ -123,7 +123,7 @@ class Birch(Reranker):
             key="extractor",
             module="extractor",
             name="bertpassage",
-            default_config_overrides={"tokenizer": {"pretrained": "bert-large-uncased"}},
+            default_config_overrides={"tokenizer": {"pretrained": "bert-base-uncased"}},
         ),
         Dependency(key="trainer", module="trainer", name="pytorch"),
     ]
