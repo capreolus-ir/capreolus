@@ -26,8 +26,9 @@ class Birch_Class(nn.Module):
     def _load_bert(self):
         from transformers import BertTokenizer, BertForNextSentencePrediction
 
-        bert = BertForNextSentencePrediction.from_pretrained("bert-large-uncased")
-        bert.load_state_dict(torch.load("/GW/NeuralIR/nobackup/birch-emnlp_bert4ir_v2/models/converted"))
+        bert = BertForNextSentencePrediction.from_pretrained("bert-base-uncased")
+        saved_bert = torch.load("/GW/NeuralIR/nobackup/birch/models/saved.tmp_1")["model"]
+        bert.load_state_dict(saved_bert.state_dict())
         self.bert = bert
 
     def forward(self, k, doc, seg, mask):
@@ -102,9 +103,11 @@ class Birch_Class(nn.Module):
 
         real_out = torch.cat(out, dim=0)
         found_passages = real_out.shape[0]
-        pad_out = torch.min(real_out, dim=0)[0].repeat(needed_passages - found_passages, 1)
-
-        return torch.cat((real_out, pad_out), dim=0).cpu()
+        if found_passages < needed_passages:
+            pad_out = torch.min(real_out, dim=0)[0].repeat(needed_passages - found_passages, 1)
+            return torch.cat((real_out, pad_out), dim=0).cpu()
+        else:
+            return real_out
 
 
 @Reranker.register
@@ -131,9 +134,9 @@ class Birch(Reranker):
 
     def score(self, d):
         return [
-            self.model(d["poskey"], d["posdoc"], d["posdoc_seg"], d["posdoc_mask"]).view(-1),
-            self.model(d["negkey"], d["negdoc"], d["negdoc_seg"], d["negdoc_mask"]).view(-1),
+            self.model(d["poskey"], d["pos_bert_input"], d["pos_seg"], d["pos_mask"]).view(-1),
+            self.model(d["negkey"], d["neg_bert_input"], d["neg_seg"], d["neg_mask"]).view(-1),
         ]
 
     def test(self, d):
-        return self.model(d["poskey"], d["posdoc"], d["posdoc_seg"], d["posdoc_mask"]).view(-1)
+        return self.model(d["poskey"], d["pos_bert_input"], d["pos_seg"], d["pos_mask"]).view(-1)

@@ -264,12 +264,7 @@ class PytorchTrainer(Trainer):
         # TODO should we write a /done so that training can be skipped if possible when fastforward=False? or in Task?
 
     def load_best_model(self, reranker, train_output_path):
-        self.optimizer = torch.optim.Adam(
-            filter(lambda param: param.requires_grad, reranker.model.parameters()), lr=self.config["lr"]
-        )
-
-        dev_best_weight_fn = train_output_path / "dev.best"
-        reranker.load_weights(dev_best_weight_fn, self.optimizer)
+        pass
 
     def predict(self, reranker, pred_data, pred_fn):
         """Predict query-document scores on `pred_data` using `model` and write a corresponding run file to `pred_fn`
