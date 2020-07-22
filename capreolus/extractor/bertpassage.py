@@ -307,6 +307,7 @@ class BertPassage(Extractor):
         elif self.config["sentences"]:
             self.docid2passages = {}
             self._build_passages_from_sentences(docids)
+            self.cache_state(qids, docids)
         else:
             logger.info("Building bertpassage vocabulary")
             self.docid2passages = {}
