@@ -260,7 +260,7 @@ class BertPassage(Extractor):
 
     # from https://github.com/castorini/birch/blob/2dd0401ebb388a1c96f8f3357a064164a5db3f0e/src/utils/doc_utils.py#L73
     def _chunk_sent(self, sent, max_len):
-        words = sent.strip().split()
+        words = self.tokenizer.tokenize(sent)
 
         if len(words) <= max_len:
             return [words]
