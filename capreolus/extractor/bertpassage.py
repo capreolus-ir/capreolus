@@ -307,6 +307,7 @@ class BertPassage(Extractor):
         elif self.config["sentences"]:
             self.docid2passages = {}
             self._build_passages_from_sentences(docids)
+            self.qid2toks = {qid: self.tokenizer.tokenize(topics[qid]) for qid in tqdm(qids, desc="querytoks")}
             self.cache_state(qids, docids)
         else:
             logger.info("Building bertpassage vocabulary")
