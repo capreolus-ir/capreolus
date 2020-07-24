@@ -163,9 +163,7 @@ class PredSampler(Sampler, torch.utils.data.IterableDataset):
     """
 
     module_name = "pred"
-    config_spec = [
-        ConfigOption("seed", 1234),
-    ]
+    requires_random_seed = False
 
     def get_hash(self):
         sorted_rep = sorted([(qid, docids) for qid, docids in self.qid_to_docids.items()])
@@ -196,6 +194,9 @@ class PredSampler(Sampler, torch.utils.data.IterableDataset):
         """
 
         return iter(self.generate_samples())
+
+    def __len__(self):
+        return sum(len(docids) for docids in self.qid_to_docids.values())
 
     def get_qid_docid_pairs(self):
         """
