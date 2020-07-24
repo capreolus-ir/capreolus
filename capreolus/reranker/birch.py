@@ -27,9 +27,14 @@ class Birch_Class(nn.Module):
     def _load_bert(self):
         from transformers import BertTokenizer, BertForNextSentencePrediction
 
-        bert = BertForNextSentencePrediction.from_pretrained("bert-base-uncased")
-        saved_bert = torch.load("/GW/NeuralIR/nobackup/birch/models/saved.tmp_1")["model"]
-        bert.load_state_dict(saved_bert.state_dict())
+        bert = BertForNextSentencePrediction.from_pretrained("bert-large-uncased")
+        bert.load_state_dict(torch.load("/GW/NeuralIR/nobackup/birch-emnlp_bert4ir_v2/models/converted"))
+
+        # kevin's
+        # bert = BertForNextSentencePrediction.from_pretrained("bert-base-uncased")
+        # saved_bert = torch.load("/GW/NeuralIR/nobackup/birch/models/saved.tmp_1")["model"]
+        # bert.load_state_dict(saved_bert.state_dict())
+
         self.bert = bert
 
     def forward(self, k, doc, seg, mask):
@@ -122,7 +127,7 @@ class Birch(Reranker):
             key="extractor",
             module="extractor",
             name="bertpassage",
-            default_config_overrides={"tokenizer": {"pretrained": "bert-base-uncased"}},
+            default_config_overrides={"tokenizer": {"pretrained": "bert-large-uncased"}},
         ),
         Dependency(key="trainer", module="trainer", name="pytorch"),
     ]
