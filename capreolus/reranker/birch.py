@@ -1,3 +1,4 @@
+import contextlib
 import numpy as np
 import torch
 from torch import nn
@@ -59,20 +60,25 @@ class Birch_Class(nn.Module):
         # saved_bert = torch.load("/GW/NeuralIR/nobackup/birch/models/saved.tmp_1")["model"]
         # self.bert.load_state_dict(saved_bert.state_dict())
 
+        # also /GW/NeuralIR/nobackup/birch-emnlp_bert4ir_v2/models/export/birch-bert-base-kevin
         self.bert = BertForNextSentencePrediction.from_pretrained(
             f"/GW/NeuralIR/nobackup/birch-emnlp_bert4ir_v2/models/export/birch-bert-large-{config['pretrained']}"
         )
 
         if not config["finetune"]:
             self.bert.requires_grad = False
+            self.bert_context = torch.no_grad
+        else:
+            self.bert_context = contextlib.nullcontext
 
     def forward(self, doc, seg, mask):
         batch = doc.shape[0]
 
-        bi_scores = [self.score_passages(doc[bi], seg[bi], mask[bi], batch) for bi in range(batch)]
-        scores = torch.stack(bi_scores)
-        assert scores.shape == (batch, self.config["extractor"]["numpassages"], 2)
-        scores = scores[:, :, 1]  # take second output
+        with self.bert_context():
+            bi_scores = [self.score_passages(doc[bi], seg[bi], mask[bi], batch) for bi in range(batch)]
+            scores = torch.stack(bi_scores)
+            assert scores.shape == (batch, self.config["extractor"]["numpassages"], 2)
+            scores = scores[:, :, 1]  # take second output
 
         topk, _ = torch.topk(scores, dim=1, k=self.config["topk"])
         doc_score = self.combine(topk)
