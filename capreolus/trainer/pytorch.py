@@ -285,9 +285,9 @@ class PytorchTrainer(Trainer):
         model.eval()
 
         preds = {}
-        pred_dataloader = torch.utils.data.DataLoader(pred_data, batch_size=self.config["batch"], pin_memory=True, num_workers=0)
+        pred_dataloader = torch.utils.data.DataLoader(pred_data, batch_size=self.config["batch"], pin_memory=True, num_workers=1)
         with torch.autograd.no_grad():
-            for batch in tqdm(pred_dataloader, desc="Predicting on dev"):
+            for batch in tqdm(pred_dataloader, desc="Predicting", total=len(pred_data) // self.config["batch"]):
                 if len(batch["qid"]) != self.config["batch"]:
                     batch = self.fill_incomplete_batch(batch)
 
