@@ -61,9 +61,7 @@ class Birch_Class(nn.Module):
         # self.bert.load_state_dict(saved_bert.state_dict())
 
         # also /GW/NeuralIR/nobackup/birch-emnlp_bert4ir_v2/models/export/birch-bert-base-kevin
-        self.bert = BertForNextSentencePrediction.from_pretrained(
-            f"/GW/NeuralIR/nobackup/birch-emnlp_bert4ir_v2/models/export/birch-bert-large-{config['pretrained']}"
-        )
+        self.bert = BertForNextSentencePrediction.from_pretrained(f"Capreolus/birch-bert-large-{config['pretrained']}")
 
         if not config["finetune"]:
             self.bert.requires_grad = False
