@@ -580,12 +580,7 @@ def test_bertmaxp_ce(dummy_index, tmpdir, tmpdir_as_cache, monkeypatch):
 
 
 def test_birch(dummy_index, tmpdir, tmpdir_as_cache, monkeypatch):
-    reranker = Birch(
-        {
-            "trainer": {"niters": 1, "itersize": 2, "batch": 2},
-        },
-        provide={"index": dummy_index},
-    )
+    reranker = Birch({"trainer": {"niters": 1, "itersize": 2, "batch": 2},}, provide={"index": dummy_index},)
     extractor = reranker.extractor
     metric = "map"
     benchmark = DummyBenchmark()
@@ -601,4 +596,3 @@ def test_birch(dummy_index, tmpdir, tmpdir_as_cache, monkeypatch):
     reranker.trainer.train(
         reranker, train_dataset, Path(tmpdir) / "train", dev_dataset, Path(tmpdir) / "dev", benchmark.qrels, metric
     )
-

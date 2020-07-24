@@ -258,7 +258,7 @@ class RerankTask(Task):
                 reranker_runs.setdefault(fold, {})["dev"] = Searcher.load_trec_run(dev_path)
 
         return searcher_runs, reranker_runs
-    
+
     def find_birch_crossvalidated_results(self):
         searcher_runs = {}
         rank_results = self.rank.evaluate()
@@ -271,6 +271,5 @@ class RerankTask(Task):
             test_path = Path(test_output_path.as_posix().replace("fold-" + self.config["fold"], "fold-" + fold))
             if os.path.exists(test_path):
                 reranker_runs.setdefault(fold, {})["test"] = Searcher.load_trec_run(test_path)
-
 
         return searcher_runs, reranker_runs
