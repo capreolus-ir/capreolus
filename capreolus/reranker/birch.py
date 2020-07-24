@@ -16,7 +16,6 @@ class Birch_Class(nn.Module):
         self.config = config
         self.extractor = extractor
         self.topk = config["topk"]
-        self.logit = config["logit"]
 
         # /GW/NeuralIR/nobackup/birch-emnlp_bert4ir_v2/models/converted
         # state = torch.load("/GW/NeuralIR/nobackup/birch-emnlp_bert4ir_v2/models/saved.msmarco_mb_1", map_location="cpu")
@@ -45,7 +44,7 @@ class Birch_Class(nn.Module):
             bi_scores = [self.score_passages(k[bi], doc[bi], seg[bi], mask[bi], B) for bi in range(B)]
             scores = torch.stack(bi_scores)
             assert scores.shape == (B, self.extractor.config["numpassages"], 2)
-            scores = scores[:, :, self.logit]  # take first logit?
+            scores = scores[:, :, 1]  # take second output
 
             # reset weights
             self.combine.weight = nn.Parameter(torch.ones_like(self.combine.weight))
@@ -117,10 +116,7 @@ class Birch_Class(nn.Module):
 class Birch(Reranker):
     module_name = "birch"
 
-    config_spec = [
-        ConfigOption("topk", 3, "top k scores to use"),
-        ConfigOption("logit", 1, "NSP logit to use as relevance score (0 or 1)"),
-    ]
+    config_spec = [ConfigOption("topk", 3, "top k scores to use")]
     dependencies = [
         Dependency(
             key="extractor",
