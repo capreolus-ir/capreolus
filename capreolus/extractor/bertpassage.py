@@ -268,7 +268,7 @@ class BertPassage(Extractor):
         chunked_sents = []
         size = int(len(words) / max_len)
         for i in range(0, size):
-            seq = words[i * max_len: (i + 1) * max_len]
+            seq = words[i * max_len : (i + 1) * max_len]
             chunked_sents.append(seq)
         return chunked_sents
 
@@ -334,15 +334,6 @@ class BertPassage(Extractor):
         self.docid2passages = None
 
         self._build_vocab(qids, docids, topics)
-        self._querydoc_map = {}
-
-    def _querydoc_lookup(self, qid, docid):
-        k = qid + "|" + docid
-
-        if k not in self._querydoc_map:
-            self._querydoc_map[k] = len(self._querydoc_map) + 1
-
-        return self._querydoc_map[k]
 
     def id2vec(self, qid, posid, negid=None, label=None):
         """
@@ -373,7 +364,6 @@ class BertPassage(Extractor):
 
         # TODO: Rename the posdoc key in the below dict to 'pos_bert_input'
         data = {
-            "poskey": np.array([self._querydoc_lookup(qid, posid)]),
             "qid": qid,
             "posdocid": posid,
             "pos_bert_input": np.array(pos_bert_inputs, dtype=np.long),
@@ -405,7 +395,6 @@ class BertPassage(Extractor):
             if not neg_bert_inputs:
                 raise MissingDocError(qid, negid)
 
-            data["negkey"] = np.array([self._querydoc_lookup(qid, negid)])
             data["negdocid"] = negid
             data["neg_bert_input"] = np.array(neg_bert_inputs, dtype=np.long)
             data["neg_mask"] = np.array(neg_bert_masks, dtype=np.long)

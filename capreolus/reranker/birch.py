@@ -1,6 +1,7 @@
 import numpy as np
 import torch
 from torch import nn
+from transformers import BertForNextSentencePrediction
 
 from capreolus import ConfigOption, Dependency
 from capreolus.reranker import Reranker
@@ -9,69 +10,75 @@ from capreolus.utils.loginit import get_logger
 logger = get_logger(__name__)
 
 
+# official weights converted with:
+# def convert(name):
+#     from transformers import BertTokenizer, BertForNextSentencePrediction, TFBertForNextSentencePrediction
+
+#     tokenizer = BertTokenizer.from_pretrained("bert-large-uncased")
+
+#     state = torch.load(f"/GW/NeuralIR/nobackup/birch-emnlp_bert4ir_v2/models/saved.{name}_1", map_location="cpu")
+
+#     model = BertForNextSentencePrediction.from_pretrained("bert-large-uncased")
+#     model.load_state_dict(state["model"].state_dict())
+
+#     output = f"/GW/NeuralIR/nobackup/birch-emnlp_bert4ir_v2/models/export/birch-bert-large-{name}"
+#     os.makedirs(output, exist_ok=True)
+#     model.save_pretrained(output)
+#     tokenizer.save_pretrained(output)
+
+#     # tf2 support
+#     tf_model = TFBertForNextSentencePrediction.from_pretrained(output, from_pt=True)
+#     tf_model.save_pretrained(output)
+
+
 class Birch_Class(nn.Module):
     def __init__(self, extractor, config):
         super().__init__()
 
         self.config = config
-        self.extractor = extractor
-        self.topk = config["topk"]
 
-        # /GW/NeuralIR/nobackup/birch-emnlp_bert4ir_v2/models/converted
+        if config["hidden"] == 0:
+            self.combine = nn.Linear(config["topk"], 1, bias=False)
+            with torch.no_grad():
+                self.combine.weight = nn.Parameter(torch.ones_like(self.combine.weight) / config["topk"])
+        else:
+            assert config["hidden"] > 0
+            self.combine = nn.Sequential(nn.Linear(config["topk"], config["hidden"]), nn.ReLU(), nn.Linear(config["hidden"], 1))
+
+        # original model file (requires apex):
         # state = torch.load("/GW/NeuralIR/nobackup/birch-emnlp_bert4ir_v2/models/saved.msmarco_mb_1", map_location="cpu")
         # self.bert = state["model"]
-        self._load_bert()
-        self.combine = nn.Linear(self.topk, 1)
-        self.score_cache = {}
 
-    def _load_bert(self):
-        from transformers import BertTokenizer, BertForNextSentencePrediction
+        # saved.msmarco_mb_1 weights exported from the official apex model:
+        # self.bert = BertForNextSentencePrediction.from_pretrained("bert-large-uncased")
+        # self.bert.load_state_dict(torch.load("/GW/NeuralIR/nobackup/birch-emnlp_bert4ir_v2/models/converted"))
+        # converted_weights.msmarco_mb
 
-        bert = BertForNextSentencePrediction.from_pretrained("bert-large-uncased")
-        bert.load_state_dict(torch.load("/GW/NeuralIR/nobackup/birch-emnlp_bert4ir_v2/models/converted"))
-
-        # kevin's
-        # bert = BertForNextSentencePrediction.from_pretrained("bert-base-uncased")
+        # kevin's base model:
+        # self.bert = BertForNextSentencePrediction.from_pretrained("bert-base-uncased")
         # saved_bert = torch.load("/GW/NeuralIR/nobackup/birch/models/saved.tmp_1")["model"]
-        # bert.load_state_dict(saved_bert.state_dict())
+        # self.bert.load_state_dict(saved_bert.state_dict())
 
-        self.bert = bert
+        self.bert = BertForNextSentencePrediction.from_pretrained(
+            f"/GW/NeuralIR/nobackup/birch-emnlp_bert4ir_v2/models/export/birch-bert-large-{config['pretrained']}"
+        )
 
-    def forward(self, k, doc, seg, mask):
-        B, P, D = doc.shape
-        k = [x.item() for x in k.cpu()]
-        # k = seg.view(B * P, -1)
-        # doc = doc.view(B * P, D)
-        # seg = seg.view(B * P, D)
-        # mask = mask.view(B * P, D)
+        if not config["finetune"]:
+            self.bert.requires_grad = False
 
-        with torch.no_grad():
-            bi_scores = [self.score_passages(k[bi], doc[bi], seg[bi], mask[bi], B) for bi in range(B)]
-            scores = torch.stack(bi_scores)
-            assert scores.shape == (B, self.extractor.config["numpassages"], 2)
-            scores = scores[:, :, 1]  # take second output
+    def forward(self, doc, seg, mask):
+        batch = doc.shape[0]
 
-            # reset weights
-            self.combine.weight = nn.Parameter(torch.ones_like(self.combine.weight))
-            self.combine.bias = nn.Parameter(torch.ones_like(self.combine.bias))
+        bi_scores = [self.score_passages(doc[bi], seg[bi], mask[bi], batch) for bi in range(batch)]
+        scores = torch.stack(bi_scores)
+        assert scores.shape == (batch, self.config["extractor"]["numpassages"], 2)
+        scores = scores[:, :, 1]  # take second output
 
-        topk, _ = torch.topk(scores, dim=1, k=self.topk)
+        topk, _ = torch.topk(scores, dim=1, k=self.config["topk"])
+        doc_score = self.combine(topk)
+        return doc_score
 
-        # out = torch.sum(topk, dim=1, keepdims=True)
-
-        out = self.combine(topk)
-        return out
-
-    def score_passages(self, k, doc, seg, mask, batch):
-        # assert len(k) == 1
-        # k = k.item()
-
-        if k not in self.score_cache:
-            self.score_cache[k] = self._score_passages(doc, seg, mask, batch)
-
-        return self.score_cache[k].to(doc.device)
-
-    def _score_passages(self, doc, seg, mask, batch):
+    def score_passages(self, doc, seg, mask, batch):
         needed_passages = doc.shape[0]
         maxlen = doc.shape[-1]
 
@@ -83,9 +90,8 @@ class Birch_Class(nn.Module):
             valid[0] = True
         doc, seg, mask = doc[valid], seg[valid], mask[valid]
 
-        batches = np.ceil(doc.shape[0] / batch).astype(int)
-
         out = []
+        batches = np.ceil(doc.shape[0] / batch).astype(int)
         for bi in range(batches):
             start = bi * batch
             stop = (bi + 1) * batch
@@ -112,7 +118,7 @@ class Birch_Class(nn.Module):
         found_passages = real_out.shape[0]
         if found_passages < needed_passages:
             pad_out = torch.min(real_out, dim=0)[0].repeat(needed_passages - found_passages, 1)
-            return torch.cat((real_out, pad_out), dim=0).cpu()
+            return torch.cat((real_out, pad_out), dim=0)
         else:
             return real_out
 
@@ -121,7 +127,12 @@ class Birch_Class(nn.Module):
 class Birch(Reranker):
     module_name = "birch"
 
-    config_spec = [ConfigOption("topk", 3, "top k scores to use")]
+    config_spec = [
+        ConfigOption("topk", 3, "top k scores to use"),
+        ConfigOption("hidden", 0, "size of hidden layer or 0 to take the weighted sum of the topk"),
+        ConfigOption("finetune", False, "fine-tune the BERT model"),
+        ConfigOption("pretrained", "msmarco_mb", "pretrained Birch model to load: mb, msmarco_mb, or car_mb"),
+    ]
     dependencies = [
         Dependency(
             key="extractor",
@@ -138,9 +149,9 @@ class Birch(Reranker):
 
     def score(self, d):
         return [
-            self.model(d["poskey"], d["pos_bert_input"], d["pos_seg"], d["pos_mask"]).view(-1),
-            self.model(d["negkey"], d["neg_bert_input"], d["neg_seg"], d["neg_mask"]).view(-1),
+            self.model(d["pos_bert_input"], d["pos_seg"], d["pos_mask"]).view(-1),
+            self.model(d["neg_bert_input"], d["neg_seg"], d["neg_mask"]).view(-1),
         ]
 
     def test(self, d):
-        return self.model(d["poskey"], d["pos_bert_input"], d["pos_seg"], d["pos_mask"]).view(-1)
+        return self.model(d["pos_bert_input"], d["pos_seg"], d["pos_mask"]).view(-1)
