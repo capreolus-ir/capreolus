@@ -69,7 +69,7 @@ class PytorchTrainer(Trainer):
         batches_per_epoch = (self.config["itersize"] // self.config["batch"]) or 1
         batches_per_step = self.config["gradacc"]
 
-        for bi, batch in tqdm(enumerate(train_dataloader), desc="Iter progression"):
+        for bi, batch in tqdm(enumerate(train_dataloader), desc="Iter progression", total=batches_per_epoch):
             # TODO make sure _prepare_batch_with_strings equivalent is happening inside the sampler
             batch = {k: v.to(self.device) if not isinstance(v, list) else v for k, v in batch.items()}
             doc_scores = reranker.score(batch)
@@ -190,10 +190,8 @@ class PytorchTrainer(Trainer):
         initial_iter = self.fastforward_training(reranker, weights_output_path, loss_fn) if self.config["fastforward"] else 0
         logger.info("starting training from iteration %s/%s", initial_iter, self.config["niters"])
 
-        from torch.utils.data.dataloader import default_collate
-
         train_dataloader = torch.utils.data.DataLoader(
-            train_dataset, batch_size=self.config["batch"], pin_memory=True, num_workers=0
+            train_dataset, batch_size=self.config["batch"], pin_memory=True, num_workers=1
         )
         # dataiter = iter(train_dataloader)
         # sample_input = dataiter.next()
