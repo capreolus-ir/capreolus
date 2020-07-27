@@ -13,7 +13,7 @@ class TFParade_Class(tf.keras.layers.Layer):
         super(TFParade_Class, self).__init__(*args, **kwargs)
         self.extractor = extractor
         self.config = config
-        self.bert = TFBertModel.from_pretrained(config["pretrained"], hidden_dropout_prob=0.1)
+        self.bert = TFBertModel.from_pretrained("bert-base-uncased")
         self.transformer_layer_1 = TFBertLayer(self.bert.config)
         self.transformer_layer_2 = TFBertLayer(self.bert.config)
         # self.num_passages = (self.extractor.cfg["maxdoclen"] - config["passagelen"]) // self.config["stride"]
@@ -33,8 +33,8 @@ class TFParade_Class(tf.keras.layers.Layer):
         tf.debugging.assert_equal(tf.shape(cls), (batch_size * self.num_passages, self.bert.config.hidden_size))
         cls = tf.reshape(cls, [batch_size, self.num_passages, self.bert.config.hidden_size])
 
-        (transformer_out1,) = self.transformer_layer_1((cls, None, None))
-        (transformer_out2,) = self.transformer_layer_2((transformer_out1, None, None))
+        (transformer_out1,) = self.transformer_layer_1((cls, None, None, None))
+        (transformer_out2,) = self.transformer_layer_2((transformer_out1, None, None, None))
         final_cls = tf.reshape(transformer_out2[:, 0], [batch_size, self.bert.config.hidden_size])
 
         score = tf.reshape(self.linear(final_cls), [batch_size, 1])
