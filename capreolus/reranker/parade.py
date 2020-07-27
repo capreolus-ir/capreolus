@@ -30,7 +30,7 @@ class TFParade_Class(tf.keras.layers.Layer):
         doc_seg = tf.reshape(doc_seg, [batch_size * self.num_passages, self.maxseqlen])
 
         cls = self.bert(doc_input, attention_mask=doc_mask, token_type_ids=doc_seg)[0][:, 0]
-        tf.debugging.assert_equal(tf.shape(cls), (batch_size, self.num_passages * self.bert.config.hidden_size))
+        tf.debugging.assert_equal(tf.shape(cls), (batch_size * self.num_passages, self.bert.config.hidden_size))
         cls = tf.reshape(cls, [batch_size, self.num_passages, self.bert.config.hidden_size])
 
         (transformer_out1,) = self.transformer_layer_1((cls, None, None))
@@ -49,10 +49,6 @@ class TFParade_Class(tf.keras.layers.Layer):
         batch_size = tf.shape(posdoc_bert_input)[0]
         num_passages = self.extractor.config["numpassages"]
         maxseqlen = self.extractor.config["maxseqlen"]
-
-        posdoc_bert_input = tf.reshape(posdoc_bert_input, [batch_size * num_passages, maxseqlen])
-        posdoc_mask = tf.reshape(posdoc_mask, [batch_size * num_passages, maxseqlen])
-        posdoc_seg = tf.reshape(posdoc_seg, [batch_size * num_passages, maxseqlen])
 
         doc_scores = self.call((posdoc_bert_input, posdoc_mask, posdoc_seg), training=False)
 
