@@ -28,6 +28,7 @@ from capreolus.sampler import TrainTripletSampler, TrainPairSampler, PredSampler
 from capreolus.tests.common_fixtures import dummy_index, tmpdir_as_cache
 from capreolus.reranker.TFVanillaBert import TFVanillaBERT
 from capreolus.reranker.birch import Birch
+from capreolus.reranker.parade import TFParade
 
 rerankers = set(module_registry.get_module_names("reranker"))
 
@@ -581,6 +582,25 @@ def test_bertmaxp_ce(dummy_index, tmpdir, tmpdir_as_cache, monkeypatch):
 
 def test_birch(dummy_index, tmpdir, tmpdir_as_cache, monkeypatch):
     reranker = Birch({"trainer": {"niters": 1, "itersize": 2, "batch": 2},}, provide={"index": dummy_index},)
+    extractor = reranker.extractor
+    metric = "map"
+    benchmark = DummyBenchmark()
+
+    extractor.preprocess(["301"], ["LA010189-0001", "LA010189-0002"], benchmark.topics[benchmark.query_type])
+    reranker.build_model()
+    reranker.searcher_scores = {"301": {"LA010189-0001": 2, "LA010189-0002": 1}}
+    train_run = {"301": ["LA010189-0001", "LA010189-0002"]}
+    train_dataset = TrainTripletSampler()
+    train_dataset.prepare(train_run, benchmark.qrels, extractor)
+    dev_dataset = PredSampler()
+    dev_dataset.prepare(train_run, benchmark.qrels, extractor)
+    reranker.trainer.train(
+        reranker, train_dataset, Path(tmpdir) / "train", dev_dataset, Path(tmpdir) / "dev", benchmark.qrels, metric
+    )
+
+
+def test_parade(dummy_index, tmpdir, tmpdir_as_cache, monkeypatch):
+    reranker = TFParade({"trainer": {"niters": 1, "itersize": 2, "batch": 2},}, provide={"index": dummy_index},)
     extractor = reranker.extractor
     metric = "map"
     benchmark = DummyBenchmark()
