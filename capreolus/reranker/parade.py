@@ -20,6 +20,20 @@ class TFParade_Class(tf.keras.layers.Layer):
         self.num_passages = extractor.config["numpassages"]
         self.maxseqlen = extractor.config["maxseqlen"]
         self.linear = tf.keras.layers.Dense(1, input_shape=(self.bert.config.hidden_size,))
+        if config["aggregation"] == "maxp":
+            self.aggregation = self.maxp
+
+
+    def maxp(self, cls):
+        """
+        cls has the shape [B, num_passages, hidden_size]
+        """
+        expanded_cls = tf.reshape(cls, [-1, self.num_passages, self.bert.config.hidden_size])
+        batch_size = tf.shape(expanded_cls)[0]
+        aggregated = tf.reduce_max(expanded_cls, axis=1)
+
+        return aggregated
+
 
     def call(self, x, **kwargs):
         doc_input, doc_mask, doc_seg = x[0], x[1], x[2]
@@ -30,10 +44,16 @@ class TFParade_Class(tf.keras.layers.Layer):
         doc_seg = tf.reshape(doc_seg, [batch_size * self.num_passages, self.maxseqlen])
 
         cls = self.bert(doc_input, attention_mask=doc_mask, token_type_ids=doc_seg)[0][:, 0, :]
-        tf.debugging.assert_equal(tf.shape(cls), [batch_size, self.bert.config.hidden_size])
-        scores = self.linear(cls)
-        scores = tf.reshape(scores, [batch_size, 1])
-        return scores
+        aggregated = self.aggregation(cls)
+        #tf.debugging.assert_equal(tf.shape(cls), [batch_size * self.num_passages, self.bert.config.hidden_size])
+        #(transformer_out_1, ) = self.transformer_layer_1((cls, None, None, None))
+        #print("transformer_out_2 has the shape {}".format(tf.shape(transformer_out_1)))
+        #(transformer_out_2, ) = self.transformer_layer_2((transformer_out_1, None, None, None))
+        #print("transformer_out_2 shape is {}".format(tf.shape(transformer_out_2)))
+        #transformer_out_2 = tf.reshape(transformer_out_2, [batch_size, self.num_passages, self.bert.config.hidden_size])
+        #scores = self.linear(transformer_out_2)
+
+        return self.linear(aggregated) 
 
     def predict_step(self, data):
         """
@@ -75,6 +95,8 @@ class TFParade(Reranker):
         ConfigOption("passagelen", 100, "Passage length"),
         ConfigOption("dropout", 0.1, "Dropout for the linear layers in BERT"),
         ConfigOption("stride", 20, "Stride"),
+        ConfigOption("aggregation", "maxp")
+        
     ]
 
     def build_model(self):
