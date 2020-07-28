@@ -1,7 +1,7 @@
 import sys
 import tensorflow as tf
 from tensorflow.python.keras.engine import data_adapter
-from transformers import TFBertModel
+from transformers import TFBertModel, TFBertForSequenceClassification
 from transformers.modeling_tf_bert import TFBertLayer
 
 from profane import ConfigOption, Dependency
@@ -29,17 +29,11 @@ class TFParade_Class(tf.keras.layers.Layer):
         doc_mask = tf.reshape(doc_mask, [batch_size * self.num_passages, self.maxseqlen])
         doc_seg = tf.reshape(doc_seg, [batch_size * self.num_passages, self.maxseqlen])
 
-        cls = self.bert(doc_input, attention_mask=doc_mask, token_type_ids=doc_seg)[0][:, 0]
-        tf.debugging.assert_equal(tf.shape(cls), (batch_size * self.num_passages, self.bert.config.hidden_size))
-        cls = tf.reshape(cls, [batch_size, self.num_passages, self.bert.config.hidden_size])
-
-        (transformer_out1,) = self.transformer_layer_1((cls, None, None, None))
-        (transformer_out2,) = self.transformer_layer_2((transformer_out1, None, None, None))
-        final_cls = tf.reshape(transformer_out2[:, 0], [batch_size, self.bert.config.hidden_size])
-
-        score = tf.reshape(self.linear(final_cls), [batch_size, 1])
-
-        return score
+        cls = self.bert(doc_input, attention_mask=doc_mask, token_type_ids=doc_seg)[0][:, 0, :]
+        tf.debugging.assert_equal(tf.shape(cls), [batch_size, self.bert.config.hidden_size])
+        scores = self.linear(cls)
+        scores = tf.reshape(scores, [batch_size, 1])
+        return scores
 
     def predict_step(self, data):
         """
