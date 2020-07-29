@@ -48,11 +48,12 @@ class TFParade_Class(tf.keras.layers.Layer):
         merged_cls = tf.concat((expanded_cls, tf.expand_dims(tiled_initial_cls, axis=1)), axis=1)
         tf.debugging.assert_equal(tf.shape(merged_cls), [batch_size, self.num_passages + 1, self.bert.config.hidden_size])
 
-        full_position_embeddings = tf.compat.v1.get_variable(
-            name="passage_position_embedding",
-            shape=[self.num_passages + 1, self.bert.config.hidden_size],
-            initializer=tf.compat.v1.truncated_normal_initializer(stddev=0.02),
-        )
+        with tf.compat.v1.variable_scope():
+            full_position_embeddings = tf.compat.v1.get_variable(
+                name="passage_position_embedding",
+                shape=[self.num_passages + 1, self.bert.config.hidden_size],
+                initializer=tf.compat.v1.truncated_normal_initializer(stddev=0.02),
+            )
         full_position_embeddings = tf.expand_dims(full_position_embeddings, axis=0)
         merged_cls += full_position_embeddings
 
