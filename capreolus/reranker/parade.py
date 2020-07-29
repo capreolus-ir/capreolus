@@ -25,7 +25,10 @@ class TFParade_Class(tf.keras.layers.Layer):
         elif config["aggregation"] == "transformer":
             self.aggregation = self.aggregate_using_transformer
             input_embeddings = self.bert.get_input_embeddings()
-            self.initial_cls_embedding = input_embeddings([101, None, None, None])
+            cls_token_id = tf.convert_to_tensor([101])
+            cls_token_id = tf.reshape(cls_token_id, [1, 1])
+            self.initial_cls_embedding = input_embeddings([cls_token_id, None, None, None])
+            self.initial_cls_embedding = tf.reshape(self.initial_cls_embedding, [1, self.bert.config.hidden_size])
 
     def aggregate_using_maxp(self, cls):
         """
@@ -51,19 +54,15 @@ class TFParade_Class(tf.keras.layers.Layer):
             initializer=tf.compat.v1.truncated_normal_initializer(stddev=0.02),
         )
         full_position_embeddings = tf.expand_dims(full_position_embeddings, axis=0)
-        print("full_position_embeddings shape is {}".format(tf.shape(full_position_embeddings)))
         merged_cls += full_position_embeddings
-        print("merged_cls shape is now: {}".format(tf.shape(merged_cls)))
 
-        attention_mask = tf.sequence_mask(batch_size, self.num_passages + 1, dtype=tf.float32)
+        attention_mask = tf.sequence_mask([batch_size, self.num_passages + 1], dtype=tf.float32)
         attention_mask = tf.tile(tf.expand_dims(attention_mask, axis=1), [1, self.num_passages + 1, 1])
 
-        (transformer_out_1,) = self.transformer_layer_1((merged_cls, attention_mask, None, None))
-        (transformer_out_2,) = self.transformer_layer_2((transformer_out_1, attention_mask, None, None))
-        print("transformer_out_2 shape is {}".format(tf.shape(transformer_out_2)))
+        (transformer_out_1,) = self.transformer_layer_1((merged_cls, None, None, None))
+        (transformer_out_2,) = self.transformer_layer_2((transformer_out_1, None, None, None))
 
         aggregated = transformer_out_2[:, 0, :]
-        print("aggregated shape is {}".format(tf.shape(aggregated)))
         return aggregated
 
     def call(self, x, **kwargs):
