@@ -21,10 +21,13 @@ class TFParade_Class(tf.keras.layers.Layer):
         self.maxseqlen = extractor.config["maxseqlen"]
         self.linear = tf.keras.layers.Dense(1, input_shape=(self.bert.config.hidden_size,))
         if config["aggregation"] == "maxp":
-            self.aggregation = self.maxp
+            self.aggregation = self.aggregate_using_maxp
+        elif config["aggregation"] == "transformer":
+            self.aggregation = self.aggregate_using_transformer
+            input_embeddings = self.bert.get_input_embeddings()
+            self.initial_cls_embedding = input_embeddings([101, None, None, None])
 
-
-    def maxp(self, cls):
+    def aggregate_using_maxp(self, cls):
         """
         cls has the shape [B, num_passages, hidden_size]
         """
@@ -34,6 +37,30 @@ class TFParade_Class(tf.keras.layers.Layer):
 
         return aggregated
 
+    def aggregate_using_transformer(self, cls):
+        expanded_cls = tf.reshape(cls, [-1, self.num_passages, self.bert.config.hidden_size])
+        batch_size = tf.shape(expanded_cls)[0]
+        tiled_initial_cls = tf.tile(self.initial_cls_embedding, multiples=[batch_size, 1])
+        # TODO: Check with Canjia if the concat order is correct
+        merged_cls = tf.concat((expanded_cls, tf.expand_dims(tiled_initial_cls, axis=1)), axis=1)
+        tf.debugging.assert_equal(tf.shape(merged_cls), [batch_size, self.num_passages+1, self.bert.config.hidden_size])
+
+        full_position_embeddings = tf.compat.v1.get_variable(name="passage_position_embedding", shape=[self.num_passages+1, self.bert.config.hidden_size], initializer=tf.compat.v1.truncated_normal_initializer(stddev=0.02))
+        full_position_embeddings = tf.expand_dims(full_position_embeddings, axis=0)
+        print("full_position_embeddings shape is {}".format(tf.shape(full_position_embeddings)))
+        merged_cls += full_position_embeddings
+        print("merged_cls shape is now: {}".format(tf.shape(merged_cls)))
+
+        attention_mask = tf.sequence_mask(batch_size, self.num_passages + 1, dtype=tf.float32)
+        attention_mask = tf.tile(tf.expand_dims(attention_mask, axis=1), [1, self.num_passages + 1, 1])
+
+        (transformer_out_1, ) = self.transformer_layer_1((merged_cls, attention_mask, None, None))
+        (transformer_out_2, ) = self.transformer_layer_2((transformer_out_1, attention_mask, None, None))
+        print("transformer_out_2 shape is {}".format(tf.shape(transformer_out_2)))
+
+        aggregated = transformer_out_2[:, 0, :]
+        print("aggregated shape is {}".format(tf.shape(aggregated)))
+        return aggregated
 
     def call(self, x, **kwargs):
         doc_input, doc_mask, doc_seg = x[0], x[1], x[2]
