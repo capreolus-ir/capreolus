@@ -43,9 +43,13 @@ class TFParade_Class(tf.keras.layers.Layer):
         tiled_initial_cls = tf.tile(self.initial_cls_embedding, multiples=[batch_size, 1])
         # TODO: Check with Canjia if the concat order is correct
         merged_cls = tf.concat((expanded_cls, tf.expand_dims(tiled_initial_cls, axis=1)), axis=1)
-        tf.debugging.assert_equal(tf.shape(merged_cls), [batch_size, self.num_passages+1, self.bert.config.hidden_size])
+        tf.debugging.assert_equal(tf.shape(merged_cls), [batch_size, self.num_passages + 1, self.bert.config.hidden_size])
 
-        full_position_embeddings = tf.compat.v1.get_variable(name="passage_position_embedding", shape=[self.num_passages+1, self.bert.config.hidden_size], initializer=tf.compat.v1.truncated_normal_initializer(stddev=0.02))
+        full_position_embeddings = tf.compat.v1.get_variable(
+            name="passage_position_embedding",
+            shape=[self.num_passages + 1, self.bert.config.hidden_size],
+            initializer=tf.compat.v1.truncated_normal_initializer(stddev=0.02),
+        )
         full_position_embeddings = tf.expand_dims(full_position_embeddings, axis=0)
         print("full_position_embeddings shape is {}".format(tf.shape(full_position_embeddings)))
         merged_cls += full_position_embeddings
@@ -54,8 +58,8 @@ class TFParade_Class(tf.keras.layers.Layer):
         attention_mask = tf.sequence_mask(batch_size, self.num_passages + 1, dtype=tf.float32)
         attention_mask = tf.tile(tf.expand_dims(attention_mask, axis=1), [1, self.num_passages + 1, 1])
 
-        (transformer_out_1, ) = self.transformer_layer_1((merged_cls, attention_mask, None, None))
-        (transformer_out_2, ) = self.transformer_layer_2((transformer_out_1, attention_mask, None, None))
+        (transformer_out_1,) = self.transformer_layer_1((merged_cls, attention_mask, None, None))
+        (transformer_out_2,) = self.transformer_layer_2((transformer_out_1, attention_mask, None, None))
         print("transformer_out_2 shape is {}".format(tf.shape(transformer_out_2)))
 
         aggregated = transformer_out_2[:, 0, :]
@@ -72,15 +76,15 @@ class TFParade_Class(tf.keras.layers.Layer):
 
         cls = self.bert(doc_input, attention_mask=doc_mask, token_type_ids=doc_seg)[0][:, 0, :]
         aggregated = self.aggregation(cls)
-        #tf.debugging.assert_equal(tf.shape(cls), [batch_size * self.num_passages, self.bert.config.hidden_size])
-        #(transformer_out_1, ) = self.transformer_layer_1((cls, None, None, None))
-        #print("transformer_out_2 has the shape {}".format(tf.shape(transformer_out_1)))
-        #(transformer_out_2, ) = self.transformer_layer_2((transformer_out_1, None, None, None))
-        #print("transformer_out_2 shape is {}".format(tf.shape(transformer_out_2)))
-        #transformer_out_2 = tf.reshape(transformer_out_2, [batch_size, self.num_passages, self.bert.config.hidden_size])
-        #scores = self.linear(transformer_out_2)
+        # tf.debugging.assert_equal(tf.shape(cls), [batch_size * self.num_passages, self.bert.config.hidden_size])
+        # (transformer_out_1, ) = self.transformer_layer_1((cls, None, None, None))
+        # print("transformer_out_2 has the shape {}".format(tf.shape(transformer_out_1)))
+        # (transformer_out_2, ) = self.transformer_layer_2((transformer_out_1, None, None, None))
+        # print("transformer_out_2 shape is {}".format(tf.shape(transformer_out_2)))
+        # transformer_out_2 = tf.reshape(transformer_out_2, [batch_size, self.num_passages, self.bert.config.hidden_size])
+        # scores = self.linear(transformer_out_2)
 
-        return self.linear(aggregated) 
+        return self.linear(aggregated)
 
     def predict_step(self, data):
         """
@@ -122,8 +126,7 @@ class TFParade(Reranker):
         ConfigOption("passagelen", 100, "Passage length"),
         ConfigOption("dropout", 0.1, "Dropout for the linear layers in BERT"),
         ConfigOption("stride", 20, "Stride"),
-        ConfigOption("aggregation", "maxp")
-        
+        ConfigOption("aggregation", "maxp"),
     ]
 
     def build_model(self):

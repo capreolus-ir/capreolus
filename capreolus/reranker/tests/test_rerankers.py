@@ -617,8 +617,11 @@ def test_parade_maxp(dummy_index, tmpdir, tmpdir_as_cache, monkeypatch):
         reranker, train_dataset, Path(tmpdir) / "train", dev_dataset, Path(tmpdir) / "dev", benchmark.qrels, metric
     )
 
+
 def test_parade_transformer(dummy_index, tmpdir, tmpdir_as_cache, monkeypatch):
-    reranker = TFParade({"aggregation": "transformer", "trainer": {"niters": 1, "itersize": 2, "batch": 2},}, provide={"index": dummy_index},)
+    reranker = TFParade(
+        {"aggregation": "transformer", "trainer": {"niters": 1, "itersize": 2, "batch": 2},}, provide={"index": dummy_index},
+    )
     extractor = reranker.extractor
     metric = "map"
     benchmark = DummyBenchmark()
