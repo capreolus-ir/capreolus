@@ -29,6 +29,9 @@ class TFParade_Class(tf.keras.layers.Layer):
             cls_token_id = tf.reshape(cls_token_id, [1, 1])
             self.initial_cls_embedding = input_embeddings([cls_token_id, None, None, None])
             self.initial_cls_embedding = tf.reshape(self.initial_cls_embedding, [1, self.bert.config.hidden_size])
+            initializer = tf.random_normal_initializer(stddev=0.02)
+            full_position_embeddings = tf.Variable(initial_value=initializer(shape=[self.num_passages+1, self.bert.config.hidden_size]), name="passage_position_embedding")
+            self.full_position_embeddings = tf.expand_dims(full_position_embeddings, axis=0)
 
     def aggregate_using_maxp(self, cls):
         """
@@ -48,14 +51,7 @@ class TFParade_Class(tf.keras.layers.Layer):
         merged_cls = tf.concat((expanded_cls, tf.expand_dims(tiled_initial_cls, axis=1)), axis=1)
         tf.debugging.assert_equal(tf.shape(merged_cls), [batch_size, self.num_passages + 1, self.bert.config.hidden_size])
 
-        with tf.compat.v1.variable_scope():
-            full_position_embeddings = tf.compat.v1.get_variable(
-                name="passage_position_embedding",
-                shape=[self.num_passages + 1, self.bert.config.hidden_size],
-                initializer=tf.compat.v1.truncated_normal_initializer(stddev=0.02),
-            )
-        full_position_embeddings = tf.expand_dims(full_position_embeddings, axis=0)
-        merged_cls += full_position_embeddings
+        merged_cls += self.full_position_embeddings
 
         attention_mask = tf.sequence_mask([batch_size, self.num_passages + 1], dtype=tf.float32)
         attention_mask = tf.tile(tf.expand_dims(attention_mask, axis=1), [1, self.num_passages + 1, 1])
