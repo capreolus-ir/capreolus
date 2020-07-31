@@ -40,6 +40,7 @@ class TFBERTMaxP_Class(tf.keras.layers.Layer):
         passage_scores = self.call((posdoc_bert_input, posdoc_mask, posdoc_seg), training=False)[:, 1]
         tf.debugging.assert_equal(tf.shape(passage_scores), (batch_size * num_passages))
         passage_scores = tf.reshape(passage_scores, [batch_size, num_passages])
+        passage_scores = tf.math.reduce_max(passage_scores, axis=1)
 
         if self.config["aggregation"] == "max":
             passage_scores = tf.math.reduce_max(passage_scores, axis=1)

@@ -474,7 +474,7 @@ class TensorflowTrainer(Trainer):
 
         return KerasTripletModel(model)
 
-    def fastforward_training(self, reranker, weights_path, loss_fn):
+    def fastforward_ttfraining(self, reranker, weights_path, loss_fn):
         # TODO: Fix fast forwarding
         return 0
 
