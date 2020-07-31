@@ -3,18 +3,13 @@ from profane import import_all_modules
 # import_all_modules(__file__, __package__)
 
 import pickle
-from collections import defaultdict
-import tensorflow as tf
 
 import os
 import tensorflow as tf
 import numpy as np
 from collections import defaultdict
-from profane import ConfigOption
-from profane.base import Dependency
-from pymagnitude import Magnitude, MagnitudeUtils
 from tqdm import tqdm
-from profane import ModuleBase, Dependency, ConfigOption, constants
+from profane import Dependency, ConfigOption
 
 
 from capreolus.extractor import Extractor
@@ -22,7 +17,6 @@ from capreolus import get_logger
 from capreolus.utils.common import padlist
 from capreolus.utils.exceptions import MissingDocError
 from capreolus.tokenizer.punkt import PunktTokenizer
-from . import Extractor
 
 logger = get_logger(__name__)
 
@@ -33,6 +27,9 @@ class BertPassage(Extractor):
     Extracts passages from the document to be later consumed by a BERT based model.
     Does NOT use all the passages. The first passages is always used. Use the `prob` config to control the probability
     of a passage being selected
+    Gotcha: In Tensorflow the train tfrecords have shape (batch_size, maxseqlen) while dev tf records have the shape
+    (batch_size, num_passages, maxseqlen). This is because during inference, we want to pool over the scores of the
+    passages belonging to a doc
     """
 
     module_name = "bertpassage"
