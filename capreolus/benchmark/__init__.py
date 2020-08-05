@@ -85,7 +85,7 @@ class KITT(Benchmark):
         domain = "book"
 
         if querytype not in ["query", "basicprofile", "chatprofile",
-                             "basicprofile_general", 'basicprofile_food', 'basicprofile_travel', 'basicprofile_book_movie',
+                             "basicprofile_general", 'basicprofile_food', 'basicprofile_travel', 'basicprofile_book_movie', 'basicprofile_book', 'basicprofile_movie'
                              "chatprofile_general", 'chatprofile_food', 'chatprofile_travel', 'chatprofile_book', 'chatprofile_movie', 'chatprofile_hobbies']:
             raise ValueError(f"invalid querytype: {querytype}")
 
