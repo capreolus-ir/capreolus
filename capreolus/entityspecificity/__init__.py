@@ -1,10 +1,4 @@
-import json
-import operator
-import os
-from os.path import join, exists
-
 import numpy as np
-from capreolus.utils.common import get_file_name
 
 from capreolus.registry import ModuleBase, RegisterableModule, Dependency
 
@@ -21,22 +15,20 @@ class EntitySpecificity(ModuleBase, metaclass=RegisterableModule):
     def top_specific_entities(self, tid, entities):
         benchmark_name = self['benchmark'].name
         benchmark_querytype = self['benchmark'].query_type
-        os.makedirs(self.get_selected_entities_cache_path(), exist_ok=True)
-        cache_file = join(self.get_selected_entities_cache_path(), "{}_{}".format(get_file_name(tid, benchmark_name, benchmark_querytype), len(entities)))
-        if exists(cache_file):
-            return json.loads(open(cache_file, 'r').read())
 
+        result = {}
+        result["NE"] = self.get_top_specific_entities_list(entities["NE"])
+        result["C"] = self.get_top_specific_entities_list(entities["C"])
+
+        return result
+
+    def get_top_specific_entities_list(self, entities):
         if len(entities) <= self.cfg['return_top']:
-            logger.debug(f"number of entities less than top-specific-entity cut {len(entities)} <= {self.cfg['return_top']}")
-            with open(cache_file, 'w') as f:
-                f.write(json.dumps(entities))
             return entities
-        logger.debug(f"number of entities: {len(entities)}")
-
         counts_of_win = {}
         # this is run permutation(len(entities), 2) (since 2 the rank_entity computes the 2 sides a->b and b->a)
-        for i in range(0, len(entities)):#TODO: this is very slow, when we have like 40 ich entities.... let's do sth
-            for j in range(i+1, len(entities)):
+        for i in range(0, len(entities)):  # TODO: this is very slow, when we have like 40 ich entities.... let's do sth
+            for j in range(i + 1, len(entities)):
                 ranked_pair = self.rank_entity_pair_by_specificity(entities[i], entities[j])
                 if entities[i] not in counts_of_win:
                     counts_of_win[entities[i]] = 0
@@ -45,12 +37,8 @@ class EntitySpecificity(ModuleBase, metaclass=RegisterableModule):
 
                 if len(ranked_pair) != 0:
                     counts_of_win[ranked_pair[0]] += 1
-                
 
-        result = [k for k,v in sorted(counts_of_win.items(), key=lambda item: item[1], reverse=True)]
-
-        with open(cache_file, 'w') as f:
-            f.write(json.dumps(result[:self.cfg['return_top']]))
+        result = [k for k, v in sorted(counts_of_win.items(), key=lambda item: item[1], reverse=True)]
 
         return result[:self.cfg['return_top']]
     # def top_specific_entities(self, entities):# TODO this function is extactly repeated in another module... maybe write them in a better way or write them in a common utils...
@@ -109,9 +97,6 @@ class EntitySpecificityBy2HopPath(EntitySpecificity):
     def config():
         ranking_strategy = 'greedy_most_outlinks_withrm'
         return_top = 10
-
-    def get_selected_entities_cache_path(self):
-        return self.get_cache_path() / "selectedentities"
 
     def initialize(self):
         self['utils'].load_wp_links()
@@ -193,9 +178,6 @@ class EntitySpecificityHigherMean(EntitySpecificity):
         k = 100
         ranking_strategy = 'greedy_most_outlinks_withrm'
         return_top = 10
-
-    def get_selected_entities_cache_path(self):
-        return self.get_cache_path() / "selectedentities"
 
     def initialize(self):
         logger.debug("loading wikipedia2vec pretrained embedding")

@@ -3,7 +3,6 @@ import os
 from os.path import exists, join
 
 import json
-import re
 
 from capreolus.utils.common import get_file_name
 from capreolus.utils.loginit import get_logger
@@ -34,8 +33,11 @@ class AmbiverseNLU(EntityLinking):
     def config():
         extractConcepts = True ## TODO: let's get the pipeline as input (later when I implemented that part).
         descriptions = "YAGO_long_short"
+        pipeline = "ENTITY_CONCEPT_JOINT_LINKING" #"ENTITY_CONCEPT_SEPARATE_LINKING", "ENTITY_CONCEPT_SALIENCE_STANFORD", "ENTITY_CONCEPT_SALIENCE" "ENTITY_CONCEPT_SPOTTING_SEPARATE_DISAMBIGUATION" "ENTITY_CONCEPT_SPOTTING_JOINT_DISAMBIGUATION"
+        typerestriction = False #if true we restrict movies, books, travel, food named entities
 
     def get_extracted_entities_cache_path(self):
+        # logger.debug(f"entities cache path: {self.get_cache_path()}")
         return self.get_cache_path() / 'entities'
 
     def get_benchmark_domain(self):
@@ -50,20 +52,93 @@ class AmbiverseNLU(EntityLinking):
     def get_benchmark_cache_dir(self):
         return self['benchmark'].get_cache_path()
 
+    @property
+    def pipeline(self):
+        return self.cfg["pipeline"]
+
     def extract_entities(self, textid, text):
         if self.get_benchmark_querytype() == 'entityprofile':
             raise ValueError("wrong usage of incorporate entities. Do not use it with querytype 'entityprofile'")
 
         outdir = self.get_extracted_entities_cache_path()
         if exists(join(outdir, get_file_name(textid, self.get_benchmark_name(), self.get_benchmark_querytype()))):
-            for e in self.get_all_entities(textid):
+            entities = self.get_all_entities(textid)
+            for e in entities["NE"]:
+                self.entity_descriptions[e] = ""
+            for e in entities["C"]:
                 self.entity_descriptions[e] = ""
             return
 
         os.makedirs(outdir, exist_ok=True)
 
+
+        ## manually strip the annotations grep "\[ " and  grep " \]"
+        ## remove the overlapping annotations before here. check_overlapping_annotations -> data_prepration - clean profiles
+        annotationsNE = []
+        annotationsC = []
+        annotationsEither = []
+        if self.pipeline in ["ENTITY_CONCEPT_JOINT_LINKING", "ENTITY_CONCEPT_SEPARATE_LINKING"]:
+            openbracket = 0
+            offset = None
+            tag = None
+            for i in range(0, len(text)):
+                ch = text[i]
+                if ch == '[':
+                    openbracket+=1
+                    if openbracket == 2:
+                        tag = "NE"
+                    elif openbracket == 3:
+                        tag = "C"
+                    elif openbracket == 4:
+                        tag = "E"
+                elif ch == ']':
+                    openbracket -= 1
+                    if tag == "NE":
+#                        logger.debug(f"annotationsNE {textid}: {text[offset:i]}")
+                        annotationsNE.append({"charLength": i-offset, "charOffset": offset})
+                    elif tag == "C":
+#                        logger.debug(f"annotationsC {textid}: {text[offset:i]}")
+                        annotationsC.append({"charLength": i - offset, "charOffset": offset})
+                    elif tag == "E":
+                        logger.debug(f"annotationsEither {textid}: {text[offset:i]}")
+                        annotationsEither.append({"charLength": i - offset, "charOffset": offset})
+                    offset = None
+                    tag = None
+                else:
+                    if tag is None:
+                        continue
+                    if offset == None:
+                        offset = i
+            
+#            if len(annotationsC) > 0:
+#                logger.debug(f"annotationsC {textid}: {annotationsC}")
+#            if len(annotationsNE) > 0:
+#                logger.debug(f"annotationsNE {textid}: {annotationsNE}")
+#            if len(annotationsEither) > 0:
+#                logger.debug(f"annotationsEither {textid}: {annotationsEither}")
+            if self.pipeline == "ENTITY_CONCEPT_JOINT_LINKING":
+                for e in annotationsEither:
+                    annotationsNE.append(e)
+                    annotationsC.append(e)
+            elif self.pipeline == "ENTITY_CONCEPT_SEPARATE_LINKING":
+                for e in annotationsEither:#we will get 2 results (probably). Then we will add both to the entities. if they were different.
+                    annotationsNE.append(e)
+                    annotationsC.append(e)
+
+        else:
+            text = text.replace("[", "")
+            text = text.replace("]", "")
+
         headers = {'accept': 'application/json', 'content-type': 'application/json'}
-        data = {"docId": "{}".format(get_file_name(textid, self.get_benchmark_name(), self.get_benchmark_querytype())), "text": "{}".format(text), "extractConcepts": "{}".format(str(self.cfg["extractConcepts"])), "language": "en"}#"annotatedMentions": [{"charLength": 7, "charOffset":5}, {"charLength": 4, "charOffset": 0}]
+        data = {"docId": "{}".format(get_file_name(textid, self.get_benchmark_name(), self.get_benchmark_querytype())),
+                "text": "{}".format(text),
+                "extractConcepts": "{}".format(str(self.cfg["extractConcepts"])),
+                "language": "en",
+                "pipeline": self.pipeline,
+                "annotatedMentionsNE": annotationsNE,
+                "annotatedMentionsC": annotationsC
+                }
+
         try:
             r = requests.post(url=self.server, data=json.dumps(data), headers=headers)
         except requests.exceptions.RequestException as e:
@@ -77,7 +152,7 @@ class AmbiverseNLU(EntityLinking):
 
             if 'entities' in r.json():
                 for e in r.json()['entities']:
-                    self.entity_descriptions[e['name']] = ""
+                    self.entity_descriptions[e['name']] = "" #set of entities
         else:
             raise RuntimeError(f"request status_code is {r.status_code}")
 
@@ -135,8 +210,14 @@ class AmbiverseNLU(EntityLinking):
 
     def get_all_entities(self, textid):
         data = json.load(open(join(self.get_extracted_entities_cache_path(), get_file_name(textid, self.get_benchmark_name(), self.get_benchmark_querytype())), 'r'))
-        res = []
+
+        # all_entities = set()
+        named_entities = set()
+        concepts = set()
+
         if 'entities' in data:
-            for e in data['entities']:
-                res.append(e['name'])
-        return res
+            # all_entities.update([e['name'] for e in data['entities']])
+            named_entities.update([e['name'] for e in data['entities'] if e['type'] != 'CONCEPT'])
+            concepts.update([e['name'] for e in data['entities'] if e['type'] == 'CONCEPT'])
+
+        return {"NE": list(named_entities), "C": list(concepts)}
