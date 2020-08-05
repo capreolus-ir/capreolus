@@ -314,9 +314,8 @@ class DocStats(Extractor):
 
                 # todo change: now it can only be used for KITT data so later change it to adapt to any
                 benchmarkdir = "/GW/PKB/work/data_personalization/TREC_format/" # change these when rebasing to use the benchmark as inherited dependency
-                userfullprofiles = get_user_profiles(join(benchmarkdir, baseprofiletype))
-                print(userfullprofiles)
-                exit(-1)
+                userfullprofiles = get_user_profiles(join(benchmarkdir, f"book_topics.{baseprofiletype}.txt")) # book is the recommendation domain, and it does not matter which one is read since the profile is the same for all.
+                
                 GD = {}
                 for qid in qids:
                     uid = qid.split("_")[1]
