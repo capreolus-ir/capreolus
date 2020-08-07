@@ -275,7 +275,6 @@ class DocStats(Extractor):
             
             entoutf = join(self.get_selected_entities_cache_path(), get_file_name(qid, self["entitylinking"].get_benchmark_name(), self["entitylinking"].get_benchmark_querytype()))
             if exists(entoutf):
-                logger.debug(f"selectedentities: {entoutf}")
                 with open(entoutf, 'r') as f:
  #                   logger.debug(entoutf)
                     qentities = json.loads(f.read())

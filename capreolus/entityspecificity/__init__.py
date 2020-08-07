@@ -21,8 +21,8 @@ class EntitySpecificity(ModuleBase, metaclass=RegisterableModule):
     def top_specific_entities(self, tid, entities):
         benchmark_name = self['benchmark'].name
         benchmark_querytype = self['benchmark'].query_type
-        os.makedirs(self.get_selected_entities_cache_path(), exist_ok=True)
-        cache_file = join(self.get_selected_entities_cache_path(), "{}_{}".format(get_file_name(tid, benchmark_name, benchmark_querytype), len(entities)))
+        os.makedirs(self.get_specific_entities_cache_path(), exist_ok=True)
+        cache_file = join(self.get_specific_entities_cache_path(), "{}_{}".format(get_file_name(tid, benchmark_name, benchmark_querytype), len(entities)))
         if exists(cache_file):
             return json.loads(open(cache_file, 'r').read())
 
@@ -110,9 +110,9 @@ class EntitySpecificityBy2HopPath(EntitySpecificity):
         ranking_strategy = 'greedy_most_outlinks_withrm'
         return_top = 10
 
-    def get_selected_entities_cache_path(self):
-        logger.debug(self.get_cache_path() / "selectedentities")
-        return self.get_cache_path() / "selectedentities"
+    def get_specific_entities_cache_path(self):
+        logger.debug(self.get_cache_path() / "specificentities")
+        return self.get_cache_path() / "specificentities"
 
     def initialize(self):
         self['utils'].load_wp_links()
@@ -195,8 +195,9 @@ class EntitySpecificityHigherMean(EntitySpecificity):
         ranking_strategy = 'greedy_most_outlinks_withrm'
         return_top = 10
 
-    def get_selected_entities_cache_path(self):
-        return self.get_cache_path() / "selectedentities"
+    def get_specific_entities_cache_path(self):
+        logger.debug(self.get_cache_path() / "specificentities")
+        return self.get_cache_path() / "specificentities"
 
     def initialize(self):
         logger.debug("loading wikipedia2vec pretrained embedding")
