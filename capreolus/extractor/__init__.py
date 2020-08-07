@@ -193,9 +193,9 @@ class DocStats(Extractor):
         "tokenizer": Dependency(module="tokenizer", name="anserini", config_overrides={"keepstops": False}),
 #        "tokenizerquery": Dependency(module="tokenizer", name="spacy", config_overrides={"keepstops": False, 'removesmallerlen': 2}), #removesmallerlen is actually only used for user profile (not the short queries) but I cannot separate them
        # "tokenizer": Dependency(module="tokenizer", name="spacy", config_overrides={"keepstops": False}),
-        "entitylinking": Dependency(module="entitylinking", name='ambiversenlu', config_overrides={"pipeline": "ENTITY_CONCEPT_JOINT_LINKING", "typerestriction": False}),
-        "domainrelatedness": Dependency(module='entitydomainrelatedness', name='wiki2vecrepresentative', config_overrides={"strategy": "centroid-k100"},),
-        "entityspecificity": Dependency(module='entityspecificity', name='higherneighborhoodmean', config_overrides={"return_top": 10, "k": 100, 'ranking_strategy': 'greedy_most_outlinks_withrm'}),
+        "entitylinking": Dependency(module="entitylinking", name='ambiversenlu'),
+        "domainrelatedness": Dependency(module='entitydomainrelatedness', name='wiki2vecrepresentative',),
+        "entityspecificity": Dependency(module='entityspecificity', name='higherneighborhoodmean',),
 #       "entityspecificity": Dependency(module='entityspecificity', name='twohoppath'),
     }
 
@@ -225,7 +225,7 @@ class DocStats(Extractor):
         return self.get_cache_path() / 'profiletermprobs'
 
     def get_selected_entities_cache_path(self):
-        logger.debug(self.get_cache_path() / 'selectedentities')
+        # logger.debug(self.get_cache_path() / 'selectedentities')
         return self.get_cache_path() / 'selectedentities'
 
     def create(self, qids, docids, topics, qdocs=None):

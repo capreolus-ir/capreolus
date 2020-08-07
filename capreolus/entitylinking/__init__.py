@@ -38,7 +38,7 @@ class AmbiverseNLU(EntityLinking):
         typerestriction = False #if true we restrict movies, books, travel, food named entities
 
     def get_extracted_entities_cache_path(self):
-        logger.debug(f"entities cache path: {self.get_cache_path()}")
+        # logger.debug(f"entities cache path: {self.get_cache_path()}")
         return self.get_cache_path() / 'entities'
 
     def get_benchmark_domain(self):

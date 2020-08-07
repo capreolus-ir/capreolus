@@ -111,7 +111,7 @@ class EntitySpecificityBy2HopPath(EntitySpecificity):
         return_top = 10
 
     def get_specific_entities_cache_path(self):
-        logger.debug(self.entity_linking_cache_path / "specificentities")
+        # logger.debug(self.entity_linking_cache_path / "specificentities")
         return self.entity_linking_cache_path / "specificentities"
 
     def initialize(self, el_cache_path):
@@ -197,7 +197,7 @@ class EntitySpecificityHigherMean(EntitySpecificity):
         return_top = 10
 
     def get_specific_entities_cache_path(self):
-        logger.debug(self.entity_linking_cache_path / "specificentities")
+        # logger.debug(self.entity_linking_cache_path / "specificentities")
         return self.entity_linking_cache_path / "specificentities"
 
     def initialize(self, el_cache_path):
