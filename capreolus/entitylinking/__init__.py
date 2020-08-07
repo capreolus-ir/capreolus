@@ -34,7 +34,7 @@ class AmbiverseNLU(EntityLinking):
     def config():
         extractConcepts = True ## TODO: let's get the pipeline as input (later when I implemented that part).
         descriptions = "YAGO_long_short"
-        pipeline = "ENTITY_CONCEPT_SEPARATE_LINKING" #"ENTITY_CONCEPT_JOINT_LINKING", "ENTITY_CONCEPT_SALIENCE_STANFORD", "ENTITY_CONCEPT_SALIENCE"
+        pipeline = "ENTITY_CONCEPT_JOINT_LINKING" #"ENTITY_CONCEPT_SEPARATE_LINKING", "ENTITY_CONCEPT_SALIENCE_STANFORD", "ENTITY_CONCEPT_SALIENCE"
         typerestriction = False #if true we restrict movies, books, travel, food named entities
 
     def get_extracted_entities_cache_path(self):
