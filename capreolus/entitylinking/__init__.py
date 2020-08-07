@@ -124,8 +124,8 @@ class AmbiverseNLU(EntityLinking):
                     annotationsC.append(e)
 
         else:
-            text = text.replaceAll("[", "")
-            text = text.replaceAll("]", "")
+            text = text.replace("[", "")
+            text = text.replace("]", "")
 
         headers = {'accept': 'application/json', 'content-type': 'application/json'}
         data = {"docId": "{}".format(get_file_name(textid, self.get_benchmark_name(), self.get_benchmark_querytype())),

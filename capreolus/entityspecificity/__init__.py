@@ -111,10 +111,11 @@ class EntitySpecificityBy2HopPath(EntitySpecificity):
         return_top = 10
 
     def get_specific_entities_cache_path(self):
-        logger.debug(self.get_cache_path() / "specificentities")
-        return self.get_cache_path() / "specificentities"
+        logger.debug(self.entity_linking_cache_path() / "specificentities")
+        return self.entity_linking_cache_path() / "specificentities"
 
-    def initialize(self):
+    def initialize(self, el_cache_path):
+        self.entity_linking_cache_path = el_cache_path
         self['utils'].load_wp_links()
         self['popularity'].initialize()
 
@@ -196,11 +197,12 @@ class EntitySpecificityHigherMean(EntitySpecificity):
         return_top = 10
 
     def get_specific_entities_cache_path(self):
-        logger.debug(self.get_cache_path() / "specificentities")
-        return self.get_cache_path() / "specificentities"
+        logger.debug(self.entity_linking_cache_path() / "specificentities")
+        return self.entity_linking_cache_path() / "specificentities"
 
-    def initialize(self):
+    def initialize(self, el_cache_path):
         logger.debug("loading wikipedia2vec pretrained embedding")
+        self.entity_linking_cache_path = el_cache_path
         self['utils'].load_pretrained_emb()
 
     def rank_entity_pair_by_specificity(self, e1, e2):

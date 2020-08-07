@@ -259,7 +259,7 @@ class DocStats(Extractor):
             self["domainrelatedness"].initialize(self["entitylinking"].get_cache_path())
         elif self.entity_strategy == 'specific_domainrel':
             self["domainrelatedness"].initialize(self["entitylinking"].get_cache_path())
-            self["entityspecificity"].initialize()
+            self["entityspecificity"].initialize(self["entitylinking"].get_cache_path())
 
         logger.debug("tokenizing queries [+entity descriptions]")
         if logger.level in [logging.DEBUG, logging.NOTSET]:
