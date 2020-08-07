@@ -78,7 +78,7 @@ class AmbiverseNLU(EntityLinking):
             openbracket = 0
             offset = None
             tag = None
-            for i in range(0, text):
+            for i in range(0, len(text)):
                 ch = text[i]
                 if ch == '[':
                     openbracket+=1
@@ -91,19 +91,28 @@ class AmbiverseNLU(EntityLinking):
                 elif ch == ']':
                     openbracket -= 1
                     if tag == "NE":
+#                        logger.debug(f"annotationsNE {textid}: {text[offset:i]}")
                         annotationsNE.append({"charLength": i-offset, "charOffset": offset})
                     elif tag == "C":
+#                        logger.debug(f"annotationsC {textid}: {text[offset:i]}")
                         annotationsC.append({"charLength": i - offset, "charOffset": offset})
                     elif tag == "E":
+                        logger.debug(f"annotationsEither {textid}: {text[offset:i]}")
                         annotationsEither.append({"charLength": i - offset, "charOffset": offset})
                     offset = None
                     tag = None
                 else:
                     if tag is None:
                         continue
-                    offset = i
-
-            logger.debug(f"annotationsEither {textid}: {annotationsEither}")
+                    if offset == None:
+                        offset = i
+            
+#            if len(annotationsC) > 0:
+#                logger.debug(f"annotationsC {textid}: {annotationsC}")
+#            if len(annotationsNE) > 0:
+#                logger.debug(f"annotationsNE {textid}: {annotationsNE}")
+#            if len(annotationsEither) > 0:
+#                logger.debug(f"annotationsEither {textid}: {annotationsEither}")
             if self.pipeline == "ENTITY_CONCEPT_JOINT_LINKING":
                 for e in annotationsEither:
                     annotationsNE.append(e)
@@ -185,4 +194,5 @@ class AmbiverseNLU(EntityLinking):
         if 'entities' in data:
             for e in data['entities']:
                 res.add(e['name'])
+#        logger.debug(f"{get_file_name(textid, self.get_benchmark_name(), self.get_benchmark_querytype())} {res}")
         return list(res)

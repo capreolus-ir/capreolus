@@ -275,6 +275,7 @@ class DocStats(Extractor):
             entoutf = join(self.get_selected_entities_cache_path(), get_file_name(qid, self["entitylinking"].get_benchmark_name(), self["entitylinking"].get_benchmark_querytype()))
             if exists(entoutf):
                 with open(entoutf, 'r') as f:
+ #                   logger.debug(entoutf)
                     qentities = json.loads(f.read())
             else:
                 qentities = self.get_entities(qid) # returns empty array if the entity_strategy is None
@@ -282,6 +283,7 @@ class DocStats(Extractor):
                     f.write(json.dumps(qentities, indent=4))
 
 #            logger.debug(f"{self.entity_strategy}: {qentities}")
+#            logger.debug(f"qid: {qid} - {qentities}")
             for e in qentities:
                 qdesc.append(self["entitylinking"].get_entity_description(e))
 
