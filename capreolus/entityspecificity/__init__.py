@@ -111,6 +111,7 @@ class EntitySpecificityBy2HopPath(EntitySpecificity):
         return_top = 10
 
     def get_selected_entities_cache_path(self):
+        logger.debug(self.get_cache_path() / "selectedentities")
         return self.get_cache_path() / "selectedentities"
 
     def initialize(self):

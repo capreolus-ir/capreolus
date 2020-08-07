@@ -225,6 +225,7 @@ class DocStats(Extractor):
         return self.get_cache_path() / 'profiletermprobs'
 
     def get_selected_entities_cache_path(self):
+        logger.debug(self.get_cache_path() / 'selectedentities')
         return self.get_cache_path() / 'selectedentities'
 
     def create(self, qids, docids, topics, qdocs=None):

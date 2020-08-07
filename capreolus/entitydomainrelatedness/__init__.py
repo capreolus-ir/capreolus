@@ -77,6 +77,7 @@ class DomainRelatedness(EntityDomainRelatedness):
         logger.debug("calculating similarity between domain model and extracted entities")
         outdir = self.get_similarities_cache_path()
         if exists(join(outdir, get_file_name(tid, benchmark_name, benchmark_querytype))):
+            logger.debug(f"Sim folder: {outdir}" )
             similarities = json.load(open(join(outdir, get_file_name(tid, benchmark_name, benchmark_querytype)), 'r'))
         else:
             similarities = self.calculate_domain_entity_similarities(entities)
