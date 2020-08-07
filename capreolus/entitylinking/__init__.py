@@ -38,6 +38,7 @@ class AmbiverseNLU(EntityLinking):
         typerestriction = False #if true we restrict movies, books, travel, food named entities
 
     def get_extracted_entities_cache_path(self):
+        logger.debug(f"entities cache path: {self.get_cache_path()}")
         return self.get_cache_path() / 'entities'
 
     def get_benchmark_domain(self):
@@ -74,7 +75,7 @@ class AmbiverseNLU(EntityLinking):
         annotationsNE = []
         annotationsC = []
         annotationsEither = []
-        if self.pipeline not in ["ENTITY_CONCEPT_SALIENCE_STANFORD", "ENTITY_CONCEPT_SALIENCE"]:
+        if self.pipeline in ["ENTITY_CONCEPT_JOINT_LINKING", "ENTITY_CONCEPT_SEPARATE_LINKING"]:
             openbracket = 0
             offset = None
             tag = None
@@ -121,6 +122,10 @@ class AmbiverseNLU(EntityLinking):
                 for e in annotationsEither:#we will get 2 results (probably). Then we will add both to the entities. if they were different.
                     annotationsNE.append(e)
                     annotationsC.append(e)
+
+        else:
+            text = text.replaceAll("[", "")
+            text = text.replaceAll("]", "")
 
         headers = {'accept': 'application/json', 'content-type': 'application/json'}
         data = {"docId": "{}".format(get_file_name(textid, self.get_benchmark_name(), self.get_benchmark_querytype())),
