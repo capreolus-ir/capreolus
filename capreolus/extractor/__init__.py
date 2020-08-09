@@ -565,9 +565,13 @@ class DocStatsEmbedding(DocStats):
     @staticmethod
     def config():
         entity_strategy = None
+        filter_query = None
 
         if entity_strategy not in [None, 'all', 'domain', 'specific_domainrel']:  # TODO add strategies
             raise ValueError(f"invalid entity usage strategy (or not implemented): {entity_strategy}")
+
+        if filter_query is not None and not re.match(r"^(domain|user)_specific_k(\d+|-1)$", filter_query):
+            raise ValueError(f"invalid filter query: {filter_query}")
 
         embeddings = "w2vnews"
 
