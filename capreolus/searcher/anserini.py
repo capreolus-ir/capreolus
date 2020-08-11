@@ -232,10 +232,10 @@ class BM25PostProcess(BM25, PostprocessMixin):
     config_spec = [
         ConfigOption("k1", 0.9, "controls term saturation", value_type="floatlist"),
         ConfigOption("b", 0.4, "controls document length normalization", value_type="floatlist"),
-        ConfigOption("hits", 1000, "number of results to return"),
-        ConfigOption("topn", 1000),
+        ConfigOption("hits", 1000, "number of results expected from the core searcher"),
+        ConfigOption("topn", 1000, "number of results expected after the filtering (if any)"),
         ConfigOption("fields", "title"),
-        ConfigOption("dedep", False),
+        ConfigOption("dedup", False),
     ]
 
     def query_from_file(self, topicsfn, output_path, docs_to_remove=None):

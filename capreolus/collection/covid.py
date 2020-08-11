@@ -24,7 +24,10 @@ class COVID(Collection):
     module_name = "covid"
     url = "https://ai2-semanticscholar-cord-19.s3-us-west-2.amazonaws.com/historical_releases/cord-19_%s.tar.gz"
     generator_type = "Cord19Generator"
-    config_spec = [ConfigOption("coll_type", "abstract", "one of: abstract, fulltext, paragraph"), ConfigOption("round", 3)]
+    config_spec = [
+        ConfigOption("round", 3),
+        ConfigOption("coll_type", "abstract", "one of: abstract, fulltext, paragraph"),
+    ]
 
     def build(self):
         coll_type, round = self.config["coll_type"], self.config["round"]
@@ -33,7 +36,7 @@ class COVID(Collection):
             "fulltext": "Cord19FullTextCollection",
             "paragraph": "Cord19ParagraphCollection",
         }
-        dates = ["2020-04-10", "2020-05-01", "2020-05-19"]
+        dates = ["2020-04-10", "2020-05-01", "2020-05-19", "2020-06-19", "2020-07-16"]
 
         if coll_type not in type2coll:
             raise ValueError(f"Unexpected coll_type: {coll_type}; expeced one of: {' '.join(type2coll.keys())}")
