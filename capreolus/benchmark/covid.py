@@ -68,8 +68,9 @@ class COVID(Benchmark):
         labeled_qids = set()
 
         # put qrels from previous round into qrel_file if using previous judgement, else into qrel_ignore_file
-        prev_qrel_urls = [self.qrel_url_v1 % i for i in range(1, rnd_i)] if rnd_i <= 3 else \
-            [self.qrel_url_v2 % (rnd_i-1, rnd_i-1)]  # qrels before current run
+        prev_qrel_urls = (
+            [self.qrel_url_v1 % i for i in range(1, rnd_i)] if rnd_i <= 3 else [self.qrel_url_v2 % (rnd_i - 1, rnd_i - 1)]
+        )  # qrels before current run
         # if rnd_i < 4:
         #     prev_qrel_urls = [self.qrel_url_v1 % i if rnd_i != 4 else self.qrel_url_v2 % (rnd_i-1, rnd_i-1) for i in range(1, rnd_i)]
         # elif rnd_i == 5:
@@ -144,7 +145,7 @@ class COVID(Benchmark):
         with open(prev_qrels_fn) as f:  # qrels to exclude from current qrels file
             prev_qrels = [line for line in f]
 
-        with open(qrel_tmp) as fin,  open(tgt_qrel_fn, "w") as fout:
+        with open(qrel_tmp) as fin, open(tgt_qrel_fn, "w") as fout:
             for line in fin:
                 qid, tag, docid, label = line.strip().split()
                 docid = new2old.get(docid, docid)
