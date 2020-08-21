@@ -1,6 +1,4 @@
 import tensorflow as tf
-from profane import ConfigOption, Dependency
-from tensorflow.python.keras.engine import data_adapter
 from transformers import TFBertForSequenceClassification
 
 from capreolus import ConfigOption, Dependency

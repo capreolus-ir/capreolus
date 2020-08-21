@@ -19,7 +19,6 @@ from __future__ import division
 from __future__ import print_function
 
 import re
-from tensorflow.python.eager import def_function
 from tensorflow.python.framework import ops
 from tensorflow.python.keras import backend_config
 from tensorflow.python.keras.optimizer_v2 import optimizer_v2

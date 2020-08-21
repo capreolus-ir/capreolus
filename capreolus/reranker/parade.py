@@ -2,7 +2,7 @@ import tensorflow as tf
 from transformers import TFBertModel
 from transformers.modeling_tf_bert import TFBertLayer
 
-from profane import ConfigOption, Dependency
+from capreolus import ConfigOption, Dependency
 from capreolus.reranker import Reranker
 
 

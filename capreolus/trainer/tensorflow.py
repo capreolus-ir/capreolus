@@ -7,11 +7,10 @@ import tensorflow as tf
 from tensorflow.python.keras import backend as K
 import tensorflow_ranking as tfr
 import numpy as np
-from profane import ConfigOption
 from tqdm import tqdm
 
 from capreolus.searcher import Searcher
-from capreolus import evaluator
+from capreolus import ConfigOption, evaluator
 from capreolus.trainer import Trainer
 from capreolus.utils.loginit import get_logger
 from capreolus.reranker.common import TFPairwiseHingeLoss, TFCategoricalCrossEntropyLoss, KerasPairModel, KerasTripletModel

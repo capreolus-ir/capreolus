@@ -8,10 +8,10 @@ from functools import reduce
 import numpy as np
 import torch
 from nltk import TextTilingTokenizer
-from profane import ConfigOption, Dependency, constants
 from pymagnitude import Magnitude, MagnitudeUtils
 from tqdm import tqdm
 
+from capreolus import ConfigOption, Dependency, constants
 from capreolus.utils.common import padlist
 from capreolus.utils.loginit import get_logger
 

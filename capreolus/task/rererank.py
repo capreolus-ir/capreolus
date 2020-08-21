@@ -1,10 +1,9 @@
 import os
 
 import numpy as np
-from profane import ConfigOption, Dependency
 
-from capreolus import evaluator
-from capreolus.sampler import TrainTripletSampler, PredSampler
+from capreolus import ConfigOption, Dependency, evaluator
+from capreolus.sampler import PredSampler
 from capreolus.searcher import Searcher
 from capreolus.task import Task
 from capreolus.utils.loginit import get_logger
