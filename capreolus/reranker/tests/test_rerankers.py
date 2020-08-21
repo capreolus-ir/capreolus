@@ -446,10 +446,10 @@ def test_tfvanillabert(dummy_index, tmpdir, tmpdir_as_cache, monkeypatch):
             "extractor": {
                 "name": "bertpassage",
                 "usecache": False,
-                "maxseqlen": 256,
+                "maxseqlen": 32,
                 "numpassages": 1,
-                "passagelen": 150,
-                "stride": 100,
+                "passagelen": 15,
+                "stride": 5,
                 "index": {"name": "anserini", "indexstops": False, "stemmer": "porter", "collection": {"name": "dummy"}},
             },
             "trainer": {
@@ -484,20 +484,17 @@ def test_tfvanillabert(dummy_index, tmpdir, tmpdir_as_cache, monkeypatch):
     )
 
 
-# Deliberately commented out. This unit test will pass only if you have tons of RAM
 def test_bertmaxp(dummy_index, tmpdir, tmpdir_as_cache, monkeypatch):
     reranker = TFBERTMaxP(
         {
             "pretrained": "bert-base-uncased",
-            "passagelen": 80,
-            "stride": 20,
             "extractor": {
                 "name": "bertpassage",
                 "usecache": False,
-                "maxseqlen": 256,
-                "numpassages": 16,
-                "passagelen": 150,
-                "stride": 100,
+                "maxseqlen": 32,
+                "numpassages": 2,
+                "passagelen": 15,
+                "stride": 5,
                 "index": {"name": "anserini", "indexstops": False, "stemmer": "porter", "collection": {"name": "dummy"}},
             },
             "trainer": {
@@ -536,15 +533,13 @@ def test_bertmaxp_ce(dummy_index, tmpdir, tmpdir_as_cache, monkeypatch):
     reranker = TFBERTMaxP(
         {
             "pretrained": "bert-base-uncased",
-            "passagelen": 80,
-            "stride": 20,
             "extractor": {
                 "name": "bertpassage",
                 "usecache": False,
-                "maxseqlen": 128,
-                "numpassages": 16,
-                "passagelen": 150,
-                "stride": 100,
+                "maxseqlen": 32,
+                "numpassages": 2,
+                "passagelen": 15,
+                "stride": 5,
                 "index": {"name": "anserini", "indexstops": False, "stemmer": "porter", "collection": {"name": "dummy"}},
             },
             "trainer": {
@@ -581,7 +576,7 @@ def test_bertmaxp_ce(dummy_index, tmpdir, tmpdir_as_cache, monkeypatch):
 
 
 def test_birch(dummy_index, tmpdir, tmpdir_as_cache, monkeypatch):
-    reranker = Birch({"trainer": {"niters": 1, "itersize": 2, "batch": 2},}, provide={"index": dummy_index},)
+    reranker = Birch({"trainer": {"niters": 1, "itersize": 2, "batch": 2}}, provide={"index": dummy_index})
     extractor = reranker.extractor
     metric = "map"
     benchmark = DummyBenchmark()
@@ -599,182 +594,94 @@ def test_birch(dummy_index, tmpdir, tmpdir_as_cache, monkeypatch):
     )
 
 
-# def test_parade_maxp(dummy_index, tmpdir, tmpdir_as_cache, monkeypatch):
-#     reranker = TFParade({"trainer": {"niters": 1, "itersize": 2, "batch": 2},}, provide={"index": dummy_index},)
-#     extractor = reranker.extractor
-#     metric = "map"
-#     benchmark = DummyBenchmark()
-#
-#     extractor.preprocess(["301"], ["LA010189-0001", "LA010189-0002"], benchmark.topics[benchmark.query_type])
-#     reranker.build_model()
-#     reranker.searcher_scores = {"301": {"LA010189-0001": 2, "LA010189-0002": 1}}
-#     train_run = {"301": ["LA010189-0001", "LA010189-0002"]}
-#     train_dataset = TrainTripletSampler()
-#     train_dataset.prepare(train_run, benchmark.qrels, extractor)
-#     dev_dataset = PredSampler()
-#     dev_dataset.prepare(train_run, benchmark.qrels, extractor)
-#     reranker.trainer.train(
-#         reranker, train_dataset, Path(tmpdir) / "train", dev_dataset, Path(tmpdir) / "dev", benchmark.qrels, metric
-#     )
-#
-#
-# def test_parade_transformer(dummy_index, tmpdir, tmpdir_as_cache, monkeypatch):
-#     reranker = TFParade(
-#         {"aggregation": "transformer", "trainer": {"niters": 1, "itersize": 2, "batch": 2},}, provide={"index": dummy_index},
-#     )
-#     extractor = reranker.extractor
-#     metric = "map"
-#     benchmark = DummyBenchmark()
-#
-#     extractor.preprocess(["301"], ["LA010189-0001", "LA010189-0002"], benchmark.topics[benchmark.query_type])
-#     reranker.build_model()
-#     reranker.searcher_scores = {"301": {"LA010189-0001": 2, "LA010189-0002": 1}}
-#     train_run = {"301": ["LA010189-0001", "LA010189-0002"]}
-#     train_dataset = TrainTripletSampler()
-#     train_dataset.prepare(train_run, benchmark.qrels, extractor)
-#     dev_dataset = PredSampler()
-#     dev_dataset.prepare(train_run, benchmark.qrels, extractor)
-#     reranker.trainer.train(
-#         reranker, train_dataset, Path(tmpdir) / "train", dev_dataset, Path(tmpdir) / "dev", benchmark.qrels, metric
-#     )
-#
-#
-# def test_tfvanillabert(dummy_index, tmpdir, tmpdir_as_cache, monkeypatch):
-#     reranker = TFVanillaBERT(
-#         {
-#             "pretrained": "bert-base-uncased",
-#             "extractor": {
-#                 "name": "bertpassage",
-#                 "usecache": False,
-#                 "maxseqlen": 256,
-#                 "numpassages": 1,
-#                 "passagelen": 150,
-#                 "stride": 100,
-#                 "index": {"name": "anserini", "indexstops": False, "stemmer": "porter", "collection": {"name": "dummy"}},
-#             },
-#             "trainer": {
-#                 "name": "tensorflow",
-#                 "batch": 1,
-#                 "niters": 1,
-#                 "itersize": 2,
-#                 "lr": 0.001,
-#                 "validatefreq": 1,
-#                 "usecache": False,
-#                 "tpuname": None,
-#                 "tpuzone": None,
-#                 "storage": None,
-#                 "boardname": "default",
-#                 "loss": "pairwise_hinge_loss",
-#             },
-#         }
-#     )
-#
-#     benchmark = DummyBenchmark({"collection": {"name": "dummy"}})
-#
-#     reranker.extractor.preprocess(["301"], ["LA010189-0001", "LA010189-0002"], benchmark.topics[benchmark.query_type])
-#     reranker.build_model()
-#     reranker.bm25_scores = {"301": {"LA010189-0001": 2, "LA010189-0002": 1}}
-#     train_run = {"301": ["LA010189-0001", "LA010189-0002"]}
-#     train_dataset = TrainTripletSampler()
-#     train_dataset.prepare(train_run, benchmark.qrels, reranker.extractor)
-#     dev_dataset = PredSampler()
-#     dev_dataset.prepare(train_run, benchmark.qrels, reranker.extractor)
-#     reranker.trainer.train(
-#         reranker, train_dataset, Path(tmpdir) / "train", dev_dataset, Path(tmpdir) / "dev", benchmark.qrels, "map"
-#     )
-#
-#
-# # Deliberately commented out. This unit test will pass only if you have tons of RAM
-# def test_bertmaxp(dummy_index, tmpdir, tmpdir_as_cache, monkeypatch):
-#     reranker = TFBERTMaxP(
-#         {
-#             "pretrained": "bert-base-uncased",
-#             "passagelen": 80,
-#             "stride": 20,
-#             "extractor": {
-#                 "name": "bertpassage",
-#                 "usecache": False,
-#                 "maxseqlen": 256,
-#                 "numpassages": 16,
-#                 "passagelen": 150,
-#                 "stride": 100,
-#                 "index": {"name": "anserini", "indexstops": False, "stemmer": "porter", "collection": {"name": "dummy"}},
-#             },
-#             "trainer": {
-#                 "name": "tensorflow",
-#                 "batch": 1,
-#                 "niters": 1,
-#                 "itersize": 2,
-#                 "lr": 0.001,
-#                 "validatefreq": 1,
-#                 "usecache": False,
-#                 "tpuname": None,
-#                 "tpuzone": None,
-#                 "storage": None,
-#                 "boardname": "default",
-#                 "loss": "pairwise_hinge_loss",
-#             },
-#         }
-#     )
-#
-#     benchmark = DummyBenchmark({"collection": {"name": "dummy"}})
-#
-#     reranker.extractor.preprocess(["301"], ["LA010189-0001", "LA010189-0002"], benchmark.topics[benchmark.query_type])
-#     reranker.build_model()
-#     reranker.bm25_scores = {"301": {"LA010189-0001": 2, "LA010189-0002": 1}}
-#     train_run = {"301": ["LA010189-0001", "LA010189-0002"]}
-#     train_dataset = TrainTripletSampler()
-#     train_dataset.prepare(train_run, benchmark.qrels, reranker.extractor)
-#     dev_dataset = PredSampler()
-#     dev_dataset.prepare(train_run, benchmark.qrels, reranker.extractor)
-#     reranker.trainer.train(
-#         reranker, train_dataset, Path(tmpdir) / "train", dev_dataset, Path(tmpdir) / "dev", benchmark.qrels, "map"
-#     )
-#
-#
-# def test_bertmaxp_ce(dummy_index, tmpdir, tmpdir_as_cache, monkeypatch):
-#     reranker = TFBERTMaxP(
-#         {
-#             "pretrained": "bert-base-uncased",
-#             "passagelen": 80,
-#             "stride": 20,
-#             "extractor": {
-#                 "name": "bertpassage",
-#                 "usecache": False,
-#                 "maxseqlen": 128,
-#                 "numpassages": 16,
-#                 "passagelen": 150,
-#                 "stride": 100,
-#                 "index": {"name": "anserini", "indexstops": False, "stemmer": "porter", "collection": {"name": "dummy"}},
-#             },
-#             "trainer": {
-#                 "name": "tensorflow",
-#                 "batch": 4,
-#                 "niters": 1,
-#                 "itersize": 2,
-#                 "lr": 0.001,
-#                 "validatefreq": 1,
-#                 "usecache": False,
-#                 "tpuname": None,
-#                 "tpuzone": None,
-#                 "storage": None,
-#                 "boardname": "default",
-#                 "loss": "crossentropy",
-#                 "eager": False,
-#             },
-#         }
-#     )
-#
-#     benchmark = DummyBenchmark({"collection": {"name": "dummy"}})
-#
-#     reranker.extractor.preprocess(["301"], ["LA010189-0001", "LA010189-0002"], benchmark.topics[benchmark.query_type])
-#     reranker.build_model()
-#     reranker.bm25_scores = {"301": {"LA010189-0001": 2, "LA010189-0002": 1}}
-#     train_run = {"301": ["LA010189-0001", "LA010189-0002"]}
-#     train_dataset = TrainPairSampler()
-#     train_dataset.prepare(train_run, benchmark.qrels, reranker.extractor)
-#     dev_dataset = PredSampler()
-#     dev_dataset.prepare(train_run, benchmark.qrels, reranker.extractor)
-#     reranker.trainer.train(
-#         reranker, train_dataset, Path(tmpdir) / "train", dev_dataset, Path(tmpdir) / "dev", benchmark.qrels, "map"
-#     )
+def test_parade_maxp(dummy_index, tmpdir, tmpdir_as_cache, monkeypatch):
+    reranker = TFParade(
+        {"extractor": {"numpassages": 2, "passagelen": 15, "stride": 5}, "trainer": {"niters": 1, "itersize": 2, "batch": 2}},
+        provide={"index": dummy_index},
+    )
+    extractor = reranker.extractor
+    metric = "map"
+    benchmark = DummyBenchmark()
+
+    extractor.preprocess(["301"], ["LA010189-0001", "LA010189-0002"], benchmark.topics[benchmark.query_type])
+    reranker.build_model()
+    reranker.searcher_scores = {"301": {"LA010189-0001": 2, "LA010189-0002": 1}}
+    train_run = {"301": ["LA010189-0001", "LA010189-0002"]}
+    train_dataset = TrainTripletSampler()
+    train_dataset.prepare(train_run, benchmark.qrels, extractor)
+    dev_dataset = PredSampler()
+    dev_dataset.prepare(train_run, benchmark.qrels, extractor)
+    reranker.trainer.train(
+        reranker, train_dataset, Path(tmpdir) / "train", dev_dataset, Path(tmpdir) / "dev", benchmark.qrels, metric
+    )
+
+
+def test_parade_transformer(dummy_index, tmpdir, tmpdir_as_cache, monkeypatch):
+    reranker = TFParade(
+        {
+            "aggregation": "transformer",
+            "extractor": {"numpassages": 2, "passagelen": 15, "stride": 5},
+            "trainer": {"niters": 1, "itersize": 2, "batch": 2},
+        },
+        provide={"index": dummy_index},
+    )
+    extractor = reranker.extractor
+    metric = "map"
+    benchmark = DummyBenchmark()
+
+    extractor.preprocess(["301"], ["LA010189-0001", "LA010189-0002"], benchmark.topics[benchmark.query_type])
+    reranker.build_model()
+    reranker.searcher_scores = {"301": {"LA010189-0001": 2, "LA010189-0002": 1}}
+    train_run = {"301": ["LA010189-0001", "LA010189-0002"]}
+    train_dataset = TrainTripletSampler()
+    train_dataset.prepare(train_run, benchmark.qrels, extractor)
+    dev_dataset = PredSampler()
+    dev_dataset.prepare(train_run, benchmark.qrels, extractor)
+    reranker.trainer.train(
+        reranker, train_dataset, Path(tmpdir) / "train", dev_dataset, Path(tmpdir) / "dev", benchmark.qrels, metric
+    )
+
+
+def test_tfvanillabert(dummy_index, tmpdir, tmpdir_as_cache, monkeypatch):
+    reranker = TFVanillaBERT(
+        {
+            "pretrained": "bert-base-uncased",
+            "extractor": {
+                "name": "bertpassage",
+                "usecache": False,
+                "maxseqlen": 32,
+                "numpassages": 1,
+                "passagelen": 15,
+                "stride": 5,
+                "index": {"name": "anserini", "indexstops": False, "stemmer": "porter", "collection": {"name": "dummy"}},
+            },
+            "trainer": {
+                "name": "tensorflow",
+                "batch": 1,
+                "niters": 1,
+                "itersize": 2,
+                "lr": 0.001,
+                "validatefreq": 1,
+                "usecache": False,
+                "tpuname": None,
+                "tpuzone": None,
+                "storage": None,
+                "boardname": "default",
+                "loss": "pairwise_hinge_loss",
+            },
+        }
+    )
+
+    benchmark = DummyBenchmark({"collection": {"name": "dummy"}})
+
+    reranker.extractor.preprocess(["301"], ["LA010189-0001", "LA010189-0002"], benchmark.topics[benchmark.query_type])
+    reranker.build_model()
+    reranker.bm25_scores = {"301": {"LA010189-0001": 2, "LA010189-0002": 1}}
+    train_run = {"301": ["LA010189-0001", "LA010189-0002"]}
+    train_dataset = TrainTripletSampler()
+    train_dataset.prepare(train_run, benchmark.qrels, reranker.extractor)
+    dev_dataset = PredSampler()
+    dev_dataset.prepare(train_run, benchmark.qrels, reranker.extractor)
+    reranker.trainer.train(
+        reranker, train_dataset, Path(tmpdir) / "train", dev_dataset, Path(tmpdir) / "dev", benchmark.qrels, "map"
+    )
