@@ -1,9 +1,7 @@
-import sys
 import tensorflow as tf
-from tensorflow.python.keras.engine import data_adapter
 from transformers import TFBertForSequenceClassification
 
-from profane import ConfigOption, Dependency
+from capreolus import ConfigOption, Dependency
 from capreolus.reranker import Reranker
 
 

@@ -1,6 +1,4 @@
-from profane import ConfigOption, Dependency
-
-from capreolus import evaluator
+from capreolus import ConfigOption, Dependency, evaluator
 from capreolus.task import Task
 from capreolus.utils.loginit import get_logger
 from capreolus.utils.trec import load_qrels
