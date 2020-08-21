@@ -141,6 +141,7 @@ class RerankTask(Task):
             qids=best_search_run.keys(), docids=docids, topics=self.benchmark.topics[self.benchmark.query_type]
         )
         train_output_path = self.get_results_path()
+        self.reranker.build_model()
         self.reranker.trainer.load_best_model(self.reranker, train_output_path)
 
         test_run = defaultdict(dict)
@@ -150,9 +151,8 @@ class RerankTask(Task):
                 for idx, (docid, score) in enumerate(docs.items()):
                     if idx >= threshold:
                         break
-                test_run[qid][docid] = score
+                    test_run[qid][docid] = score
 
-        test_run = {qid: docs for qid, docs in best_search_run.items() if qid in self.benchmark.folds[fold]["predict"]["test"]}
         test_dataset = PredSampler()
         test_dataset.prepare(
             test_run, self.benchmark.qrels, self.reranker.extractor, relevance_level=self.benchmark.relevance_level
@@ -163,6 +163,16 @@ class RerankTask(Task):
         preds = {"test": test_preds}
 
         return preds
+
+    def bircheval(self):
+        fold = self.config["fold"]
+        train_output_path = self.get_results_path()
+        searcher_runs, reranker_runs = self.find_birch_crossvalidated_results()
+
+        fold_test_metrics = evaluator.eval_runs(
+            reranker_runs[fold]["test"], self.benchmark.qrels, evaluator.DEFAULT_METRICS, self.benchmark.relevance_level
+        )
+        logger.info("rerank: fold=%s test metrics: %s", fold, fold_test_metrics)
 
     def evaluate(self):
         fold = self.config["fold"]
@@ -246,5 +256,20 @@ class RerankTask(Task):
 
                 dev_path = Path(dev_output_path.as_posix().replace("fold-" + self.config["fold"], "fold-" + fold))
                 reranker_runs.setdefault(fold, {})["dev"] = Searcher.load_trec_run(dev_path)
+
+        return searcher_runs, reranker_runs
+
+    def find_birch_crossvalidated_results(self):
+        searcher_runs = {}
+        rank_results = self.rank.evaluate()
+        reranker_runs = {}
+        train_output_path = self.get_results_path()
+        test_output_path = train_output_path / "pred" / "test" / "best"
+        dev_output_path = train_output_path / "pred" / "dev" / "best"
+        for fold in self.benchmark.folds:
+            # TODO fix by using multiple Tasks
+            test_path = Path(test_output_path.as_posix().replace("fold-" + self.config["fold"], "fold-" + fold))
+            if os.path.exists(test_path):
+                reranker_runs.setdefault(fold, {})["test"] = Searcher.load_trec_run(test_path)
 
         return searcher_runs, reranker_runs

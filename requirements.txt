@@ -1,4 +1,4 @@
-# install pytorch 1.2 from conda
+# install pytorch from conda
 cython
 pre-commit
 profane>=0.1.6
@@ -6,7 +6,6 @@ SQLAlchemy>=1.3.5
 sqlalchemy-utils
 psycopg2-binary
 matplotlib
-pytorch-transformers==1.1.0
 colorlog==4.0.2
 # pytrec_eval with custom cutoffs is not yet on pypi
 pytrec_eval_git
@@ -34,8 +33,8 @@ recommonmark
 keras
 google-api-python-client
 oauth2client
-tensorflow==2.2
-transformers
+tensorflow==2.3
+transformers==3.0.0
 tensorflow-ranking
 Pillow
 # covid

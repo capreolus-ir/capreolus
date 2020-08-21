@@ -1,16 +1,22 @@
+from profane import import_all_modules
+
+# import_all_modules(__file__, __package__)
+
 import pickle
+
 import os
 import tensorflow as tf
 import numpy as np
 from collections import defaultdict
-from profane import ConfigOption
-from profane.base import Dependency
 from tqdm import tqdm
+from profane import Dependency, ConfigOption
+
 
 from capreolus.extractor import Extractor
 from capreolus import get_logger
 from capreolus.utils.common import padlist
 from capreolus.utils.exceptions import MissingDocError
+from capreolus.tokenizer.punkt import PunktTokenizer
 
 logger = get_logger(__name__)
 
@@ -21,6 +27,9 @@ class BertPassage(Extractor):
     Extracts passages from the document to be later consumed by a BERT based model.
     Does NOT use all the passages. The first passages is always used. Use the `prob` config to control the probability
     of a passage being selected
+    Gotcha: In Tensorflow the train tfrecords have shape (batch_size, maxseqlen) while dev tf records have the shape
+    (batch_size, num_passages, maxseqlen). This is because during inference, we want to pool over the scores of the
+    passages belonging to a doc
     """
 
     module_name = "bertpassage"
@@ -39,6 +48,7 @@ class BertPassage(Extractor):
         ConfigOption("usecache", False, "Should the extracted features be cached?"),
         ConfigOption("passagelen", 150, "Length of the extracted passage"),
         ConfigOption("stride", 100, "Stride"),
+        ConfigOption("sentences", False, "Use a sentence tokenizer to form passages"),
         ConfigOption("numpassages", 16, "Number of passages per document"),
         ConfigOption(
             "prob",
@@ -245,10 +255,57 @@ class BertPassage(Extractor):
         assert len(passages) == self.config["numpassages"]
         return passages
 
+    # from https://github.com/castorini/birch/blob/2dd0401ebb388a1c96f8f3357a064164a5db3f0e/src/utils/doc_utils.py#L73
+    def _chunk_sent(self, sent, max_len):
+        words = self.tokenizer.tokenize(sent)
+
+        if len(words) <= max_len:
+            return [words]
+
+        chunked_sents = []
+        size = int(len(words) / max_len)
+        for i in range(0, size):
+            seq = words[i * max_len : (i + 1) * max_len]
+            chunked_sents.append(seq)
+        return chunked_sents
+
+    def _build_passages_from_sentences(self, docids):
+        punkt = PunktTokenizer()
+
+        for docid in tqdm(docids, "extract passages"):
+            passages = []
+            numpassages = self.config["numpassages"]
+            for sentence in punkt.tokenize(self.index.get_doc(docid)):
+                if len(passages) >= numpassages:
+                    break
+
+                passages.extend(self._chunk_sent(sentence, self.config["passagelen"]))
+
+            if numpassages != 0:
+                passages = passages[:numpassages]
+
+                n_actual_passages = len(passages)
+                for _ in range(numpassages - n_actual_passages):
+                    # randomly use one of previous passages when the document is exhausted
+                    # idx = random.randint(0, n_actual_passages - 1)
+                    # passages.append(passages[idx])
+
+                    # append empty passages
+                    passages.append([""])
+
+                assert len(passages) == self.config["numpassages"]
+
+            self.docid2passages[docid] = sorted(passages, key=len)
+
     def _build_vocab(self, qids, docids, topics):
         if self.is_state_cached(qids, docids) and self.config["usecache"]:
             self.load_state(qids, docids)
             logger.info("Vocabulary loaded from cache")
+        elif self.config["sentences"]:
+            self.docid2passages = {}
+            self._build_passages_from_sentences(docids)
+            self.qid2toks = {qid: self.tokenizer.tokenize(topics[qid]) for qid in tqdm(qids, desc="querytoks")}
+            self.cache_state(qids, docids)
         else:
             logger.info("Building bertpassage vocabulary")
             self.docid2passages = {}
@@ -304,6 +361,7 @@ class BertPassage(Extractor):
 
         # TODO: Rename the posdoc key in the below dict to 'pos_bert_input'
         data = {
+            "qid": qid,
             "posdocid": posid,
             "pos_bert_input": np.array(pos_bert_inputs, dtype=np.long),
             "pos_mask": np.array(pos_bert_masks, dtype=np.long),

@@ -38,7 +38,6 @@ class TFBERTMaxP_Class(tf.keras.layers.Layer):
         posdoc_seg = tf.reshape(posdoc_seg, [batch_size * num_passages, maxseqlen])
 
         passage_scores = self.call((posdoc_bert_input, posdoc_mask, posdoc_seg), training=False)[:, 1]
-        tf.debugging.assert_equal(tf.shape(passage_scores), (batch_size * num_passages))
         passage_scores = tf.reshape(passage_scores, [batch_size, num_passages])
 
         if self.config["aggregation"] == "max":
@@ -76,9 +75,6 @@ class TFBERTMaxP(Reranker):
     ]
     config_spec = [
         ConfigOption("pretrained", "bert-base-uncased", "Hugging face transformer pretrained model"),
-        ConfigOption("passagelen", 100, "Passage length"),
-        ConfigOption("dropout", 0.1, "Dropout for the linear layers in BERT"),
-        ConfigOption("stride", 20, "Stride"),
         ConfigOption("aggregation", "max"),
     ]
 
