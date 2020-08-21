@@ -7,7 +7,7 @@ from tqdm import tqdm
 
 
 from capreolus.extractor import Extractor
-from capreolus import Dependency, Configuration, get_logger
+from capreolus import Dependency, ConfigOption, get_logger
 from capreolus.utils.common import padlist
 from capreolus.utils.exceptions import MissingDocError
 from capreolus.tokenizer.punkt import PunktTokenizer
