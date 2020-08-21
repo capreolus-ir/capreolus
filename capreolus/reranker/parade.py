@@ -103,9 +103,6 @@ class TFParade(Reranker):
     ]
     config_spec = [
         ConfigOption("pretrained", "bert-base-uncased", "Hugging face transformer pretrained model"),
-        ConfigOption("passagelen", 100, "Passage length"),
-        ConfigOption("dropout", 0.1, "Dropout for the linear layers in BERT"),
-        ConfigOption("stride", 20, "Stride"),
         ConfigOption("aggregation", "maxp"),
     ]
 
