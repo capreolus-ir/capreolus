@@ -2,7 +2,7 @@ import hashlib
 
 import torch.utils.data
 
-from profane import ModuleBase, Dependency, ConfigOption, constants
+from capreolus import ModuleBase, Dependency, ConfigOption, constants
 from capreolus.utils.exceptions import MissingDocError
 from capreolus.utils.loginit import get_logger
 

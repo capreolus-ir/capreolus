@@ -1,13 +1,7 @@
-from profane import import_all_modules
-
-# import_all_modules(__file__, __package__)
-
 import tensorflow as tf
 import numpy as np
-from profane import Dependency, ConfigOption, constants
 
-
-from capreolus import get_logger
+from capreolus import Dependency, ConfigOption, get_logger
 from capreolus.utils.common import padlist
 from capreolus.utils.exceptions import MissingDocError
 from . import Extractor

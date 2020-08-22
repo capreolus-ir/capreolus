@@ -2,10 +2,8 @@ import os
 from collections import defaultdict
 from pathlib import Path
 
-from profane import ConfigOption, Dependency
-
-from capreolus import evaluator
-from capreolus.sampler import TrainTripletSampler, PredSampler
+from capreolus import ConfigOption, Dependency, evaluator
+from capreolus.sampler import PredSampler
 from capreolus.searcher import Searcher
 from capreolus.task import Task
 from capreolus.utils.loginit import get_logger
@@ -77,11 +75,11 @@ class RerankTask(Task):
         # Depending on the sampler chosen, the dataset may generate triplets or pairs
         train_dataset = self.sampler
         train_dataset.prepare(
-            train_run, self.benchmark.qrels, self.reranker.extractor, relevance_level=self.benchmark.relevance_level,
+            train_run, self.benchmark.qrels, self.reranker.extractor, relevance_level=self.benchmark.relevance_level
         )
         dev_dataset = PredSampler()
         dev_dataset.prepare(
-            dev_run, self.benchmark.qrels, self.reranker.extractor, relevance_level=self.benchmark.relevance_level,
+            dev_run, self.benchmark.qrels, self.reranker.extractor, relevance_level=self.benchmark.relevance_level
         )
 
         self.reranker.trainer.train(
@@ -119,7 +117,7 @@ class RerankTask(Task):
 
         if include_train:
             train_dataset = PredSampler(
-                train_run, self.benchmark.qrels, self.reranker.extractor, relevance_level=self.benchmark.relevance_level,
+                train_run, self.benchmark.qrels, self.reranker.extractor, relevance_level=self.benchmark.relevance_level
             )
 
             train_output_path = train_output_path / "pred" / "train" / "best"

@@ -1,19 +1,13 @@
-from profane import import_all_modules
-
-# import_all_modules(__file__, __package__)
-
 import pickle
-
 import os
 import tensorflow as tf
 import numpy as np
 from collections import defaultdict
 from tqdm import tqdm
-from profane import Dependency, ConfigOption
 
 
 from capreolus.extractor import Extractor
-from capreolus import get_logger
+from capreolus import Dependency, ConfigOption, get_logger
 from capreolus.utils.common import padlist
 from capreolus.utils.exceptions import MissingDocError
 from capreolus.tokenizer.punkt import PunktTokenizer

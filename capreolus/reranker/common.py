@@ -1,7 +1,7 @@
 import tensorflow as tf
 import torch
 from tensorflow.keras.layers import Layer
-from tensorflow.python.keras.losses import BinaryCrossentropy, CategoricalCrossentropy
+from tensorflow.python.keras.losses import CategoricalCrossentropy
 from tensorflow_ranking.python.keras.losses import PairwiseHingeLoss
 
 _hinge_loss = torch.nn.MarginRankingLoss(margin=1, reduction="mean")
