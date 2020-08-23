@@ -52,7 +52,7 @@ setuptools.setup(
         "torchvision==0.7",
         "cython",
         "pre-commit",
-        "profane>=0.1.6",
+        "profane>=0.2.0",
         "SQLAlchemy",
         "sqlalchemy-utils",
         "psycopg2-binary",
