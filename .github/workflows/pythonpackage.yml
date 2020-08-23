@@ -4,7 +4,6 @@ on: [push]
 
 jobs:
   build:
-
     runs-on: ubuntu-latest
     strategy:
       max-parallel: 4
@@ -25,14 +24,6 @@ jobs:
       uses: lgeiger/black-action@master
       with:
         args: ". --check --config capreolus/pyproject.toml"
-#    - name: pull .txt files
-#      run: |
-#        cd capreolus/data
-#        rm -rf dummy
-#        rm ./*
-#        wget https://www.dropbox.com/s/h6iovqwsyyv7660/data.tgz?dl=1
-#        tar -zxvf data.tgz?dl=1
-#        cd ../../
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
@@ -44,6 +35,12 @@ jobs:
       run: |
         pip install pytest
         export PYTHONPATH=${PYTHONPATH}:/home/runner/work/capreolus/capreolus/
+        # checks every test except those marked download
         python -m pytest -vvv
+    - name: Test downloads with pytest
+      if: github.ref == 'refs/heads/master'
+      run: |
+        # checks only tests marked download
+        python -m pytest -vvv -m download
 
     timeout-minutes: 50

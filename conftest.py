@@ -3,8 +3,10 @@ def pytest_addoption(parser):
 
 
 def pytest_configure(config):
-    if not config.option.download:
+    config.addinivalue_line("markers", "download: slow tests that test downloading a dataset")
+
+    if not config.option.download and "download" not in config.option.markexpr.split():
         markexpr = "not download"
-        if hasattr(config.option, "markexpr") and getattr(config.option, "markexpr"):
-            markexpr = getattr(config.option, "markexpr") + " and " + markexpr
-        setattr(config.option, "markexpr", markexpr)
+        if config.option.markexpr:
+            markexpr = config.option.markexpr + " and " + markexpr
+        config.option.markexpr = markexpr
