@@ -37,25 +37,9 @@ jobs:
         export PYTHONPATH=${PYTHONPATH}:/home/runner/work/capreolus/capreolus/
         # checks every test except those marked download
         python -m pytest -vvv
-
-    timeout-minutes: 50
-
-    
-  download:
-    runs-on: ubuntu-latest
-    strategy:
-      max-parallel: 4
-      matrix:
-        python-version: [3.7]
-
-    needs: build
-    # run only on master branch
-    if: github.ref == 'refs/heads/master'
-    steps:
     - name: Test downloads with pytest
+      if: github.ref == 'refs/heads/master'
       run: |
-        pip install pytest
-        export PYTHONPATH=${PYTHONPATH}:/home/runner/work/capreolus/capreolus/
         # checks only tests marked download
         python -m pytest -vvv -m download
 
