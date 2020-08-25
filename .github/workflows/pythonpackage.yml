@@ -37,12 +37,14 @@ jobs:
         export PYTHONPATH=${PYTHONPATH}:/home/runner/work/capreolus/capreolus/
         # checks every test except those marked download
         python -m pytest -vvv
-    - name: Test downloads with pytest
-#      if: github.ref == 'refs/heads/master'
+    - name: Debug
       run: |
         ls -a
         df -h .
+    - name: Test downloads with pytest
+#      if: github.ref == 'refs/heads/master'
+      run: |
         # checks only tests marked download
         python -m pytest -vvv -m download
 
-    timeout-minutes: 50
+    timeout-minutes: 90
