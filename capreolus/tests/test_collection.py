@@ -24,3 +24,6 @@ def test_collection_downloadable(tmpdir_as_cache, collection_name):
     if path.startswith("/tmp") and path.startswith(constants["CACHE_BASE_PATH"].as_posix()):
         if os.path.exists(path):
             shutil.rmtree(path)
+
+    if os.path.exists(collection.get_cache_path()):
+        shutil.rmtree(collection.get_cache_path())
