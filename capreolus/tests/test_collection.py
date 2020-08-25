@@ -7,7 +7,6 @@ from capreolus import Collection, constants, module_registry
 from capreolus.tests.common_fixtures import tmpdir_as_cache
 
 collections = set(module_registry.get_module_names("collection"))
-collections_skip_download = collections - {"dummy"}
 
 
 @pytest.mark.parametrize("collection_name", collections)
@@ -15,7 +14,7 @@ def test_collection_creatable(tmpdir_as_cache, collection_name):
     collection = Collection.create(collection_name)
 
 
-@pytest.mark.parametrize("collection_name", collections_skip_download)
+@pytest.mark.parametrize("collection_name", collections)
 @pytest.mark.download
 def test_collection_downloadable(tmpdir_as_cache, collection_name):
     collection = Collection.create(collection_name)
@@ -25,6 +24,3 @@ def test_collection_downloadable(tmpdir_as_cache, collection_name):
     if path.startswith("/tmp") and path.startswith(constants["CACHE_BASE_PATH"].as_posix()):
         if os.path.exists(path):
             shutil.rmtree(path)
-
-    if os.path.exists(collection.get_cache_path()):
-        shutil.rmtree(collection.get_cache_path())
