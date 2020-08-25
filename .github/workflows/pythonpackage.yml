@@ -36,11 +36,12 @@ jobs:
         pip install pytest
         export PYTHONPATH=${PYTHONPATH}:/home/runner/work/capreolus/capreolus/
         # checks every test except those marked download
-        python -m pytest -vvv
+        # python -m pytest -vvv
     - name: Debug
       run: |
-        ls -a
         df -h .
+        df -h /tmp
+        df -h
     - name: Test downloads with pytest
 #      if: github.ref == 'refs/heads/master'
       run: |
