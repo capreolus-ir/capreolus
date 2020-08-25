@@ -40,6 +40,8 @@ jobs:
     - name: Test downloads with pytest
 #      if: github.ref == 'refs/heads/master'
       run: |
+        ls -a
+        df -h .
         # checks only tests marked download
         python -m pytest -vvv -m download
 
