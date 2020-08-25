@@ -38,7 +38,7 @@ jobs:
         # checks every test except those marked download
         python -m pytest -vvv
     - name: Test downloads with pytest
-      if: github.ref == 'refs/heads/master'
+#      if: github.ref == 'refs/heads/master'
       run: |
         # checks only tests marked download
         python -m pytest -vvv -m download
