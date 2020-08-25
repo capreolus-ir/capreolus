@@ -13,7 +13,7 @@ class DummyCollection(Collection):
     """ Tiny collection for testing """
 
     module_name = "dummy"
-    _path = PACKAGE_PATH / "data" / "dummy" / "data"
+    _path = (PACKAGE_PATH / "data" / "dummy" / "data").as_posix()
     collection_type = "TrecCollection"
     generator_type = "DefaultLuceneDocumentGenerator"
 
