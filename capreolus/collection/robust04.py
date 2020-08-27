@@ -35,13 +35,13 @@ class Robust04(Collection):
         )
 
     def _validate_document_path(self, path):
-        """ Validate that the document path appears to contain robust04's documents (Aquaint-TREC-3-4).
+        """Validate that the document path appears to contain robust04's documents (Aquaint-TREC-3-4).
 
-            Validation is performed by looking for four directories (case-insensitive): `FBIS`, `FR94`, `FT`, and `LATIMES`.
-            These directories may either be at the root of `path` or they may be in `path/NEWS_data` (case-insensitive).
+        Validation is performed by looking for four directories (case-insensitive): `FBIS`, `FR94`, `FT`, and `LATIMES`.
+        These directories may either be at the root of `path` or they may be in `path/NEWS_data` (case-insensitive).
 
-            Returns:
-                True if the Aquaint-TREC-3-4 document directories are found or False if not
+        Returns:
+            True if the Aquaint-TREC-3-4 document directories are found or False if not
         """
 
         if not os.path.isdir(path):

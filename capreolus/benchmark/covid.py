@@ -28,10 +28,7 @@ class COVID(Benchmark):
     lastest_round = 5
     query_type = "title"
 
-    config_spec = [
-        ConfigOption("udelqexpand", False),
-        ConfigOption("useprevqrels", True),
-    ]
+    config_spec = [ConfigOption("udelqexpand", False), ConfigOption("useprevqrels", True)]
 
     def build(self):
         if self.collection.config["round"] == self.lastest_round and not self.config["useprevqrels"]:
@@ -208,6 +205,7 @@ class CovidQA(Benchmark):
             return
 
         tmp_dir = self.get_cache_path() / "tmp"
+        os.makedirs(tmp_dir, exist_ok=True)
         topic_f = open(self.topic_file, "w", encoding="utf-8")
         qrel_f = open(self.qrel_file, "w", encoding="utf-8")
 

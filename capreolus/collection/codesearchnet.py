@@ -18,7 +18,7 @@ PACKAGE_PATH = constants["PACKAGE_PATH"]
 class CodeSearchNet(Collection):
     """CodeSearchNet Corpus. [1]
 
-       [1] Hamel Husain, Ho-Hsiang Wu, Tiferet Gazit, Miltiadis Allamanis, and Marc Brockschmidt. 2019. CodeSearchNet Challenge: Evaluating the State of Semantic Code Search. arXiv 2019.
+    [1] Hamel Husain, Ho-Hsiang Wu, Tiferet Gazit, Miltiadis Allamanis, and Marc Brockschmidt. 2019. CodeSearchNet Challenge: Evaluating the State of Semantic Code Search. arXiv 2019.
     """
 
     module_name = "codesearchnet"
@@ -33,7 +33,7 @@ class CodeSearchNet(Collection):
         coll_filename = document_dir / ("csn-" + self.config["lang"] + "-collection.txt")
 
         if coll_filename.exists():
-            return document_dir
+            return document_dir.as_posix()
 
         zipfile = self.config["lang"] + ".zip"
         lang_url = f"{self.url}/{zipfile}"
@@ -52,7 +52,7 @@ class CodeSearchNet(Collection):
 
         pkl_path = tmp_dir / (self.config["lang"] + "_dedupe_definitions_v2.pkl")
         self._pkl2trec(pkl_path, coll_filename)
-        return document_dir
+        return document_dir.as_posix()
 
     def _pkl2trec(self, pkl_path, trec_path):
         lang = self.config["lang"]

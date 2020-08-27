@@ -12,7 +12,7 @@ PACKAGE_PATH = constants["PACKAGE_PATH"]
 
 @Collection.register
 class NF(Collection):
-    """ NFCorpus: A Full-Text Learning to Rank Dataset for Medical Information Retrieval [1]
+    """NFCorpus: A Full-Text Learning to Rank Dataset for Medical Information Retrieval [1]
 
     [1] Vera Boteva, Demian Gholipour, Artem Sokolov and Stefan Riezler. A Full-Text Learning to Rank Dataset for Medical Information Retrieval Proceedings of the 38th European Conference on Information Retrieval (ECIR), Padova, Italy, 2016. https://www.cl.uni-heidelberg.de/statnlpgroup/nfcorpus/
     """

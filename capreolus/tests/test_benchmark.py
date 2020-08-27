@@ -84,7 +84,7 @@ def test_csn_coll_benchmark_consistency():
         collection = CodeSearchNetCollection(cfg)
 
         pkl_path = collection.get_cache_path() / "tmp" / f"{lang}_dedupe_definitions_v2.pkl"  # TODO: how to remove this "hack"
-        coll_path = collection.download_if_missing() / f"csn-{lang}-collection.txt"
+        coll_path = os.path.join(collection.download_if_missing(), f"csn-{lang}-collection.txt")
 
         raw_data = pickle.load(open(pkl_path, "rb"))
         doc_coll = _load_trec_doc(coll_path)

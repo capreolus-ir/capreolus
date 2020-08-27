@@ -51,7 +51,7 @@ class COVID(Collection):
         tmp_dir, document_dir = Path("/tmp"), cachedir / "documents"
         expected_fns = [document_dir / "metadata.csv", document_dir / "document_parses"]
         if all([os.path.exists(f) for f in expected_fns]):
-            return document_dir
+            return document_dir.as_posix()
 
         url = self.url % self.date
         tar_file = tmp_dir / f"covid-19-{self.date}.tar.gz"
@@ -73,7 +73,7 @@ class COVID(Collection):
         for fn in os.listdir(document_dir):
             if (document_dir / fn) not in expected_fns:
                 os.remove(document_dir / fn)
-        return document_dir
+        return document_dir.as_posix()
 
     def transform_metadata(self, root_path):
         """

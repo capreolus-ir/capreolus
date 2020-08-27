@@ -118,8 +118,8 @@ class HiNT(nn.Module):
 
     def forward(self, sentence, query_sentence, M_XOR, M_cos, masks):
         """
-            M_XOR or M_cos: (B, Q, D)
-            masks: (B, Q, D) have 0 on non-pad positions and 1 on pad positions
+        M_XOR or M_cos: (B, Q, D)
+        masks: (B, Q, D) have 0 on non-pad positions and 1 on pad positions
         """
         sentence, query_sentence = sentence.to(device), query_sentence.to(device)
 
