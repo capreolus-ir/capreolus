@@ -22,7 +22,7 @@ PACKAGE_PATH = constants["PACKAGE_PATH"]
 class CodeSearchNetCorpus(Benchmark):
     """CodeSearchNet Corpus. [1]
 
-       [1] Hamel Husain, Ho-Hsiang Wu, Tiferet Gazit, Miltiadis Allamanis, and Marc Brockschmidt. 2019. CodeSearchNet Challenge: Evaluating the State of Semantic Code Search. arXiv 2019.
+    [1] Hamel Husain, Ho-Hsiang Wu, Tiferet Gazit, Miltiadis Allamanis, and Marc Brockschmidt. 2019. CodeSearchNet Challenge: Evaluating the State of Semantic Code Search. arXiv 2019.
     """
 
     module_name = "codesearchnet_corpus"
@@ -180,9 +180,9 @@ class CodeSearchNetCorpus(Benchmark):
 @Benchmark.register
 class CodeSearchNetChallenge(Benchmark):
     """CodeSearchNet Challenge. [1]
-       This benchmark can only be used for training (and challenge submissions) because no qrels are provided.
+    This benchmark can only be used for training (and challenge submissions) because no qrels are provided.
 
-       [1] Hamel Husain, Ho-Hsiang Wu, Tiferet Gazit, Miltiadis Allamanis, and Marc Brockschmidt. 2019. CodeSearchNet Challenge: Evaluating the State of Semantic Code Search. arXiv 2019.
+    [1] Hamel Husain, Ho-Hsiang Wu, Tiferet Gazit, Miltiadis Allamanis, and Marc Brockschmidt. 2019. CodeSearchNet Challenge: Evaluating the State of Semantic Code Search. arXiv 2019.
     """
 
     module_name = "codesearchnet_challenge"

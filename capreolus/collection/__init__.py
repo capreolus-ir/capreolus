@@ -4,7 +4,7 @@ from capreolus import ModuleBase
 
 
 class Collection(ModuleBase):
-    """Base class for Collection modules. The purpose of a Collection is to describe a document collection's location and its format. 
+    """Base class for Collection modules. The purpose of a Collection is to describe a document collection's location and its format.
 
     Determining the document collection's location on disk:
         - The *path* config option will be used if it contains a valid loation.
@@ -29,14 +29,14 @@ class Collection(ModuleBase):
         return self._path, self.collection_type, self.generator_type
 
     def validate_document_path(self, path):
-        """ Attempt to validate the document collection at ``path``.
+        """Attempt to validate the document collection at ``path``.
 
-            By default, this will only check whether ``path`` exists. Subclasses should override
-            ``_validate_document_path(path)`` with their own logic to perform more detailed checks.
+        By default, this will only check whether ``path`` exists. Subclasses should override
+        ``_validate_document_path(path)`` with their own logic to perform more detailed checks.
 
-            Returns:
-                True if the path is valid following the logic described above, or False if it is not
-         """
+        Returns:
+            True if the path is valid following the logic described above, or False if it is not
+        """
 
         if not (path and os.path.exists(path)):
             return False
@@ -44,28 +44,28 @@ class Collection(ModuleBase):
         return self._validate_document_path(path)
 
     def _validate_document_path(self, path):
-        """ Collection-specific logic for validating the document collection path. Subclasses should override this.
+        """Collection-specific logic for validating the document collection path. Subclasses should override this.
 
-            Returns:
-                this default method provided by Collection always returns true
-         """
+        Returns:
+            this default method provided by Collection always returns true
+        """
 
         return True
 
     def find_document_path(self):
-        """ Find the location of this collection's documents (i.e., the raw document collection).
+        """Find the location of this collection's documents (i.e., the raw document collection).
 
-            We first check the collection's config for a path key. If found, ``self.validate_document_path`` checks
-            whether the path is valid. Subclasses should override the private method ``self._validate_document_path``
-            with custom logic for performing checks further than existence of the directory.
+        We first check the collection's config for a path key. If found, ``self.validate_document_path`` checks
+        whether the path is valid. Subclasses should override the private method ``self._validate_document_path``
+        with custom logic for performing checks further than existence of the directory.
 
-            If a valid path was not found, call ``download_if_missing``.
-            Subclasses should override this method if downloading the needed documents is possible.
+        If a valid path was not found, call ``download_if_missing``.
+        Subclasses should override this method if downloading the needed documents is possible.
 
-            If a valid document path cannot be found, an exception is thrown.
+        If a valid document path cannot be found, an exception is thrown.
 
-            Returns:
-                path to this collection's raw documents
+        Returns:
+            path to this collection's raw documents
         """
 
         # first, see if the path was provided as a config option

@@ -54,8 +54,8 @@ class Anserini:
 
 
 def download_file(url, outfn, expected_hash=None):
-    """ Download url to the file outfn. If expected_hash is provided, use it to both verify the file was downloaded
-        correctly, and to avoid re-downloading an existing file with a matching hash.
+    """Download url to the file outfn. If expected_hash is provided, use it to both verify the file was downloaded
+    correctly, and to avoid re-downloading an existing file with a matching hash.
     """
 
     if expected_hash and os.path.exists(outfn):

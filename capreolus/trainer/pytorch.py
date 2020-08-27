@@ -273,7 +273,7 @@ class PytorchTrainer(Trainer):
            pred_fn (Path): path to write the prediction run file to
 
         Returns:
-           TREC Run 
+           TREC Run
 
         """
 

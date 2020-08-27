@@ -18,7 +18,7 @@ PACKAGE_PATH = constants["PACKAGE_PATH"]
 class CodeSearchNet(Collection):
     """CodeSearchNet Corpus. [1]
 
-       [1] Hamel Husain, Ho-Hsiang Wu, Tiferet Gazit, Miltiadis Allamanis, and Marc Brockschmidt. 2019. CodeSearchNet Challenge: Evaluating the State of Semantic Code Search. arXiv 2019.
+    [1] Hamel Husain, Ho-Hsiang Wu, Tiferet Gazit, Miltiadis Allamanis, and Marc Brockschmidt. 2019. CodeSearchNet Challenge: Evaluating the State of Semantic Code Search. arXiv 2019.
     """
 
     module_name = "codesearchnet"

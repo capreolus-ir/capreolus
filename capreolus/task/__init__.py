@@ -33,8 +33,8 @@ class Task(ModuleBase):
         self.print_config()
 
     def get_results_path(self):
-        """ Return an absolute path that can be used for storing results.
-            The path is a function of the module's config and the configs of its dependencies.
+        """Return an absolute path that can be used for storing results.
+        The path is a function of the module's config and the configs of its dependencies.
         """
 
         return constants["RESULTS_BASE_PATH"] / self.get_module_path()
