@@ -3,9 +3,9 @@ name: pytest
 on: [push]
 
 jobs:
-  timeout-minutes: 90
   
   build:
+    timeout-minutes: 50
     runs-on: ubuntu-latest
     strategy:
       max-parallel: 4
@@ -41,7 +41,8 @@ jobs:
         python -m pytest -vvv
         
   download:
-    if: github.ref == 'refs/heads/master'
+    timeout-minutes: 50
+#    if: github.ref == 'refs/heads/master'
     runs-on: ubuntu-latest
     strategy:
       max-parallel: 4
