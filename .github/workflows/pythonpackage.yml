@@ -3,6 +3,8 @@ name: pytest
 on: [push]
 
 jobs:
+  timeout-minutes: 90
+  
   build:
     runs-on: ubuntu-latest
     strategy:
@@ -38,36 +40,34 @@ jobs:
         # checks every test except those marked download
         python -m pytest -vvv
         
-  # download:
-  #   if: github.ref == 'refs/heads/master'
-  #   runs-on: ubuntu-latest
-  #   strategy:
-  #     max-parallel: 4
-  #     matrix:
-  #       python-version: [3.7]
+  download:
+    if: github.ref == 'refs/heads/master'
+    runs-on: ubuntu-latest
+    strategy:
+      max-parallel: 4
+      matrix:
+        python-version: [3.7]
 
-  #   steps:
-  #   - uses: actions/checkout@v1
-  #   - name: Set up Python ${{ matrix.python-version }}
-  #     uses: actions/setup-python@v1
-  #     with:
-  #       python-version: ${{ matrix.python-version }}
-  #   - name: Set up Java 11
-  #     uses: actions/setup-java@v1
-  #     with:
-  #       java-version: '11'
-  #   - name: Install dependencies
-  #     run: |
-  #       python -m pip install --upgrade pip
-  #       # cython should be installed seperately due to a pip bug. For some reason, it tries to build pyjnius before building cython
-  #       pip install cython
-  #       pip install -r requirements.txt
-  #       pip install torch==1.6.0+cu101 torchvision==0.7.0+cu101 -f https://download.pytorch.org/whl/torch_stable.html
-  #   - name: Test downloads with pytest
-  #     run: |
-  #       pip install pytest
-  #       export PYTHONPATH=${PYTHONPATH}:/home/runner/work/capreolus/capreolus/
-  #       # checks only tests marked download
-  #       python -m pytest -vvv -m download
-
-  timeout-minutes: 90
+    steps:
+    - uses: actions/checkout@v1
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v1
+      with:
+        python-version: ${{ matrix.python-version }}
+    - name: Set up Java 11
+      uses: actions/setup-java@v1
+      with:
+        java-version: '11'
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        # cython should be installed seperately due to a pip bug. For some reason, it tries to build pyjnius before building cython
+        pip install cython
+        pip install -r requirements.txt
+        pip install torch==1.6.0+cu101 torchvision==0.7.0+cu101 -f https://download.pytorch.org/whl/torch_stable.html
+    - name: Test downloads with pytest
+      run: |
+        pip install pytest
+        export PYTHONPATH=${PYTHONPATH}:/home/runner/work/capreolus/capreolus/
+        # checks only tests marked download
+        python -m pytest -vvv -m download
