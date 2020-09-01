@@ -22,6 +22,7 @@ This section describes how to run PARADE on a GPU with 16GB RAM. This is substan
 2. Train and evaluate PARADE on a single fold: `python -m capreolus.run rerank.traineval with file=docs/reproduction/config_parade_small.txt fold=s1`
 3. This command takes about 3.5 hours on a Titan Xp GPU. Once it finishes, metrics on the dev and test sets are shown:
 > 2020-09-01 15:45:10,053 - INFO - capreolus.task.rerank.evaluate - rerank: fold=s1 dev metrics: P_1=0.750 P_10=0.500 P_20=0.443 P_5=0.554 judged_10=0.992 judged_20=0.989 judged_200=0.947 map=0.267 ndcg_cut_10=0.533 ndcg_cut_20=0.513 ndcg_cut_5=0.562 recall_100=0.453 recall_1000=0.453 recip_rank=0.817
+
 > 2020-09-01 15:45:10,095 - INFO - capreolus.task.rerank.evaluate - rerank: fold=s1 test metrics: P_1=0.596 P_10=0.487 P_20=0.419 P_5=0.549 judged_10=0.989 judged_20=0.985 judged_200=0.931 map=0.285 ndcg_cut_10=0.491 ndcg_cut_20=0.486 ndcg_cut_5=0.518 recall_100=0.490 recall_1000=0.490 recip_rank=0.727
 4. Compare your *fold=s1* results to those shown here. Do they match? If so, we can move on to reproducing the full PARADE model.
 
