@@ -1,6 +1,6 @@
 import json
 import os
-from os.path import join, exists
+from os.path import join
 
 from capreolus.registry import Dependency
 from capreolus.reranker import Reranker
@@ -39,10 +39,10 @@ class BM25Reranker(Reranker):
         # query = self["extractor"].qid2toks[d["qid"]]
         # avg_doc_len = self["extractor"].query_avg_doc_len[d["qid"]]
         # return [self.score_document(query, d["qid"], docid, avg_doc_len) for docid in [d["posdocid"]]]
-        querytf = self["extractor"].qid_termprob[d["qid"]]
+        querytp = self["extractor"].qid_termprob[d["qid"]]
         querylen = self["extractor"].qidlen[d["qid"]]
         avg_doc_len = self["extractor"].query_avg_doc_len[d["qid"]]
-        return [self.score_document_tf(querytf, querylen, d["qid"], docid, avg_doc_len) for docid in [d["posdocid"]]]
+        return [self.score_document_tf(querytp, querylen, d["qid"], docid, avg_doc_len) for docid in [d["posdocid"]]]
 
     def score_document(self, query, qid, docid, avg_doc_len):
         # TODO is it correct to skip over terms that don't appear to be in the idf vocab?
@@ -70,15 +70,15 @@ class BM25Reranker(Reranker):
         return scoresum
         #return sum(self.score_document_term(term, docid, avg_doc_len) for term in query)
 
-    def score_document_tf(self, querytf, querylen, qid, docid, avg_doc_len):
+    def score_document_tf(self, querytp, querylen, qid, docid, avg_doc_len):
         # TODO is it correct to skip over terms that don't appear to be in the idf vocab?
         term_scores = {}
         accumulated_scores = {}
         scoresum = 0
-        for term, tf in querytf.items():
+        for term, tp in querytp.items():
             termsccore = self.score_document_term(term, docid, avg_doc_len)
             term_scores[term] = termsccore
-            accumulated_scores[term] = termsccore * round(tf * querylen)
+            accumulated_scores[term] = termsccore * round(tp * querylen) #tf = tp*len
             scoresum += accumulated_scores[term]
 
         os.makedirs(self.get_docscore_cache_path(), exist_ok=True)
