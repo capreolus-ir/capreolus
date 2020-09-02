@@ -106,16 +106,17 @@ class DomainRelatedness(EntityDomainRelatedness):
 
         if self.cfg['strategy_NE'] is None or self.cfg['strategy_C'] is None or self.cfg['domain_relatedness_threshold_NE'] is None or self.cfg['domain_relatedness_threshold_NE'] is None:
             raise ValueError(f"strategies or thresholds should not be None")
-        
-        self.strategy_NE = json.load(self.default_settings_dir / self.cfg['strategy_NE'])['strategy_NE']
-        self.strategy_C = json.load(self.default_settings_dir / self.cfg['strategy_NE'])['strategy_C']
+
+        self.strategy_NE = json.load(open(join(self.default_settings_dir, self.cfg['strategy_NE']), 'r'))['strategy_NE']
+        self.strategy_C = json.load(open(join(self.default_settings_dir, self.cfg['strategy_C']), 'r'))['strategy_C']
         if self.strategy_NE is not None and not re.match(r"^d-k:(0|(100|50|25|10|5)-(w?avg))_e-k:(0|(100|50|25|10|5)-(w?avg))$", self.strategy_NE):
             raise ValueError(f"invalid domain embedding strategyNE: {self.strategy_NE}")
         if self.strategy_C is not None and not re.match(r"^d-k:(0|(100|50|25|10|5)-(w?avg))_e-k:(0|(100|50|25|10|5)-(w?avg))$", self.strategy_C):
             raise ValueError(f"invalid domain embedding strategyC: {self.strategy_C}")
 
-        self.domain_relatedness_threshold_NE = float(json.load(self.default_settings_dir / self.cfg['domain_relatedness_threshold_NE'])['domain_relatedness_threshold_NE'])
-        self.domain_relatedness_threshold_C = float(json.load(self.default_settings_dir / self.cfg['domain_relatedness_threshold_C'])['domain_relatedness_threshold_C'])
+
+        self.domain_relatedness_threshold_NE = float(json.load(open(join(self.default_settings_dir, self.cfg['domain_relatedness_threshold_NE']), 'r'))['domain_relatedness_threshold_NE'])
+        self.domain_relatedness_threshold_C = float(json.load(open(join(self.default_settings_dir, self.cfg['domain_relatedness_threshold_NE']), 'r'))['domain_relatedness_threshold_C'])
 
         self.domain_rep_NE = self.load_domain_vector_by_neighbors(self.d_strategy(True))
         self.domain_rep_C = self.load_domain_vector_by_neighbors(self.d_strategy(False))
