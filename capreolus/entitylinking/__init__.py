@@ -62,7 +62,10 @@ class AmbiverseNLU(EntityLinking):
 
         outdir = self.get_extracted_entities_cache_path()
         if exists(join(outdir, get_file_name(textid, self.get_benchmark_name(), self.get_benchmark_querytype()))):
-            for e in self.get_all_entities(textid):
+            entities = self.get_all_entities(textid)
+            for e in entities["NE"]:
+                self.entity_descriptions[e] = ""
+            for e in entities["C"]:
                 self.entity_descriptions[e] = ""
             return
 
