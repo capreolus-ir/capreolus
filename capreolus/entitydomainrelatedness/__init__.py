@@ -28,6 +28,11 @@ class DomainRelatedness(EntityDomainRelatedness):
         'utils': Dependency(module="entityutils", name="wiki2vec")
     }
 
+    strategy_NE = None
+    strategy_C = None
+    domain_relatedness_threshold_NE = None
+    domain_relatedness_threshold_C = None
+
     @staticmethod
     def config():
         # if you want to give other settings and thresholds as input, pass the file name and put the file in the default_settings_dir
@@ -99,6 +104,9 @@ class DomainRelatedness(EntityDomainRelatedness):
         self.entity_linking_cache_path = el_cache_path
         self['utils'].load_pretrained_emb()
 
+        if self.cfg['strategy_NE'] is None or self.cfg['strategy_C'] is None or self.cfg['domain_relatedness_threshold_NE'] is None or self.cfg['domain_relatedness_threshold_NE'] is None:
+            raise ValueError(f"strategies or thresholds should not be None")
+        
         self.strategy_NE = json.load(self.default_settings_dir / self.cfg['strategy_NE'])['strategy_NE']
         self.strategy_C = json.load(self.default_settings_dir / self.cfg['strategy_NE'])['strategy_C']
         if self.strategy_NE is not None and not re.match(r"^d-k:(0|(100|50|25|10|5)-(w?avg))_e-k:(0|(100|50|25|10|5)-(w?avg))$", self.strategy_NE):
