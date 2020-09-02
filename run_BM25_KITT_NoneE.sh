@@ -14,25 +14,25 @@ dataset=kitt
 declare -a arr=('query' 'basicprofile' 'chatprofile' 'basicprofile_general' 'basicprofile_food' 'basicprofile_travel' 'basicprofile_book_movie' 'basicprofile_book' 'basicprofile_movie' 'chatprofile_general' 'chatprofile_food' 'chatprofile_travel' 'chatprofile_book' 'chatprofile_movie' 'chatprofile_hobbies')
 
 if [ "$pipeline" == "ENTITY_CONCEPT_JOINT_LINKING" ]; then
-	for querytype in "${arr[@]}"
-	do
-		echo "$querytype"
-		echo "Entity: None "
-		FOLDNUM=1
-	  time python -m capreolus.run rerank.evaluate with searcher=qrels reranker=BM25 reranker.b=0.75 reranker.k1=1.5 collection=$dataset collection.domain=$domain benchmark=$dataset benchmark.domain=$domain benchmark.querytype=$querytype fold=s$FOLDNUM ;
-		for FOLDNUM in {2..10};
-		do
-			time python -m capreolus.run rerank.evaluate with searcher=qrels reranker=BM25 reranker.b=0.75 reranker.k1=1.5 collection=$dataset collection.domain=$domain benchmark=$dataset benchmark.domain=$domain benchmark.querytype=$querytype fold=s$FOLDNUM &
-		done
-		wait
-	done
+  for querytype in "${arr[@]}"
+  do
+    echo "$querytype"
+    echo "Entity: None "
+    FOLDNUM=1
+    time python -m capreolus.run rerank.evaluate with searcher=qrels reranker=BM25 reranker.b=0.75 reranker.k1=1.5 collection=$dataset collection.domain=$domain benchmark=$dataset benchmark.domain=$domain benchmark.querytype=$querytype fold=s$FOLDNUM ;
+    for FOLDNUM in {2..10};
+    do
+      time python -m capreolus.run rerank.evaluate with searcher=qrels reranker=BM25 reranker.b=0.75 reranker.k1=1.5 collection=$dataset collection.domain=$domain benchmark=$dataset benchmark.domain=$domain benchmark.querytype=$querytype fold=s$FOLDNUM &
+    done
+    wait
+  done
 fi
 wait
 
 if [ "$pipeline" == "ENTITY_CONCEPT_JOINT_LINKING" ]; then
-	for querytype in "${arr[@]}"
-	do
-	  if [ "$querytype" != "query" ]; then
+  for querytype in "${arr[@]}"
+  do
+    if [ "$querytype" != "query" ]; then
       echo "$querytype"
       echo "Entity: None  Filter=user-k-1"
       FOLDNUM=1
@@ -43,14 +43,14 @@ if [ "$pipeline" == "ENTITY_CONCEPT_JOINT_LINKING" ]; then
       done
       wait
     fi
-	done
+  done
 fi
 wait
 
 if [ "$pipeline" == "ENTITY_CONCEPT_JOINT_LINKING" ]; then
-	for querytype in "${arr[@]}"
-	do
-	  if [ "$querytype" != "basicprofile" ] && [ "$querytype" != "chatprofile" ]; then
+  for querytype in "${arr[@]}"
+  do
+    if [ "$querytype" != "basicprofile" ] && [ "$querytype" != "chatprofile" ]; then
       echo "$querytype"
       echo "Entity: None  Filter=domain-k-1"
       FOLDNUM=1
@@ -61,7 +61,7 @@ if [ "$pipeline" == "ENTITY_CONCEPT_JOINT_LINKING" ]; then
       done
       wait
     fi
-	done
+  done
 fi
 wait
 echo "FINISHED"
