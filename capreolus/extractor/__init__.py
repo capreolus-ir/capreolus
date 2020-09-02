@@ -203,12 +203,16 @@ class DocStats(Extractor):
     def config():
         entity_strategy = None
         filter_query = None
+        domain_vocab_specific = None
 
         if entity_strategy not in [None, 'all', 'domain', 'specific_domainrel']:  # TODO add strategies
             raise ValueError(f"invalid entity usage strategy (or not implemented): {entity_strategy}")
 
         if filter_query is not None and not re.match(r"^(domain|user)_specific_k(\d+|-1)$", filter_query):
             raise ValueError(f"invalid filter query: {filter_query}")
+
+        if domain_vocab_specific is not None and domain_vocab_specific not in ["reweight"]:
+            raise ValueError(f"invalid domain vocab specific {domain_vocab_specific}")
 
     @property
     def entity_strategy(self):
@@ -259,7 +263,7 @@ class DocStats(Extractor):
             self["domainrelatedness"].initialize(self["entitylinking"].get_cache_path())
         elif self.entity_strategy == 'specific_domainrel':
             self["domainrelatedness"].initialize(self["entitylinking"].get_cache_path())
-            self["entityspecificity"].initialize(self["entitylinking"].get_cache_path())
+            self["entityspecificity"].initialize()
 
         logger.debug("tokenizing queries [+entity descriptions]")
         if logger.level in [logging.DEBUG, logging.NOTSET]:
@@ -279,13 +283,15 @@ class DocStats(Extractor):
  #                   logger.debug(entoutf)
                     qentities = json.loads(f.read())
             else:
-                qentities = self.get_entities(qid) # returns empty array if the entity_strategy is None
+                qentities = self.get_entities(qid) # {"NE": [...], "C": [...]}
                 with open(entoutf, 'w') as f:
                     f.write(json.dumps(qentities, indent=4))
 
 #            logger.debug(f"{self.entity_strategy}: {qentities}")
 #            logger.debug(f"qid: {qid} - {qentities}")
-            for e in qentities:
+            for e in qentities["NE"]:
+                qdesc.append(self["entitylinking"].get_entity_description(e))
+            for e in qentities["C"]:
                 qdesc.append(self["entitylinking"].get_entity_description(e))
 
             qtext += "\n" + "\n".join(qdesc)
@@ -317,29 +323,9 @@ class DocStats(Extractor):
 
                 # todo change: now it can only be used for KITT data so later change it to adapt to any
                 benchmarkdir = "/GW/PKB/work/data_personalization/TREC_format/" # change these when rebasing to use the benchmark as inherited dependency
-                userfullprofiles = get_user_profiles(join(benchmarkdir, f"book_topics.{baseprofiletype}.txt")) # book is the recommendation domain, and it does not matter which one is read since the profile is the same for all.
-                
-                GD = {}
-                for qid in qids:
-                    uid = qid.split("_")[1]
-                    if uid not in GD:
-                        entoutf = join(self.get_selected_entities_cache_path(), get_file_name(qid, self["entitylinking"].get_benchmark_name(), baseprofiletype))
-                        if exists(entoutf):
-                            with open(entoutf, 'r') as f:
-                                qentities = json.loads(f.read())
-                        else:
-                            raise RuntimeError(
-                                f"This is not implemented! You should have already have the entities for the full profile in the cache to use this.")
+                userfullprofiles = get_user_profiles(join(benchmarkdir, f"book_topics.{baseprofiletype}.txt")) # book is an exemplary recommendation domain, and it does not matter which one is read since the profile is the same for all.
 
-                        for e in qentities:
-                            qdesc.append(self["entitylinking"].get_entity_description(e))
-
-                        qtext = userfullprofiles[uid]
-                        qtext += "\n" + "\n".join(qdesc)
-                        query = self["tokenizer"].tokenize(qtext)
-
-                        q_count = Counter(query)
-                        GD[uid] = {k: (v / len(query)) for k, v in q_count.items()}
+                GD = self.get_domain_general_corpus(qids, baseprofiletype, userfullprofiles)
 
                 for qid in qids:
                     uid = qid.split("_")[1]
@@ -371,33 +357,7 @@ class DocStats(Extractor):
 
             elif filter_by == 'user':
                 # create G (the accumulated other corpus of all users)
-                goutf = join(self.get_profile_term_prob_cache_path(), "allusers")
-                if exists(goutf):
-                    with open(goutf, 'r') as f:
-                        GU = json.loads(f.read())
-                else:
-                    user_profile_tfs = {}
-                    total_len = 0
-                    voc = set()
-                    for qid in qids:
-                        uid = qid.split("_")[1]
-                        if uid not in user_profile_tfs:
-                            print(uid)
-                            tfs = self.qid_termprob[qid]
-                            mintf = min(tfs.values())
-                            voc.update(tfs.keys())
-                            profile_len = 1 / mintf
-                            total_len += profile_len
-                            user_profile_tfs[uid] = tfs # just to have them with user id and uniquely
-                    GU = {}
-                    for v in voc:
-                        nu = 0
-                        for uid, tfs in user_profile_tfs.items():
-                            if v in tfs:
-                                nu += tfs[v]
-                        GU[v] = nu / total_len
-                    with open(goutf, 'w') as f:
-                        f.write(json.dumps(GU))
+                GU = self.get_user_general_corpus(qids)
 
                 for qid in qids:
                     tfoutf = join(self.get_profile_term_prob_cache_path(), get_file_name(qid, self["entitylinking"].get_benchmark_name(), self["entitylinking"].get_benchmark_querytype()))
@@ -478,10 +438,15 @@ class DocStats(Extractor):
         self.doc_len = {}
         for docid in docids:
             # TODO is anserini's tokenizer removing the same punctuation as spacy was?
-            # todo spacy tokenizer is added with some parameters... some of them should be cleaned  (see more in the tokenizer class)
+            # todo spacy tokenizer is added with some parameters... some of them should be cleaned  (see more in the tokenizer class) but it is very slow
             doc = self["tokenizer"].tokenize(self["index"].get_doc(docid))
             self.doc_tf[docid] = Counter(doc)
             self.doc_len[docid] = len(doc)
+
+        #TODO domain term weight calculated here:
+        # and then added to BM25, LMD, LMDEmbd
+        # we would just multiply it by the doc_tf (BM25 uses IDF(clueweb) * tf * w
+        # LM: also... looks weird a bit
 
         # todo: I have removed "Fixed partner" and "(or with a ..)" from the profiles [locally] (this should be done in the data on the servers and before publishing the data)
 
@@ -508,6 +473,65 @@ class DocStats(Extractor):
         # print(len(shared_items), shared_items)
         # print(len(diff_items), diff_items) ## there are very different
 
+    def get_user_general_corpus(self, qids):
+        goutf = join(self.get_profile_term_prob_cache_path(), "allusers")
+        if exists(goutf):
+            with open(goutf, 'r') as f:
+                GU = json.loads(f.read())
+        else:
+            user_profile_tfs = {}
+            total_len = 0
+            voc = set()
+            for qid in qids:
+                uid = qid.split("_")[1]
+                if uid not in user_profile_tfs:
+                    print(uid)
+                    tfs = self.qid_termprob[qid]
+                    mintf = min(tfs.values())
+                    voc.update(tfs.keys())
+                    profile_len = 1 / mintf
+                    total_len += profile_len
+                    user_profile_tfs[uid] = tfs  # just to have them with user id and uniquely
+            GU = {}
+            for v in voc:
+                nu = 0
+                for uid, tfs in user_profile_tfs.items():
+                    if v in tfs:
+                        nu += tfs[v]
+                GU[v] = nu / total_len
+            with open(goutf, 'w') as f:
+                f.write(json.dumps(GU))
+
+        return GU
+
+
+    def get_domain_general_corpus(self, qids, baseprofiletype, userfullprofiles):
+        GD = {}
+        for qid in qids:
+            uid = qid.split("_")[1]
+            if uid not in GD:
+                entoutf = join(self.get_selected_entities_cache_path(),
+                               get_file_name(qid, self["entitylinking"].get_benchmark_name(), baseprofiletype))
+                if exists(entoutf):
+                    with open(entoutf, 'r') as f:
+                        qentities = json.loads(f.read())
+                else:
+                    raise RuntimeError("This is not implemented! You should have already have the entities for the full profile in the cache to use this.")
+                qdesc = []
+                for e in qentities["NE"]:
+                    qdesc.append(self["entitylinking"].get_entity_description(e))
+                for e in qentities["C"]:
+                    qdesc.append(self["entitylinking"].get_entity_description(e))
+
+                qtext = userfullprofiles[uid]
+                qtext += "\n" + "\n".join(qdesc)
+                query = self["tokenizer"].tokenize(qtext)
+
+                q_count = Counter(query)
+                GD[uid] = {k: (v / len(query)) for k, v in q_count.items()}
+
+        return GD
+
     def background_idf(self, term):# TODO could be replaced by that: the index itself has a function for idf, but it has a +1...
         df = self["backgroundindex"].get_df(term)
         total_docs = self["backgroundindex"].numdocs
@@ -520,7 +544,7 @@ class DocStats(Extractor):
 
     def get_entities(self, profile_id):
         if self.entity_strategy is None:
-            return []
+            return {"NE": [], "C": []} #TODO propagate this change to what calls this function
         elif self.entity_strategy == 'all':
             return self['entitylinking'].get_all_entities(profile_id)
         elif self.entity_strategy == 'domain':

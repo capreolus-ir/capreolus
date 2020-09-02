@@ -3,7 +3,6 @@ import os
 from os.path import exists, join
 
 import json
-import re
 
 from capreolus.utils.common import get_file_name
 from capreolus.utils.loginit import get_logger
@@ -34,7 +33,7 @@ class AmbiverseNLU(EntityLinking):
     def config():
         extractConcepts = True ## TODO: let's get the pipeline as input (later when I implemented that part).
         descriptions = "YAGO_long_short"
-        pipeline = "ENTITY_CONCEPT_JOINT_LINKING" #"ENTITY_CONCEPT_SEPARATE_LINKING", "ENTITY_CONCEPT_SALIENCE_STANFORD", "ENTITY_CONCEPT_SALIENCE"
+        pipeline = "ENTITY_CONCEPT_JOINT_LINKING" #"ENTITY_CONCEPT_SEPARATE_LINKING", "ENTITY_CONCEPT_SALIENCE_STANFORD", "ENTITY_CONCEPT_SALIENCE" "ENTITY_CONCEPT_SPOTTING_SEPARATE_DISAMBIGUATION" "ENTITY_CONCEPT_SPOTTING_JOINT_DISAMBIGUATION"
         typerestriction = False #if true we restrict movies, books, travel, food named entities
 
     def get_extracted_entities_cache_path(self):
@@ -195,9 +194,14 @@ class AmbiverseNLU(EntityLinking):
 
     def get_all_entities(self, textid):
         data = json.load(open(join(self.get_extracted_entities_cache_path(), get_file_name(textid, self.get_benchmark_name(), self.get_benchmark_querytype())), 'r'))
-        res = set()
+
+        # all_entities = set()
+        named_entities = set()
+        concepts = set()
+
         if 'entities' in data:
-            for e in data['entities']:
-                res.add(e['name'])
-#        logger.debug(f"{get_file_name(textid, self.get_benchmark_name(), self.get_benchmark_querytype())} {res}")
-        return list(res)
+            # all_entities.update([e['name'] for e in data['entities']])
+            named_entities.update([e['name'] for e in data['entities'] if e['type'] != 'CONCEPT'])
+            concepts.update([e['name'] for e in data['entities'] if e['type'] == 'CONCEPT'])
+
+        return {"NE": list(named_entities), "C": list(concepts)}
