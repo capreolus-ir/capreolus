@@ -6,7 +6,7 @@ import json
 
 import numpy as np
 
-from capreolus.registry import ModuleBase, RegisterableModule, Dependency
+from capreolus.registry import ModuleBase, RegisterableModule, Dependency, PACKAGE_PATH
 from capreolus.utils.common import get_file_name
 
 from capreolus.utils.loginit import get_logger
@@ -22,7 +22,7 @@ class EntityDomainRelatedness(ModuleBase, metaclass=RegisterableModule):
 
 class DomainRelatedness(EntityDomainRelatedness):
     name = 'wiki2vecrepresentative'
-
+    default_settings_dir = PACKAGE_PATH / "data" / "domain_entity_relatedness_setting"
     dependencies = {
         "benchmark": Dependency(module="benchmark"),
         'utils': Dependency(module="entityutils", name="wiki2vec")
@@ -30,24 +30,35 @@ class DomainRelatedness(EntityDomainRelatedness):
 
     @staticmethod
     def config():
-        # todo if these were None, I will initialize it in the initializer based on the domain
+        # if you want to give other settings and thresholds as input, pass the file name and put the file in the default_settings_dir
         strategy_NE = None
         strategy_C = None
         domain_relatedness_threshold_NE = None
         domain_relatedness_threshold_C = None
 
-        return_top = -1
+        if strategy_NE is not None:
+            if not re.match("(book|food|travel_wikivoyage|movie)_maxPRAUC_maxACC", strategy_NE):
+                raise ValueError(f"invalid strategy_NE {strategy_NE}")
 
-        if strategy_NE is not None and not re.match(r"^d-k:(0|(100|50|25|10|5)-(w?avg))_e-k:(0|(100|50|25|10|5)-(w?avg))$", strategy_NE):
-            raise ValueError(f"invalid domain embedding strategyNE: {strategy_NE}")
-        if strategy_C is not None and not re.match(r"^d-k:(0|(100|50|25|10|5)-(w?avg))_e-k:(0|(100|50|25|10|5)-(w?avg))$", strategy_C):
-            raise ValueError(f"invalid domain embedding strategyC: {strategy_C}")
+        if strategy_C is not None:
+            if not re.match("(book|food|travel_wikivoyage|movie)_maxPRAUC_maxACC", strategy_C):
+                raise ValueError(f"invalid strategy_NE {strategy_C}")
+
+        if domain_relatedness_threshold_NE is not None:
+            if not re.match("(book|food|travel_wikivoyage|movie)_maxPRAUC_maxACC", domain_relatedness_threshold_NE):
+                raise ValueError(f"invalid strategy_NE {domain_relatedness_threshold_NE}")
+
+        if domain_relatedness_threshold_C is not None:
+            if not re.match("(book|food|travel_wikivoyage|movie)_maxPRAUC_maxACC", domain_relatedness_threshold_C):
+                raise ValueError(f"invalid strategy_NE {domain_relatedness_threshold_C}")
+
+        return_top = -1
 
     def e_strategy(self, isNE):
         if isNE:
-            m = re.match(r"^d-k:(0|(100|50|25|10|5)-(w?avg))_e-k:(0|(100|50|25|10|5)-(w?avg))$", self.cfg['strategy_NE'])
+            m = re.match(r"^d-k:(0|(100|50|25|10|5)-(w?avg))_e-k:(0|(100|50|25|10|5)-(w?avg))$", self.strategy_NE)
         else:
-            m = re.match(r"^d-k:(0|(100|50|25|10|5)-(w?avg))_e-k:(0|(100|50|25|10|5)-(w?avg))$", self.cfg['strategy_C'])
+            m = re.match(r"^d-k:(0|(100|50|25|10|5)-(w?avg))_e-k:(0|(100|50|25|10|5)-(w?avg))$", self.strategy_C)
         if m:
             if not m.group(5):
                 k = 0
@@ -55,6 +66,21 @@ class DomainRelatedness(EntityDomainRelatedness):
             else:
                 k = int(m.group(5))
                 m = m.group(6)
+
+        return k, m
+
+    def d_strategy(self, isNE):
+        if isNE:
+            m = re.match(r"^d-k:(0|(100|50|25|10|5)-(w?avg))_e-k:(0|(100|50|25|10|5)-(w?avg))$", self.strategy_NE)
+        else:
+            m = re.match(r"^d-k:(0|(100|50|25|10|5)-(w?avg))_e-k:(0|(100|50|25|10|5)-(w?avg))$", self.strategy_C)
+        if m:
+            if not m.group(2):
+                k = 0
+                m = None
+            else:
+                k = int(m.group(2))
+                m = m.group(3)
 
         return k, m
 
@@ -73,49 +99,18 @@ class DomainRelatedness(EntityDomainRelatedness):
         self.entity_linking_cache_path = el_cache_path
         self['utils'].load_pretrained_emb()
 
-        #TODO
-        #have to be given from somewhere else!!!!! read frol file maybe, or set in config, buttttt we have to give the domain as well...
-        # if self.cfg['strategy_NE'] is None:
-        #     if self.domain == 'book':
-        #         self.cfg['strategy_NE'] = "d-k:100-avg_e-k:100-wavg"
-        #     elif self.domain == 'movie':
-        #         self.cfg['strategy_NE'] = "d-k:0_e-k:100-avg"
-        #     elif self.domain == 'food':
-        #         self.cfg['strategy_NE'] = "d-k:10-avg_e-k:0"
-        #     elif self.domain == 'travel':
-        #         self.cfg['strategy_NE'] = "d-k:25-avg_e-k:10-avg"
-        # if self.cfg['domain_relatedness_threshold_NE'] is None:
-        #     if self.domain == 'book':
-        #         self.cfg['domain_relatedness_threshold_NE'] = 0.57247805
-        #     elif self.domain == 'movie':
-        #         self.cfg['domain_relatedness_threshold_NE'] = 0.26852363
-        #     elif self.domain == 'food':
-        #         self.cfg['domain_relatedness_threshold_NE'] = 0.29420701
-        #     elif self.domain == 'travel':
-        #         self.cfg['domain_relatedness_threshold_NE'] = 0.35691148
-        # logger.debug(f"getting domain representative (NE) {self.cfg['strategy_NE']}")
-        self.domain_rep_NE = self.get_domain_rep(self.cfg['strategy_NE'])
-        #
-        # if self.cfg['strategy_C'] is None:
-        #     if self.domain == 'book':
-        #         self.cfg['strategy_C'] = "d-k:5-avg_e-k:100-avg"
-        #     elif self.domain == 'movie':
-        #         self.cfg['strategy_C'] = "d-k:5-avg_e-k:25-wavg"
-        #     elif self.domain == 'food':
-        #         self.cfg['strategy_C'] = "d-k:25-wavg_e-k:50-avg"
-        #     elif self.domain == 'travel':
-        #         self.cfg['strategy_C'] = "d-k:100-avg_e-k:0"
-        # if self.cfg['domain_relatedness_threshold_C'] is None:
-        #     if self.domain == 'book':
-        #         self.cfg['domain_relatedness_threshold_C'] = 0.50608605
-        #     elif self.domain == 'movie':
-        #         self.cfg['domain_relatedness_threshold_C'] = 0.46772834
-        #     elif self.domain == 'food':
-        #         self.cfg['domain_relatedness_threshold_C'] = 0.38735285
-        #     elif self.domain == 'travel':
-        #         self.cfg['domain_relatedness_threshold_C'] = 0.57309896
-        # logger.debug(f"getting domain representative (C) {self.cfg['strategy_C']}")
-        self.domain_rep_C = self.get_domain_rep(self.cfg['strategy_C'])
+        self.strategy_NE = json.load(self.default_settings_dir / self.cfg['strategy_NE'])['strategy_NE']
+        self.strategy_C = json.load(self.default_settings_dir / self.cfg['strategy_NE'])['strategy_C']
+        if self.strategy_NE is not None and not re.match(r"^d-k:(0|(100|50|25|10|5)-(w?avg))_e-k:(0|(100|50|25|10|5)-(w?avg))$", self.strategy_NE):
+            raise ValueError(f"invalid domain embedding strategyNE: {self.strategy_NE}")
+        if self.strategy_C is not None and not re.match(r"^d-k:(0|(100|50|25|10|5)-(w?avg))_e-k:(0|(100|50|25|10|5)-(w?avg))$", self.strategy_C):
+            raise ValueError(f"invalid domain embedding strategyC: {self.strategy_C}")
+
+        self.domain_relatedness_threshold_NE = float(json.load(self.default_settings_dir / self.cfg['domain_relatedness_threshold_NE'])['domain_relatedness_threshold_NE'])
+        self.domain_relatedness_threshold_C = float(json.load(self.default_settings_dir / self.cfg['domain_relatedness_threshold_C'])['domain_relatedness_threshold_C'])
+
+        self.domain_rep_NE = self.load_domain_vector_by_neighbors(self.d_strategy(True))
+        self.domain_rep_C = self.load_domain_vector_by_neighbors(self.d_strategy(False))
 
         self.entity_rep_cache = {"C": {}, "NE": {}}
 
@@ -173,31 +168,15 @@ class DomainRelatedness(EntityDomainRelatedness):
 
         # now thresholding
         if self.cfg['return_top'] == -1:
-            NEs = [k for k, v in similarities["NE"].items() if v >= self.cfg['domain_relatedness_threshold_NE']]
-            Cs = [k for k, v in similarities["C"].items() if v >= self.cfg['domain_relatedness_threshold_C']]
+            NEs = [k for k, v in similarities["NE"].items() if v >= self.domain_relatedness_threshold_NE]
+            Cs = [k for k, v in similarities["C"].items() if v >= self.domain_relatedness_threshold_C]
             return {"NE": NEs, "C": Cs}
 
-        trNEs = {k:v for k, v in similarities["NE"].items() if v >= self.cfg['domain_relatedness_threshold_NE']}
-        trCs = {k:v for k, v in similarities["C"].items() if v >= self.cfg['domain_relatedness_threshold_C']}
+        trNEs = {k:v for k, v in similarities["NE"].items() if v >= self.domain_relatedness_threshold_NE}
+        trCs = {k:v for k, v in similarities["C"].items() if v >= self.domain_relatedness_threshold_C}
         retNE = [k for k,v in sorted(trNEs.items(), key=lambda item: item[1], reverse=True)]
         retC = [k for k, v in sorted(trCs.items(), key=lambda item: item[1], reverse=True)]
         return {"NE": retNE[:self.cfg['return_top']], "C": retC[:self.cfg['return_top']]}
-
-
-    def get_domain_rep(self, strategy):
-        if strategy is None:
-            raise RuntimeError("domain-entity relatedness strategy is None")
-
-        m = re.match(r"^d-k:(0|(100|50|25|10|5)-(w?avg))_e-k:(0|(100|50|25|10|5)-(w?avg))$", strategy)
-        if m:
-            if not m.group(2):
-                dk = 0
-                dm = None
-            else:
-                dk = int(m.group(2))
-                dm = m.group(3)
-
-            return self.load_domain_vector_by_neighbors(dk, dm)
 
     def load_domain_vector_by_neighbors(self, k, method):
         if self.domain == "book":
