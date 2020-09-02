@@ -118,8 +118,10 @@ class DomainRelatedness(EntityDomainRelatedness):
         self.domain_relatedness_threshold_NE = float(json.load(open(join(self.default_settings_dir, self.cfg['domain_relatedness_threshold_NE']), 'r'))['domain_relatedness_threshold_NE'])
         self.domain_relatedness_threshold_C = float(json.load(open(join(self.default_settings_dir, self.cfg['domain_relatedness_threshold_NE']), 'r'))['domain_relatedness_threshold_C'])
 
-        self.domain_rep_NE = self.load_domain_vector_by_neighbors(self.d_strategy(True))
-        self.domain_rep_C = self.load_domain_vector_by_neighbors(self.d_strategy(False))
+        k, m = self.d_strategy(True)
+        self.domain_rep_NE = self.load_domain_vector_by_neighbors(k, m)
+        k, m = self.d_strategy(False)
+        self.domain_rep_C = self.load_domain_vector_by_neighbors(k, m)
 
         self.entity_rep_cache = {"C": {}, "NE": {}}
 
