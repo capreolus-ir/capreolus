@@ -73,46 +73,48 @@ class DomainRelatedness(EntityDomainRelatedness):
         self.entity_linking_cache_path = el_cache_path
         self['utils'].load_pretrained_emb()
 
-        if self.cfg['strategy_NE'] is None:
-            if self.domain == 'book':
-                self.cfg['strategy_NE'] = "d-k:100-avg_e-k:100-wavg"
-            elif self.domain == 'movie':
-                self.cfg['strategy_NE'] = "d-k:0_e-k:100-avg"
-            elif self.domain == 'food':
-                self.cfg['strategy_NE'] = "d-k:10-avg_e-k:0"
-            elif self.domain == 'travel':
-                self.cfg['strategy_NE'] = "d-k:25-avg_e-k:10-avg"
-        if self.cfg['domain_relatedness_threshold_NE'] is None:
-            if self.domain == 'book':
-                self.cfg['domain_relatedness_threshold_NE'] = 0.57247805
-            elif self.domain == 'movie':
-                self.cfg['domain_relatedness_threshold_NE'] = 0.26852363
-            elif self.domain == 'food':
-                self.cfg['domain_relatedness_threshold_NE'] = 0.29420701
-            elif self.domain == 'travel':
-                self.cfg['domain_relatedness_threshold_NE'] = 0.35691148
-        logger.debug(f"getting domain representative (NE) {self.cfg['strategy_NE']}")
+        #TODO
+        #have to be given from somewhere else!!!!! read frol file maybe, or set in config, buttttt we have to give the domain as well...
+        # if self.cfg['strategy_NE'] is None:
+        #     if self.domain == 'book':
+        #         self.cfg['strategy_NE'] = "d-k:100-avg_e-k:100-wavg"
+        #     elif self.domain == 'movie':
+        #         self.cfg['strategy_NE'] = "d-k:0_e-k:100-avg"
+        #     elif self.domain == 'food':
+        #         self.cfg['strategy_NE'] = "d-k:10-avg_e-k:0"
+        #     elif self.domain == 'travel':
+        #         self.cfg['strategy_NE'] = "d-k:25-avg_e-k:10-avg"
+        # if self.cfg['domain_relatedness_threshold_NE'] is None:
+        #     if self.domain == 'book':
+        #         self.cfg['domain_relatedness_threshold_NE'] = 0.57247805
+        #     elif self.domain == 'movie':
+        #         self.cfg['domain_relatedness_threshold_NE'] = 0.26852363
+        #     elif self.domain == 'food':
+        #         self.cfg['domain_relatedness_threshold_NE'] = 0.29420701
+        #     elif self.domain == 'travel':
+        #         self.cfg['domain_relatedness_threshold_NE'] = 0.35691148
+        # logger.debug(f"getting domain representative (NE) {self.cfg['strategy_NE']}")
         self.domain_rep_NE = self.get_domain_rep(self.cfg['strategy_NE'])
-
-        if self.cfg['strategy_C'] is None:
-            if self.domain == 'book':
-                self.cfg['strategy_C'] = "d-k:5-avg_e-k:100-avg"
-            elif self.domain == 'movie':
-                self.cfg['strategy_C'] = "d-k:5-avg_e-k:25-wavg"
-            elif self.domain == 'food':
-                self.cfg['strategy_C'] = "d-k:25-wavg_e-k:50-avg"
-            elif self.domain == 'travel':
-                self.cfg['strategy_C'] = "d-k:100-avg_e-k:0"
-        if self.cfg['domain_relatedness_threshold_C'] is None:
-            if self.domain == 'book':
-                self.cfg['domain_relatedness_threshold_C'] = 0.50608605
-            elif self.domain == 'movie':
-                self.cfg['domain_relatedness_threshold_C'] = 0.46772834
-            elif self.domain == 'food':
-                self.cfg['domain_relatedness_threshold_C'] = 0.38735285
-            elif self.domain == 'travel':
-                self.cfg['domain_relatedness_threshold_C'] = 0.57309896
-        logger.debug(f"getting domain representative (C) {self.cfg['strategy_C']}")
+        #
+        # if self.cfg['strategy_C'] is None:
+        #     if self.domain == 'book':
+        #         self.cfg['strategy_C'] = "d-k:5-avg_e-k:100-avg"
+        #     elif self.domain == 'movie':
+        #         self.cfg['strategy_C'] = "d-k:5-avg_e-k:25-wavg"
+        #     elif self.domain == 'food':
+        #         self.cfg['strategy_C'] = "d-k:25-wavg_e-k:50-avg"
+        #     elif self.domain == 'travel':
+        #         self.cfg['strategy_C'] = "d-k:100-avg_e-k:0"
+        # if self.cfg['domain_relatedness_threshold_C'] is None:
+        #     if self.domain == 'book':
+        #         self.cfg['domain_relatedness_threshold_C'] = 0.50608605
+        #     elif self.domain == 'movie':
+        #         self.cfg['domain_relatedness_threshold_C'] = 0.46772834
+        #     elif self.domain == 'food':
+        #         self.cfg['domain_relatedness_threshold_C'] = 0.38735285
+        #     elif self.domain == 'travel':
+        #         self.cfg['domain_relatedness_threshold_C'] = 0.57309896
+        # logger.debug(f"getting domain representative (C) {self.cfg['strategy_C']}")
         self.domain_rep_C = self.get_domain_rep(self.cfg['strategy_C'])
 
         self.entity_rep_cache = {"C": {}, "NE": {}}
@@ -183,6 +185,9 @@ class DomainRelatedness(EntityDomainRelatedness):
 
 
     def get_domain_rep(self, strategy):
+        if strategy is None:
+            raise RuntimeError("domain-entity relatedness strategy is None")
+
         m = re.match(r"^d-k:(0|(100|50|25|10|5)-(w?avg))_e-k:(0|(100|50|25|10|5)-(w?avg))$", strategy)
         if m:
             if not m.group(2):
