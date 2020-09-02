@@ -208,14 +208,13 @@ class DomainRelatedness(EntityDomainRelatedness):
             neighbors.append(n[0])
             weights.append(n[1])
 
-        if method == 'average':
+        if method == 'avg':
             rep = np.average(self['utils'].wiki2vec[neighbors], axis=0)
-        elif method == 'weighted_average':
+        elif method == 'wavg':
             rep = np.average(self['utils'].wiki2vec[neighbors], axis=0, weights=weights)
         # elif method == 'max':
         #     rep = np.max(self['utils'].wiki2vec[neighbors], axis=0)
         else:
-            print(f"vector aggregation method not implemented or typo: {method}")
-            return
+            raise ValueError(f"vector aggregation method not implemented or typo: {method}")
 
         return rep
