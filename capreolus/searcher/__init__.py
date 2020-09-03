@@ -20,7 +20,7 @@ class Searcher(ModuleBase, metaclass=RegisterableModule):
     @staticmethod
     def load_trec_run(fn):
         run = defaultdict(dict)
-        with open(fn, "rt", os.O_NONBLOCK) as f:
+        with open(fn, "rt") as f:
             for line in f:
                 line = line.strip()
                 if len(line) > 0:
@@ -284,8 +284,10 @@ class QRels(Searcher):
                 rank = idx + 1
                 run[qid][docid] = 1.0 / rank
 
-        os.makedirs(output_path, exist_ok=True)
-        self.write_trec_run(run, os.path.join(output_path, "searcher"))
+        outfn = os.path.join(output_path, "searcher")
+        if not os.path.exists(outfn):
+            os.makedirs(output_path, exist_ok=True)
+            self.write_trec_run(run, outfn)
         return output_path
 
     def query(self, *args, **kwargs):
