@@ -20,7 +20,7 @@ class Searcher(ModuleBase, metaclass=RegisterableModule):
     @staticmethod
     def load_trec_run(fn):
         run = defaultdict(dict)
-        with open(fn, "rt") as f:
+        with open(fn, "rt", os.O_NONBLOCK) as f:
             for line in f:
                 line = line.strip()
                 if len(line) > 0:
