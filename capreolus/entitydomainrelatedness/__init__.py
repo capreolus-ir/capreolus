@@ -23,6 +23,10 @@ class EntityDomainRelatedness(ModuleBase, metaclass=RegisterableModule):
 class DomainRelatedness(EntityDomainRelatedness):
     name = 'wiki2vecrepresentative'
     default_settings_dir = PACKAGE_PATH / "data" / "domain_entity_relatedness_setting"
+    setting_file_name_mapping = {"book_prCacc": "book_maxPRAUC_maxACC",
+                                 "food_prCacc": "food_maxPRAUC_maxACC",
+                                 "travel_wikivoyage_prCacc": "travel_wikivoyage_maxPRAUC_maxACC",
+                                 "movie_prCacc": "movie_maxPRAUC_maxACC"}
     dependencies = {
         "benchmark": Dependency(module="benchmark"),
         'utils': Dependency(module="entityutils", name="wiki2vec")
@@ -42,19 +46,19 @@ class DomainRelatedness(EntityDomainRelatedness):
         domain_relatedness_threshold_C = None
 
         if strategy_NE is not None:
-            if not re.match("(book|food|travel_wikivoyage|movie)_maxPRAUC_maxACC", strategy_NE):
+            if not re.match("(book|food|travel_wikivoyage|movie)_prCacc", strategy_NE):
                 raise ValueError(f"invalid strategy_NE {strategy_NE}")
 
         if strategy_C is not None:
-            if not re.match("(book|food|travel_wikivoyage|movie)_maxPRAUC_maxACC", strategy_C):
+            if not re.match("(book|food|travel_wikivoyage|movie)_prCacc", strategy_C):
                 raise ValueError(f"invalid strategy_NE {strategy_C}")
 
         if domain_relatedness_threshold_NE is not None:
-            if not re.match("(book|food|travel_wikivoyage|movie)_maxPRAUC_maxACC", domain_relatedness_threshold_NE):
+            if not re.match("(book|food|travel_wikivoyage|movie)_prCacc", domain_relatedness_threshold_NE):
                 raise ValueError(f"invalid strategy_NE {domain_relatedness_threshold_NE}")
 
         if domain_relatedness_threshold_C is not None:
-            if not re.match("(book|food|travel_wikivoyage|movie)_maxPRAUC_maxACC", domain_relatedness_threshold_C):
+            if not re.match("(book|food|travel_wikivoyage|movie)_prCaccs", domain_relatedness_threshold_C):
                 raise ValueError(f"invalid strategy_NE {domain_relatedness_threshold_C}")
 
         return_top = -1
@@ -103,16 +107,16 @@ class DomainRelatedness(EntityDomainRelatedness):
         if self.cfg['strategy_NE'] is None or self.cfg['strategy_C'] is None or self.cfg['domain_relatedness_threshold_NE'] is None or self.cfg['domain_relatedness_threshold_NE'] is None:
             raise ValueError(f"strategies or thresholds should not be None")
 
-        self.strategy_NE = json.load(open(join(self.default_settings_dir, self.cfg['strategy_NE']), 'r'))['strategy_NE']
-        self.strategy_C = json.load(open(join(self.default_settings_dir, self.cfg['strategy_C']), 'r'))['strategy_C']
+        self.strategy_NE = json.load(open(join(self.default_settings_dir, self.setting_file_name_mapping[self.cfg['strategy_NE']]), 'r'))['strategy_NE']
+        self.strategy_C = json.load(open(join(self.default_settings_dir, self.setting_file_name_mapping[self.cfg['strategy_C']]), 'r'))['strategy_C']
         if self.strategy_NE is not None and not re.match(r"^d-k:(0|(100|50|25|10|5)-(w?avg))_e-k:(0|(100|50|25|10|5)-(w?avg))$", self.strategy_NE):
             raise ValueError(f"invalid domain embedding strategyNE: {self.strategy_NE}")
         if self.strategy_C is not None and not re.match(r"^d-k:(0|(100|50|25|10|5)-(w?avg))_e-k:(0|(100|50|25|10|5)-(w?avg))$", self.strategy_C):
             raise ValueError(f"invalid domain embedding strategyC: {self.strategy_C}")
 
 
-        self.domain_relatedness_threshold_NE = float(json.load(open(join(self.default_settings_dir, self.cfg['domain_relatedness_threshold_NE']), 'r'))['domain_relatedness_threshold_NE'])
-        self.domain_relatedness_threshold_C = float(json.load(open(join(self.default_settings_dir, self.cfg['domain_relatedness_threshold_NE']), 'r'))['domain_relatedness_threshold_C'])
+        self.domain_relatedness_threshold_NE = float(json.load(open(join(self.default_settings_dir, self.setting_file_name_mapping[self.cfg['domain_relatedness_threshold_NE']]), 'r'))['domain_relatedness_threshold_NE'])
+        self.domain_relatedness_threshold_C = float(json.load(open(join(self.default_settings_dir, self.setting_file_name_mapping[self.cfg['domain_relatedness_threshold_C']]), 'r'))['domain_relatedness_threshold_C'])
 
         k, m = self.d_strategy(True)
         self.domain_rep_NE = self.load_domain_vector_by_neighbors(k, m)
