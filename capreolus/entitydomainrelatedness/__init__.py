@@ -51,15 +51,15 @@ class DomainRelatedness(EntityDomainRelatedness):
 
         if strategy_C is not None:
             if not re.match("(book|food|travel_wikivoyage|movie)_prCacc", strategy_C):
-                raise ValueError(f"invalid strategy_NE {strategy_C}")
+                raise ValueError(f"invalid strategy_C {strategy_C}")
 
         if domain_relatedness_threshold_NE is not None:
             if not re.match("(book|food|travel_wikivoyage|movie)_prCacc", domain_relatedness_threshold_NE):
-                raise ValueError(f"invalid strategy_NE {domain_relatedness_threshold_NE}")
+                raise ValueError(f"invalid domain_relatedness_threshold_NE {domain_relatedness_threshold_NE}")
 
         if domain_relatedness_threshold_C is not None:
-            if not re.match("(book|food|travel_wikivoyage|movie)_prCaccs", domain_relatedness_threshold_C):
-                raise ValueError(f"invalid strategy_NE {domain_relatedness_threshold_C}")
+            if not re.match("(book|food|travel_wikivoyage|movie)_prCacc", domain_relatedness_threshold_C):
+                raise ValueError(f"invalid domain_relatedness_threshold_C {domain_relatedness_threshold_C}")
 
         return_top = -1
 
