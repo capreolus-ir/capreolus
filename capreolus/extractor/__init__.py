@@ -517,6 +517,7 @@ class DocStats(Extractor):
         corpus = ""
         for docid in docids:
             corpus += self["index"].get_doc(docid)
+            corpus += '\n'
         doc = self["tokenizer"].tokenize(corpus)
         doc_counter = Counter(doc)
         domain_term_probs = {k: (v / len(doc)) for k, v in doc_counter.items()}
@@ -561,8 +562,6 @@ class DocStats(Extractor):
                         txt.append(l)
 
         txt = '\n'.join(txt)
-        txt = re.sub('[,\.!?]', '', txt)
-        txt = txt.lower()
         return txt
 
     @staticmethod
@@ -586,12 +585,13 @@ class DocStats(Extractor):
         corpus = ""
         for domain in ['movie', 'travel_wikivoyage', 'food', 'book']:
             corpus += '\n'.join(all_docs[domain].values())
+            corpus += '\n'
 
         doc = self["tokenizer"].tokenize(corpus)
         doc_counter = Counter(doc)
         G_probs = {k: (v / len(doc)) for k, v in doc_counter.items()}
         G_len = len(doc)
-        return G_probs, G_len
+        return G_probs
 
     def get_G_probs_all_corpus_dfs(self, corpus_name):
         all_docs = DocStats.load_all_domains_corpus()
@@ -612,7 +612,7 @@ class DocStats(Extractor):
 
         G_num_docs = len(tokenized_docs)
         G_probs = {k: (v / G_num_docs) for k, v in dfs.items()}
-        return G_probs, G_num_docs
+        return G_probs
 
     def get_user_general_corpus(self, qids):
         goutf = join(self.get_profile_term_prob_cache_path(), "allusers")
