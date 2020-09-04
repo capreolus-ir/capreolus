@@ -45,7 +45,7 @@ wait
 
 for querytype in "${arr[@]}"
 do
-  if [ "$querytype" != "basicprofile" ] && [ "$querytype" != "chatprofile" ]; then
+  if [ "$querytype" != "query" ] && [ "$querytype" != "basicprofile" ] && [ "$querytype" != "chatprofile" ]; then
     echo "$querytype"
     echo "Entity: all  Filter=domain-k-1"
     FOLDNUM=1

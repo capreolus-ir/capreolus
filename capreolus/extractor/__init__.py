@@ -626,7 +626,6 @@ class DocStats(Extractor):
             for qid in qids:
                 uid = qid.split("_")[1]
                 if uid not in user_profile_tfs:
-                    print(uid)
                     tfs = self.qid_termprob[qid]
                     mintf = min(tfs.values())
                     voc.update(tfs.keys())
