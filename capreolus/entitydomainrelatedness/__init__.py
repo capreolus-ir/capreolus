@@ -140,7 +140,6 @@ class DomainRelatedness(EntityDomainRelatedness):
                 if w2ve not in self.entity_rep_cache[corne]:
                     self.entity_rep_cache[corne][w2ve] = self.get_representative(w2ve, ek, em)
                 entity_vectors.append(self.entity_rep_cache[corne][w2ve])
-                entity_vectors.append(self['utils'].wiki2vec.word_vec(w2ve))
 
         if len(entity_vectors) == 0:
             return {}

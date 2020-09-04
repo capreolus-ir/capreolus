@@ -50,7 +50,7 @@ wait
 if [ "$pipeline" == "ENTITY_CONCEPT_JOINT_LINKING" ]; then
   for querytype in "${arr[@]}"
   do
-    if [ "$querytype" != "basicprofile" ] && [ "$querytype" != "chatprofile" ]; then
+    if [ "$querytype" != "query" ] && [ "$querytype" != "basicprofile" ] && [ "$querytype" != "chatprofile" ]; then
       echo "$querytype"
       echo "Entity: None  Filter=domain-k-1"
       FOLDNUM=1
