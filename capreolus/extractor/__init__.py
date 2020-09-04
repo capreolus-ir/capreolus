@@ -3,6 +3,7 @@ import logging
 import os
 import re
 from collections import defaultdict, Counter
+from os import listdir
 from os.path import join, exists
 
 import numpy as np
@@ -211,7 +212,8 @@ class DocStats(Extractor):
         if filter_query is not None and not re.match(r"^(domain|user)_specific_k(\d+|-1)$", filter_query):
             raise ValueError(f"invalid filter query: {filter_query}")
 
-        if domain_vocab_specific is not None and domain_vocab_specific not in ["reweight"]:
+        # k-1 means that we are reweighting and not cutting them! TODO Add other G corpuses
+        if domain_vocab_specific is not None and not re.match(r"^(all_domains)_(tf|df)_k(\d+|-1)$", domain_vocab_specific):
             raise ValueError(f"invalid domain vocab specific {domain_vocab_specific}")
 
     @property
@@ -221,6 +223,10 @@ class DocStats(Extractor):
     @property
     def filter_query(self):
         return self.cfg["filter_query"]
+
+    @property
+    def domain_vocab_specific(self):
+        return self.cfg["domain_vocab_specific"]
 
     def exist(self):
         return hasattr(self, "doc_tf")
@@ -443,10 +449,19 @@ class DocStats(Extractor):
             self.doc_tf[docid] = Counter(doc)
             self.doc_len[docid] = len(doc)
 
-        #TODO domain term weight calculated here:
-        # and then added to BM25, LMD, LMDEmbd
-        # we would just multiply it by the doc_tf (BM25 uses IDF(clueweb) * tf * w
-        # LM: also... looks weird a bit
+        # Here we calculate domain-vocab-term-specificity weights.
+        # Then these weights are used in the rerankers.
+        # we do this by multiplyinh these weights by the term-score of each reranker. TODO But other things also could be done!
+        if self.domain_vocab_specific is not None:
+            m = re.match(r"^(all_domains)_(tf|df)_k(\d+|-1)$", self.domain_vocab_specific)
+            if m:
+                domain_vocab_sp_general_corpus = m.group(1)
+                domain_vocab_sp_tf_or_df = m.group(2)
+                domain_vocab_sp_cut_at_k = int(m.group(3))
+                if domain_vocab_sp_cut_at_k != -1:
+                    raise ValueError(f"domain_vocab_sp_cut_at_k is not implemented!")
+            self.domain_term_weight = self.get_domain_specific_term_weights(domain_vocab_sp_general_corpus, domain_vocab_sp_tf_or_df, docids)
+
 
         # todo: I have removed "Fixed partner" and "(or with a ..)" from the profiles [locally] (this should be done in the data on the servers and before publishing the data)
 
@@ -472,6 +487,132 @@ class DocStats(Extractor):
         # diff_items = {k: list([self.query_avg_doc_len[k], query_avg_doc_len[k]]) for k in self.query_avg_doc_len if k in query_avg_doc_len and self.query_avg_doc_len[k] != query_avg_doc_len[k]}
         # print(len(shared_items), shared_items)
         # print(len(diff_items), diff_items) ## there are very different
+
+    def get_domain_specific_term_weights(self, corpus_name, tf_or_df, docids):
+        if tf_or_df == 'tf':
+            domain_term_probs = self.get_domain_term_probs_tf(docids)
+            if corpus_name == "all_domains":
+                G_probs = self.get_G_probs_all_corpus_tfs(corpus_name)
+            else:
+                raise ValueError(f"domain-term specific weighting not implemented for {corpus_name}")
+        elif tf_or_df == 'df':
+            domain_term_probs = self.get_domain_term_probs_df(docids)
+            if corpus_name == "all_domains":
+                G_probs = self.get_G_probs_all_corpus_dfs(corpus_name)
+            else:
+                raise ValueError(f"domain-term specific weighting not implemented for {corpus_name}")
+
+        reweighted_term_weights = {}
+
+        for term, p in domain_term_probs.items():
+            reweighted_term_weights[term] = p / G_probs[term]
+
+        # normalize : we could normalize them, but let's not...
+#         sum_vals = sum(reweighted_term_weights[domain].values())
+#         reweighted_term_weights[domain] = {k: v/sum_vals for k, v in reweighted_term_weights[domain].items()}
+
+        return reweighted_term_weights
+
+    def get_domain_term_probs_tf(self, docids):
+        corpus = ""
+        for docid in docids:
+            corpus += self["index"].get_doc(docid)
+        doc = self["tokenizer"].tokenize(corpus)
+        doc_counter = Counter(doc)
+        domain_term_probs = {k: (v / len(doc)) for k, v in doc_counter.items()}
+        return domain_term_probs
+
+    def get_domain_term_probs_df(self, docids):
+        tokenized_docs = {}
+        all_vocab = set()
+        #I could directly use the index to get the df,... but I just used this for now. It doesn't take much time.
+        for docid in docids:
+            doc = self["tokenizer"].tokenize(self["index"].get_doc(docid))
+            doc_counter = Counter(doc)
+            all_vocab.update(doc_counter.keys())
+            tokenized_docs[docid] = doc_counter.keys()
+        dfs = {}
+        for v in all_vocab:
+            dfs[v] = 0
+            for d in tokenized_docs:
+                if v in tokenized_docs[d]:
+                    dfs[v] += 1
+
+        domain_probs = {k: (v / len(docids)) for k, v in dfs.items()}
+        return domain_probs
+
+    @staticmethod
+    def getcontent(file):
+        txt = []
+        content = False
+        with open(file) as f:
+            for l in f:
+                if l.strip().startswith("<TEXT>"):
+                    content = True
+                if l.strip().endswith("</TEXT>"):
+                    content = False
+                    l = l.replace("</TEXT>", '').strip()
+                    if len(l) > 0:
+                        txt.append(l)
+
+                if content:
+                    l = l.replace("<TEXT>", '').strip()
+                    if len(l) > 0:
+                        txt.append(l)
+
+        txt = '\n'.join(txt)
+        txt = re.sub('[,\.!?]', '', txt)
+        txt = txt.lower()
+        return txt
+
+    @staticmethod
+    def load_all_domains_corpus():
+        domain_documents = {}
+
+        for domain in ['movie', 'travel_wikivoyage', 'food', 'book']:
+            doc_dir = f"/GW/PKB/work/data_personalization/TREC_format/documents/{domain}/"
+
+            domain_documents[domain] = {}
+
+            files = listdir(doc_dir)
+            for fn in files:
+                fid = fn[:-4]
+                txt = DocStats.getcontent(join(doc_dir, fn))
+                domain_documents[domain][fid] = txt
+        return domain_documents
+
+    def get_G_probs_all_corpus_tfs(self, corpus_name):
+        all_docs = DocStats.load_all_domains_corpus()
+        corpus = ""
+        for domain in ['movie', 'travel_wikivoyage', 'food', 'book']:
+            corpus += '\n'.join(all_docs[domain].values())
+
+        doc = self["tokenizer"].tokenize(corpus)
+        doc_counter = Counter(doc)
+        G_probs = {k: (v / len(doc)) for k, v in doc_counter.items()}
+        G_len = len(doc)
+        return G_probs, G_len
+
+    def get_G_probs_all_corpus_dfs(self, corpus_name):
+        all_docs = DocStats.load_all_domains_corpus()
+        tokenized_docs = {}
+        all_vocab = set()
+        for domain in ['movie', 'travel_wikivoyage', 'food', 'book']:
+            for d in all_docs[domain]:
+                doc = self["tokenizer"].tokenize(all_docs[domain][d])
+                doc_counter = Counter(doc)
+                all_vocab.update(doc_counter.keys())
+                tokenized_docs[f"{domain}_{d}"] = doc_counter.keys()
+        dfs = {}
+        for v in all_vocab:
+            dfs[v] = 0
+            for d in tokenized_docs:
+                if v in tokenized_docs[d]:
+                    dfs[v] += 1
+
+        G_num_docs = len(tokenized_docs)
+        G_probs = {k: (v / G_num_docs) for k, v in dfs.items()}
+        return G_probs, G_num_docs
 
     def get_user_general_corpus(self, qids):
         goutf = join(self.get_profile_term_prob_cache_path(), "allusers")

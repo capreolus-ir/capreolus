@@ -45,9 +45,12 @@ class LMDirichletReranker(Reranker):
         term_scores = {}
         scoresum = 0
         for term in queryvocab:
-            temp = -1 * self.score_document_term(term, docid, qid, mu)
-            term_scores[term] = temp
-            scoresum += temp
+            termscore = -1 * self.score_document_term(term, docid, qid, mu)
+            if termscore != 0 and self["extractor"].domain_vocab_specific is not None:
+                if term in self["extractor"].domain_term_weight: #since we might have it from the smoothing only
+                    termscore *= self["extractor"].domain_term_weight[term]
+            term_scores[term] = termscore
+            scoresum += termscore
 
         os.makedirs(self.get_docscore_cache_path(), exist_ok=True)
         outf = join(self.get_docscore_cache_path(), f"{qid}_{docid}")
