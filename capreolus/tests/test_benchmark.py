@@ -112,7 +112,7 @@ def test_csn_challenge_download_if_missing():
     assert benmchmark.qid_map_file.exists() and benmchmark.topic_file.exists()
 
 
-# @pytest.mark.download
+@pytest.mark.download
 def test_covid_round3_qrel_conversion():
     collection_config = {"name": "covid", "round": 3, "coll_type": "abstract"}
     benchmark_config = {"name": "covid", "udelqexpand": False, "useprevqrels": False}
