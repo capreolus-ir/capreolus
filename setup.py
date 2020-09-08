@@ -58,7 +58,7 @@ setuptools.setup(
         "psycopg2-binary",
         "matplotlib",
         "colorlog==4.0.2",
-        "pytrec_eval_git",
+        "pytrec_eval>=0.5",
         "pytest",
         "pyjnius==1.2.1",
         "pymagnitude==0.1.120",
