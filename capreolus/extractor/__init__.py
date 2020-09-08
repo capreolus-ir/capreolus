@@ -50,7 +50,7 @@ class EmbedText(Extractor):
     name = "embedtext"
     dependencies = {
         "index": Dependency(module="index", name="anserini", config_overrides={"indexstops": True, "stemmer": "none"}),
-        "tokenizer": Dependency(module="tokenizer", name="anserini"),
+        "tokenizer": Dependency(module="tokenizer", name="anserini", config_overrides={"keepstops": False}),
     }
 
     pad = 0
@@ -205,6 +205,7 @@ class DocStats(Extractor):
         entity_strategy = None
         filter_query = None
         domain_vocab_specific = None
+        onlyNamedEntities = False
 
         if entity_strategy not in [None, 'all', 'domain', 'specific_domainrel']:  # TODO add strategies
             raise ValueError(f"invalid entity usage strategy (or not implemented): {entity_strategy}")
@@ -686,19 +687,24 @@ class DocStats(Extractor):
         if self.entity_strategy is None:
             return {"NE": [], "C": []} #TODO propagate this change to what calls this function
         elif self.entity_strategy == 'all':
-            return self['entitylinking'].get_all_entities(profile_id)
+            ret = self['entitylinking'].get_all_entities(profile_id)
         elif self.entity_strategy == 'domain':
-            return self["domainrelatedness"].get_domain_related_entities(
+            ret = self["domainrelatedness"].get_domain_related_entities(
                 profile_id, self['entitylinking'].get_all_entities(profile_id)
             )
         elif self.entity_strategy == 'specific_domainrel':
-            return self['entityspecificity'].top_specific_entities(
+            ret = self['entityspecificity'].top_specific_entities(
                 profile_id, self["domainrelatedness"].get_domain_related_entities(
                     profile_id, self['entitylinking'].get_all_entities(profile_id)
                 )
             )
         else:
             raise NotImplementedError("TODO implement other entity strategies (by first implementing measures)")
+
+        if self.cfg["onlyNamedEntities"]:
+            return {"NE": ret["NE"], "C": []}
+        
+        return ret
 
     def id2vec(self, qid, posid, negid=None, query=None):#todo (ask) where is it used?
         # if query is not None:

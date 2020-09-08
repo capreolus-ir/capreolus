@@ -35,7 +35,6 @@ class AmbiverseNLU(EntityLinking):
         descriptions = "YAGO_long_short"
         pipeline = "ENTITY_CONCEPT_JOINT_LINKING" #"ENTITY_CONCEPT_SEPARATE_LINKING", "ENTITY_CONCEPT_SALIENCE_STANFORD", "ENTITY_CONCEPT_SALIENCE" "ENTITY_CONCEPT_SPOTTING_SEPARATE_DISAMBIGUATION" "ENTITY_CONCEPT_SPOTTING_JOINT_DISAMBIGUATION"
         typerestriction = False #if true we restrict movies, books, travel, food named entities
-        onlyNamedEntities = False
 
     def get_extracted_entities_cache_path(self):
         # logger.debug(f"entities cache path: {self.get_cache_path()}")
@@ -56,10 +55,6 @@ class AmbiverseNLU(EntityLinking):
     @property
     def pipeline(self):
         return self.cfg["pipeline"]
-
-    @property
-    def onlyNamedEntities(self):
-        return self.cfg["onlyNamedEntities"]
 
     def extract_entities(self, textid, text):
         if self.get_benchmark_querytype() == 'entityprofile':
@@ -212,7 +207,4 @@ class AmbiverseNLU(EntityLinking):
             named_entities.update([e['name'] for e in data['entities'] if e['type'] != 'CONCEPT'])
             concepts.update([e['name'] for e in data['entities'] if e['type'] == 'CONCEPT'])
 
-        if self.onlyNamedEntities:
-            return {"NE": list(named_entities), "C": []}
-        
         return {"NE": list(named_entities), "C": list(concepts)}
