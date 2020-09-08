@@ -1,5 +1,5 @@
 import tensorflow as tf
-from transformers import TFBertModel
+from transformers import TFBertModel, TFElectraModel
 from transformers.modeling_tf_bert import TFBertLayer
 
 from capreolus import ConfigOption, Dependency
@@ -25,7 +25,7 @@ class TFParade_Class(tf.keras.layers.Layer):
             input_embeddings = self.bert.get_input_embeddings()
             cls_token_id = tf.convert_to_tensor([101])
             cls_token_id = tf.reshape(cls_token_id, [1, 1])
-            self.initial_cls_embedding = input_embeddings([cls_token_id, None, None, None])
+            self.initial_cls_embedding = input_embeddings(input_ids=cls_token_id)
             self.initial_cls_embedding = tf.reshape(self.initial_cls_embedding, [1, self.bert.config.hidden_size])
             initializer = tf.random_normal_initializer(stddev=0.02)
             full_position_embeddings = tf.Variable(
@@ -51,8 +51,8 @@ class TFParade_Class(tf.keras.layers.Layer):
 
         merged_cls += self.full_position_embeddings
 
-        (transformer_out_1,) = self.transformer_layer_1((merged_cls, None, None, None))
-        (transformer_out_2,) = self.transformer_layer_2((transformer_out_1, None, None, None))
+        (transformer_out_1,) = self.transformer_layer_1(merged_cls, None, None, None)
+        (transformer_out_2,) = self.transformer_layer_2(transformer_out_1, None, None, None)
 
         aggregated = transformer_out_2[:, 0, :]
         return aggregated
