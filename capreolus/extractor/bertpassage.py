@@ -53,6 +53,7 @@ class BertPassage(Extractor):
 
     def load_state(self, qids, docids):
         cache_fn = self.get_state_cache_file_path(qids, docids)
+        logger.debug("loading state from: %s", cache_fn)
         with open(cache_fn, "rb") as f:
             state_dict = pickle.load(f)
             self.qid2toks = state_dict["qid2toks"]
