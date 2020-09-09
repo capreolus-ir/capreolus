@@ -1,6 +1,7 @@
 import json
 import logging
 import os
+import pickle
 import re
 from collections import defaultdict, Counter
 from os import listdir
@@ -9,7 +10,7 @@ from os.path import join, exists
 import numpy as np
 from pymagnitude import Magnitude, MagnitudeUtils
 
-from capreolus.registry import ModuleBase, RegisterableModule, Dependency, CACHE_BASE_PATH
+from capreolus.registry import ModuleBase, RegisterableModule, Dependency, CACHE_BASE_PATH, PACKAGE_PATH
 from capreolus.utils.loginit import get_logger
 from capreolus.utils.common import padlist, get_file_name, get_user_profiles
 from capreolus.utils.exceptions import MissingDocError
@@ -214,7 +215,7 @@ class DocStats(Extractor):
             raise ValueError(f"invalid filter query: {filter_query}")
 
         # k-1 means that we are reweighting and not cutting them! TODO Add other G corpuses
-        if domain_vocab_specific is not None and not re.match(r"^(all_domains)_(tf|df)_k(\d+|-1)$", domain_vocab_specific):
+        if domain_vocab_specific is not None and not re.match(r"^(all_domains|amazon)_(tf|df)_k(\d+|-1)$", domain_vocab_specific):
             raise ValueError(f"invalid domain vocab specific {domain_vocab_specific}")
 
     @property
@@ -454,7 +455,7 @@ class DocStats(Extractor):
         # Then these weights are used in the rerankers.
         # we do this by multiplyinh these weights by the term-score of each reranker. TODO But other things also could be done!
         if self.domain_vocab_specific is not None:
-            m = re.match(r"^(all_domains)_(tf|df)_k(\d+|-1)$", self.domain_vocab_specific)
+            m = re.match(r"^(all_domains|amazon)_(tf|df)_k(\d+|-1)$", self.domain_vocab_specific)
             if m:
                 domain_vocab_sp_general_corpus = m.group(1)
                 domain_vocab_sp_tf_or_df = m.group(2)
@@ -493,13 +494,17 @@ class DocStats(Extractor):
         if tf_or_df == 'tf':
             domain_term_probs = self.get_domain_term_probs_tf(docids)
             if corpus_name == "all_domains":
-                G_probs = self.get_G_probs_all_corpus_tfs(corpus_name)
+                G_probs = self.get_G_probs_all_corpus_tfs()
+            elif corpus_name == 'amazon':
+                G_probs = self.get_G_probs_amazon_tfs()
             else:
                 raise ValueError(f"domain-term specific weighting not implemented for {corpus_name}")
         elif tf_or_df == 'df':
             domain_term_probs = self.get_domain_term_probs_df(docids)
             if corpus_name == "all_domains":
-                G_probs = self.get_G_probs_all_corpus_dfs(corpus_name)
+                G_probs = self.get_G_probs_all_corpus_dfs()
+            elif corpus_name == 'amazon':
+                G_probs = self.get_G_probs_amazon_dfs()
             else:
                 raise ValueError(f"domain-term specific weighting not implemented for {corpus_name}")
 
@@ -581,7 +586,28 @@ class DocStats(Extractor):
                 domain_documents[domain][fid] = txt
         return domain_documents
 
-    def get_G_probs_all_corpus_tfs(self, corpus_name):
+    @staticmethod
+    def get_G_tfs_amazon_raw_from_file():
+        amazonfile = PACKAGE_PATH / "data" / "corpus_stats" / "amazon_reviews_term_freq"
+        if exists(amazonfile):
+            G_tfs = pickle.load(open(amazonfile, "rb"))
+            G_len = 0
+            for v, tf in G_tfs.items():
+                G_len += tf
+            return G_tfs, G_len
+        RuntimeError(f"{amazonfile} does not exist!")
+
+    @staticmethod
+    def get_G_dfs_amazon_raw_from_file():
+        amazonfile = PACKAGE_PATH / "data" / "corpus_stats" / "amazon_reviews_doc_freq"
+        if exists(amazonfile):
+            data = pickle.load(open(amazonfile, "rb"))
+            G_dfs = data["G_dfs"]
+            G_num_docs = data["G_num_docs"]
+            return G_dfs, G_num_docs
+        RuntimeError(f"{amazonfile} does not exist!")
+
+    def get_G_probs_all_corpus_tfs(self):
         all_docs = DocStats.load_all_domains_corpus()
         corpus = ""
         for domain in ['movie', 'travel_wikivoyage', 'food', 'book']:
@@ -594,7 +620,40 @@ class DocStats(Extractor):
         G_len = len(doc)
         return G_probs
 
-    def get_G_probs_all_corpus_dfs(self, corpus_name):
+    def get_G_probs_amazon_tfs(self):
+        G_tfs_raw, G_len_raw = DocStats.get_G_tfs_amazon_raw_from_file()
+        all_docs = DocStats.load_all_domains_corpus()
+        corpus = ""
+        for domain in ['movie', 'travel_wikivoyage', 'food', 'book']:
+            corpus += '\n'.join(all_docs[domain].values())
+            corpus += '\n'
+
+        doc = self["tokenizer"].tokenize(corpus)
+        domain_counter = Counter(doc)
+        G_probs = {k: (v + (G_tfs_raw[k] if k in G_tfs_raw else 0)) / (len(doc) + G_len_raw) for k, v in domain_counter.items()}
+        G_len = len(doc) + G_len_raw
+        return G_probs
+
+    def get_G_probs_amazon_dfs(self):
+        G_dfs_raw, G_num_docs_raw = DocStats.get_G_dfs_amazon_raw_from_file()
+        all_docs = DocStats.load_all_domains_corpus()
+
+        d_num_docs = 0
+        dfs = {}
+        for domain in ['movie', 'travel_wikivoyage', 'food', 'book']:
+            for d in all_docs[domain]:
+                doc = self["tokenizer"].tokenize(all_docs[domain][d])
+                for term in set(doc):
+                    if term not in dfs:
+                        dfs[term] = 0
+                    dfs[term] += 1
+                d_num_docs += 1
+
+        G_num_docs = d_num_docs + G_num_docs_raw
+        G_probs = {k: (v + (G_dfs_raw[k] if k in G_dfs_raw else 0)) / G_num_docs for k, v in dfs.items()}
+        return G_probs
+    
+    def get_G_probs_all_corpus_dfs(self):
         all_docs = DocStats.load_all_domains_corpus()
         tokenized_docs = {}
         all_vocab = set()
@@ -644,7 +703,6 @@ class DocStats(Extractor):
                 f.write(json.dumps(GU))
 
         return GU
-
 
     def get_domain_general_corpus(self, qids, baseprofiletype, userfullprofiles):
         GD = {}
