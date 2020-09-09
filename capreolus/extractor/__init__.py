@@ -632,7 +632,7 @@ class DocStats(Extractor):
         domain_counter = Counter(doc)
         G_probs = {k: (v + (G_tfs_raw[k] if k in G_tfs_raw else 0)) / (len(doc) + G_len_raw) for k, v in domain_counter.items()}
         G_len = len(doc) + G_len_raw
-        return G_probs, G_len
+        return G_probs
 
     def get_G_probs_amazon_dfs(self):
         G_dfs_raw, G_num_docs_raw = DocStats.get_G_dfs_amazon_raw_from_file()
@@ -656,7 +656,7 @@ class DocStats(Extractor):
 
         G_num_docs = len(tokenized_docs) + G_num_docs_raw
         G_probs = {k: (v + G_dfs_raw[k] if k in G_dfs_raw else 0) / G_num_docs for k, v in dfs.items()}
-        return G_probs, G_num_docs
+        return G_probs
 
     def get_G_probs_all_corpus_dfs(self):
         all_docs = DocStats.load_all_domains_corpus()
