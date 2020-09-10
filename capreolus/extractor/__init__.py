@@ -638,26 +638,21 @@ class DocStats(Extractor):
         G_dfs_raw, G_num_docs_raw = DocStats.get_G_dfs_amazon_raw_from_file()
         all_docs = DocStats.load_all_domains_corpus()
 
-        tokenized_docs = []
-        all_vocab = set()
+        d_num_docs = 0
+        dfs = {}
         for domain in ['movie', 'travel_wikivoyage', 'food', 'book']:
             for d in all_docs[domain]:
                 doc = self["tokenizer"].tokenize(all_docs[domain][d])
-                doc_counter = Counter(doc)
-                all_vocab.update(doc_counter.keys())
-                tokenized_docs.append(doc_counter.keys())
+                for term in set(doc):
+                    if term not in dfs:
+                        dfs[term] = 0
+                    dfs[term] += 1
+                d_num_docs += 1
 
-        dfs = {}
-        for k in all_vocab:
-            dfs[k] = 0
-            for d in tokenized_docs:
-                if k in d:
-                    dfs[k] += 1
-
-        G_num_docs = len(tokenized_docs) + G_num_docs_raw
-        G_probs = {k: (v + G_dfs_raw[k] if k in G_dfs_raw else 0) / G_num_docs for k, v in dfs.items()}
+        G_num_docs = d_num_docs + G_num_docs_raw
+        G_probs = {k: (v + (G_dfs_raw[k] if k in G_dfs_raw else 0)) / G_num_docs for k, v in dfs.items()}
         return G_probs
-
+    
     def get_G_probs_all_corpus_dfs(self):
         all_docs = DocStats.load_all_domains_corpus()
         tokenized_docs = {}
