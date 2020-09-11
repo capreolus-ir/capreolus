@@ -24,6 +24,7 @@ class BM25Reranker(Reranker):
     def config():
         b = 0.4
         k1 = 0.9
+        c = None #query tf dampening factor
 
     def build(self):
         return self
@@ -46,65 +47,47 @@ class BM25Reranker(Reranker):
 
 
     def score_document_tf(self, querytp, querylen, qid, docid, avg_doc_len):
-        # TODO is it correct to skip over terms that don't appear to be in the idf vocab?
         term_scores = {}
-        accumulated_scores = {}
         scoresum = 0
         for term, tp in querytp.items():
-            termscore = self.score_document_term(term, docid, avg_doc_len)
+            termscore = self.score_document_term(term, docid, avg_doc_len, round(tp * querylen)) #query: tf = tp*len
             if termscore != 0 and self["extractor"].domain_vocab_specific is not None:
                 termscore *= self["extractor"].domain_term_weight[term]
+            if termscore != 0 and self["extractor"].filter_query is not None:
+                termscore *= self["extractor"].profile_vocab_specific[term]
 
             term_scores[term] = termscore
-            accumulated_scores[term] = termscore * round(tp * querylen) #query: tf = tp*len
-            scoresum += accumulated_scores[term]
+            scoresum += termscore
 
         os.makedirs(self.get_docscore_cache_path(), exist_ok=True)
         outf = join(self.get_docscore_cache_path(), f"{qid}_{docid}")
-        # if not exists(outf):
         with open(outf, 'w') as f:
-            term_scores["OVERALL_SCORE"] = "-"
-            accumulated_scores["OVERALL_SCORE"] = scoresum
-            sorted_acc_scores = {k: v for k, v in
-                                 sorted(accumulated_scores.items(), key=lambda item: item[1], reverse=True)}
-            final_scores = {k: (v, term_scores[k]) for k, v in sorted_acc_scores.items()}
+            term_scores["OVERALL_SCORE"] = scoresum
+            sorted_scores = {k: v for k, v in sorted(term_scores.items(), key=lambda item: item[1], reverse=True)}
+            final_scores = {}
+            for k, v in sorted_scores.items():
+                domain_term_weight = "-"
+                if self["extractor"].domain_vocab_specific is not None:
+                    domain_term_weight = self["extractor"].domain_term_weight[k] if k in self["extractor"].domain_term_weight else "-"
+                query_term_weight = "-"
+                if self["extractor"].filter_query is not None:
+                    query_term_weight = self["extractor"].profile_vocab_specific[k] if k in self["extractor"].profile_vocab_specific else "-"
+                final_scores[k] = (v, domain_term_weight, query_term_weight)
             f.write(json.dumps(final_scores, indent=4))
 
         return scoresum
-        # return sum(self.score_document_term(term, docid, avg_doc_len) for term in query)
 
-    def score_document_term(self, term, docid, avg_doc_len):
+    def score_document_term(self, term, docid, avg_doc_len, query_tf):
         tf = self["extractor"].doc_tf[docid].get(term, 0)
         numerator = tf * (self.cfg["k1"] + 1)
         denominator = tf + self.cfg["k1"] * (1 - self.cfg["b"] + self.cfg["b"] * (self["extractor"].doc_len[docid] / avg_doc_len))
+        doctf = numerator / denominator
+
+        if self.cfg["c"] is None:
+            qtf = query_tf
+        else:
+            qtf = (query_tf * (self.cfg["c"] + 1)) / (query_tf + self.cfg["c"])
 
         idf = self["extractor"].background_idf(term)
 
-        return idf * (numerator / denominator)
-
-
-    # def score_document(self, query, qid, docid, avg_doc_len):
-    #     # TODO is it correct to skip over terms that don't appear to be in the idf vocab?
-    #     term_scores = {}
-    #     accumulated_scores = {}
-    #     scoresum = 0
-    #     for term in query:
-    #         temp = self.score_document_term(term, docid, avg_doc_len)
-    #         if term not in accumulated_scores:
-    #             accumulated_scores[term] = 0
-    #         term_scores[term] = temp
-    #         accumulated_scores[term] += temp
-    #         scoresum += temp
-    #
-    #     os.makedirs(self.get_docscore_cache_path(), exist_ok=True)
-    #     outf = join(self.get_docscore_cache_path(), f"{qid}_{docid}")
-    #     # if not exists(outf):
-    #     with open(outf, 'w') as f:
-    #         term_scores["OVERALL_SCORE"] = "-"
-    #         accumulated_scores["OVERALL_SCORE"] = scoresum
-    #         sorted_acc_scores = {k: v for k, v in sorted(accumulated_scores.items(), key=lambda item: item[1], reverse=True)}
-    #         final_scores = {k: (v, term_scores[k]) for k, v in sorted_acc_scores.items()}
-    #         f.write(json.dumps(final_scores, indent=4))
-    #
-    #     return scoresum
-    #     #return sum(self.score_document_term(term, docid, avg_doc_len) for term in query)
+        return idf * doctf * qtf
