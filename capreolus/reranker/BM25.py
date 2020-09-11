@@ -24,7 +24,7 @@ class BM25Reranker(Reranker):
     def config():
         b = 0.4
         k1 = 0.9
-        c = 1.5 #query tf dampening factor
+        c = None #query tf dampening factor
 
     def build(self):
         return self
@@ -63,8 +63,7 @@ class BM25Reranker(Reranker):
         outf = join(self.get_docscore_cache_path(), f"{qid}_{docid}")
         with open(outf, 'w') as f:
             term_scores["OVERALL_SCORE"] = scoresum
-            sorted_scores = {k: v for k, v in
-                                 sorted(termscore.items(), key=lambda item: item[1], reverse=True)}
+            sorted_scores = {k: v for k, v in sorted(term_scores.items(), key=lambda item: item[1], reverse=True)}
             final_scores = {}
             for k, v in sorted_scores.items():
                 domain_term_weight = "-"
@@ -84,7 +83,10 @@ class BM25Reranker(Reranker):
         denominator = tf + self.cfg["k1"] * (1 - self.cfg["b"] + self.cfg["b"] * (self["extractor"].doc_len[docid] / avg_doc_len))
         doctf = numerator / denominator
 
-        qtf = (query_tf * (self.cfg["c"] + 1)) / (query_tf + self.cfg["c"])
+        if self.cfg["c"] is None:
+            qtf = query_tf
+        else:
+            qtf = (query_tf * (self.cfg["c"] + 1)) / (query_tf + self.cfg["c"])
 
         idf = self["extractor"].background_idf(term)
 
