@@ -211,18 +211,8 @@ class DocStats(Extractor):
         if entity_strategy not in [None, 'all', 'domain', 'specific_domainrel']:  # TODO add strategies
             raise ValueError(f"invalid entity usage strategy (or not implemented): {entity_strategy}")
 
-        if filter_query is not None:# and not re.match(r"^(topic-alltopics|topic-amazon|user-allusers)_tf_k(\d+|-1)$", filter_query):
-            m = re.match(r"^(topic|user)-(alltopics|amazon|allusers)_tf_k(\d+|-1)$", filter_query)
-            if m:
-                filter_by = m.group(1)
-                filter_by_corpus = m.group(2)
-                filter_topk = int(m.group(3))  # TODO implement
-                if filter_by == 'topic' and filter_by_corpus == 'allusers':
-                    raise ValueError(f"invalid filter query: {filter_query}")
-                if filter_by == 'user' and filter_by_corpus != 'allusers': #TODO add corpuses
-                    raise ValueError(f"invalid filter query: {filter_query}")
-            else:
-                raise ValueError(f"invalid filter query: {filter_query}")
+        if filter_query is not None and not re.match(r"^(topic-alltopics|topic-amazon|user-allusers)_tf_k(\d+|-1)$", filter_query):
+            raise ValueError(f"invalid filter query: {filter_query}")
 
 
         # k-1 means that we are reweighting and not cutting them! TODO Add other G corpuses
@@ -331,6 +321,13 @@ class DocStats(Extractor):
         if self.filter_query is not None:
             m = re.match(r"^(topic|user)-(alltopics|amazon|allusers)_tf_k(\d+|-1)$", self.filter_query)
             if m:
+                filter_by = m.group(1)
+                filter_by_corpus = m.group(2)
+                filter_topk = int(m.group(3))  # TODO implement
+                if filter_by == 'topic' and filter_by_corpus == 'allusers':
+                    raise ValueError(f"invalid filter query: {self.filter_query}")
+                if filter_by == 'user' and filter_by_corpus != 'allusers': #TODO add corpuses
+                    raise ValueError(f"invalid filter query: {self.filter_query}")
                 self.profile_term_weight_by = m.group(1)
                 self.profile_term_weight_by_corpus = m.group(2)
                 filter_topk = int(m.group(3)) #TODO implement
