@@ -211,18 +211,8 @@ class DocStats(Extractor):
         if entity_strategy not in [None, 'all', 'domain', 'specific_domainrel']:  # TODO add strategies
             raise ValueError(f"invalid entity usage strategy (or not implemented): {entity_strategy}")
 
-        if filter_query is not None:# and not re.match(r"^(topic-alltopics|topic-amazon|user-allusers)_tf_k(\d+|-1)$", filter_query):
-            m = re.match(r"^(topic|user)-(alltopics|amazon|allusers)_tf_k(\d+|-1)$", filter_query)
-            if m:
-                filter_by = m.group(1)
-                filter_by_corpus = m.group(2)
-                filter_topk = int(m.group(3))  # TODO implement
-                if filter_by == 'topic' and filter_by_corpus == 'allusers':
-                    raise ValueError(f"invalid filter query: {filter_query}")
-                if filter_by == 'user' and filter_by_corpus != 'allusers': #TODO add corpuses
-                    raise ValueError(f"invalid filter query: {filter_query}")
-            else:
-                raise ValueError(f"invalid filter query: {filter_query}")
+        if filter_query is not None and not re.match(r"^(topic-alltopics|topic-amazon|user-allusers)_tf_k(\d+|-1)$", filter_query):
+            raise ValueError(f"invalid filter query: {filter_query}")
 
 
         # k-1 means that we are reweighting and not cutting them! TODO Add other G corpuses
@@ -289,8 +279,10 @@ class DocStats(Extractor):
 
         logger.debug("tokenizing queries [+entity descriptions]")
         if logger.level in [logging.DEBUG, logging.NOTSET]:
-            os.makedirs(self.get_profile_term_prob_cache_path(), exist_ok=True)
-        os.makedirs(self.get_selected_entities_cache_path(), exist_ok=True)
+            if not exists(self.get_profile_term_prob_cache_path()):
+                os.makedirs(self.get_profile_term_prob_cache_path(), exist_ok=True)
+        if not exists(self.get_selected_entities_cache_path()):
+            os.makedirs(self.get_selected_entities_cache_path(), exist_ok=True)
 
         # self.qid2toks = {}
         self.qidlen = {}
@@ -302,7 +294,7 @@ class DocStats(Extractor):
             entoutf = join(self.get_selected_entities_cache_path(), get_file_name(qid, self["entitylinking"].get_benchmark_name(), self["entitylinking"].get_benchmark_querytype()))
             if exists(entoutf):
                 with open(entoutf, 'r') as f:
- #                   logger.debug(entoutf)
+                    logger.debug(entoutf)
                     qentities = json.loads(f.read())
             else:
                 qentities = self.get_entities(qid) # {"NE": [...], "C": [...]}
@@ -331,6 +323,13 @@ class DocStats(Extractor):
         if self.filter_query is not None:
             m = re.match(r"^(topic|user)-(alltopics|amazon|allusers)_tf_k(\d+|-1)$", self.filter_query)
             if m:
+                filter_by = m.group(1)
+                filter_by_corpus = m.group(2)
+                filter_topk = int(m.group(3))  # TODO implement
+                if filter_by == 'topic' and filter_by_corpus == 'allusers':
+                    raise ValueError(f"invalid filter query: {self.filter_query}")
+                if filter_by == 'user' and filter_by_corpus != 'allusers': #TODO add corpuses
+                    raise ValueError(f"invalid filter query: {self.filter_query}")
                 self.profile_term_weight_by = m.group(1)
                 self.profile_term_weight_by_corpus = m.group(2)
                 filter_topk = int(m.group(3)) #TODO implement
@@ -424,8 +423,9 @@ class DocStats(Extractor):
 
         s_user_probs = {}
         for uid in user_profile_tfs:
+            s_user_probs[uid] = {}
             for term, tf in user_profile_tfs[uid].items():
-                s_user_probs[term] = tf / user_profile_len[uid]
+                s_user_probs[uid][term] = tf / user_profile_len[uid]
 
         G_probs = {}
         for term in voc:
@@ -754,14 +754,21 @@ class DocStatsEmbedding(DocStats):
     @staticmethod
     def config():
         entity_strategy = None
-        filter_query = None
+        filter_query = None # this is profile term weighting (on profiles)
+        domain_vocab_specific = None # this is domain term weighting (on docs)
+        onlyNamedEntities = False
 
         if entity_strategy not in [None, 'all', 'domain', 'specific_domainrel']:  # TODO add strategies
             raise ValueError(f"invalid entity usage strategy (or not implemented): {entity_strategy}")
 
-        if filter_query is not None and not re.match(r"^(domain|user)_specific_k(\d+|-1)$", filter_query):
+        if filter_query is not None and not re.match(r"^(topic-alltopics|topic-amazon|user-allusers)_tf_k(\d+|-1)$", filter_query):
             raise ValueError(f"invalid filter query: {filter_query}")
 
+
+        # k-1 means that we are reweighting and not cutting them! TODO Add other G corpuses
+        if domain_vocab_specific is not None and not re.match(r"^(all_domains|amazon)_(tf|df)_k(\d+|-1)$", domain_vocab_specific):
+            raise ValueError(f"invalid domain vocab specific {domain_vocab_specific}")
+        
         embeddings = "w2vnews"
 
     def _get_pretrained_emb(self):

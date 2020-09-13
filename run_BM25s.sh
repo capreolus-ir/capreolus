@@ -1,0 +1,14 @@
+#./run_BM25_slurm_annotated_pipeline.sh noneE &> /GW/D5data-13/ghazaleh/ranking_outputs/logs_17092020_slurm_jobs/BM25_noneE_others ;
+#sleep 10;
+./run_BM25_slurm_annotated_pipeline.sh allE &> /GW/D5data-13/ghazaleh/ranking_outputs/logs_17092020_slurm_jobs/BM25_allE_others ;
+sleep 10;
+./run_BM25_slurm_annotated_pipeline.sh domainE &> /GW/D5data-13/ghazaleh/ranking_outputs/logs_17092020_slurm_jobs/BM25_domainE_others ;
+sleep 10;
+./run_BM25_slurm_annotated_pipeline.sh specE &> /GW/D5data-13/ghazaleh/ranking_outputs/logs_17092020_slurm_jobs/BM25_specE_others ;
+sleep 300;
+./run_BM25_slurm_annotated_pipeline.sh onlyNE &> /GW/D5data-13/ghazaleh/ranking_outputs/logs_17092020_slurm_jobs/BM25_onlyNE_others ;
+sleep 10;
+./run_BM25_slurm_annotated_pipeline.sh domainOnlyNE &> /GW/D5data-13/ghazaleh/ranking_outputs/logs_17092020_slurm_jobs/BM25_domainOnlyNE_others ;
+sleep 10;
+./run_BM25_slurm_annotated_pipeline.sh specOnlyNE &> /GW/D5data-13/ghazaleh/ranking_outputs/logs_17092020_slurm_jobs/BM25_specOnlyNE_others ;
+sleep 10;
