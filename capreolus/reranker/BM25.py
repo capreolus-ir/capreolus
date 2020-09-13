@@ -47,6 +47,7 @@ class BM25Reranker(Reranker):
 
 
     def score_document_tf(self, querytp, querylen, qid, docid, avg_doc_len):
+        uid = qid.split("_")[1]
         term_scores = {}
         scoresum = 0
         for term, tp in querytp.items():
@@ -54,7 +55,10 @@ class BM25Reranker(Reranker):
             if termscore != 0 and self["extractor"].domain_vocab_specific is not None:
                 termscore *= self["extractor"].domain_term_weight[term]
             if termscore != 0 and self["extractor"].filter_query is not None:
-                termscore *= self["extractor"].profile_vocab_specific[term]
+                if self["extractor"].profile_term_weight_by == 'topic':
+                    termscore *= self["extractor"].profile_term_weight[term]
+                elif self["extractor"].profile_term_weight_by == 'user':
+                    termscore *= self["extractor"].profile_term_weight[uid][term]
 
             term_scores[term] = termscore
             scoresum += termscore
@@ -69,10 +73,13 @@ class BM25Reranker(Reranker):
                 domain_term_weight = "-"
                 if self["extractor"].domain_vocab_specific is not None:
                     domain_term_weight = self["extractor"].domain_term_weight[k] if k in self["extractor"].domain_term_weight else "-"
-                query_term_weight = "-"
+                prof_term_weight = "-"
                 if self["extractor"].filter_query is not None:
-                    query_term_weight = self["extractor"].profile_vocab_specific[k] if k in self["extractor"].profile_vocab_specific else "-"
-                final_scores[k] = (v, domain_term_weight, query_term_weight)
+                    if self["extractor"].profile_term_weight_by == 'topic':
+                        prof_term_weight = self["extractor"].profile_term_weight[k] if k in self["extractor"].profile_term_weight else "-"
+                    elif self["extractor"].profile_term_weight_by == 'user':
+                        prof_term_weight = self["extractor"].profile_term_weight[uid][k] if k in self["extractor"].profile_term_weight[uid] else "-"
+                final_scores[k] = (v, domain_term_weight, prof_term_weight)
             f.write(json.dumps(final_scores, indent=4))
 
         return scoresum
