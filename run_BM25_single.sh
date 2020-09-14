@@ -1,5 +1,4 @@
 #!/bin/bash
-
 source /GW/home-12/ghazaleh/anaconda3/bin/activate venc
 which python
 
@@ -7,8 +6,8 @@ export JAVA_HOME=/home/ghazaleh/Projects_Workspace_new/jdk/jdk-11.0.4
 export PATH="$JAVA_HOME/bin:$PATH"
 
 export CAPREOLUS_LOGGING="DEBUG" ;
-export CAPREOLUS_RESULTS=/GW/NeuralIR/nobackup/ghazaleh/results_11092020/ ;
-export CAPREOLUS_CACHE=/GW/NeuralIR/nobackup/ghazaleh/cache_11092020/ ;
+export CAPREOLUS_RESULTS=/GW/NeuralIR/nobackup/ghazaleh/results_14092020/ ;
+export CAPREOLUS_CACHE=/GW/NeuralIR/nobackup/ghazaleh/cache_14092020/ ;
 export PYTHONPATH=/home/ghazaleh/Projects_Workspace_new/capreolus/ ;
 
 domain=$1
@@ -41,3 +40,5 @@ fi
 if [ "$entitystrategy" == "specOnlyNE" ]; then
   time python -m capreolus.run rerank.evaluate with searcher=qrels reranker=BM25 reranker.b=0.75 reranker.k1=1.5 reranker.c=1.5 collection=$dataset collection.domain=$domain benchmark=$dataset benchmark.domain=$domain benchmark.querytype=$querytype reranker.extractor.entity_strategy=specific_domainrel reranker.extractor.entitylinking.pipeline=$pipeline reranker.extractor.domainrelatedness.strategy_NE="${domain}_prCacc"  reranker.extractor.domainrelatedness.strategy_C="${domain}_prCacc"  reranker.extractor.domainrelatedness.domain_relatedness_threshold_NE="${domain}_prCacc" reranker.extractor.domainrelatedness.domain_relatedness_threshold_C="${domain}_prCacc" reranker.extractor.domainrelatedness.return_top=10 reranker.extractor.entityspecificity.return_top=5 reranker.extractor.onlyNamedEntities=True fold=s$FOLDNUM ;
 fi
+conda deactivate
+
