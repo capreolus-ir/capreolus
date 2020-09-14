@@ -421,8 +421,9 @@ class DocStats(Extractor):
 
         s_user_probs = {}
         for uid in user_profile_tfs:
+            s_user_probs[uid] = {}
             for term, tf in user_profile_tfs[uid].items():
-                s_user_probs[term] = tf / user_profile_len[uid]
+                s_user_probs[uid][term] = tf / user_profile_len[uid]
 
         G_probs = {}
         for term in voc:
@@ -751,14 +752,21 @@ class DocStatsEmbedding(DocStats):
     @staticmethod
     def config():
         entity_strategy = None
-        filter_query = None
+        filter_query = None # this is profile term weighting (on profiles)
+        domain_vocab_specific = None # this is domain term weighting (on docs)
+        onlyNamedEntities = False
 
         if entity_strategy not in [None, 'all', 'domain', 'specific_domainrel']:  # TODO add strategies
             raise ValueError(f"invalid entity usage strategy (or not implemented): {entity_strategy}")
 
-        if filter_query is not None and not re.match(r"^(domain|user)_specific_k(\d+|-1)$", filter_query):
+        if filter_query is not None and not re.match(r"^(topic-alltopics|topic-amazon|user-allusers)_tf_k(\d+|-1)$", filter_query):
             raise ValueError(f"invalid filter query: {filter_query}")
 
+
+        # k-1 means that we are reweighting and not cutting them! TODO Add other G corpuses
+        if domain_vocab_specific is not None and not re.match(r"^(all_domains|amazon)_(tf|df)_k(\d+|-1)$", domain_vocab_specific):
+            raise ValueError(f"invalid domain vocab specific {domain_vocab_specific}")
+        
         embeddings = "w2vnews"
 
     def _get_pretrained_emb(self):
