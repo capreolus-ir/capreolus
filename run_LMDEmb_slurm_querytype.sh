@@ -8,7 +8,7 @@ entitystrategy=$4
 
 for FOLDNUM in {1..10};
 do
-	sbatch -p cpu20 -c 10 --mem-per-cpu=24G -o ${logfolder}LMDEmb_${FOLDNUM}_${domain}_${querytype}_${pipeline}_${entitystrategy}%j.log run_LMDEmb_single.sh $domain $pipeline $querytype $FOLDNUM $entitystrategy ;
+	sbatch -p cpu20 -c 10 --mem-per-cpu=32G -o ${logfolder}LMDEmb_${FOLDNUM}_${domain}_${querytype}_${pipeline}_${entitystrategy}%j.log run_LMDEmb_single.sh $domain $pipeline $querytype $FOLDNUM $entitystrategy ;
 	sleep 60;
 done
 
@@ -17,7 +17,7 @@ for domainvocsp in "${dstypes[@]}"
 do
   for FOLDNUM in {1..10};
   do
-    sbatch -p cpu20 -c 10 --mem-per-cpu=24G -o ${logfolder}LMDEmb_${FOLDNUM}_${domain}_${querytype}_${pipeline}_${entitystrategy}_${domainvocsp}%j.log run_LMDEmb_single_dv.sh $domain $pipeline $querytype $FOLDNUM $entitystrategy $domainvocsp;
+    sbatch -p cpu20 -c 10 --mem-per-cpu=32G -o ${logfolder}LMDEmb_${FOLDNUM}_${domain}_${querytype}_${pipeline}_${entitystrategy}_${domainvocsp}%j.log run_LMDEmb_single_dv.sh $domain $pipeline $querytype $FOLDNUM $entitystrategy $domainvocsp;
     sleep 60;
   done
   sleep 10;
