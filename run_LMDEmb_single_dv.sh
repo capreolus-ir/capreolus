@@ -14,10 +14,11 @@ export PYTHONPATH=/GW/PKB/work/ghazaleh/capreolus/ ;
 domain=$1
 pipeline=$2
 querytype=$3
-FOLDNUM=$4
-entitystrategy=$5
-domainvocsp=$6
+entitystrategy=$4
+domainvocsp=$5
 dataset=kitt
+FOLDNUM=$SLURM_ARRAY_TASK_ID
+echo "$domain - $pipeline - $querytype - $entitystrategy - $domainvocsp - $FOLDNUM"
 
 if [ "$entitystrategy" == "noneE" ]; then
   if [ "$pipeline" == "ENTITY_CONCEPT_JOINT_LINKING" ]; then

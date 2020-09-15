@@ -16,7 +16,7 @@ querytype=$3
 entitystrategy=$4
 dataset=kitt
 FOLDNUM=$SLURM_ARRAY_TASK_ID
-echo "$FOLDNUM"
+echo "$domain - $pipeline - $querytype - $entitystrategy - $FOLDNUM"
 
 if [ "$entitystrategy" == "noneE" ]; then
   if [ "$pipeline" == "ENTITY_CONCEPT_JOINT_LINKING" ]; then
