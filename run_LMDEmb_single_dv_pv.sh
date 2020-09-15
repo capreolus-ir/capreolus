@@ -1,6 +1,6 @@
 #!/bin/bash
 
-source /GW/home-12/ghazaleh/anaconda3/bin/activate venc
+source /GW/PKB/work/ghazaleh/anaconda3/bin/activate myenv
 which python
 
 export JAVA_HOME=/home/ghazaleh/Projects_Workspace_new/jdk/jdk-11.0.4
@@ -9,7 +9,7 @@ export PATH="$JAVA_HOME/bin:$PATH"
 export CAPREOLUS_LOGGING="DEBUG" ;
 export CAPREOLUS_RESULTS=/GW/NeuralIR/nobackup/ghazaleh/results_14092020/ ;
 export CAPREOLUS_CACHE=/GW/NeuralIR/nobackup/ghazaleh/cache_14092020/ ;
-export PYTHONPATH=/home/ghazaleh/Projects_Workspace_new/capreolus_dev/capreolus/ ;
+export PYTHONPATH=/GW/PKB/work/ghazaleh/capreolus/ ;
 
 domain=$1
 pipeline=$2

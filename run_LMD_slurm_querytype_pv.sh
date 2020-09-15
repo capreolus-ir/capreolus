@@ -1,6 +1,6 @@
 #!/bin/bash
 
-logfolder=/GW/NeuralIR/nobackup/ghazaleh/logs_14092020/
+logfolder=/GW/NeuralIR/nobackup/ghazaleh/logs_15092020/
 domain=$1
 pipeline=$2
 querytype=$3
