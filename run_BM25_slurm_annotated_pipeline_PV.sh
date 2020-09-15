@@ -10,8 +10,9 @@ for querytype in "${profiles[@]}"
 do
   for domain in "${domains[@]}"
   do
+    echo "source run_BM25_slurm_querytype_pv.sh $domain $pipeline $querytype $entitystrategy &"
     source run_BM25_slurm_querytype_pv.sh $domain $pipeline $querytype $entitystrategy &
-    sleep 5
+    sleep 10
   done
 done
 
