@@ -11,9 +11,8 @@ do
   for domain in "${domains[@]}"
   do
     source run_LMD_slurm_querytype.sh $domain $pipeline $querytype $entitystrategy &
-    sleep 300
+    sleep 30
   done
-  sleep 60
 done
 wait
 

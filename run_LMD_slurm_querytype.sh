@@ -5,20 +5,13 @@ domain=$1
 pipeline=$2
 querytype=$3
 entitystrategy=$4
+CPUNUM=2
 
-for FOLDNUM in {1..10};
-do
-	sbatch -p cpu20 -c 10 --mem-per-cpu=24G -o ${logfolder}LMD_${FOLDNUM}_${domain}_${querytype}_${pipeline}_${entitystrategy}%j.log run_LMD_single.sh $domain $pipeline $querytype $FOLDNUM $entitystrategy ;
-	sleep 60;
-done
+sbatch -a 1-10 -p cpu20 -c $CPUNUM --mem-per-cpu=24G -o ${logfolder}LMD_${FOLDNUM}_${domain}_${querytype}_${pipeline}_${entitystrategy}_%j_%a.log run_LMD_single.sh $domain $pipeline $querytype $SLURM_ARRAY_TASK_ID $entitystrategy ;
 
 declare -a dstypes=("all_domains_tf_k-1" "all_domains_df_k-1" "amazon_tf_k-1" "amazon_df_k-1")
 for domainvocsp in "${dstypes[@]}"
 do
-  for FOLDNUM in {1..10};
-  do
-    sbatch -p cpu20 -c 10 --mem-per-cpu=24G -o ${logfolder}LMD_${FOLDNUM}_${domain}_${querytype}_${pipeline}_${entitystrategy}_${domainvocsp}%j.log run_LMD_single_dv.sh $domain $pipeline $querytype $FOLDNUM $entitystrategy $domainvocsp;
-    sleep 60;
-  done
-  sleep 10;
+  sbatch -a 1-10 -p cpu20 -c $CPUNUM --mem-per-cpu=24G -o ${logfolder}LMD_${FOLDNUM}_${domain}_${querytype}_${pipeline}_${entitystrategy}_${domainvocsp}_%j_%a.log run_LMD_single_dv.sh $domain $pipeline $querytype $SLURM_ARRAY_TASK_ID $entitystrategy $domainvocsp;
+  sleep 60;
 done
