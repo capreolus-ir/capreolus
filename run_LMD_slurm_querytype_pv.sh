@@ -12,7 +12,7 @@ declare -a pvtypes=("topic-alltopics_tf_k-1" "topic-amazon_tf_k-1" "user-alluser
 
 for filterq in "${pvtypes[@]}"
 do
-  sbatch -a 1-10 -p cpu20 -c $CPUNUM --mem-per-cpu=24G -o ${logfolder}BM25_${FOLDNUM}_${domain}_${querytype}_${pipeline}_${entitystrategy}_${filterq}_%j_%a.log run_LMD_single_pv.sh $domain $pipeline $querytype $SLURM_ARRAY_TASK_ID $entitystrategy $filterq ;
+  sbatch -a 1-10 -p cpu20 -c $CPUNUM --mem-per-cpu=24G -o ${logfolder}BM25_%a_${domain}_${querytype}_${pipeline}_${entitystrategy}_${filterq}_%j.log run_LMD_single_pv.sh $domain $pipeline $querytype $SLURM_ARRAY_TASK_ID $entitystrategy $filterq ;
   sleep 30
 done
 
@@ -20,7 +20,7 @@ for filterq in "${pvtypes[@]}"
 do
   for domainvocsp in "${dstypes[@]}"
   do
-    sbatch -a 1-10 -p cpu20 -c $CPUNUM --mem-per-cpu=24G -o ${logfolder}BM25_${FOLDNUM}_${domain}_${querytype}_${pipeline}_${entitystrategy}_${domainvocsp}_${filterq}_%j_%a.log run_LMD_single_dv_pv.sh $domain $pipeline $querytype $SLURM_ARRAY_TASK_ID $entitystrategy $domainvocsp $filterq ;
+    sbatch -a 1-10 -p cpu20 -c $CPUNUM --mem-per-cpu=24G -o ${logfolder}BM25_%a_${domain}_${querytype}_${pipeline}_${entitystrategy}_${domainvocsp}_${filterq}_%j.log run_LMD_single_dv_pv.sh $domain $pipeline $querytype $SLURM_ARRAY_TASK_ID $entitystrategy $domainvocsp $filterq ;
     sleep 30
   done
   sleep 30
