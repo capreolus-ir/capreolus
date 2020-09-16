@@ -6,16 +6,10 @@ declare -a profiles=('query' 'basicprofile' 'chatprofile' 'basicprofile_general'
 entitystrategy=$1
 pipeline=ENTITY_CONCEPT_JOINT_LINKING
 
-for querytype in "${profiles[@]}"
+for domain in "${domains[@]}"
 do
-  for domain in "${domains[@]}"
+  for querytype in "${profiles[@]}"
   do
-    echo "source run_BM25_slurm_querytype.sh $domain $pipeline $querytype $entitystrategy &"
-    source run_BM25_slurm_querytype.sh $domain $pipeline $querytype $entitystrategy &
-    sleep 60
+    source run_BM25_slurm_querytype_pv.sh $domain $pipeline $querytype $entitystrategy &
   done
 done
-
-
-
-

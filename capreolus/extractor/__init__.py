@@ -68,17 +68,37 @@ class EmbedText(Extractor):
         embeddings = "glove6b"
         zerounk = False
         calcidf = True
-        maxqlen = 4
-        maxdoclen = 800
+        maxqlen = 50
+        maxdoclen = 5000
+        query_cut = None
+        document_cut = None
+
+        if query_cut is not None and query_cut not in ["unique_most_frequent", "unique_topic-alltopics", "unique_topic-amazon", "unique_user-allusers", "unique_user-amazon"]:
+            raise ValueError(f"Value for query_cut is wrong {query_cut}")
+
+        if document_cut is not None:# and query_cut not in ["most_frequent", "all_domains_tf", "all_domains_df", "amazon_tf", "amazon_df"]:
+            raise ValueError(f"Value for document_cut is wrong {document_cut}")
+
+# let's add 2 parameters: 1-query-cut 2-doc-cut to define the ways to cut the query and document. if None, it would just truncate them.
+# book: #docs: 1231 maxlen: 80917 avglen: 4559.179528838343
+# travel #docs: 352 maxlen: 26468 avglen: 4239.082386363636
+# food:  #docs: 995 maxlen: 1396  avglen: 475.06532663316585
+#movie: #docs:  886 maxlen: 1037  avglen: 298.0056433408578
+
+
 
     def _get_pretrained_emb(self):
         magnitude_cache = CACHE_BASE_PATH / "magnitude/"
         return Magnitude(MagnitudeUtils.download_model(self.embed_paths[self.cfg["embeddings"]], download_dir=magnitude_cache))
 
-    def _build_vocab(self, qids, docids, topics):
+    def _build_vocab(self, qids, docids, topics, querytype=None):
         tokenize = self["tokenizer"].tokenize
-        self.qid2toks = {qid: tokenize(topics[qid]) for qid in qids}
+        self.qid2toks = {qid: tokenize(topics[qid]) for qid in qids} # todo: I think here I should sort them based on what I want
+        if self.cfg["query_cut"] is not None:
+            self.build_unique_sorted_query_terms(qids, querytype)
         self.docid2toks = {docid: tokenize(self["index"].get_doc(docid)) for docid in docids}
+        if self.cfg["document_cut"] is not None:
+            pass# let's first go with query_cut only
         self._extend_stoi(self.qid2toks.values(), calc_idf=self.cfg["calcidf"])
         self._extend_stoi(self.docid2toks.values(), calc_idf=self.cfg["calcidf"])
         self.itos = {i: s for s, i in self.stoi.items()}
@@ -119,7 +139,7 @@ class EmbedText(Extractor):
             and 0 < len(self.stoi) == self.embeddings.shape[0]
         )
 
-    def create(self, qids, docids, topics, qdocs=None):
+    def create(self, qids, docids, topics, qdocs=None, querytype=None):
 
         if self.exist():
             return
@@ -134,8 +154,157 @@ class EmbedText(Extractor):
         self.embeddings = None
         # self.cache = self.load_cache()    # TODO
 
-        self._build_vocab(qids, docids, topics)
+        self._build_vocab(qids, docids, topics, querytype)
         self._build_embedding_matrix()
+
+    def build_unique_sorted_query_terms(self, qids, querytype):
+        if self.cfg["query_cut"] == "unique_most_frequent":
+            for qid in qids:
+                terms = self.qid2toks[qid]
+                term_counts = Counter(terms)
+                self.qid2toks[qid] = [t for t, v in sorted(term_counts.items(), key=lambda item:item[1], reverse=True)]
+        elif self.cfg["query_cut"].startswith("unique_user"):
+            if querytype == 'query':
+                raise ValueError(f"{self.cfg['query_cut']} query_cut do not work for querytype: {querytype}")
+
+            user_term_weights = self.get_profile_term_weight_user(qids, querytype)
+            for qid in qids:
+                uid = qid.split("_")[1]
+                sorted_terms = [t for t, v in sorted(user_term_weights[uid].items(), key=lambda item: item[1], reverse=True) if t in self.qid2toks[qid]]
+                self.qid2toks[qid] = sorted_terms
+        elif self.cfg["query_cut"].startswith("unique_topic"):
+            if querytype in ['basicprofile', 'chatprofile', 'query']:
+                raise ValueError(f"{self.cfg['query_cut']} query_cut do not work for querytype: {querytype}")
+
+            term_weights = self.get_profile_term_weight_topic(qids, querytype)
+            for qid in qids:
+                sorted_terms = [t for t, v in sorted(term_weights.items(), key=lambda item: item[1], reverse=True) if t in self.qid2toks[qid]]
+                self.qid2toks[qid] = sorted_terms
+
+    def get_profile_term_weight_topic(self, qids, profiletype):
+        s_probs = self.get_all_users_profile_term_probs_tf(profiletype, qids)
+
+        if self.cfg["query_cut"] == 'unique_topic-alltopics':
+            baseprofiletype = "chatprofile" if profiletype.startswith("chatprofile") else "basicprofile"
+            G_probs = self.get_all_users_profile_term_probs_tf(baseprofiletype, qids)
+        elif self.cfg["query_cut"] == 'unique_topic-amazon':
+            baseprofiletype = "chatprofile" if profiletype.startswith("chatprofile") else "basicprofile"
+            G_probs = self.get_amazon_plus_all_users_profile_term_probs_tf(baseprofiletype, qids)
+
+        term_weights = {}
+        for term, p in s_probs.items():
+            term_weights[term] = p / G_probs[term]
+        return term_weights
+
+    def get_profile_term_weight_user(self, qids, profiletype):
+        baseprofiletype = "chatprofile" if profiletype.startswith("chatprofile") else "basicprofile"
+        voc, user_profile_tfs, total_len, user_profile_len = self.get_all_users_profiles_term_frequency(baseprofiletype, qids)
+
+        s_user_probs = {}
+        for uid in user_profile_tfs:
+            s_user_probs[uid] = {}
+            for term, tf in user_profile_tfs[uid].items():
+                s_user_probs[uid][term] = tf / user_profile_len[uid]
+
+        if self.cfg["query_cut"] == 'unique_user-allusers':
+            G_probs = {}
+            for term in voc:
+                nu = 0
+                for uid, tfs in user_profile_tfs.items():
+                    if term in tfs:
+                        nu += tfs[term]
+                G_probs[term] = nu / total_len
+            user_term_weights = {}
+            for uid in s_user_probs:
+                user_term_weights[uid] = {}
+                for term, p in s_user_probs[uid].items():
+                    user_term_weights[uid][term] = p / G_probs[term]
+            return user_term_weights
+        elif self.cfg["query_cut"] == 'unique_user-amazon':
+            G_tfs_raw, G_len_raw = DocStats.get_G_tfs_amazon_raw_from_file()
+            user_term_weights = {}
+            for uid in s_user_probs.keys():
+                user_term_weights[uid] = {}
+                G_probs = DocStats.get_amazon_plus_user_profile_term_probs_tf(G_tfs_raw, G_len_raw, user_profile_tfs[uid], user_profile_len[uid])
+                for term, p in s_user_probs[uid].items():
+                    user_term_weights[uid][term] = p / G_probs[term]
+            return user_term_weights
+
+    def get_all_users_profile_term_probs_tf(self, profiletype, qids):
+        voc, user_profile_tfs, total_len, _ = self.get_all_users_profiles_term_frequency(profiletype, qids)
+        allusers_term_probs = {}
+        for term in voc:
+            nu = 0
+            for uid, tfs in user_profile_tfs.items():
+                if term in tfs:
+                    nu += tfs[term]
+            allusers_term_probs[term] = nu / total_len
+        return allusers_term_probs
+
+    def get_amazon_plus_all_users_profile_term_probs_tf(self, profiletype, qids):
+        voc, user_profile_tfs, profs_len, _ = self.get_all_users_profiles_term_frequency(profiletype, qids)
+        G_tfs_raw, G_len_raw = DocStats.get_G_tfs_amazon_raw_from_file()
+        total_len = profs_len + G_len_raw
+
+        G_probs = {}
+        for term in voc:
+            nu = 0
+            for uid, tfs in user_profile_tfs.items():
+                if term in tfs:
+                    nu += tfs[term]
+            if term in G_tfs_raw:
+                nu += G_tfs_raw[term]
+
+            G_probs[term] = nu / total_len
+
+        return G_probs
+
+    def get_all_users_profiles_term_frequency(self, profiletype, qids):
+        benchmarkdir = "/GW/PKB/work/data_personalization/TREC_format_quselection_C/"  # TODO change these when rebasing to use the benchmark as inherited dependency
+        userfullprofiles = get_user_profiles(join(benchmarkdir, f"book_topics.{profiletype}.txt"))  # book is an exemplary recommendation domain, and it does not matter which one is read since the profile is the same for all.
+
+        user_profile_tfs = {}
+        user_profile_len = {}
+        total_len = 0
+        voc = set()
+        for qid in qids:
+            uid = qid.split("_")[1]
+            if uid not in user_profile_tfs:
+                #TODO if entities were added to this ranker, otherwise delete this part
+
+                # entoutf = join(self.get_selected_entities_cache_path(),
+                #                get_file_name(qid, self["entitylinking"].get_benchmark_name(), profiletype))
+                # if exists(entoutf):
+                #     with open(entoutf, 'r') as f:
+                #         qentities = json.loads(f.read())
+                # else:
+                #     raise RuntimeError(
+                #         "This is not implemented! You should have already have the entities for the full profile in the cache to use this. To this end, you need to run it once for fold1 for example.")
+                #
+                # qdesc = []
+                # for e in qentities["NE"]:
+                #     qdesc.append(self["entitylinking"].get_entity_description(e))
+                # for e in qentities["C"]:
+                #     qdesc.append(self["entitylinking"].get_entity_description(e))
+
+                qtext = userfullprofiles[uid] + "\n"
+                # qtext += "\n".join(qdesc)
+                query = self["tokenizer"].tokenize(qtext)
+                q_count = Counter(query)
+                user_profile_tfs[uid] = q_count
+                user_profile_len[uid] = len(query)
+                total_len += len(query)
+                voc.update(q_count.keys())
+
+        return voc, user_profile_tfs, total_len, user_profile_len
+
+# let's first go with query_cut only
+    # def get_unique_sorted_document_terms(self, docids):
+    #     if self.cfg["document_cut"] == "unique_most_frequenc":
+    #         for docid in docids:
+    #             terms = self.docid2toks[docid]
+    #             term_counts = Counter(terms)
+    #             self.docid2toks[docid] = [t for t, v in sorted(term_counts.items(), key=lambda item:item[1], reverse=True)]
 
     def _tok2vec(self, toks):
         # return [self.embeddings[self.stoi[tok]] for tok in toks]
@@ -144,7 +313,7 @@ class EmbedText(Extractor):
     def id2vec(self, qid, posid, negid=None, query=None):
         if query is not None:
             if qid is None:
-                query = self["tokenizer"].tokenize(query)
+                query = self["tokenizer"].tokenize(query) # todo: I think here I should sort them based on what I want also(bur this is probably not used)
                 pass
             else:
                 raise RuntimeError("received both a qid and query, but only one can be passed")
@@ -186,7 +355,7 @@ class EmbedText(Extractor):
 
         return data
 
-
+###TODO: to release the code, first clean all the additional and not neseccary caching (for debugging and viewing) which makes the parallel running a manual job!!!
 class DocStats(Extractor):
     name = "docstats"
     dependencies = {
@@ -211,7 +380,7 @@ class DocStats(Extractor):
         if entity_strategy not in [None, 'all', 'domain', 'specific_domainrel']:  # TODO add strategies
             raise ValueError(f"invalid entity usage strategy (or not implemented): {entity_strategy}")
 
-        if filter_query is not None and not re.match(r"^(topic-alltopics|topic-amazon|user-allusers)_tf_k(\d+|-1)$", filter_query):
+        if filter_query is not None and not re.match(r"^(topic-alltopics|topic-amazon|user-allusers|user-amazon)_tf_k(\d+|-1)$", filter_query):
             raise ValueError(f"invalid filter query: {filter_query}")
 
 
@@ -244,7 +413,7 @@ class DocStats(Extractor):
         # logger.debug(self.get_cache_path() / 'selectedentities')
         return self.get_cache_path() / 'selectedentities'
 
-    def create(self, qids, docids, topics, qdocs=None):
+    def create(self, qids, docids, topics, qdocs=None, querytype=None): #TODO make changes to not use benchmark querytype anymore
         logger.debug(f"cache path: {self.get_cache_path()}")
         #todo where can I check this: is here good?
         if "nostem" in self["backgroundindex"].cfg["indexcorpus"]:
@@ -294,7 +463,7 @@ class DocStats(Extractor):
             entoutf = join(self.get_selected_entities_cache_path(), get_file_name(qid, self["entitylinking"].get_benchmark_name(), self["entitylinking"].get_benchmark_querytype()))
             if exists(entoutf):
                 with open(entoutf, 'r') as f:
-                    logger.debug(entoutf)
+                    # logger.debug(entoutf)
                     qentities = json.loads(f.read())
             else:
                 qentities = self.get_entities(qid) # {"NE": [...], "C": [...]}
@@ -321,6 +490,7 @@ class DocStats(Extractor):
         # Here we calculate profile-term-weights based on the profile_topic or profile_user
         # Later we cut based on these weights or multiply the weight by the term-score (we are doing the latter now)
         if self.filter_query is not None:
+            logger.debug("creating profile term weights")
             m = re.match(r"^(topic|user)-(alltopics|amazon|allusers)_tf_k(\d+|-1)$", self.filter_query)
             if m:
                 filter_by = m.group(1)
@@ -328,7 +498,7 @@ class DocStats(Extractor):
                 filter_topk = int(m.group(3))  # TODO implement
                 if filter_by == 'topic' and filter_by_corpus == 'allusers':
                     raise ValueError(f"invalid filter query: {self.filter_query}")
-                if filter_by == 'user' and filter_by_corpus != 'allusers': #TODO add corpuses
+                if filter_by == 'user' and filter_by_corpus not in ['allusers', 'amazon']:
                     raise ValueError(f"invalid filter query: {self.filter_query}")
                 self.profile_term_weight_by = m.group(1)
                 self.profile_term_weight_by_corpus = m.group(2)
@@ -427,23 +597,32 @@ class DocStats(Extractor):
             for term, tf in user_profile_tfs[uid].items():
                 s_user_probs[uid][term] = tf / user_profile_len[uid]
 
-        G_probs = {}
-        for term in voc:
-            nu = 0
-            for uid, tfs in user_profile_tfs.items():
-                if term in tfs:
-                    nu += tfs[term]
-            G_probs[term] = nu / total_len
-
-        user_term_weights = {}
-        for uid in s_user_probs:
-            user_term_weights[uid] = {}
-            for term, p in s_user_probs[uid].items():
-                user_term_weights[uid][term] = p / G_probs[term]
-        return user_term_weights
+        if self.profile_term_weight_by_corpus == 'allusers':
+            G_probs = {}
+            for term in voc:
+                nu = 0
+                for uid, tfs in user_profile_tfs.items():
+                    if term in tfs:
+                        nu += tfs[term]
+                G_probs[term] = nu / total_len
+            user_term_weights = {}
+            for uid in s_user_probs:
+                user_term_weights[uid] = {}
+                for term, p in s_user_probs[uid].items():
+                    user_term_weights[uid][term] = p / G_probs[term]
+            return user_term_weights
+        elif self.profile_term_weight_by_corpus == 'amazon':
+            G_tfs_raw, G_len_raw = DocStats.get_G_tfs_amazon_raw_from_file()
+            user_term_weights = {}
+            for uid in s_user_probs.keys():
+                user_term_weights[uid] = {}
+                G_probs = DocStats.get_amazon_plus_user_profile_term_probs_tf(G_tfs_raw, G_len_raw, user_profile_tfs[uid], user_profile_len[uid])
+                for term, p in s_user_probs[uid].items():
+                    user_term_weights[uid][term] = p / G_probs[term]
+            return user_term_weights
 
     def get_all_users_profiles_term_frequency(self, profiletype, qids):
-        benchmarkdir = "/GW/PKB/work/data_personalization/TREC_format/"  # TODO change these when rebasing to use the benchmark as inherited dependency
+        benchmarkdir = "/GW/PKB/work/data_personalization/TREC_format_quselection_C/"  # TODO change these when rebasing to use the benchmark as inherited dependency
         userfullprofiles = get_user_profiles(join(benchmarkdir, f"book_topics.{profiletype}.txt"))  # book is an exemplary recommendation domain, and it does not matter which one is read since the profile is the same for all.
 
         user_profile_tfs = {}
@@ -460,7 +639,7 @@ class DocStats(Extractor):
                         qentities = json.loads(f.read())
                 else:
                     raise RuntimeError(
-                        "This is not implemented! You should have already have the entities for the full profile in the cache to use this.")
+                        "This is not implemented! You should have already have the entities for the full profile in the cache to use this. To this end, you need to run it once for fold1 for example.")
 
                 qdesc = []
                 for e in qentities["NE"]:
@@ -504,6 +683,19 @@ class DocStats(Extractor):
             if term in G_tfs_raw:
                 nu += G_tfs_raw[term]
 
+            G_probs[term] = nu / total_len
+
+        return G_probs
+
+    @staticmethod
+    def get_amazon_plus_user_profile_term_probs_tf(G_tfs_raw, G_len_raw, profile_tfs, profile_len):
+        total_len = profile_len + G_len_raw
+
+        G_probs = {}
+        for term, tf in profile_tfs.items():
+            nu = tf
+            if term in G_tfs_raw:
+                nu += G_tfs_raw[term]
             G_probs[term] = nu / total_len
 
         return G_probs
@@ -593,7 +785,7 @@ class DocStats(Extractor):
         domain_documents = {}
 
         for domain in ['movie', 'travel_wikivoyage', 'food', 'book']:
-            doc_dir = f"/GW/PKB/work/data_personalization/TREC_format/documents/{domain}/"
+            doc_dir = f"/GW/PKB/work/data_personalization/TREC_format_quselection_C/documents/{domain}/"
 
             domain_documents[domain] = {}
 
@@ -725,16 +917,19 @@ class DocStats(Extractor):
         
         return ret
 
-    def id2vec(self, qid, posid, negid=None, query=None):#todo (ask) where is it used?
+    def id2vec(self, qid, posid, negid=None, query=None):
         # if query is not None:
-        #     if qid is None:
-        #         query = self["tokenizer"].tokenize(query)
-        #     else:
-        #         raise RuntimeError("received both a qid and query, but only one can be passed")
+        #     # if qid is None:
+        #     #     query = self["tokenizer"].tokenize(query)
+        #     # else:
+        #     #     raise RuntimeError("received both a qid and query, but only one can be passed")
+        #     raise RuntimeError("this is not implemented completely to get the query")
         # else:
         #     query = self.qid_termprob[qid]
-
-        return {"qid": qid, "posdocid": posid, "negdocid": negid}
+        if qid is None:
+            raise RuntimeError("this is not implemented completely to get the query")
+        return {"qid": qid, "posdocid": posid} #these are what used in BM25 and LM rankers, we could give other things here, but we are just getting them from extractor
+#if you want to implement cutting docs or queries, you could actually do it here but need to change the BM25 and LM rerankers as well!
 
 
 class DocStatsEmbedding(DocStats):
@@ -761,7 +956,7 @@ class DocStatsEmbedding(DocStats):
         if entity_strategy not in [None, 'all', 'domain', 'specific_domainrel']:  # TODO add strategies
             raise ValueError(f"invalid entity usage strategy (or not implemented): {entity_strategy}")
 
-        if filter_query is not None and not re.match(r"^(topic-alltopics|topic-amazon|user-allusers)_tf_k(\d+|-1)$", filter_query):
+        if filter_query is not None and not re.match(r"^(topic-alltopics|topic-amazon|user-allusers|user-amazon)_tf_k(\d+|-1)$", filter_query):
             raise ValueError(f"invalid filter query: {filter_query}")
 
 
@@ -781,11 +976,11 @@ class DocStatsEmbedding(DocStats):
         model_path = api.load(self.embed_names[self.cfg["embeddings"]], return_path=True)
         return gensim.models.KeyedVectors.load_word2vec_format(model_path, binary=True)
 
-    def create(self, qids, docids, topics, qdocs=None):
+    def create(self, qids, docids, topics, qdocs=None, querytype=None):
         if self.exist():
             return
 
-        super().create(qids, docids, topics, qdocs)
+        super().create(qids, docids, topics, qdocs, querytype=None)
 
         logger.debug("loading embedding")
         self.emb_model = self._get_pretrained_emb()
@@ -803,13 +998,15 @@ class DocStatsEmbedding(DocStats):
 
         return nu/de
 
-    def id2vec(self, qid, posid, negid=None, query=None):#todo change this later or delete it...
+    def id2vec(self, qid, posid, negid=None, query=None):
         # if query is not None:
-        #     if qid is None:
-        #         query = self["tokenizer"].tokenize(query)
-        #     else:
-        #         raise RuntimeError("received both a qid and query, but only one can be passed")
+        #     # if qid is None:
+        #     #     query = self["tokenizer"].tokenize(query)
+        #     # else:
+        #     #     raise RuntimeError("received both a qid and query, but only one can be passed")
+        #     raise RuntimeError("this is not implemented completely to get the query")
         # else:
-        #     query = self.qid2toks[qid]
-
-        return {"qid": qid, "posdocid": posid, "negdocid": negid}
+        #     query = self.qid_termprob[qid]
+        if qid is None:
+            raise RuntimeError("this is not implemented completely to get the query")
+        return {"qid": qid, "posdocid": posid} #these are what used in BM25 and LM rankers, we could give other things here, but we are just getting them from extractor
