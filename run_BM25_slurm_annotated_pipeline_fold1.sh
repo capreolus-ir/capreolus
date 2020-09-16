@@ -11,7 +11,7 @@ do
   for domain in "${domains[@]}"
   do
     source run_BM25_slurm_querytype_fold1.sh $domain $pipeline $querytype $entitystrategy &
-    sleep 5
+    sleep 60
   done
 done
 wait
