@@ -31,7 +31,6 @@ do
     for domainvocsp in "${dstypes[@]}"
     do
       sleep 5
-      echo "sbatch -a 1-10 -p cpu20 -c $CPUNUM --mem-per-cpu=24G -o ${logfolder}BM25_%a_${domain}_${querytype}_${pipeline}_${entitystrategy}_${domainvocsp}_${filterq}_%j.log run_BM25_single_dv_pv.sh $domain $pipeline $querytype $entitystrategy $domainvocsp $filterq ;"
       sbatch -a 1-1 -p cpu20 -c $CPUNUM --mem-per-cpu=24G -o ${logfolder}BM25_%a_${domain}_${querytype}_${pipeline}_${entitystrategy}_${domainvocsp}_${filterq}_%j.log run_BM25_single_dv_pv.sh $domain $pipeline $querytype $entitystrategy $domainvocsp $filterq ;
     done
   fi
@@ -42,8 +41,7 @@ do
     for domainvocsp in "${dstypes[@]}"
     do
       sleep 5
-      echo "sbatch -a 1-10 -p cpu20 -c $CPUNUM --mem-per-cpu=24G -o ${logfolder}BM25_%a_${domain}_${querytype}_${pipeline}_${entitystrategy}_${domainvocsp}_${filterq}_%j.log run_BM25_single_dv_pv.sh $domain $pipeline $querytype $entitystrategy $domainvocsp $filterq ;"
-      sbatch -a 1-10 -p cpu20 -c $CPUNUM --mem-per-cpu=24G -o ${logfolder}BM25_%a_${domain}_${querytype}_${pipeline}_${entitystrategy}_${domainvocsp}_${filterq}_%j.log run_BM25_single_dv_pv.sh $domain $pipeline $querytype $entitystrategy $domainvocsp $filterq ;
+      sbatch -a 1-1 -p cpu20 -c $CPUNUM --mem-per-cpu=24G -o ${logfolder}BM25_%a_${domain}_${querytype}_${pipeline}_${entitystrategy}_${domainvocsp}_${filterq}_%j.log run_BM25_single_dv_pv.sh $domain $pipeline $querytype $entitystrategy $domainvocsp $filterq ;
     done
   fi
 done
