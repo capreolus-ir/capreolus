@@ -1,5 +1,5 @@
-./run_BM25_slurm_annotated_pipeline.sh noneE &> /GW/D5data-13/ghazaleh/ranking_outputs/logs_17092020_slurm_jobs/BM25_noneE_others ;
-sleep 10;
+#./run_BM25_slurm_annotated_pipeline.sh noneE &> /GW/D5data-13/ghazaleh/ranking_outputs/logs_17092020_slurm_jobs/BM25_noneE_others ;
+#sleep 10;
 ./run_BM25_slurm_annotated_pipeline.sh allE &> /GW/D5data-13/ghazaleh/ranking_outputs/logs_17092020_slurm_jobs/BM25_allE_others ;
 sleep 10;
 ./run_BM25_slurm_annotated_pipeline.sh domainE &> /GW/D5data-13/ghazaleh/ranking_outputs/logs_17092020_slurm_jobs/BM25_domainE_others ;
