@@ -15,16 +15,16 @@ for filterq in "${pvtypestopic[@]}"
 do
   if [ "$querytype" != "query" ] && [ "$querytype" != "basicprofile" ] && [ "$querytype" != "chatprofile" ]; then
     sleep 30
-    echo "sbatch -a 1-10 -p cpu20 -c $CPUNUM --mem-per-cpu=32G -o ${logfolder}BM25_%a_${domain}_${querytype}_${pipeline}_${entitystrategy}_${filterq}_%j.log run_LMDEmb_single_pv.sh $domain $pipeline $querytype $entitystrategy $filterq ;"
-    sbatch -a 1-10 -p cpu20 -c $CPUNUM --mem-per-cpu=32G -o ${logfolder}BM25_%a_${domain}_${querytype}_${pipeline}_${entitystrategy}_${filterq}_%j.log run_LMDEmb_single_pv.sh $domain $pipeline $querytype $entitystrategy $filterq ;
+    echo "sbatch -a 1-10 -t 2-00:00:00 -p cpu20 -c $CPUNUM --mem-per-cpu=32G -o ${logfolder}BM25_%a_${domain}_${querytype}_${pipeline}_${entitystrategy}_${filterq}_%j.log run_LMDEmb_single_pv.sh $domain $pipeline $querytype $entitystrategy $filterq ;"
+    sbatch -a 1-10 -t 2-00:00:00 -p cpu20 -c $CPUNUM --mem-per-cpu=32G -o ${logfolder}BM25_%a_${domain}_${querytype}_${pipeline}_${entitystrategy}_${filterq}_%j.log run_LMDEmb_single_pv.sh $domain $pipeline $querytype $entitystrategy $filterq ;
   fi
 done
 for filterq in "${pvtypestopic[@]}"
 do
   if [ "$querytype" != "query" ]; then
     sleep 30
-    echo "sbatch -a 1-10 -p cpu20 -c $CPUNUM --mem-per-cpu=32G -o ${logfolder}BM25_%a_${domain}_${querytype}_${pipeline}_${entitystrategy}_${filterq}_%j.log run_LMDEmb_single_pv.sh $domain $pipeline $querytype $entitystrategy $filterq ;"
-    sbatch -a 1-10 -p cpu20 -c $CPUNUM --mem-per-cpu=32G -o ${logfolder}BM25_%a_${domain}_${querytype}_${pipeline}_${entitystrategy}_${filterq}_%j.log run_LMDEmb_single_pv.sh $domain $pipeline $querytype $entitystrategy $filterq ;
+    echo "sbatch -a 1-10 -t 2-00:00:00 -p cpu20 -c $CPUNUM --mem-per-cpu=32G -o ${logfolder}BM25_%a_${domain}_${querytype}_${pipeline}_${entitystrategy}_${filterq}_%j.log run_LMDEmb_single_pv.sh $domain $pipeline $querytype $entitystrategy $filterq ;"
+    sbatch -a 1-10 -t 2-00:00:00 -p cpu20 -c $CPUNUM --mem-per-cpu=32G -o ${logfolder}BM25_%a_${domain}_${querytype}_${pipeline}_${entitystrategy}_${filterq}_%j.log run_LMDEmb_single_pv.sh $domain $pipeline $querytype $entitystrategy $filterq ;
   fi
 done
 
@@ -34,8 +34,8 @@ do
     for domainvocsp in "${dstypes[@]}"
     do
       sleep 30
-      echo "sbatch -a 1-10 -p cpu20 -c $CPUNUM --mem-per-cpu=32G -o ${logfolder}BM25_%a_${domain}_${querytype}_${pipeline}_${entitystrategy}_${domainvocsp}_${filterq}_%j.log run_LMDEmb_single_dv_pv.sh $domain $pipeline $querytype $entitystrategy $domainvocsp $filterq ;"
-      sbatch -a 1-10 -p cpu20 -c $CPUNUM --mem-per-cpu=32G -o ${logfolder}BM25_%a_${domain}_${querytype}_${pipeline}_${entitystrategy}_${domainvocsp}_${filterq}_%j.log run_LMDEmb_single_dv_pv.sh $domain $pipeline $querytype $entitystrategy $domainvocsp $filterq ;
+      echo "sbatch -a 1-10 -t 2-00:00:00 -p cpu20 -c $CPUNUM --mem-per-cpu=32G -o ${logfolder}BM25_%a_${domain}_${querytype}_${pipeline}_${entitystrategy}_${domainvocsp}_${filterq}_%j.log run_LMDEmb_single_dv_pv.sh $domain $pipeline $querytype $entitystrategy $domainvocsp $filterq ;"
+      sbatch -a 1-10 -t 2-00:00:00 -p cpu20 -c $CPUNUM --mem-per-cpu=32G -o ${logfolder}BM25_%a_${domain}_${querytype}_${pipeline}_${entitystrategy}_${domainvocsp}_${filterq}_%j.log run_LMDEmb_single_dv_pv.sh $domain $pipeline $querytype $entitystrategy $domainvocsp $filterq ;
     done
   fi
 done
@@ -45,8 +45,8 @@ do
     for domainvocsp in "${dstypes[@]}"
     do
       sleep 30
-      echo "sbatch -a 1-10 -p cpu20 -c $CPUNUM --mem-per-cpu=32G -o ${logfolder}BM25_%a_${domain}_${querytype}_${pipeline}_${entitystrategy}_${domainvocsp}_${filterq}_%j.log run_LMDEmb_single_dv_pv.sh $domain $pipeline $querytype $entitystrategy $domainvocsp $filterq ;"
-      sbatch -a 1-10 -p cpu20 -c $CPUNUM --mem-per-cpu=32G -o ${logfolder}BM25_%a_${domain}_${querytype}_${pipeline}_${entitystrategy}_${domainvocsp}_${filterq}_%j.log run_LMDEmb_single_dv_pv.sh $domain $pipeline $querytype $entitystrategy $domainvocsp $filterq ;
+      echo "sbatch -a 1-10 -t 2-00:00:00 -p cpu20 -c $CPUNUM --mem-per-cpu=32G -o ${logfolder}BM25_%a_${domain}_${querytype}_${pipeline}_${entitystrategy}_${domainvocsp}_${filterq}_%j.log run_LMDEmb_single_dv_pv.sh $domain $pipeline $querytype $entitystrategy $domainvocsp $filterq ;"
+      sbatch -a 1-10 -t 2-00:00:00 -p cpu20 -c $CPUNUM --mem-per-cpu=32G -o ${logfolder}BM25_%a_${domain}_${querytype}_${pipeline}_${entitystrategy}_${domainvocsp}_${filterq}_%j.log run_LMDEmb_single_dv_pv.sh $domain $pipeline $querytype $entitystrategy $domainvocsp $filterq ;
     done
   fi
 done
