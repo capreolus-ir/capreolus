@@ -279,8 +279,10 @@ class DocStats(Extractor):
 
         logger.debug("tokenizing queries [+entity descriptions]")
         if logger.level in [logging.DEBUG, logging.NOTSET]:
-            os.makedirs(self.get_profile_term_prob_cache_path(), exist_ok=True)
-        os.makedirs(self.get_selected_entities_cache_path(), exist_ok=True)
+            if not exists(self.get_profile_term_prob_cache_path()):
+                os.makedirs(self.get_profile_term_prob_cache_path(), exist_ok=True)
+        if not exists(self.get_selected_entities_cache_path()):
+            os.makedirs(self.get_selected_entities_cache_path(), exist_ok=True)
 
         # self.qid2toks = {}
         self.qidlen = {}
@@ -292,7 +294,7 @@ class DocStats(Extractor):
             entoutf = join(self.get_selected_entities_cache_path(), get_file_name(qid, self["entitylinking"].get_benchmark_name(), self["entitylinking"].get_benchmark_querytype()))
             if exists(entoutf):
                 with open(entoutf, 'r') as f:
- #                   logger.debug(entoutf)
+                    logger.debug(entoutf)
                     qentities = json.loads(f.read())
             else:
                 qentities = self.get_entities(qid) # {"NE": [...], "C": [...]}
