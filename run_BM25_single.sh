@@ -7,7 +7,7 @@ export PATH="$JAVA_HOME/bin:$PATH"
 
 export CAPREOLUS_LOGGING="DEBUG" ;
 export CAPREOLUS_RESULTS=/GW/D5data-13/ghazaleh/ranking_outputs/results_14092020/ ;
-export CAPREOLUS_CACHE=/GW/D5data-13/ghazaleh/ranking_outputs/cache_14092020/ ;
+export CAPREOLUS_CACHE=/GW/D5data-13/ghazaleh/ranking_outputs/cache_16092020/ ;
 export PYTHONPATH=/GW/PKB/work/ghazaleh/capreolus/ ;
 
 domain=$1
