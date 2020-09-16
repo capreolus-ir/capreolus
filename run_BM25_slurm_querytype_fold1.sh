@@ -1,6 +1,6 @@
 #!/bin/bash
 
-logfolder=/GW/D5data-13/ghazaleh/ranking_outputs/logs_16092020/
+logfolder=/GW/D5data-13/ghazaleh/ranking_outputs/logs_17092020/
 domain=$1
 pipeline=$2
 querytype=$3
