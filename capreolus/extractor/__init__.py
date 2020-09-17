@@ -68,7 +68,7 @@ class EmbedText(Extractor):
         embeddings = "glove6b"
         zerounk = False
         calcidf = True
-        maxqlen = 4
+        maxqlen = 4 #todo increase
         maxdoclen = 800
 
     def _get_pretrained_emb(self):
@@ -77,7 +77,7 @@ class EmbedText(Extractor):
 
     def _build_vocab(self, qids, docids, topics):
         tokenize = self["tokenizer"].tokenize
-        self.qid2toks = {qid: tokenize(topics[qid]) for qid in qids}
+        self.qid2toks = {qid: tokenize(topics[qid]) for qid in qids} # todo: I think here I should sort them based on what I want
         self.docid2toks = {docid: tokenize(self["index"].get_doc(docid)) for docid in docids}
         self._extend_stoi(self.qid2toks.values(), calc_idf=self.cfg["calcidf"])
         self._extend_stoi(self.docid2toks.values(), calc_idf=self.cfg["calcidf"])
@@ -144,7 +144,7 @@ class EmbedText(Extractor):
     def id2vec(self, qid, posid, negid=None, query=None):
         if query is not None:
             if qid is None:
-                query = self["tokenizer"].tokenize(query)
+                query = self["tokenizer"].tokenize(query) # todo: I think here I should sort them based on what I want also
                 pass
             else:
                 raise RuntimeError("received both a qid and query, but only one can be passed")
@@ -186,7 +186,7 @@ class EmbedText(Extractor):
 
         return data
 
-
+###TODO: to release the code, first clean all the additional and not neseccary caching (for debugging and viewing) which makes the parallel running a manual job!!!
 class DocStats(Extractor):
     name = "docstats"
     dependencies = {
@@ -294,7 +294,7 @@ class DocStats(Extractor):
             entoutf = join(self.get_selected_entities_cache_path(), get_file_name(qid, self["entitylinking"].get_benchmark_name(), self["entitylinking"].get_benchmark_querytype()))
             if exists(entoutf):
                 with open(entoutf, 'r') as f:
-                    logger.debug(entoutf)
+                    # logger.debug(entoutf)
                     qentities = json.loads(f.read())
             else:
                 qentities = self.get_entities(qid) # {"NE": [...], "C": [...]}
@@ -460,7 +460,7 @@ class DocStats(Extractor):
                         qentities = json.loads(f.read())
                 else:
                     raise RuntimeError(
-                        "This is not implemented! You should have already have the entities for the full profile in the cache to use this.")
+                        "This is not implemented! You should have already have the entities for the full profile in the cache to use this. To this end, you need to run it once for fold1 for example.")
 
                 qdesc = []
                 for e in qentities["NE"]:
@@ -725,17 +725,6 @@ class DocStats(Extractor):
         
         return ret
 
-    def id2vec(self, qid, posid, negid=None, query=None):#todo (ask) where is it used?
-        # if query is not None:
-        #     if qid is None:
-        #         query = self["tokenizer"].tokenize(query)
-        #     else:
-        #         raise RuntimeError("received both a qid and query, but only one can be passed")
-        # else:
-        #     query = self.qid_termprob[qid]
-
-        return {"qid": qid, "posdocid": posid, "negdocid": negid}
-
 
 class DocStatsEmbedding(DocStats):
     name = "docstatsembedding"
@@ -802,14 +791,3 @@ class DocStatsEmbedding(DocStats):
             de += temp_sim if temp_sim >= threshold else 0
 
         return nu/de
-
-    def id2vec(self, qid, posid, negid=None, query=None):#todo change this later or delete it...
-        # if query is not None:
-        #     if qid is None:
-        #         query = self["tokenizer"].tokenize(query)
-        #     else:
-        #         raise RuntimeError("received both a qid and query, but only one can be passed")
-        # else:
-        #     query = self.qid2toks[qid]
-
-        return {"qid": qid, "posdocid": posid, "negdocid": negid}
