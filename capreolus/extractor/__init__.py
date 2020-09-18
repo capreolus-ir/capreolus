@@ -161,7 +161,7 @@ class EmbedText(Extractor):
 
 
     def get_unique_sorted_query_terms(self, qids):
-        if self.cfg["query_cut"] == "unique_most_frequenc":
+        if self.cfg["query_cut"] == "unique_most_frequent":
             for qid in qids:
                 terms = self.qid2toks[qid]
                 term_counts = Counter(terms)
