@@ -363,6 +363,7 @@ class DocStats(Extractor):
         # Here we calculate profile-term-weights based on the profile_topic or profile_user
         # Later we cut based on these weights or multiply the weight by the term-score (we are doing the latter now)
         if self.filter_query is not None:
+            logger.debug("creating profile term weights")
             m = re.match(r"^(topic|user)-(alltopics|amazon|allusers)_tf_k(\d+|-1)$", self.filter_query)
             if m:
                 filter_by = m.group(1)
