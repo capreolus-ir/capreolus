@@ -68,8 +68,18 @@ class EmbedText(Extractor):
         embeddings = "glove6b"
         zerounk = False
         calcidf = True
-        maxqlen = 4 #todo increase
-        maxdoclen = 800
+        maxqlen = 50
+        maxdoclen = 5000
+        query_cut = None
+        document_cut = None
+
+# let's add 2 parameters: 1-query-cut 2-doc-cut to define the ways to cut the query and document. if None, it would just truncate them.
+# book: #docs: 1231 maxlen: 80917 avglen: 4559.179528838343
+# travel #docs: 352 maxlen: 26468 avglen: 4239.082386363636
+# food:  #docs: 995 maxlen: 1396  avglen: 475.06532663316585
+#movie: #docs:  886 maxlen: 1037  avglen: 298.0056433408578
+
+
 
     def _get_pretrained_emb(self):
         magnitude_cache = CACHE_BASE_PATH / "magnitude/"
@@ -737,7 +747,7 @@ class DocStats(Extractor):
         if qid is None:
             raise RuntimeError("this is not implemented completely to get the query")
         return {"qid": qid, "posdocid": posid} #these are what used in BM25 and LM rankers, we could give other things here, but we are just getting them from extractor
-
+#if you want to implement cutting docs or queries, you could actually do it here but need to change the BM25 and LM rerankers as well!
 
 
 class DocStatsEmbedding(DocStats):
