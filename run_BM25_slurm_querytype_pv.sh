@@ -9,7 +9,7 @@ CPUNUM=2
 
 declare -a dstypes=("all_domains_tf_k-1" "all_domains_df_k-1" "amazon_tf_k-1" "amazon_df_k-1")
 declare -a pvtypestopic=("topic-alltopics_tf_k-1" "topic-amazon_tf_k-1")
-declare -a pvtypesuser=("user-allusers_tf_k-1")
+declare -a pvtypesuser=("user-allusers_tf_k-1" "user-amazon_tf_k-1")
 
 bm25c=None
 for filterq in "${pvtypestopic[@]}"
