@@ -1,6 +1,6 @@
 #!/bin/bash
 
-logfolder=/GW/D5data-13/ghazaleh/ranking_outputs/logs_17092020/
+logfolder=/GW/D5data-13/ghazaleh/ranking_outputs/logs_18092020/
 pipeline=ENTITY_CONCEPT_JOINT_LINKING
 querytype=query
 entitystrategy=noneE
