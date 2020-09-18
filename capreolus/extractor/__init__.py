@@ -487,6 +487,7 @@ class DocStats(Extractor):
             G_tfs_raw, G_len_raw = DocStats.get_G_tfs_amazon_raw_from_file()
             user_term_weights = {}
             for uid in s_user_probs.keys():
+                user_term_weights[uid] = {}
                 G_probs = DocStats.get_amazon_plus_user_profile_term_probs_tf(G_tfs_raw, G_len_raw, user_profile_tfs[uid], user_profile_len[uid])
                 for term, p in s_user_probs[uid].items():
                     user_term_weights[uid][term] = p / G_probs[term]
