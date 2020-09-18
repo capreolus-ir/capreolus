@@ -8,6 +8,8 @@ from glob import glob
 
 import numpy as np
 from tqdm import tqdm
+import matplotlib
+matplotlib.use('pdf')
 import matplotlib.pyplot as plt
 
 from capreolus.utils.loginit import get_logger
