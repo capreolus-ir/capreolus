@@ -94,6 +94,12 @@ class EmbedText(Extractor):
     def _build_vocab(self, qids, docids, topics):
         tokenize = self["tokenizer"].tokenize
         self.qid2toks = {qid: tokenize(topics[qid]) for qid in qids} # todo: I think here I should sort them based on what I want
+        if self.cfg["query_cut"] is not None:
+            self.build_unique_sorted_query_terms(qids)
+
+        if self.cfg["document_cut"] is not None:
+            pass# let's first go with query_cut only
+
         self.docid2toks = {docid: tokenize(self["index"].get_doc(docid)) for docid in docids}
         self._extend_stoi(self.qid2toks.values(), calc_idf=self.cfg["calcidf"])
         self._extend_stoi(self.docid2toks.values(), calc_idf=self.cfg["calcidf"])
@@ -153,14 +159,7 @@ class EmbedText(Extractor):
         self._build_vocab(qids, docids, topics)
         self._build_embedding_matrix()
 
-        if self.cfg["query_cut"] is not None:
-            self.get_unique_sorted_query_terms(qids)
-
-        if self.cfg["document_cut"] is not None:
-            pass# let's first go with query_cut only
-
-
-    def get_unique_sorted_query_terms(self, qids):
+    def build_unique_sorted_query_terms(self, qids):
         if self.cfg["query_cut"] == "unique_most_frequent":
             for qid in qids:
                 terms = self.qid2toks[qid]
