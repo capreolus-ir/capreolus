@@ -144,7 +144,7 @@ class EmbedText(Extractor):
     def id2vec(self, qid, posid, negid=None, query=None):
         if query is not None:
             if qid is None:
-                query = self["tokenizer"].tokenize(query) # todo: I think here I should sort them based on what I want also
+                query = self["tokenizer"].tokenize(query) # todo: I think here I should sort them based on what I want also(bur this is probably not used)
                 pass
             else:
                 raise RuntimeError("received both a qid and query, but only one can be passed")
@@ -725,6 +725,20 @@ class DocStats(Extractor):
         
         return ret
 
+    def id2vec(self, qid, posid, negid=None, query=None):
+        # if query is not None:
+        #     # if qid is None:
+        #     #     query = self["tokenizer"].tokenize(query)
+        #     # else:
+        #     #     raise RuntimeError("received both a qid and query, but only one can be passed")
+        #     raise RuntimeError("this is not implemented completely to get the query")
+        # else:
+        #     query = self.qid_termprob[qid]
+        if qid is None:
+            raise RuntimeError("this is not implemented completely to get the query")
+        return {"qid": qid, "posdocid": posid} #these are what used in BM25 and LM rankers, we could give other things here, but we are just getting them from extractor
+
+
 
 class DocStatsEmbedding(DocStats):
     name = "docstatsembedding"
@@ -791,3 +805,16 @@ class DocStatsEmbedding(DocStats):
             de += temp_sim if temp_sim >= threshold else 0
 
         return nu/de
+
+    def id2vec(self, qid, posid, negid=None, query=None):
+        # if query is not None:
+        #     # if qid is None:
+        #     #     query = self["tokenizer"].tokenize(query)
+        #     # else:
+        #     #     raise RuntimeError("received both a qid and query, but only one can be passed")
+        #     raise RuntimeError("this is not implemented completely to get the query")
+        # else:
+        #     query = self.qid_termprob[qid]
+        if qid is None:
+            raise RuntimeError("this is not implemented completely to get the query")
+        return {"qid": qid, "posdocid": posid} #these are what used in BM25 and LM rankers, we could give other things here, but we are just getting them from extractor
