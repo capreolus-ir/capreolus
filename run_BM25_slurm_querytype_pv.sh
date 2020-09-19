@@ -16,16 +16,16 @@ for filterq in "${pvtypestopic[@]}"
 do
   if [ "$querytype" != "query" ] && [ "$querytype" != "basicprofile" ] && [ "$querytype" != "chatprofile" ]; then
     sleep 20
-    echo "sbatch -a 1-10 -p cpu20 -c $CPUNUM --mem-per-cpu=24G -o ${logfolder}BM25_%a_${domain}_${querytype}_${pipeline}_${entitystrategy}_${filterq}_%j.log run_BM25_single_pv.sh $domain $pipeline $querytype $entitystrategy $filterq $bm25c ;"
-    sbatch -a 1-10 -p cpu20 -c $CPUNUM --mem-per-cpu=24G -o ${logfolder}BM25_%a_${domain}_${querytype}_${pipeline}_${entitystrategy}_${filterq}_%j.log run_BM25_single_pv.sh $domain $pipeline $querytype $entitystrategy $filterq $bm25c ;
+    echo "sbatch -a 1-10 -p cpu20 -c $CPUNUM --mem-per-cpu=24G -o ${logfolder}BM25_${domain}_${querytype}_${pipeline}_${entitystrategy}_${filterq}.log --open-mode=append  run_BM25_single_pv.sh $domain $pipeline $querytype $entitystrategy $filterq $bm25c ;"
+    sbatch -a 1-10 -p cpu20 -c $CPUNUM --mem-per-cpu=24G -o ${logfolder}BM25_${domain}_${querytype}_${pipeline}_${entitystrategy}_${filterq}.log --open-mode=append run_BM25_single_pv.sh $domain $pipeline $querytype $entitystrategy $filterq $bm25c ;
   fi
 done
 for filterq in "${pvtypesuser[@]}"
 do
   if [ "$querytype" != "query" ]; then
     sleep 20
-    echo "sbatch -a 1-10 -p cpu20 -c $CPUNUM --mem-per-cpu=24G -o ${logfolder}BM25_%a_${domain}_${querytype}_${pipeline}_${entitystrategy}_${filterq}_%j.log run_BM25_single_pv.sh $domain $pipeline $querytype $entitystrategy $filterq $bm25c ;"
-    sbatch -a 1-10 -p cpu20 -c $CPUNUM --mem-per-cpu=24G -o ${logfolder}BM25_%a_${domain}_${querytype}_${pipeline}_${entitystrategy}_${filterq}_%j.log run_BM25_single_pv.sh $domain $pipeline $querytype $entitystrategy $filterq $bm25c ;
+    echo "sbatch -a 1-10 -p cpu20 -c $CPUNUM --mem-per-cpu=24G -o ${logfolder}BM25_${domain}_${querytype}_${pipeline}_${entitystrategy}_${filterq}.log --open-mode=append  run_BM25_single_pv.sh $domain $pipeline $querytype $entitystrategy $filterq $bm25c ;"
+    sbatch -a 1-10 -p cpu20 -c $CPUNUM --mem-per-cpu=24G -o ${logfolder}BM25_${domain}_${querytype}_${pipeline}_${entitystrategy}_${filterq}.log --open-mode=append  run_BM25_single_pv.sh $domain $pipeline $querytype $entitystrategy $filterq $bm25c ;
   fi
 done
 
@@ -35,8 +35,8 @@ do
     for domainvocsp in "${dstypes[@]}"
     do
       sleep 20
-      echo "sbatch -a 1-10 -p cpu20 -c $CPUNUM --mem-per-cpu=24G -o ${logfolder}BM25_%a_${domain}_${querytype}_${pipeline}_${entitystrategy}_${domainvocsp}_${filterq}_%j.log run_BM25_single_dv_pv.sh $domain $pipeline $querytype $entitystrategy $domainvocsp $filterq $bm25c ;"
-      sbatch -a 1-10 -p cpu20 -c $CPUNUM --mem-per-cpu=24G -o ${logfolder}BM25_%a_${domain}_${querytype}_${pipeline}_${entitystrategy}_${domainvocsp}_${filterq}_%j.log run_BM25_single_dv_pv.sh $domain $pipeline $querytype $entitystrategy $domainvocsp $filterq $bm25c ;
+      echo "sbatch -a 1-10 -p cpu20 -c $CPUNUM --mem-per-cpu=24G -o ${logfolder}BM25_${domain}_${querytype}_${pipeline}_${entitystrategy}_${domainvocsp}_${filterq}.log --open-mode=append  run_BM25_single_dv_pv.sh $domain $pipeline $querytype $entitystrategy $domainvocsp $filterq $bm25c ;"
+      sbatch -a 1-10 -p cpu20 -c $CPUNUM --mem-per-cpu=24G -o ${logfolder}BM25_${domain}_${querytype}_${pipeline}_${entitystrategy}_${domainvocsp}_${filterq}.log --open-mode=append  run_BM25_single_dv_pv.sh $domain $pipeline $querytype $entitystrategy $domainvocsp $filterq $bm25c ;
     done
   fi
 done
@@ -46,8 +46,8 @@ do
     for domainvocsp in "${dstypes[@]}"
     do
       sleep 20
-      echo "sbatch -a 1-10 -p cpu20 -c $CPUNUM --mem-per-cpu=24G -o ${logfolder}BM25_%a_${domain}_${querytype}_${pipeline}_${entitystrategy}_${domainvocsp}_${filterq}_%j.log run_BM25_single_dv_pv.sh $domain $pipeline $querytype $entitystrategy $domainvocsp $filterq $bm25c ;"
-      sbatch -a 1-10 -p cpu20 -c $CPUNUM --mem-per-cpu=24G -o ${logfolder}BM25_%a_${domain}_${querytype}_${pipeline}_${entitystrategy}_${domainvocsp}_${filterq}_%j.log run_BM25_single_dv_pv.sh $domain $pipeline $querytype $entitystrategy $domainvocsp $filterq $bm25c ;
+      echo "sbatch -a 1-10 -p cpu20 -c $CPUNUM --mem-per-cpu=24G -o ${logfolder}BM25_${domain}_${querytype}_${pipeline}_${entitystrategy}_${domainvocsp}_${filterq}.log --open-mode=append  run_BM25_single_dv_pv.sh $domain $pipeline $querytype $entitystrategy $domainvocsp $filterq $bm25c ;"
+      sbatch -a 1-10 -p cpu20 -c $CPUNUM --mem-per-cpu=24G -o ${logfolder}BM25_${domain}_${querytype}_${pipeline}_${entitystrategy}_${domainvocsp}_${filterq}.log --open-mode=append  run_BM25_single_dv_pv.sh $domain $pipeline $querytype $entitystrategy $domainvocsp $filterq $bm25c ;
     done
   fi
 done
@@ -58,16 +58,16 @@ for filterq in "${pvtypestopic[@]}"
 do
   if [ "$querytype" != "query" ] && [ "$querytype" != "basicprofile" ] && [ "$querytype" != "chatprofile" ]; then
     sleep 20
-    echo "sbatch -a 1-10 -p cpu20 -c $CPUNUM --mem-per-cpu=24G -o ${logfolder}BM25_%a_${domain}_${querytype}_${pipeline}_${entitystrategy}_${filterq}_%j.log run_BM25_single_pv.sh $domain $pipeline $querytype $entitystrategy $filterq $bm25c ;"
-    sbatch -a 1-10 -p cpu20 -c $CPUNUM --mem-per-cpu=24G -o ${logfolder}BM25_%a_${domain}_${querytype}_${pipeline}_${entitystrategy}_${filterq}_%j.log run_BM25_single_pv.sh $domain $pipeline $querytype $entitystrategy $filterq $bm25c ;
+    echo "sbatch -a 1-10 -p cpu20 -c $CPUNUM --mem-per-cpu=24G -o ${logfolder}BM25_${domain}_${querytype}_${pipeline}_${entitystrategy}_${filterq}.log --open-mode=append  run_BM25_single_pv.sh $domain $pipeline $querytype $entitystrategy $filterq $bm25c ;"
+    sbatch -a 1-10 -p cpu20 -c $CPUNUM --mem-per-cpu=24G -o ${logfolder}BM25_${domain}_${querytype}_${pipeline}_${entitystrategy}_${filterq}.log --open-mode=append  run_BM25_single_pv.sh $domain $pipeline $querytype $entitystrategy $filterq $bm25c ;
   fi
 done
 for filterq in "${pvtypesuser[@]}"
 do
   if [ "$querytype" != "query" ]; then
     sleep 20
-    echo "sbatch -a 1-10 -p cpu20 -c $CPUNUM --mem-per-cpu=24G -o ${logfolder}BM25_%a_${domain}_${querytype}_${pipeline}_${entitystrategy}_${filterq}_%j.log run_BM25_single_pv.sh $domain $pipeline $querytype $entitystrategy $filterq $bm25c ;"
-    sbatch -a 1-10 -p cpu20 -c $CPUNUM --mem-per-cpu=24G -o ${logfolder}BM25_%a_${domain}_${querytype}_${pipeline}_${entitystrategy}_${filterq}_%j.log run_BM25_single_pv.sh $domain $pipeline $querytype $entitystrategy $filterq $bm25c ;
+    echo "sbatch -a 1-10 -p cpu20 -c $CPUNUM --mem-per-cpu=24G -o ${logfolder}BM25_${domain}_${querytype}_${pipeline}_${entitystrategy}_${filterq}.log --open-mode=append  run_BM25_single_pv.sh $domain $pipeline $querytype $entitystrategy $filterq $bm25c ;"
+    sbatch -a 1-10 -p cpu20 -c $CPUNUM --mem-per-cpu=24G -o ${logfolder}BM25_${domain}_${querytype}_${pipeline}_${entitystrategy}_${filterq}.log --open-mode=append  run_BM25_single_pv.sh $domain $pipeline $querytype $entitystrategy $filterq $bm25c ;
   fi
 done
 
@@ -77,8 +77,8 @@ do
     for domainvocsp in "${dstypes[@]}"
     do
       sleep 20
-      echo "sbatch -a 1-10 -p cpu20 -c $CPUNUM --mem-per-cpu=24G -o ${logfolder}BM25_%a_${domain}_${querytype}_${pipeline}_${entitystrategy}_${domainvocsp}_${filterq}_%j.log run_BM25_single_dv_pv.sh $domain $pipeline $querytype $entitystrategy $domainvocsp $filterq $bm25c ;"
-      sbatch -a 1-10 -p cpu20 -c $CPUNUM --mem-per-cpu=24G -o ${logfolder}BM25_%a_${domain}_${querytype}_${pipeline}_${entitystrategy}_${domainvocsp}_${filterq}_%j.log run_BM25_single_dv_pv.sh $domain $pipeline $querytype $entitystrategy $domainvocsp $filterq $bm25c ;
+      echo "sbatch -a 1-10 -p cpu20 -c $CPUNUM --mem-per-cpu=24G -o ${logfolder}BM25_${domain}_${querytype}_${pipeline}_${entitystrategy}_${domainvocsp}_${filterq}.log --open-mode=append  run_BM25_single_dv_pv.sh $domain $pipeline $querytype $entitystrategy $domainvocsp $filterq $bm25c ;"
+      sbatch -a 1-10 -p cpu20 -c $CPUNUM --mem-per-cpu=24G -o ${logfolder}BM25_${domain}_${querytype}_${pipeline}_${entitystrategy}_${domainvocsp}_${filterq}.log --open-mode=append  run_BM25_single_dv_pv.sh $domain $pipeline $querytype $entitystrategy $domainvocsp $filterq $bm25c ;
     done
   fi
 done
@@ -88,8 +88,8 @@ do
     for domainvocsp in "${dstypes[@]}"
     do
       sleep 20
-      echo "sbatch -a 1-10 -p cpu20 -c $CPUNUM --mem-per-cpu=24G -o ${logfolder}BM25_%a_${domain}_${querytype}_${pipeline}_${entitystrategy}_${domainvocsp}_${filterq}_%j.log run_BM25_single_dv_pv.sh $domain $pipeline $querytype $entitystrategy $domainvocsp $filterq $bm25c ;"
-      sbatch -a 1-10 -p cpu20 -c $CPUNUM --mem-per-cpu=24G -o ${logfolder}BM25_%a_${domain}_${querytype}_${pipeline}_${entitystrategy}_${domainvocsp}_${filterq}_%j.log run_BM25_single_dv_pv.sh $domain $pipeline $querytype $entitystrategy $domainvocsp $filterq $bm25c ;
+      echo "sbatch -a 1-10 -p cpu20 -c $CPUNUM --mem-per-cpu=24G -o ${logfolder}BM25_${domain}_${querytype}_${pipeline}_${entitystrategy}_${domainvocsp}_${filterq}.log --open-mode=append  run_BM25_single_dv_pv.sh $domain $pipeline $querytype $entitystrategy $domainvocsp $filterq $bm25c ;"
+      sbatch -a 1-10 -p cpu20 -c $CPUNUM --mem-per-cpu=24G -o ${logfolder}BM25_${domain}_${querytype}_${pipeline}_${entitystrategy}_${domainvocsp}_${filterq}.log --open-mode=append  run_BM25_single_dv_pv.sh $domain $pipeline $querytype $entitystrategy $domainvocsp $filterq $bm25c ;
     done
   fi
 done
