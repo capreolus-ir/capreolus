@@ -74,8 +74,7 @@ class PES20(Benchmark):
 
 class KITT(Benchmark):
     name = "kitt"
-    DATA_DIR = Path("/GW/PKB/work/data_personalization/TREC_format/")
-    # DATA_DIR = Path("/home/ghazaleh/workspace/capreolus/data/test/")
+    DATA_DIR = Path("/GW/PKB/work/data_personalization/TREC_format_quselection_C/")
     qrel_file = DATA_DIR / "judgements"
     fold_file = DATA_DIR / "splits.json"
 
@@ -83,6 +82,7 @@ class KITT(Benchmark):
     def config():
         querytype = "query"
         domain = "book"
+        assessed_set = None
 
         if querytype not in ["query", "basicprofile", "chatprofile",
                              "basicprofile_general", 'basicprofile_food', 'basicprofile_travel', 'basicprofile_book_movie', 'basicprofile_book', 'basicprofile_movie',
@@ -94,7 +94,11 @@ class KITT(Benchmark):
         if domain not in ["book", "travel_wikivoyage", "movie", "food"]:
             raise ValueError(f"invalid domain: {domain}")
 
-        KITT.qrel_file = KITT.DATA_DIR / "{}_judgements".format(domain)
+        if assessed_set not in [None, 'random20', 'top10']:
+            raise ValueError(f"invalid assessed_set: {assessed_set}")
+
+        if assessed_set is not None:
+            KITT.qrel_file = KITT.DATA_DIR / "{}_judgements_{}".format(domain, assessed_set)
         KITT.fold_file = KITT.DATA_DIR / "{}_splits.json".format(domain)
 
     @property
