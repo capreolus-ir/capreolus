@@ -1,18 +1,13 @@
 #!/bin/bash
 
 declare -a domains=('book' 'food' 'movie' 'travel_wikivoyage')
-declare -a profiles=('query' 'basicprofile' 'chatprofile' 'basicprofile_general' 'basicprofile_food' 'basicprofile_travel' 'basicprofile_book_movie' 'basicprofile_book' 'basicprofile_movie' 'basicprofile_food_general' 'basicprofile_travel_general' 'basicprofile_book_movie_general' 'basicprofile_book_general' 'basicprofile_movie_general' 'chatprofile_general' 'chatprofile_food' 'chatprofile_travel' 'chatprofile_book' 'chatprofile_movie' 'chatprofile_hobbies')
 
 pipeline=ENTITY_CONCEPT_JOINT_LINKING
 
-for querytype in "${profiles[@]}"
+for domain in "${domains[@]}"
 do
-  for domain in "${domains[@]}"
-  do
-    echo "source run_KNRM_slurm_querytype_train.sh $domain $pipeline $querytype &"
-    source run_KNRM_slurm_querytype_train.sh $domain $pipeline $querytype &
-    sleep 60
-  done
+  echo "source run_KNRM_slurm_querytype_train.sh $domain $pipeline $querytype ;"
+  source run_KNRM_slurm_querytype_train.sh $domain $pipeline ;
 done
 
 

@@ -12,17 +12,42 @@ export PYTHONPATH=/home/ghazaleh/capreolus_dev/capreolus/ ;
 
 domain=$1
 pipeline=$2
-querytype=$3
-entitystrategy=$4
-assessed_set=$5
-querycut=$6
+entitystrategy=$3
+assessed_set=$4
 dataset=kitt
-FOLDNUM=$SLURM_ARRAY_TASK_ID
-echo "$domain - $pipeline - $querytype - $entitystrategy - $assessed_set -$FOLDNUM"
+querycut=DONT
 
-if [ "$entitystrategy" == "noneE" ]; then
-  if [ "$pipeline" == "ENTITY_CONCEPT_JOINT_LINKING" ]; then
-    time python -m capreolus.run rerank.train with searcher=qrels reranker=KNRM collection=$dataset collection.domain=$domain benchmark=$dataset benchmark.domain=$domain benchmark.querytype=$querytype benchmark.assessed_set=$assessed_set reranker.extractor.query_cut=$querycut fold=s$FOLDNUM ;
+declare -a profiles=('query' 'basicprofile' 'chatprofile' 'basicprofile_general' 'basicprofile_food' 'basicprofile_travel' 'basicprofile_book_movie' 'basicprofile_book' 'basicprofile_movie' 'basicprofile_food_general' 'basicprofile_travel_general' 'basicprofile_book_movie_general' 'basicprofile_book_general' 'basicprofile_movie_general' 'chatprofile_general' 'chatprofile_food' 'chatprofile_travel' 'chatprofile_book' 'chatprofile_movie' 'chatprofile_hobbies')
+
+qtidx=$(( (SLURM_ARRAY_TASK_ID-1)/50 ))
+querytype=${profiles[$qtidx]}
+
+pvidx=$(( SLURM_ARRAY_TASK_ID - (qtidx * 50)  ))
+
+FOLDNUM=$(( ((pvidx-1)%10)+1 ))
+if ((pvidx >= 1 && pvidx <= 10)); then
+  querycut=None
+fi
+if ((pvidx >= 11 && pvidx <= 20)); then
+  querycut=unique_most_frequent
+fi
+if ((pvidx >= 21 && pvidx <= 30)); then
+  querycut=DONT
+fi
+if ((pvidx >= 31 && pvidx <= 40)); then
+  querycut=DONT
+fi
+if ((pvidx >= 41 && pvidx <= 50)); then
+  querycut=DONT
+fi
+
+echo "$domain - $pipeline - $querytype - $entitystrategy - $querycut - $assessed_set -$FOLDNUM"
+
+if [ "$querycut" != "DONT" ]; then
+  if [ "$entitystrategy" == "noneE" ]; then
+    if [ "$pipeline" == "ENTITY_CONCEPT_JOINT_LINKING" ]; then
+      time python -m capreolus.run rerank.train with searcher=qrels reranker=KNRM collection=$dataset collection.domain=$domain benchmark=$dataset benchmark.domain=$domain benchmark.querytype=$querytype benchmark.assessed_set=$assessed_set reranker.extractor.query_cut=$querycut fold=s$FOLDNUM ;
+    fi
   fi
 fi
 conda deactivate
