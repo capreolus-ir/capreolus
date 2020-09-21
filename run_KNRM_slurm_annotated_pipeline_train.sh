@@ -10,7 +10,7 @@ do
   for domain in "${domains[@]}"
   do
     echo "source run_KNRM_slurm_querytype_train.sh $domain $pipeline $querytype &"
-    source run_BM25_slurm_querytype.sh $domain $pipeline $querytype &
+    source run_KNRM_slurm_querytype_train.sh $domain $pipeline $querytype &
     sleep 60
   done
 done
