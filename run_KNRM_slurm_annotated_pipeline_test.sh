@@ -6,8 +6,8 @@ pipeline=ENTITY_CONCEPT_JOINT_LINKING
 
 for domain in "${domains[@]}"
 do
-  echo "source run_KNRM_slurm_querytype_train.sh $domain $pipeline ;"
-  source run_KNRM_slurm_querytype_train.sh $domain $pipeline ;
+  echo "source run_KNRM_slurm_querytype_test.sh $domain $pipeline ;"
+  source run_KNRM_slurm_querytype_test.sh $domain $pipeline ;
 done
 
 
