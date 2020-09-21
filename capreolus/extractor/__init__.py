@@ -96,11 +96,9 @@ class EmbedText(Extractor):
         self.qid2toks = {qid: tokenize(topics[qid]) for qid in qids} # todo: I think here I should sort them based on what I want
         if self.cfg["query_cut"] is not None:
             self.build_unique_sorted_query_terms(qids, querytype)
-
+        self.docid2toks = {docid: tokenize(self["index"].get_doc(docid)) for docid in docids}
         if self.cfg["document_cut"] is not None:
             pass# let's first go with query_cut only
-
-        self.docid2toks = {docid: tokenize(self["index"].get_doc(docid)) for docid in docids}
         self._extend_stoi(self.qid2toks.values(), calc_idf=self.cfg["calcidf"])
         self._extend_stoi(self.docid2toks.values(), calc_idf=self.cfg["calcidf"])
         self.itos = {i: s for s, i in self.stoi.items()}
@@ -363,6 +361,7 @@ class DocStats(Extractor):
         # Here we calculate profile-term-weights based on the profile_topic or profile_user
         # Later we cut based on these weights or multiply the weight by the term-score (we are doing the latter now)
         if self.filter_query is not None:
+            logger.debug("creating profile term weights")
             m = re.match(r"^(topic|user)-(alltopics|amazon|allusers)_tf_k(\d+|-1)$", self.filter_query)
             if m:
                 filter_by = m.group(1)

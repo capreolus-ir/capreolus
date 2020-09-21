@@ -11,7 +11,7 @@ bm25c=None
 declare -a dstypes=("all_domains_tf_k-1" "all_domains_df_k-1" "amazon_tf_k-1" "amazon_df_k-1")
 for domainvocsp in "${dstypes[@]}"
 do
-  echo "sbatch -a 1-1 -p cpu20 -c $CPUNUM --mem-per-cpu=24G -o ${logfolder}BM25_1_${domain}_${querytype}_${pipeline}_${entitystrategy}_${domainvocsp}_%j.log run_BM25_single_dv.sh $domain $pipeline $querytype $entitystrategy $domainvocsp $bm25c;"
-  sbatch -a 1-1 -p cpu20 -c $CPUNUM --mem-per-cpu=24G -o ${logfolder}BM25_1_${domain}_${querytype}_${pipeline}_${entitystrategy}_${domainvocsp}_%j.log run_BM25_single_dv.sh $domain $pipeline $querytype $entitystrategy $domainvocsp $bm25c;
+  echo "sbatch -a 1-1 -p cpu20 -c $CPUNUM --mem-per-cpu=24G -o ${logfolder}BM25_1_${domain}_${querytype}_${pipeline}_${entitystrategy}_${domainvocsp}.log --open-mode=append run_BM25_single_dv.sh $domain $pipeline $querytype $entitystrategy $domainvocsp $bm25c;"
+  sbatch -a 1-1 -p cpu20 -c $CPUNUM --mem-per-cpu=24G -o ${logfolder}BM25_1_${domain}_${querytype}_${pipeline}_${entitystrategy}_${domainvocsp}.log --open-mode=append run_BM25_single_dv.sh $domain $pipeline $querytype $entitystrategy $domainvocsp $bm25c;
   sleep 5
 done
