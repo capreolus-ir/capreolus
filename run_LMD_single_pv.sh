@@ -13,31 +13,39 @@ export PYTHONPATH=/GW/PKB/work/ghazaleh/capreolus/ ;
 
 domain=$1
 pipeline=$2
-querytype=$3
-entitystrategy=$4
+entitystrategy=$3
 dataset=kitt
 filterq=DONT
-FOLDNUM=$(( ((SLURM_ARRAY_TASK_ID-1)%10)+1 ))
-if ((SLURM_ARRAY_TASK_ID >= 1 && SLURM_ARRAY_TASK_ID <= 10)); then
+
+declare -a profiles=('query' 'basicprofile' 'chatprofile' 'basicprofile_general' 'basicprofile_food' 'basicprofile_travel' 'basicprofile_book_movie' 'basicprofile_book' 'basicprofile_movie' 'basicprofile_food_general' 'basicprofile_travel_general' 'basicprofile_book_movie_general' 'basicprofile_book_general' 'basicprofile_movie_general' 'chatprofile_general' 'chatprofile_food' 'chatprofile_travel' 'chatprofile_book' 'chatprofile_movie' 'chatprofile_hobbies')
+
+qtidx=$(( (SLURM_ARRAY_TASK_ID-1)/40 ))
+querytype=${profiles[$qtidx]}
+
+pvidx=$(( SLURM_ARRAY_TASK_ID - (qtidx * 40)  ))
+
+FOLDNUM=$(( ((pvidx-1)%10)+1 ))
+if ((pvidx >= 1 && pvidx <= 10)); then
   if [ "$querytype" != "query" ] && [ "$querytype" != "basicprofile" ] && [ "$querytype" != "chatprofile" ]; then
     filterq=topic-alltopics_tf_k-1
   fi
 fi
-if ((SLURM_ARRAY_TASK_ID >= 11 && SLURM_ARRAY_TASK_ID <= 20)); then
+if ((pvidx >= 11 && pvidx <= 20)); then
   if [ "$querytype" != "query" ] && [ "$querytype" != "basicprofile" ] && [ "$querytype" != "chatprofile" ]; then
     filterq=topic-amazon_tf_k-1
   fi
 fi
-if ((SLURM_ARRAY_TASK_ID >= 21 && SLURM_ARRAY_TASK_ID <= 30)); then
+if ((pvidx >= 21 && pvidx <= 30)); then
   if [ "$querytype" != "query" ]; then
     filterq=user-allusers_tf_k-1
   fi
 fi
-if ((SLURM_ARRAY_TASK_ID >= 31 && SLURM_ARRAY_TASK_ID <= 40)); then
+if ((pvidx >= 31 && pvidx <= 40)); then
   if [ "$querytype" != "query" ]; then
     filterq=user-amazon_tf_k-1
   fi
 fi
+
 
 echo "$domain - $pipeline - $querytype - $entitystrategy - $filterq - $FOLDNUM"
 
