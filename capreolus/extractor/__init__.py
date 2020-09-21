@@ -73,10 +73,10 @@ class EmbedText(Extractor):
         query_cut = None
         document_cut = None
 
-        if query_cut is not None and query_cut not in ["unique_most_frequent", "unique_topic-alltopics", "unique_topic-amazon", "unique_user-allusers"]:
+        if query_cut is not None and query_cut not in ["unique_most_frequent"]:#, "unique_topic-alltopics", "unique_topic-amazon", "unique_user-allusers"]:
             raise ValueError(f"Value for query_cut is wrong {query_cut}")
 
-        if document_cut is not None and query_cut not in ["most_frequent", "all_domains_tf", "all_domains_df", "amazon_tf", "amazon_df"]:
+        if document_cut is not None:# and query_cut not in ["most_frequent", "all_domains_tf", "all_domains_df", "amazon_tf", "amazon_df"]:
             raise ValueError(f"Value for document_cut is wrong {document_cut}")
 
 # let's add 2 parameters: 1-query-cut 2-doc-cut to define the ways to cut the query and document. if None, it would just truncate them.
