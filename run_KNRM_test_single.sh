@@ -19,10 +19,10 @@ querycut=DONT
 
 declare -a profiles=('query' 'basicprofile' 'chatprofile' 'basicprofile_general' 'basicprofile_food' 'basicprofile_travel' 'basicprofile_book_movie' 'basicprofile_book' 'basicprofile_movie' 'basicprofile_food_general' 'basicprofile_travel_general' 'basicprofile_book_movie_general' 'basicprofile_book_general' 'basicprofile_movie_general' 'chatprofile_general' 'chatprofile_food' 'chatprofile_travel' 'chatprofile_book' 'chatprofile_movie' 'chatprofile_hobbies')
 
-qtidx=$(( (SLURM_ARRAY_TASK_ID-1)/50 ))
+qtidx=$(( (SLURM_ARRAY_TASK_ID-1)/60 ))
 querytype=${profiles[$qtidx]}
 
-pvidx=$(( SLURM_ARRAY_TASK_ID - (qtidx * 50)  ))
+pvidx=$(( SLURM_ARRAY_TASK_ID - (qtidx * 60)  ))
 
 FOLDNUM=$(( ((pvidx-1)%10)+1 ))
 if ((pvidx >= 1 && pvidx <= 10)); then
@@ -32,13 +32,16 @@ if ((pvidx >= 11 && pvidx <= 20)); then
   querycut=unique_most_frequent
 fi
 if ((pvidx >= 21 && pvidx <= 30)); then
-  querycut=DONT
+  querycut=unique_topic-alltopics
 fi
 if ((pvidx >= 31 && pvidx <= 40)); then
-  querycut=DONT
+  querycut=unique_topic-amazon
 fi
 if ((pvidx >= 41 && pvidx <= 50)); then
-  querycut=DONT
+  querycut=unique_user-allusers
+fi
+if ((pvidx >= 51 && pvidx <= 60)); then
+  querycut=unique_user-amazon
 fi
 
 echo "$domain - $pipeline - $querytype - $entitystrategy - $querycut - $assessed_set -$FOLDNUM"

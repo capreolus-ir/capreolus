@@ -157,7 +157,6 @@ class EmbedText(Extractor):
         self._build_vocab(qids, docids, topics, querytype)
         self._build_embedding_matrix()
 
-    # ["unique_most_frequent", "unique_topic-alltopics", "unique_topic-amazon", "unique_user-allusers", "unique_user-amazon"]:
     def build_unique_sorted_query_terms(self, qids, querytype):
         if self.cfg["query_cut"] == "unique_most_frequent":
             for qid in qids:
