@@ -32,16 +32,24 @@ if ((pvidx >= 11 && pvidx <= 20)); then
   querycut=unique_most_frequent
 fi
 if ((pvidx >= 21 && pvidx <= 30)); then
-  querycut=unique_topic-alltopics
+  if [ "$querytype" != "query" ] && [ "$querytype" != "basicprofile" ] && [ "$querytype" != "chatprofile" ]; then
+    querycut=unique_topic-alltopics
+  fi
 fi
 if ((pvidx >= 31 && pvidx <= 40)); then
-  querycut=unique_topic-amazon
+  if [ "$querytype" != "query" ] && [ "$querytype" != "basicprofile" ] && [ "$querytype" != "chatprofile" ]; then
+    querycut=unique_topic-amazon
+  fi
 fi
 if ((pvidx >= 41 && pvidx <= 50)); then
-  querycut=unique_user-allusers
+  if [ "$querytype" != "query" ]; then
+    querycut=unique_user-allusers
+  fi
 fi
 if ((pvidx >= 51 && pvidx <= 60)); then
-  querycut=unique_user-amazon
+  if [ "$querytype" != "query" ]; then
+    querycut=unique_user-amazon
+  fi
 fi
 
 echo "$domain - $pipeline - $querytype - $entitystrategy - $querycut - $assessed_set -$FOLDNUM"
