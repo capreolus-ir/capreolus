@@ -21,12 +21,10 @@ do
   ./wait.sh;
 done
 
-
 bm25c=1.5
 echo "sbatch -a 1-800 -p cpu20 -c $CPUNUM --mem-per-cpu=24G -o ${logfolder}BM25_${domain}_${pipeline}_${entitystrategy}_pv.log --open-mode=append  run_BM25_single_pv.sh $domain $pipeline $entitystrategy $bm25c ;"
 sbatch -a 1-800 -p cpu20 -c $CPUNUM --mem-per-cpu=24G -o ${logfolder}BM25_${domain}_${pipeline}_${entitystrategy}_pv.log --open-mode=append run_BM25_single_pv.sh $domain $pipeline $entitystrategy $bm25c ;
 ./wait.sh;
-
 
 for domainvocsp in "${dstypes[@]}"
 do
