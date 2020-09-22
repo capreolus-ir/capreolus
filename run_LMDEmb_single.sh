@@ -13,10 +13,17 @@ export PYTHONPATH=/GW/PKB/work/ghazaleh/capreolus/ ;
 
 domain=$1
 pipeline=$2
-querytype=$3
-entitystrategy=$4
+entitystrategy=$3
 dataset=kitt
-FOLDNUM=$SLURM_ARRAY_TASK_ID
+
+declare -a profiles=('query' 'basicprofile' 'chatprofile' 'basicprofile_general' 'basicprofile_food' 'basicprofile_travel' 'basicprofile_book_movie' 'basicprofile_book' 'basicprofile_movie' 'basicprofile_food_general' 'basicprofile_travel_general' 'basicprofile_book_movie_general' 'basicprofile_book_general' 'basicprofile_movie_general' 'chatprofile_general' 'chatprofile_food' 'chatprofile_travel' 'chatprofile_book' 'chatprofile_movie' 'chatprofile_hobbies')
+
+qtidx=$(( (SLURM_ARRAY_TASK_ID-1)/10 ))
+querytype=${profiles[$qtidx]}
+
+pvidx=$(( SLURM_ARRAY_TASK_ID - (qtidx * 10)  ))
+FOLDNUM=$(( ((pvidx-1)%10)+1 ))
+
 echo "$domain - $pipeline - $querytype - $entitystrategy - $FOLDNUM"
 
 if [ "$entitystrategy" == "noneE" ]; then
