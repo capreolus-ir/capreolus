@@ -11,7 +11,16 @@ class TFParade_Class(tf.keras.layers.Layer):
         super(TFParade_Class, self).__init__(*args, **kwargs)
         self.extractor = extractor
         self.config = config
-        self.bert = TFBertModel.from_pretrained("bert-base-uncased")
+
+        if config["pretrained"] == "electra-base-msmarco":
+            self.bert = TFElectraModel.from_pretrained("Capreolus/bert-electra-msmarco")
+        elif config["pretrained"] == "bert-base-msmarco":
+            self.bert = TFBertModel.from_pretrained("Capreolus/bert-base-msmarco")
+        elif config["pretrained"] == "bert-base-uncased":
+            self.bert = TFBertModel.from_pretrained("bert-base-uncased")
+        else:
+            raise ValueError(f"unsupported model: {config['pretrained']}; need to ensure correct tokenizers will be used before arbitrary hgf models are supported")
+
         self.transformer_layer_1 = TFBertLayer(self.bert.config)
         self.transformer_layer_2 = TFBertLayer(self.bert.config)
         self.num_passages = extractor.config["numpassages"]
@@ -102,7 +111,7 @@ class TFParade(Reranker):
         Dependency(key="trainer", module="trainer", name="tensorflow"),
     ]
     config_spec = [
-        ConfigOption("pretrained", "bert-base-uncased", "Hugging face transformer pretrained model"),
+        ConfigOption("pretrained", "bert-base-uncased", "Pretrained model: bert-base-uncased, bert-base-msmarco, or electra-base-msmarco")
         ConfigOption("aggregation", "maxp"),
     ]
 
