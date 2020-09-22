@@ -266,4 +266,4 @@ class KITT(Collection):
         if domain not in ["book", "travel_wikivoyage", "movie", "food"]:
             raise ValueError(f"invalid domain: {domain}")
 
-        path = "/GW/PKB/work/data_personalization/TREC_format/documents/{}".format(domain)
+        path = "/GW/PKB/work/data_personalization/TREC_format_quselection_C/documents/{}".format(domain)

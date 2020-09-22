@@ -60,10 +60,10 @@ def _eval_runs(runs, qrels, metrics, dev_qids):
     scores = np.array(scores).mean(axis=0).tolist()
     try:
         scores = dict(zip(metrics, scores))
-    except RuntimeError:
+    except TypeError:
         logger.debug(len(runs))
         logger.debug(scores)
-        raise RuntimeError("something goes wrong I don't know what")
+        raise TypeError("something goes wrong I don't know what")
     return scores
 
 
