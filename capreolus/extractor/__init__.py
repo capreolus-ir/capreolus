@@ -73,7 +73,7 @@ class EmbedText(Extractor):
         query_cut = None
         document_cut = None
 
-        if query_cut is not None and query_cut not in ["unique_most_frequent"]:#, "unique_topic-alltopics", "unique_topic-amazon", "unique_user-allusers"]:
+        if query_cut is not None and query_cut not in ["unique_most_frequent", "unique_topic-alltopics", "unique_topic-amazon", "unique_user-allusers", "unique_user-amazon"]:
             raise ValueError(f"Value for query_cut is wrong {query_cut}")
 
         if document_cut is not None:# and query_cut not in ["most_frequent", "all_domains_tf", "all_domains_df", "amazon_tf", "amazon_df"]:
@@ -157,17 +157,147 @@ class EmbedText(Extractor):
         self._build_vocab(qids, docids, topics, querytype)
         self._build_embedding_matrix()
 
-    # ["unique_most_frequent", "unique_topic-alltopics", "unique_topic-amazon", "unique_user-allusers"]:
+    # ["unique_most_frequent", "unique_topic-alltopics", "unique_topic-amazon", "unique_user-allusers", "unique_user-amazon"]:
     def build_unique_sorted_query_terms(self, qids, querytype):
         if self.cfg["query_cut"] == "unique_most_frequent":
             for qid in qids:
                 terms = self.qid2toks[qid]
                 term_counts = Counter(terms)
                 self.qid2toks[qid] = [t for t, v in sorted(term_counts.items(), key=lambda item:item[1], reverse=True)]
-        elif self.cfg["query_cut"] == "unique_user-allusers":
-            # if querytype != 'query'
-            pass
+        elif self.cfg["query_cut"].startswith("unique_user"):
+            if querytype == 'query':
+                raise ValueError(f"{self.cfg['query_cut']} query_cut do not work for querytype: {querytype}")
 
+            user_term_weights = self.get_profile_term_weight_user(qids, querytype)
+            for qid in qids:
+                uid = qid.split("_")[1]
+                sorted_terms = [t for t, v in sorted(user_term_weights[uid].items(), key=lambda item: item[1], reverse=True) if t in self.qid2toks[qid]]
+                self.qid2toks[qid] = sorted_terms
+        elif self.cfg["query_cut"].startswith("unique_topic"):
+            if querytype in ['basicprofile', 'chatprofile', 'query']:
+                raise ValueError(f"{self.cfg['query_cut']} query_cut do not work for querytype: {querytype}")
+
+            term_weights = self.get_profile_term_weight_topic(qids, querytype)
+            for qid in qids:
+                sorted_terms = [t for t, v in sorted(term_weights.items(), key=lambda item: item[1], reverse=True) if t in self.qid2toks[qid]]
+                self.qid2toks[qid] = sorted_terms
+
+    def get_profile_term_weight_topic(self, qids, profiletype):
+        s_probs = self.get_all_users_profile_term_probs_tf(profiletype, qids)
+
+        if self.cfg["query_cut"] == 'unique_topic-alltopics':
+            baseprofiletype = "chatprofile" if profiletype.startswith("chatprofile") else "basicprofile"
+            G_probs = self.get_all_users_profile_term_probs_tf(baseprofiletype, qids)
+        elif self.cfg["query_cut"] == 'unique_topic-amazon':
+            baseprofiletype = "chatprofile" if profiletype.startswith("chatprofile") else "basicprofile"
+            G_probs = self.get_amazon_plus_all_users_profile_term_probs_tf(baseprofiletype, qids)
+
+        term_weights = {}
+        for term, p in s_probs.items():
+            term_weights[term] = p / G_probs[term]
+        return term_weights
+
+    def get_profile_term_weight_user(self, qids, profiletype):
+        baseprofiletype = "chatprofile" if profiletype.startswith("chatprofile") else "basicprofile"
+        voc, user_profile_tfs, total_len, user_profile_len = self.get_all_users_profiles_term_frequency(baseprofiletype, qids)
+
+        s_user_probs = {}
+        for uid in user_profile_tfs:
+            s_user_probs[uid] = {}
+            for term, tf in user_profile_tfs[uid].items():
+                s_user_probs[uid][term] = tf / user_profile_len[uid]
+
+        if self.cfg["query_cut"] == 'unique_user-allusers':
+            G_probs = {}
+            for term in voc:
+                nu = 0
+                for uid, tfs in user_profile_tfs.items():
+                    if term in tfs:
+                        nu += tfs[term]
+                G_probs[term] = nu / total_len
+            user_term_weights = {}
+            for uid in s_user_probs:
+                user_term_weights[uid] = {}
+                for term, p in s_user_probs[uid].items():
+                    user_term_weights[uid][term] = p / G_probs[term]
+            return user_term_weights
+        elif self.cfg["query_cut"] == 'unique_user-amazon':
+            G_tfs_raw, G_len_raw = DocStats.get_G_tfs_amazon_raw_from_file()
+            user_term_weights = {}
+            for uid in s_user_probs.keys():
+                user_term_weights[uid] = {}
+                G_probs = DocStats.get_amazon_plus_user_profile_term_probs_tf(G_tfs_raw, G_len_raw, user_profile_tfs[uid], user_profile_len[uid])
+                for term, p in s_user_probs[uid].items():
+                    user_term_weights[uid][term] = p / G_probs[term]
+            return user_term_weights
+
+    def get_all_users_profile_term_probs_tf(self, profiletype, qids):
+        voc, user_profile_tfs, total_len, _ = self.get_all_users_profiles_term_frequency(profiletype, qids)
+        allusers_term_probs = {}
+        for term in voc:
+            nu = 0
+            for uid, tfs in user_profile_tfs.items():
+                if term in tfs:
+                    nu += tfs[term]
+            allusers_term_probs[term] = nu / total_len
+        return allusers_term_probs
+
+    def get_amazon_plus_all_users_profile_term_probs_tf(self, profiletype, qids):
+        voc, user_profile_tfs, profs_len, _ = self.get_all_users_profiles_term_frequency(profiletype, qids)
+        G_tfs_raw, G_len_raw = DocStats.get_G_tfs_amazon_raw_from_file()
+        total_len = profs_len + G_len_raw
+
+        G_probs = {}
+        for term in voc:
+            nu = 0
+            for uid, tfs in user_profile_tfs.items():
+                if term in tfs:
+                    nu += tfs[term]
+            if term in G_tfs_raw:
+                nu += G_tfs_raw[term]
+
+            G_probs[term] = nu / total_len
+
+        return G_probs
+
+    def get_all_users_profiles_term_frequency(self, profiletype, qids):
+        benchmarkdir = "/GW/PKB/work/data_personalization/TREC_format_quselection_C/"  # TODO change these when rebasing to use the benchmark as inherited dependency
+        userfullprofiles = get_user_profiles(join(benchmarkdir, f"book_topics.{profiletype}.txt"))  # book is an exemplary recommendation domain, and it does not matter which one is read since the profile is the same for all.
+
+        user_profile_tfs = {}
+        user_profile_len = {}
+        total_len = 0
+        voc = set()
+        for qid in qids:
+            uid = qid.split("_")[1]
+            if uid not in user_profile_tfs:
+                #TODO if entities were added to this ranker, otherwise delete this part
+
+                # entoutf = join(self.get_selected_entities_cache_path(),
+                #                get_file_name(qid, self["entitylinking"].get_benchmark_name(), profiletype))
+                # if exists(entoutf):
+                #     with open(entoutf, 'r') as f:
+                #         qentities = json.loads(f.read())
+                # else:
+                #     raise RuntimeError(
+                #         "This is not implemented! You should have already have the entities for the full profile in the cache to use this. To this end, you need to run it once for fold1 for example.")
+                #
+                # qdesc = []
+                # for e in qentities["NE"]:
+                #     qdesc.append(self["entitylinking"].get_entity_description(e))
+                # for e in qentities["C"]:
+                #     qdesc.append(self["entitylinking"].get_entity_description(e))
+
+                qtext = userfullprofiles[uid] + "\n"
+                # qtext += "\n".join(qdesc)
+                query = self["tokenizer"].tokenize(qtext)
+                q_count = Counter(query)
+                user_profile_tfs[uid] = q_count
+                user_profile_len[uid] = len(query)
+                total_len += len(query)
+                voc.update(q_count.keys())
+
+        return voc, user_profile_tfs, total_len, user_profile_len
 
 # let's first go with query_cut only
     # def get_unique_sorted_document_terms(self, docids):
@@ -493,7 +623,7 @@ class DocStats(Extractor):
             return user_term_weights
 
     def get_all_users_profiles_term_frequency(self, profiletype, qids):
-        benchmarkdir = "/GW/PKB/work/data_personalization/TREC_format/"  # TODO change these when rebasing to use the benchmark as inherited dependency
+        benchmarkdir = "/GW/PKB/work/data_personalization/TREC_format_quselection_C/"  # TODO change these when rebasing to use the benchmark as inherited dependency
         userfullprofiles = get_user_profiles(join(benchmarkdir, f"book_topics.{profiletype}.txt"))  # book is an exemplary recommendation domain, and it does not matter which one is read since the profile is the same for all.
 
         user_profile_tfs = {}
@@ -656,7 +786,7 @@ class DocStats(Extractor):
         domain_documents = {}
 
         for domain in ['movie', 'travel_wikivoyage', 'food', 'book']:
-            doc_dir = f"/GW/PKB/work/data_personalization/TREC_format/documents/{domain}/"
+            doc_dir = f"/GW/PKB/work/data_personalization/TREC_format_quselection_C/documents/{domain}/"
 
             domain_documents[domain] = {}
 
