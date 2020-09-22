@@ -97,9 +97,11 @@ class KITT(Benchmark):
         if assessed_set not in [None, 'random20', 'top10']:
             raise ValueError(f"invalid assessed_set: {assessed_set}")
 
+        KITT.qrel_file = KITT.DATA_DIR / "{}_judgements".format(domain)
+        KITT.fold_file = KITT.DATA_DIR / "{}_splits.json".format(domain)
         if assessed_set is not None:
             KITT.qrel_file = KITT.DATA_DIR / "{}_judgements_{}".format(domain, assessed_set)
-        KITT.fold_file = KITT.DATA_DIR / "{}_splits.json".format(domain)
+
 
     @property
     def topics(self):
