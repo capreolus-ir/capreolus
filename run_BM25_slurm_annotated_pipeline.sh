@@ -12,7 +12,7 @@ do
   do
     echo "source run_BM25_slurm_querytype.sh $domain $pipeline $querytype $entitystrategy &"
     source run_BM25_slurm_querytype.sh $domain $pipeline $querytype $entitystrategy &
-    sleep 10
+    sleep 60
   done
 done
 

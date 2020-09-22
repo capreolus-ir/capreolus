@@ -32,3 +32,5 @@ do
   sbatch -a 1-800 -p cpu20 -c $CPUNUM --mem-per-cpu=24G -o ${logfolder}BM25_${domain}_${pipeline}_${entitystrategy}_${domainvocsp}_pv.log --open-mode=append  run_BM25_single_dv_pv.sh $domain $pipeline $entitystrategy $domainvocsp $bm25c ;
   ./wait.sh;
 done
+./wait.sh;
+

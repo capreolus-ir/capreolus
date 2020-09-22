@@ -10,7 +10,3 @@ do
   echo "source run_BM25_slurm_querytype_pv.sh $domain $pipeline $entitystrategy ;"
   source run_BM25_slurm_querytype_pv.sh $domain $pipeline $entitystrategy ;
 done
-
-
-
-
