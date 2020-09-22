@@ -74,7 +74,7 @@ class PES20(Benchmark):
 
 class KITT(Benchmark):
     name = "kitt"
-    DATA_DIR = Path("/GW/PKB/work/data_personalization/TREC_format_quselection_C/")
+    DATA_DIR = Path("/GW/PKB/work/data_personalization/TREC_format_quselection_C_final_profiles/")
     qrel_file = DATA_DIR / "judgements"
     fold_file = DATA_DIR / "splits.json"
 
@@ -83,15 +83,22 @@ class KITT(Benchmark):
         querytype = "query"
         domain = "book"
         assessed_set = None
-
-        if querytype not in ["query", "basicprofile", "chatprofile",
-                             "basicprofile_general", 'basicprofile_food', 'basicprofile_travel', 'basicprofile_book_movie', 'basicprofile_book', 'basicprofile_movie',
-                             'basicprofile_food_general', 'basicprofile_travel_general',
-                             'basicprofile_book_movie_general', 'basicprofile_book_general', 'basicprofile_movie_general',
-                             "chatprofile_general", 'chatprofile_food', 'chatprofile_travel', 'chatprofile_book', 'chatprofile_movie', 'chatprofile_hobbies']:
+#TODO make decision on this... with hobbies or without, it effects the baseprofile choosing
+        if querytype not in ['query', 'basicprofile', 'chatprofile', 'basicprofileMR', 'chatprofileMR',
+                              'basicprofile_general',
+                              'basicprofile_food', 'basicprofile_travel',
+                              'basicprofile_book', 'basicprofile_movie',
+                              'basicprofile_food_general', 'basicprofile_travel_general',
+                              'basicprofile_book_general', 'basicprofile_movie_general',
+                              'chatprofile_general',
+                              'chatprofile_food', 'chatprofile_travel',
+                              'chatprofile_book', 'chatprofile_movie',
+                              'chatprofile_food_general', 'chatprofile_travel_general',
+                              'chatprofile_book_general', 'chatprofile_movie_general',
+                             ]:
             raise ValueError(f"invalid querytype: {querytype}")
 
-        if domain not in ["book", "travel_wikivoyage", "movie", "food"]:
+        if domain not in ["book", "travel_wikivoyage", "movie", "food", "alldomains", "alldomainsMR"]:
             raise ValueError(f"invalid domain: {domain}")
 
         if assessed_set not in [None, 'random20', 'top10']:
@@ -101,7 +108,6 @@ class KITT(Benchmark):
         KITT.fold_file = KITT.DATA_DIR / "{}_splits.json".format(domain)
         if assessed_set is not None:
             KITT.qrel_file = KITT.DATA_DIR / "{}_judgements_{}".format(domain, assessed_set)
-
 
     @property
     def topics(self):
