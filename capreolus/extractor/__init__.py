@@ -260,8 +260,9 @@ class EmbedText(Extractor):
         return G_probs
 
     def get_all_users_profiles_term_frequency(self, profiletype, qids):
-        benchmarkdir = "/GW/PKB/work/data_personalization/TREC_format_quselection_C/"  # TODO change these when rebasing to use the benchmark as inherited dependency
-        userfullprofiles = get_user_profiles(join(benchmarkdir, f"book_topics.{profiletype}.txt"))  # book is an exemplary recommendation domain, and it does not matter which one is read since the profile is the same for all.
+        benchmarkdir = "/GW/PKB/work/data_personalization/TREC_format"  # TODO change these when rebasing to use the benchmark as inherited dependency
+        # book is an exemplary recommendation domain, but it must contain all the users, so we are using the files in the prev benchmark with all users.
+        userfullprofiles = get_user_profiles(join(benchmarkdir, f"book_topics.{profiletype}.txt"))
 
         user_profile_tfs = {}
         user_profile_len = {}
@@ -622,8 +623,9 @@ class DocStats(Extractor):
             return user_term_weights
 
     def get_all_users_profiles_term_frequency(self, profiletype, qids):
-        benchmarkdir = "/GW/PKB/work/data_personalization/TREC_format_quselection_C/"  # TODO change these when rebasing to use the benchmark as inherited dependency
-        userfullprofiles = get_user_profiles(join(benchmarkdir, f"book_topics.{profiletype}.txt"))  # book is an exemplary recommendation domain, and it does not matter which one is read since the profile is the same for all.
+        benchmarkdir = "/GW/PKB/work/data_personalization/TREC_format"  # TODO change these when rebasing to use the benchmark as inherited dependency
+        # book is an exemplary recommendation domain, but it must contain all the users, so we are using the files in the prev benchmark with all users.
+        userfullprofiles = get_user_profiles(join(benchmarkdir, f"book_topics.{profiletype}.txt"))
 
         user_profile_tfs = {}
         user_profile_len = {}

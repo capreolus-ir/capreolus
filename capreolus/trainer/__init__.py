@@ -231,6 +231,7 @@ class PytorchTrainer(Trainer):
             preds = self.predict(reranker, dev_data, pred_fn)
             if len(preds) == 0:
                 logger.debug(f"runs=0 for {pred_fn}")
+                logger.debug(pred_fn)
             # log dev metrics
             metrics = evaluator.eval_runs(preds, qrels, ["ndcg_cut_20", "map", "P_20"])
             logger.info("dev metrics: %s", " ".join([f"{metric}={v:0.3f}" for metric, v in sorted(metrics.items())]))
