@@ -246,6 +246,7 @@ class EmbedText(Extractor):
                 for t, v in sorted_weights:
                     if t in self.docid2toks[docid]:
                         sorted_terms.extend(list(np.repeat(t, term_counts[t])))
+                print(sorted_terms)
                 self.docid2toks[docid] = sorted_terms
 
     def get_domain_specific_term_weights(self, corpus_name, tf_or_df, docids):
