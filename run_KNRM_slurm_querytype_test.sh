@@ -6,24 +6,24 @@ pipeline=$2
 entitystrategy=noneE
 
 assessed_set=random20
-echo "sbatch -a 1-600 -p gpu20 --mem-per-cpu=64G -o ${logfolder}test_gpu_KNRM_${domain}_${pipeline}_${assessed_set}.log --open-mode=append run_KNRM_test_single.sh $domain $pipeline $entitystrategy $assessed_set;"
-sbatch  -a 1-600 -p gpu20 --mem-per-cpu=64G -o ${logfolder}test_gpu_KNRM_${domain}_${pipeline}_${assessed_set}.log --open-mode=append  run_KNRM_test_single.sh  $domain $pipeline $entitystrategy $assessed_set;
+echo "sbatch --gres gpu:1 -a 1-600 -p gpu20 --mem-per-cpu=64G -o ${logfolder}test_gpu_KNRM_${domain}_${pipeline}_${assessed_set}.log --open-mode=append run_KNRM_test_single.sh $domain $pipeline $entitystrategy $assessed_set;"
+sbatch --gres gpu:1  -a 1-600 -p gpu20 --mem-per-cpu=64G -o ${logfolder}test_gpu_KNRM_${domain}_${pipeline}_${assessed_set}.log --open-mode=append  run_KNRM_test_single.sh  $domain $pipeline $entitystrategy $assessed_set;
 
 ./waitgpu.sh;
 
-echo "sbatch -a 601-1200 -p gpu20 --mem-per-cpu=64G -o ${logfolder}test_gpu_KNRM_${domain}_${pipeline}_${assessed_set}.log --open-mode=append run_KNRM_test_single.sh $domain $pipeline $entitystrategy $assessed_set;"
-sbatch  -a 601-1200 -p gpu20 --mem-per-cpu=64G -o ${logfolder}test_gpu_KNRM_${domain}_${pipeline}_${assessed_set}.log --open-mode=append  run_KNRM_test_single.sh  $domain $pipeline $entitystrategy $assessed_set;
+echo "sbatch --gres gpu:1  -a 601-1200 -p gpu20 --mem-per-cpu=64G -o ${logfolder}test_gpu_KNRM_${domain}_${pipeline}_${assessed_set}.log --open-mode=append run_KNRM_test_single.sh $domain $pipeline $entitystrategy $assessed_set;"
+sbatch --gres gpu:1  -a 601-1200 -p gpu20 --mem-per-cpu=64G -o ${logfolder}test_gpu_KNRM_${domain}_${pipeline}_${assessed_set}.log --open-mode=append  run_KNRM_test_single.sh  $domain $pipeline $entitystrategy $assessed_set;
 
 ./waitgpu.sh;
 
 
 assessed_set=top10
-echo "sbatch -a 1-600 -p gpu20 --mem-per-cpu=64G -o ${logfolder}test_gpu_KNRM_${domain}_${pipeline}_${assessed_set}.log --open-mode=append run_KNRM_test_single.sh $domain $pipeline $entitystrategy $assessed_set;"
-sbatch  -a 1-600 -p gpu20 --mem-per-cpu=64G -o ${logfolder}test_gpu_KNRM_${domain}_${pipeline}_${assessed_set}.log --open-mode=append  run_KNRM_test_single.sh  $domain $pipeline $entitystrategy $assessed_set;
+echo "sbatch --gres gpu:1  -a 1-600 -p gpu20 --mem-per-cpu=64G -o ${logfolder}test_gpu_KNRM_${domain}_${pipeline}_${assessed_set}.log --open-mode=append run_KNRM_test_single.sh $domain $pipeline $entitystrategy $assessed_set;"
+sbatch --gres gpu:1  -a 1-600 -p gpu20 --mem-per-cpu=64G -o ${logfolder}test_gpu_KNRM_${domain}_${pipeline}_${assessed_set}.log --open-mode=append  run_KNRM_test_single.sh  $domain $pipeline $entitystrategy $assessed_set;
 ./waitgpu.sh;
 
-echo "sbatch -a 601-1200 -p gpu20 --mem-per-cpu=64G -o ${logfolder}test_gpu_KNRM_${domain}_${pipeline}_${assessed_set}.log --open-mode=append run_KNRM_test_single.sh $domain $pipeline $entitystrategy $assessed_set;"
-sbatch  -a 601-1200 -p gpu20 --mem-per-cpu=64G -o ${logfolder}test_gpu_KNRM_${domain}_${pipeline}_${assessed_set}.log --open-mode=append  run_KNRM_test_single.sh  $domain $pipeline $entitystrategy $assessed_set;
+echo "sbatch --gres gpu:1  -a 601-1200 -p gpu20 --mem-per-cpu=64G -o ${logfolder}test_gpu_KNRM_${domain}_${pipeline}_${assessed_set}.log --open-mode=append run_KNRM_test_single.sh $domain $pipeline $entitystrategy $assessed_set;"
+sbatch  --gres gpu:1  -a 601-1200 -p gpu20 --mem-per-cpu=64G -o ${logfolder}test_gpu_KNRM_${domain}_${pipeline}_${assessed_set}.log --open-mode=append  run_KNRM_test_single.sh  $domain $pipeline $entitystrategy $assessed_set;
 
 ./waitgpu.sh;
 
