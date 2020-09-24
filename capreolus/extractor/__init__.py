@@ -225,12 +225,14 @@ class EmbedText(Extractor):
             return
         elif self.cfg["document_cut"] in ['all_domains_tf', 'unique_all_domains_tf']:
             term_weights = self.get_domain_specific_term_weights("all_domains", "tf", docids)
-        elif self.cfg["document_cut"] == 'all_domains_df':
+        elif self.cfg["document_cut"] in ['all_domains_df', 'unique_all_domains_df']:
             term_weights = self.get_domain_specific_term_weights("all_domains", "df", docids)
-        elif self.cfg["document_cut"] == 'amazon_tf':
+        elif self.cfg["document_cut"] in ['amazon_tf', 'unique_amazon_tf']:
             term_weights = self.get_domain_specific_term_weights("amazon", "tf", docids)
-        elif self.cfg["document_cut"] == 'amazon_df':
+        elif self.cfg["document_cut"] in ['amazon_df', 'unique_amazon_df']:
             term_weights = self.get_domain_specific_term_weights("amazon", "df", docids)
+        else:
+            raise RuntimeError(f"did not load term_weights {self.cfg['document_cut']}")
 
         sorted_weights = sorted(term_weights.items(), key=lambda item: item[1], reverse=True)
         if self.cfg["document_cut"].startswith("unique"):
@@ -245,7 +247,6 @@ class EmbedText(Extractor):
                 for t, v in sorted_weights:
                     if t in self.docid2toks[docid]:
                         sorted_terms.extend(list(np.repeat(t, term_counts[t])))
-                print(sorted_terms)
                 self.docid2toks[docid] = sorted_terms
 
     def get_domain_specific_term_weights(self, corpus_name, tf_or_df, docids):
