@@ -73,7 +73,7 @@ class EmbedText(Extractor):
         query_cut = None
         document_cut = None
 
-        if query_cut is not None and query_cut not in ["most_frequent", "topic-alltopics", "topic-amazon", "user-allusers", "user-amazon" 
+        if query_cut is not None and query_cut not in ["most_frequent", "topic-alltopics", "topic-amazon", "user-allusers", "user-amazon",
                                                        "unique_most_frequent", "unique_topic-alltopics", "unique_topic-amazon", "unique_user-allusers", "unique_user-amazon"]:
             raise ValueError(f"Value for query_cut is wrong {query_cut}")
 
@@ -87,8 +87,6 @@ class EmbedText(Extractor):
 # food:  #docs: 995 maxlen: 1396  avglen: 475.06532663316585
 #movie: #docs:  886 maxlen: 1037  avglen: 298.0056433408578
 
-
-
     def _get_pretrained_emb(self):
         magnitude_cache = CACHE_BASE_PATH / "magnitude/"
         return Magnitude(MagnitudeUtils.download_model(self.embed_paths[self.cfg["embeddings"]], download_dir=magnitude_cache))
@@ -99,6 +97,7 @@ class EmbedText(Extractor):
         if self.cfg["query_cut"] is not None:
             self.build_sorted_query_terms(qids, querytype)
         self.docid2toks = {docid: tokenize(self["index"].get_doc(docid)) for docid in docids}
+
         if self.cfg["document_cut"] is not None:
             self.build_sorted_document_terms(docids)
         self._extend_stoi(self.qid2toks.values(), calc_idf=self.cfg["calcidf"])
@@ -246,6 +245,7 @@ class EmbedText(Extractor):
                 for t, v in sorted_weights:
                     if t in self.docid2toks[docid]:
                         sorted_terms.extend(list(np.repeat(t, term_counts[t])))
+                print(sorted_terms)
                 self.docid2toks[docid] = sorted_terms
 
     def get_domain_specific_term_weights(self, corpus_name, tf_or_df, docids):
@@ -487,25 +487,18 @@ class EmbedText(Extractor):
 
         return voc, user_profile_tfs, total_len, user_profile_len
 
-# let's first go with query_cut only
-    # def get_unique_sorted_document_terms(self, docids):
-    #     if self.cfg["document_cut"] == "unique_most_frequenc":
-    #         for docid in docids:
-    #             terms = self.docid2toks[docid]
-    #             term_counts = Counter(terms)
-    #             self.docid2toks[docid] = [t for t, v in sorted(term_counts.items(), key=lambda item:item[1], reverse=True)]
-
     def _tok2vec(self, toks):
         # return [self.embeddings[self.stoi[tok]] for tok in toks]
         return [self.stoi[tok] for tok in toks]
 
     def id2vec(self, qid, posid, negid=None, query=None):
         if query is not None:
-            if qid is None:
-                query = self["tokenizer"].tokenize(query) # todo: I think here I should sort them based on what I want also(bur this is probably not used)
-                pass
-            else:
-                raise RuntimeError("received both a qid and query, but only one can be passed")
+            raise RuntimeError("we did not implement for query is not None yet")
+            # if qid is None:
+            #     query = self["tokenizer"].tokenize(query) # todo: I think here I should sort them based on what I want also(bur this is probably not used)
+            #     pass
+            # else:
+            #     raise RuntimeError("received both a qid and query, but only one can be passed")
 
         else:
             query = self.qid2toks[qid]
