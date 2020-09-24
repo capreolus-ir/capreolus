@@ -95,6 +95,7 @@ class KNRM(Reranker):
 
         results = []
         for docid in docids:
+            logger.debug("here calls id2vec Line:99")
             d = self["extractor"].id2vec(qid=None, query=query, posid=docid)
             results.append(self.test(d))
         return results
