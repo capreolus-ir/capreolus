@@ -1,4 +1,4 @@
-  #!/bin/bash
+#!/bin/bash
 
 logfolder=/GW/D5data-13/ghazaleh/ranking_outputs/logs_18092020/
 domain=$1
