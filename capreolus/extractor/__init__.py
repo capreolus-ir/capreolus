@@ -97,7 +97,6 @@ class EmbedText(Extractor):
         if self.cfg["query_cut"] is not None:
             self.build_sorted_query_terms(qids, querytype)
         self.docid2toks = {docid: tokenize(self["index"].get_doc(docid)) for docid in docids}
-
         if self.cfg["document_cut"] is not None:
             self.build_sorted_document_terms(docids)
         self._extend_stoi(self.qid2toks.values(), calc_idf=self.cfg["calcidf"])
@@ -269,7 +268,7 @@ class EmbedText(Extractor):
 
         term_weights = {}
 
-        for term, p in term_weights.items():
+        for term, p in domain_term_probs.items():
             term_weights[term] = p / G_probs[term]
 
         return term_weights
