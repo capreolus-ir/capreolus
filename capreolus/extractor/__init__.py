@@ -154,6 +154,7 @@ class EmbedText(Extractor):
         self.embeddings = None
         # self.cache = self.load_cache()    # TODO
 
+        logger.debug("build vocab")
         self._build_vocab(qids, docids, topics, querytype)
         self._build_embedding_matrix()
 
@@ -167,7 +168,7 @@ class EmbedText(Extractor):
                 else:
                     self.qid2toks[qid] = []
                     for t, v in sorted(term_counts.items(), key=lambda item: item[1], reverse=True):
-                        self.qid2toks[qid].extend(list(np.repeat(t, v)))
+                        self.qid2toks[qid].extend(list(map(str, np.repeat(t, v))))
 
         elif self.cfg["query_cut"].startswith("unique_user") or self.cfg["query_cut"].startswith("user"):
             if querytype == 'query':
@@ -187,7 +188,7 @@ class EmbedText(Extractor):
                     term_counts = Counter(terms)
                     for t, v in sorted(user_term_weights[uid].items(), key=lambda item: item[1], reverse=True):
                         if t in self.qid2toks[qid]:
-                            sorted_terms.extend(list(np.repeat(t, term_counts[t])))
+                            sorted_terms.extend(list(map(str, np.repeat(t, term_counts[t]))))
                     self.qid2toks[qid] = sorted_terms
 
         elif self.cfg["query_cut"].startswith("unique_topic") or self.cfg["query_cut"].startswith("topic"):
@@ -207,7 +208,7 @@ class EmbedText(Extractor):
                     term_counts = Counter(terms)
                     for t, v in sorted_weights:
                         if t in self.qid2toks[qid]:
-                            sorted_terms.extend(list(np.repeat(t, term_counts[t])))
+                            sorted_terms.extend(list(map(str, np.repeat(t, term_counts[t]))))
                     self.qid2toks[qid] = sorted_terms
 
     def build_sorted_document_terms(self, docids):
@@ -220,7 +221,7 @@ class EmbedText(Extractor):
                 else:
                     self.docid2toks[docid] = []
                     for t, v in sorted(term_counts.items(), key=lambda item: item[1], reverse=True):
-                        self.docid2toks[docid].extend(list(np.repeat(t, v)))
+                        self.docid2toks[docid].extend(list(map(str, np.repeat(t, v))))
             return
         elif self.cfg["document_cut"] in ['all_domains_tf', 'unique_all_domains_tf']:
             term_weights = self.get_domain_specific_term_weights("all_domains", "tf", docids)
@@ -245,7 +246,7 @@ class EmbedText(Extractor):
                 term_counts = Counter(terms)
                 for t, v in sorted_weights:
                     if t in self.docid2toks[docid]:
-                        sorted_terms.extend(list(np.repeat(t, term_counts[t])))
+                        sorted_terms.extend(list(map(str, np.repeat(t, term_counts[t]))))
                 self.docid2toks[docid] = sorted_terms
 
     def get_domain_specific_term_weights(self, corpus_name, tf_or_df, docids):
