@@ -58,7 +58,6 @@ class TrainDataset(torch.utils.data.IterableDataset):
                 logger.debug(f"{qid} -: {negdocid}")
 
                 try:
-                    logger.debug("here calls id2vec Line:62")
                     yield self.extractor.id2vec(qid, posdocid, negdocid)
                 except MissingDocError:
                     # at training time we warn but ignore on missing docs
@@ -84,7 +83,6 @@ class PredDataset(torch.utils.data.IterableDataset):
             for qid, docids in qid_docid_to_rank.items():
                 for docid in docids:
                     try:
-                        logger.debug("here calls id2vec Line:87")
                         yield extractor.id2vec(qid, docid)
                     except MissingDocError:
                         # when predictiong we raise an exception on missing docs, as this may invalidate results
