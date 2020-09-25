@@ -8,6 +8,8 @@ domain=$1
 #do
 echo "source run_KNRM_slurm_querytype_train_dv.sh $domain $pipeline ;"
 source run_KNRM_slurm_querytype_train_dv.sh $domain $pipeline ;
+sleep 5
+source run_KNRM_slurm_querytype_train_dv_p2.sh $domain $pipeline ;
 #done
 
 

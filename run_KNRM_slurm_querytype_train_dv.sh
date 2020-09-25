@@ -12,12 +12,8 @@ assessed_set=random20
 for doccut in "${doccuttypes[@]}"
 do
   echo "sbatch --gres gpu:1 -a 1-600 -p gpu20 --mem-per-cpu=64G -o ${logfolder}train_gpu_KNRM_${domain}_${pipeline}_${doccut}_${assessed_set}.log --open-mode=append run_KNRM_train_single_dv.sh $domain $pipeline $entitystrategy $doccut $assessed_set;"
-  sbatch  --gres gpu:1 -a 1-600 -p gpu20 --mem-per-cpu=64G -o ${logfolder}train_gpu_KNRM_${domain}_${pipeline}_${doccut}_${assessed_set}.log --open-mode=append  run_KNRM_train_single_dv.sh  $domain $pipeline $entitystrategy $doccut $assessed_set;
-  ./waitgpu.sh;
-
-  echo "sbatch --gres gpu:1 -a 601-1200 -p gpu20 --mem-per-cpu=64G -o ${logfolder}train_gpu_KNRM_${domain}_${pipeline}_${doccut}_${assessed_set}.log --open-mode=append run_KNRM_train_single_dv.sh $domain $pipeline $entitystrategy $doccut $assessed_set;"
-  sbatch --gres gpu:1 -a 601-1200 -p gpu20 --mem-per-cpu=64G -o ${logfolder}train_gpu_KNRM_${domain}_${pipeline}_${doccut}_${assessed_set}.log --open-mode=append  run_KNRM_train_single_dv.sh  $domain $pipeline $entitystrategy $doccut $assessed_set;
-  ./waitgpu.sh;
+  sbatch --gres gpu:1 -a 1-600 -p gpu20 --mem-per-cpu=64G -o ${logfolder}train_gpu_KNRM_${domain}_${pipeline}_${doccut}_${assessed_set}.log --open-mode=append  run_KNRM_train_single_dv.sh  $domain $pipeline $entitystrategy $doccut $assessed_set;
+  ./waitgpu20.sh;
 done
 
 
