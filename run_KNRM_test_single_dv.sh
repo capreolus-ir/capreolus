@@ -58,7 +58,7 @@ echo "$domain - $pipeline - $querytype - $entitystrategy - $querycut - $doccut -
 if [ "$querycut" != "DONT" ]; then
   if [ "$entitystrategy" == "noneE" ]; then
     if [ "$pipeline" == "ENTITY_CONCEPT_JOINT_LINKING" ]; then
-      time python -m capreolus.run rerank.train with searcher=qrels reranker=KNRM collection=$dataset collection.domain=$domain benchmark=$dataset benchmark.domain=$domain benchmark.querytype=$querytype benchmark.assessed_set=$assessed_set reranker.extractor.query_cut=$querycut reranker.extractor.document_cut=$doccut fold=s$FOLDNUM ;
+      time python -m capreolus.run rerank.evaluate with searcher=qrels reranker=KNRM collection=$dataset collection.domain=$domain benchmark=$dataset benchmark.domain=$domain benchmark.querytype=$querytype benchmark.assessed_set=$assessed_set reranker.extractor.query_cut=$querycut reranker.extractor.document_cut=$doccut fold=s$FOLDNUM ;
     fi
   fi
 fi
