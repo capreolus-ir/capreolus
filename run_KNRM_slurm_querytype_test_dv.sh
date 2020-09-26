@@ -9,8 +9,8 @@ doccut=$2
 echo "$domain - $doccut:"
 
 assessed_set=random20
-echo "sbatch --gres gpu:1 -a 1-1200%5 -p gpu20 --mem-per-cpu=64G -o ${logfolder}test_gpu_KNRM_${domain}_${pipeline}_${doccut}_${assessed_set}.log --open-mode=append run_KNRM_test_single_dv.sh $domain $pipeline $entitystrategy $doccut $assessed_set;"
-sbatch --gres gpu:1  -a 1-1200%5 -p gpu20 --mem-per-cpu=64G -o ${logfolder}test_gpu_KNRM_${domain}_${pipeline}_${doccut}_${assessed_set}.log --open-mode=append  run_KNRM_test_single_dv.sh  $domain $pipeline $entitystrategy $doccut $assessed_set;
+echo "sbatch --gres gpu:1 -a 1-1200%10 -p gpu20 --mem-per-cpu=64G -o ${logfolder}test_gpu_KNRM_${domain}_${pipeline}_${doccut}_${assessed_set}.log --open-mode=append run_KNRM_test_single_dv.sh $domain $pipeline $entitystrategy $doccut $assessed_set;"
+sbatch --gres gpu:1  -a 1-1200%10 -p gpu20 --mem-per-cpu=64G -o ${logfolder}test_gpu_KNRM_${domain}_${pipeline}_${doccut}_${assessed_set}.log --open-mode=append  run_KNRM_test_single_dv.sh  $domain $pipeline $entitystrategy $doccut $assessed_set;
 
 
 #assessed_set=top10 train esham run nashode
