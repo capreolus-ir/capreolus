@@ -177,12 +177,12 @@ class EmbedText(Extractor):
             user_term_weights = self.get_profile_term_weight_user(qids, querytype)
             if self.cfg["query_cut"].startswith("unique_user"):
                 for qid in qids:
-                    uid = qid.split("_")[1]
+                    uid = qid.split("_")[-1]
                     sorted_terms = [t for t, v in sorted(user_term_weights[uid].items(), key=lambda item: item[1], reverse=True) if t in self.qid2toks[qid]]
                     self.qid2toks[qid] = sorted_terms
             else:
                 for qid in qids:
-                    uid = qid.split("_")[1]
+                    uid = qid.split("_")[-1]
                     sorted_terms = []
                     terms = self.qid2toks[qid]
                     term_counts = Counter(terms)
@@ -458,7 +458,7 @@ class EmbedText(Extractor):
         total_len = 0
         voc = set()
         for qid in qids:
-            uid = qid.split("_")[1]
+            uid = qid.split("_")[-1]
             if uid not in user_profile_tfs:
                 #TODO if entities were added to this ranker, otherwise delete this part
 
@@ -709,6 +709,9 @@ class DocStats(Extractor):
             doc = self["tokenizer"].tokenize(self["index"].get_doc(docid))
             self.doc_tf[docid] = Counter(doc)
             self.doc_len[docid] = len(doc)
+            logger.debug(docid)
+            logger.debug(self["index"].get_doc(docid))
+            logger.debug("----")
 
         # Here we calculate domain-vocab-term-specificity weights.
         # Then these weights are used in the rerankers.
@@ -814,7 +817,7 @@ class DocStats(Extractor):
         total_len = 0
         voc = set()
         for qid in qids:
-            uid = qid.split("_")[1]
+            uid = qid.split("_")[-1]
             if uid not in user_profile_tfs:
                 entoutf = join(self.get_selected_entities_cache_path(),
                                get_file_name(qid, self["entitylinking"].get_benchmark_name(), profiletype))
