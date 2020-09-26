@@ -13,7 +13,7 @@ assessed_set=random20
 
 for doccut in "${doccuttypes[@]}"
 do
-  echo "sbatch --gres gpu:1 -a 1-1200%10 -p gpu20 --mem-per-cpu=64G -o ${logfolder}test_gpu_KNRM_${domain}_${pipeline}_${doccut}_${assessed_set}.log --open-mode=append run_KNRM_test_single_dv.sh $domain $pipeline $entitystrategy $doccut $assessed_set;"
-  sbatch --gres gpu:1  -a 1-1200%10 -p gpu20 --mem-per-cpu=64G -o ${logfolder}test_gpu_KNRM_${domain}_${pipeline}_${doccut}_${assessed_set}.log --open-mode=append  run_KNRM_test_single_dv.sh  $domain $pipeline $entitystrategy $doccut $assessed_set;
+  echo "sbatch -p cpu20 -c 2 -a 1-1200 --mem-per-cpu=64G -o ${logfolder}test_gpu_KNRM_${domain}_${pipeline}_${doccut}_${assessed_set}.log --open-mode=append run_KNRM_test_single_dv.sh $domain $pipeline $entitystrategy $doccut $assessed_set;"
+  sbatch -p cpu20 -c 2 -a 1-1200 --mem-per-cpu=64G -o ${logfolder}test_gpu_KNRM_${domain}_${pipeline}_${doccut}_${assessed_set}.log --open-mode=append  run_KNRM_test_single_dv.sh  $domain $pipeline $entitystrategy $doccut $assessed_set;
   sleep 30;
 done
