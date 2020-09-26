@@ -91,7 +91,7 @@ class KITT(Benchmark):
                              "chatprofile_general", 'chatprofile_food', 'chatprofile_travel', 'chatprofile_book', 'chatprofile_movie', 'chatprofile_hobbies']:
             raise ValueError(f"invalid querytype: {querytype}")
 
-        if domain not in ["book", "travel_wikivoyage", "movie", "food"]:
+        if domain not in ["book", "travel_wikivoyage", "movie", "food", "alldomains"]:
             raise ValueError(f"invalid domain: {domain}")
 
         if assessed_set not in [None, 'random20', 'top10']:
@@ -101,7 +101,6 @@ class KITT(Benchmark):
         KITT.fold_file = KITT.DATA_DIR / "{}_splits.json".format(domain)
         if assessed_set is not None:
             KITT.qrel_file = KITT.DATA_DIR / "{}_judgements_{}".format(domain, assessed_set)
-
 
     @property
     def topics(self):
