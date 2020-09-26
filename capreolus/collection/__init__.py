@@ -263,7 +263,7 @@ class KITT(Collection):
     def config():
         domain = 'book'
 
-        if domain not in ["book", "travel_wikivoyage", "movie", "food"]:
+        if domain not in ["book", "travel_wikivoyage", "movie", "food", "alldomains"]:
             raise ValueError(f"invalid domain: {domain}")
 
         path = "/GW/PKB/work/data_personalization/TREC_format_quselection_C/documents/{}".format(domain)
