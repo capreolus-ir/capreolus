@@ -1,5 +1,5 @@
 #!/bin/bash
-/GW/PKB/work/ghazaleh/anaconda3/bin/activate myenv
+source /GW/PKB/work/ghazaleh/anaconda3/bin/activate myenv
 which python
 
 export JAVA_HOME=/home/ghazaleh/Projects_Workspace_new/jdk/jdk-11.0.4
