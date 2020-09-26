@@ -13,8 +13,7 @@ export PYTHONPATH=/home/ghazaleh/capreolus_dev/capreolus/ ;
 domain=$1
 pipeline=$2
 entitystrategy=$3
-doccut=$4
-assessed_set=$5
+assessed_set=$4
 dataset=kitt
 querycut=DONT
 
@@ -53,14 +52,15 @@ if ((pvidx >= 51 && pvidx <= 60)); then
   fi
 fi
 
-echo "$domain - $pipeline - $querytype - $entitystrategy - $querycut - $doccut - $assessed_set -$FOLDNUM"
+echo "$domain - $pipeline - $querytype - $entitystrategy - $querycut - $assessed_set -$FOLDNUM"
 
 if [ "$querycut" != "DONT" ]; then
   if [ "$entitystrategy" == "noneE" ]; then
     if [ "$pipeline" == "ENTITY_CONCEPT_JOINT_LINKING" ]; then
-      time python -m capreolus.run rerank.evaluate with searcher=qrels reranker=KNRM collection=$dataset collection.domain=$domain benchmark=$dataset benchmark.domain=$domain benchmark.querytype=$querytype benchmark.assessed_set=$assessed_set reranker.extractor.query_cut=$querycut reranker.extractor.document_cut=$doccut fold=s$FOLDNUM ;
+      time python -m capreolus.run rerank.train with searcher=qrels reranker=KNRM collection=$dataset collection.domain=$domain benchmark=$dataset benchmark.domain=$domain benchmark.querytype=$querytype benchmark.assessed_set=$assessed_set reranker.extractor.query_cut=$querycut fold=s$FOLDNUM ;
     fi
   fi
 fi
 conda deactivate
+
 
