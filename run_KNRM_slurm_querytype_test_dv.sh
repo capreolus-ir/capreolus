@@ -5,12 +5,15 @@ pipeline=ENTITY_CONCEPT_JOINT_LINKING
 entitystrategy=noneE
 
 domain=$1
-doccut=$2
-echo "$domain - $doccut:"
+echo "$domain :"
+declare -a doccuttypes=("most_frequent" "all_domains_tf" "all_domains_df" "amazon_tf" "amazon_df" )
 
 assessed_set=random20
-echo "sbatch --gres gpu:1 -a 1-1200%10 -p gpu20 --mem-per-cpu=64G -o ${logfolder}test_gpu_KNRM_${domain}_${pipeline}_${doccut}_${assessed_set}.log --open-mode=append run_KNRM_test_single_dv.sh $domain $pipeline $entitystrategy $doccut $assessed_set;"
-sbatch --gres gpu:1  -a 1-1200%10 -p gpu20 --mem-per-cpu=64G -o ${logfolder}test_gpu_KNRM_${domain}_${pipeline}_${doccut}_${assessed_set}.log --open-mode=append  run_KNRM_test_single_dv.sh  $domain $pipeline $entitystrategy $doccut $assessed_set;
+for doccut in "${doccuttypes[@]}"
+do
+  echo "sbatch --gres gpu:1 -a 1-1200%10 -p gpu20 --mem-per-cpu=64G -o ${logfolder}test_gpu_KNRM_${domain}_${pipeline}_${doccut}_${assessed_set}.log --open-mode=append run_KNRM_test_single_dv.sh $domain $pipeline $entitystrategy $doccut $assessed_set;"
+  sbatch --gres gpu:1  -a 1-1200%10 -p gpu20 --mem-per-cpu=64G -o ${logfolder}test_gpu_KNRM_${domain}_${pipeline}_${doccut}_${assessed_set}.log --open-mode=append  run_KNRM_test_single_dv.sh  $domain $pipeline $entitystrategy $doccut $assessed_set;
+done
 
 
 #assessed_set=top10 train esham run nashode
