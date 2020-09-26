@@ -6,7 +6,7 @@ pipeline=ENTITY_CONCEPT_JOINT_LINKING
 entitystrategy=noneE
 
 
-declare -a doccuttypes=("most_frequent" "all_domains_tf" "all_domains_df" "amazon_tf" "amazon_df")
+declare -a doccuttypes=("most_frequent")
 
 assessed_set=random20
 echo "sbatch -p cpu20 -c 5 -a 1-300 --mem-per-cpu=64G -o ${logfolder}train_gpu_KNRM_${domain}_${pipeline}_${assessed_set}.log --open-mode=append run_KNRM_train_single_sorted.sh $domain $pipeline $entitystrategy $assessed_set;"
