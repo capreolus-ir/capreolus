@@ -54,8 +54,6 @@ class TrainDataset(torch.utils.data.IterableDataset):
             for qid in all_qids:
                 posdocid = random.choice(self.qid_to_reldocs[qid])
                 negdocid = random.choice(self.qid_to_negdocs[qid])
-                logger.debug(f"{qid} +: {posdocid}")
-                logger.debug(f"{qid} -: {negdocid}")
 
                 try:
                     yield self.extractor.id2vec(qid, posdocid, negdocid)

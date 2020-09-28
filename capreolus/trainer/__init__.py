@@ -25,7 +25,7 @@ class PytorchTrainer(Trainer):
 
     @staticmethod
     def config():
-        # TODO move maxdoclen, maxqlen to extractor?
+        # TODO move maxdoclen, maxqlen to extractor? REMOVE these as they are not used (I kept them now for my result paths to be the same as my prev runs)
         maxdoclen = 800  # maximum document length (in number of terms after tokenization)
         maxqlen = 4  # maximum query length (in number of terms after tokenization)
 
@@ -174,6 +174,7 @@ class PytorchTrainer(Trainer):
         """
 
         self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+        logger.debug(f"DEVICE: {self.device}")
         model = reranker.model.to(self.device)
         self.optimizer = torch.optim.Adam(filter(lambda param: param.requires_grad, model.parameters()), lr=self.cfg["lr"])
 
