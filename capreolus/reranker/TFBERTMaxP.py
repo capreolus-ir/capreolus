@@ -4,6 +4,7 @@ from transformers import TFAutoModelForSequenceClassification
 from capreolus import ConfigOption, Dependency
 from capreolus.reranker import Reranker
 
+
 class TFElectraRelevanceHead(tf.keras.layers.Layer):
     """ BERT-style ClassificationHead (i.e., out_proj only -- no dense). See transformers.TFElectraClassificationHead """
 
@@ -33,9 +34,10 @@ class TFBERTMaxP_Class(tf.keras.layers.Layer):
         elif config["pretrained"] == "bert-base-uncased":
             self.bert = TFAutoModelForSequenceClassification.from_pretrained(config["pretrained"], hidden_dropout_prob=0.1)
         else:
-            raise ValueError(f"unsupported model: {config['pretrained']}; need to ensure correct tokenizers will be used before arbitrary hgf models are supported")
+            raise ValueError(
+                f"unsupported model: {config['pretrained']}; need to ensure correct tokenizers will be used before arbitrary hgf models are supported"
+            )
 
-        
         self.config = config
 
     def call(self, x, **kwargs):
@@ -98,7 +100,9 @@ class TFBERTMaxP(Reranker):
         Dependency(key="trainer", module="trainer", name="tensorflow"),
     ]
     config_spec = [
-        ConfigOption("pretrained", "bert-base-uncased", "Pretrained model: bert-base-uncased, bert-base-msmarco, or electra-base-msmarco")
+        ConfigOption(
+            "pretrained", "bert-base-uncased", "Pretrained model: bert-base-uncased, bert-base-msmarco, or electra-base-msmarco"
+        ),
         ConfigOption("aggregation", "max"),
     ]
 

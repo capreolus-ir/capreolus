@@ -13,13 +13,15 @@ class TFParade_Class(tf.keras.layers.Layer):
         self.config = config
 
         if config["pretrained"] == "electra-base-msmarco":
-            self.bert = TFElectraModel.from_pretrained("Capreolus/bert-electra-msmarco")
+            self.bert = TFElectraModel.from_pretrained("Capreolus/electra-base-msmarco")
         elif config["pretrained"] == "bert-base-msmarco":
             self.bert = TFBertModel.from_pretrained("Capreolus/bert-base-msmarco")
         elif config["pretrained"] == "bert-base-uncased":
             self.bert = TFBertModel.from_pretrained("bert-base-uncased")
         else:
-            raise ValueError(f"unsupported model: {config['pretrained']}; need to ensure correct tokenizers will be used before arbitrary hgf models are supported")
+            raise ValueError(
+                f"unsupported model: {config['pretrained']}; need to ensure correct tokenizers will be used before arbitrary hgf models are supported"
+            )
 
         self.transformer_layer_1 = TFBertLayer(self.bert.config)
         self.transformer_layer_2 = TFBertLayer(self.bert.config)
@@ -111,7 +113,9 @@ class TFParade(Reranker):
         Dependency(key="trainer", module="trainer", name="tensorflow"),
     ]
     config_spec = [
-        ConfigOption("pretrained", "bert-base-uncased", "Pretrained model: bert-base-uncased, bert-base-msmarco, or electra-base-msmarco")
+        ConfigOption(
+            "pretrained", "bert-base-uncased", "Pretrained model: bert-base-uncased, bert-base-msmarco, or electra-base-msmarco"
+        ),
         ConfigOption("aggregation", "maxp"),
     ]
 
