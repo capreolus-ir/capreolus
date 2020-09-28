@@ -709,9 +709,6 @@ class DocStats(Extractor):
             doc = self["tokenizer"].tokenize(self["index"].get_doc(docid))
             self.doc_tf[docid] = Counter(doc)
             self.doc_len[docid] = len(doc)
-            logger.debug(docid)
-            logger.debug(self["index"].get_doc(docid))
-            logger.debug("----")
 
         # Here we calculate domain-vocab-term-specificity weights.
         # Then these weights are used in the rerankers.
