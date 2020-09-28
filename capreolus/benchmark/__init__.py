@@ -83,13 +83,15 @@ class KITT(Benchmark):
         querytype = "query"
         domain = "book"
         assessed_set = None
-
-        if querytype not in ["query", "basicprofile", "chatprofile",
+#TODO make decision on this... with hobbies or without, it effects the baseprofile choosing
+        if querytype not in ["query", "basicprofile", "chatprofile", #'chatprofile-hobbies',
                              "basicprofile_general", 'basicprofile_food', 'basicprofile_travel', 'basicprofile_book_movie', 'basicprofile_book', 'basicprofile_movie',
                              'basicprofile_food_general', 'basicprofile_travel_general',
                              'basicprofile_book_movie_general', 'basicprofile_book_general', 'basicprofile_movie_general',
                              "chatprofile_general", 'chatprofile_food', 'chatprofile_travel', 'chatprofile_book', 'chatprofile_movie', 'chatprofile_hobbies',
-                             'chatprofile_food_general', 'chatprofile_travel_general', 'chatprofile_book_general', 'chatprofile_movie_general', 'chatprofile_hobbies_general']:
+                             'chatprofile_food_general', 'chatprofile_travel_general', 'chatprofile_book_general', 'chatprofile_movie_general', 'chatprofile_hobbies_general',
+                             'chatprofile_food_general_hobbies', 'chatprofile_travel_general_hobbies', 'chatprofile_book_general_hobbies', 'chatprofile_movie_general_hobbies',
+                             ]:
             raise ValueError(f"invalid querytype: {querytype}")
 
         if domain not in ["book", "travel_wikivoyage", "movie", "food", "alldomains"]:

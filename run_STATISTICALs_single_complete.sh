@@ -10,7 +10,7 @@ export CAPREOLUS_RESULTS=/GW/D5data-13/ghazaleh/ranking_outputs/results_18092020
 export CAPREOLUS_CACHE=/GW/D5data-13/ghazaleh/ranking_outputs/cache_18092020/ ;
 export PYTHONPATH=/GW/PKB/work/ghazaleh/capreolus/ ;
 
-declare -a profiles=('query' 'basicprofile' 'chatprofile' 'basicprofile_general' 'basicprofile_food' 'basicprofile_travel' 'basicprofile_book_movie' 'basicprofile_book' 'basicprofile_movie' 'basicprofile_food_general' 'basicprofile_travel_general' 'basicprofile_book_movie_general' 'basicprofile_book_general' 'basicprofile_movie_general' 'chatprofile_general' 'chatprofile_food' 'chatprofile_travel' 'chatprofile_book' 'chatprofile_movie' 'chatprofile_hobbies' 'chatprofile_food_general' 'chatprofile_travel_general' 'chatprofile_book_general' 'chatprofile_movie_general' 'chatprofile_hobbies_general')
+declare -a profiles=('query' 'basicprofile' 'chatprofile' 'basicprofile_general' 'basicprofile_food' 'basicprofile_travel' 'basicprofile_book_movie' 'basicprofile_book' 'basicprofile_movie' 'basicprofile_food_general' 'basicprofile_travel_general' 'basicprofile_book_movie_general' 'basicprofile_book_general' 'basicprofile_movie_general' 'chatprofile_general' 'chatprofile_food' 'chatprofile_travel' 'chatprofile_book' 'chatprofile_movie' 'chatprofile_hobbies' 'chatprofile_food_general' 'chatprofile_travel_general' 'chatprofile_book_general' 'chatprofile_movie_general' 'chatprofile_hobbies_general' 'chatprofile_food_general_hobbies' 'chatprofile_travel_general_hobbies' 'chatprofile_book_general_hobbies' 'chatprofile_movie_general_hobbies')
 
 domain=$1
 pipeline=$2

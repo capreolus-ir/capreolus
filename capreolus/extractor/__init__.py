@@ -12,7 +12,7 @@ from pymagnitude import Magnitude, MagnitudeUtils
 
 from capreolus.registry import ModuleBase, RegisterableModule, Dependency, CACHE_BASE_PATH, PACKAGE_PATH
 from capreolus.utils.loginit import get_logger
-from capreolus.utils.common import padlist, get_file_name, get_user_profiles
+from capreolus.utils.common import padlist, get_file_name, load_trec_topics
 from capreolus.utils.exceptions import MissingDocError
 
 logger = get_logger(__name__)
@@ -449,9 +449,8 @@ class EmbedText(Extractor):
         return G_probs
 
     def get_all_users_profiles_term_frequency(self, profiletype, qids):
-        benchmarkdir = "/GW/PKB/work/data_personalization/TREC_format"  # TODO change these when rebasing to use the benchmark as inherited dependency
-        # book is an exemplary recommendation domain, but it must contain all the users, so we are using the files in the prev benchmark with all users.
-        userfullprofiles = get_user_profiles(join(benchmarkdir, f"book_topics.{profiletype}.txt"))
+        benchmarkdir = "/GW/PKB/work/data_personalization/TREC_format_quselection_C"  # TODO change these when rebasing to use the benchmark as inherited dependency
+        userfullprofiles = DocStats.get_all_profiles(join(benchmarkdir, f"alldomains_topics.{profiletype}.txt"))
 
         user_profile_tfs = {}
         user_profile_len = {}
@@ -487,6 +486,7 @@ class EmbedText(Extractor):
                 voc.update(q_count.keys())
 
         return voc, user_profile_tfs, total_len, user_profile_len
+
 
     def _tok2vec(self, toks):
         # return [self.embeddings[self.stoi[tok]] for tok in toks]
@@ -805,9 +805,8 @@ class DocStats(Extractor):
             return user_term_weights
 
     def get_all_users_profiles_term_frequency(self, profiletype, qids):
-        benchmarkdir = "/GW/PKB/work/data_personalization/TREC_format"  # TODO change these when rebasing to use the benchmark as inherited dependency
-        # book is an exemplary recommendation domain, but it must contain all the users, so we are using the files in the prev benchmark with all users.
-        userfullprofiles = get_user_profiles(join(benchmarkdir, f"book_topics.{profiletype}.txt"))
+        benchmarkdir = "/GW/PKB/work/data_personalization/TREC_format_quselection_C"  # TODO change these when rebasing to use the benchmark as inherited dependency
+        userfullprofiles = DocStats.get_all_user_profiles(join(benchmarkdir, f"alldomains_topics.{profiletype}.txt"))
 
         user_profile_tfs = {}
         user_profile_len = {}
@@ -841,6 +840,17 @@ class DocStats(Extractor):
                 voc.update(q_count.keys())
 
         return voc, user_profile_tfs, total_len, user_profile_len
+
+    @staticmethod
+    def get_all_user_profiles(queryfn):
+        topics = load_trec_topics(queryfn)['title']
+        profiles = {}
+        for quid in topics:
+            uid = quid.split("_")[-1]
+            if uid not in profiles:
+                profiles[uid] = topics[quid]
+
+        return profiles
 
     def get_all_users_profile_term_probs_tf(self, profiletype, qids):
         voc, user_profile_tfs, total_len, _ = self.get_all_users_profiles_term_frequency(profiletype, qids)
