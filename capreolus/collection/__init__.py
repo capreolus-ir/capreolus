@@ -21,6 +21,29 @@ class Collection(ModuleBase):
     is_large_collection = False
     _path = None
 
+    def __iter__(self):
+        from pyserini.collection import pycollection
+        from pyserini.index import pygenerator
+
+        path, ctype, gtype = self.get_path_and_types()
+        # TODO change on pyserini upgrade
+        if gtype == "WashingtonPostGenerator":
+            gtype = "WapoGenerator"
+
+        collection = pycollection.Collection(ctype, path)
+        generator = pygenerator.Generator(gtype)
+
+        for fs in collection:
+            for doc in fs:
+                parsed = None
+                try:
+                    parsed = generator.create_document(doc)
+                except:
+                    pass
+
+                if parsed:
+                    yield (parsed.get("id"), parsed.get("title"), parsed.get("contents"))
+
     def get_path_and_types(self):
         """ Returns a ``(path, collection_type, generator_type)`` tuple. """
         if not self.validate_document_path(self._path):
