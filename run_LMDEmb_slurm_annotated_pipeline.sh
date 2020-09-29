@@ -7,9 +7,9 @@ pipeline=ENTITY_CONCEPT_JOINT_LINKING
 
 for domain in "${domains[@]}"
 do
-  echo "source run_LMDEmb_slurm_querytype.sh $domain $pipeline $entitystrategy ;"
-  source run_LMDEmb_slurm_querytype.sh $domain $pipeline $entitystrategy ;
-  sleep 5
+  echo "source run_LMDEmb_slurm_querytype.sh $domain $pipeline $entitystrategy &"
+  source run_LMDEmb_slurm_querytype.sh $domain $pipeline $entitystrategy &
+  sleep 120 
 done
 
 
