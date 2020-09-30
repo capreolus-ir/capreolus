@@ -99,6 +99,7 @@ def eval_runfile(runfile, qrels, metrics):
     metrics = [metrics] if isinstance(metrics, str) else list(metrics)
     _verify_metric(metrics)
     runs = Searcher.load_trec_run(runfile)
+    logger.debug(runfile)
     return _eval_runs(runs, qrels, metrics, dev_qids=list(qrels.keys()))
 
 

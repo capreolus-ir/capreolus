@@ -74,7 +74,7 @@ class PES20(Benchmark):
 
 class KITT(Benchmark):
     name = "kitt"
-    DATA_DIR = Path("/GW/PKB/work/data_personalization/TREC_format_quselection_C/")
+    DATA_DIR = Path("/GW/PKB/work/data_personalization/TREC_format_quselection_C_final_profiles/")
     qrel_file = DATA_DIR / "judgements"
     fold_file = DATA_DIR / "splits.json"
 
@@ -84,13 +84,17 @@ class KITT(Benchmark):
         domain = "book"
         assessed_set = None
 #TODO make decision on this... with hobbies or without, it effects the baseprofile choosing
-        if querytype not in ["query", "basicprofile", "chatprofile", #'chatprofile-hobbies',
-                             "basicprofile_general", 'basicprofile_food', 'basicprofile_travel', 'basicprofile_book_movie', 'basicprofile_book', 'basicprofile_movie',
-                             'basicprofile_food_general', 'basicprofile_travel_general',
-                             'basicprofile_book_movie_general', 'basicprofile_book_general', 'basicprofile_movie_general',
-                             "chatprofile_general", 'chatprofile_food', 'chatprofile_travel', 'chatprofile_book', 'chatprofile_movie', 'chatprofile_hobbies',
-                             'chatprofile_food_general', 'chatprofile_travel_general', 'chatprofile_book_general', 'chatprofile_movie_general', 'chatprofile_hobbies_general',
-                             'chatprofile_food_general_hobbies', 'chatprofile_travel_general_hobbies', 'chatprofile_book_general_hobbies', 'chatprofile_movie_general_hobbies',
+        if querytype not in ['query', 'basicprofile', 'chatprofile',
+                              'basicprofile_general',
+                              'basicprofile_food', 'basicprofile_travel',
+                              'basicprofile_book', 'basicprofile_movie',
+                              'basicprofile_food_general', 'basicprofile_travel_general',
+                              'basicprofile_book_general', 'basicprofile_movie_general',
+                              'chatprofile_general',
+                              'chatprofile_food', 'chatprofile_travel',
+                              'chatprofile_book', 'chatprofile_movie',
+                              'chatprofile_food_general', 'chatprofile_travel_general',
+                              'chatprofile_book_general', 'chatprofile_movie_general',
                              ]:
             raise ValueError(f"invalid querytype: {querytype}")
 

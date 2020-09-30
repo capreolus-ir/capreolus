@@ -449,7 +449,7 @@ class EmbedText(Extractor):
         return G_probs
 
     def get_all_users_profiles_term_frequency(self, profiletype, qids):
-        benchmarkdir = "/GW/PKB/work/data_personalization/TREC_format_quselection_C"  # TODO change these when rebasing to use the benchmark as inherited dependency
+        benchmarkdir = "/GW/PKB/work/data_personalization/TREC_format_quselection_C_final_profiles"  # TODO change these when rebasing to use the benchmark as inherited dependency
         userfullprofiles = DocStats.get_all_profiles(join(benchmarkdir, f"alldomains_topics.{profiletype}.txt"))
 
         user_profile_tfs = {}
@@ -805,7 +805,7 @@ class DocStats(Extractor):
             return user_term_weights
 
     def get_all_users_profiles_term_frequency(self, profiletype, qids):
-        benchmarkdir = "/GW/PKB/work/data_personalization/TREC_format_quselection_C"  # TODO change these when rebasing to use the benchmark as inherited dependency
+        benchmarkdir = "/GW/PKB/work/data_personalization/TREC_format_quselection_C_final_profiles"  # TODO change these when rebasing to use the benchmark as inherited dependency
         userfullprofiles = DocStats.get_all_user_profiles(join(benchmarkdir, f"alldomains_topics.{profiletype}.txt"))
 
         user_profile_tfs = {}
@@ -979,7 +979,7 @@ class DocStats(Extractor):
         domain_documents = {}
 
         for domain in ['movie', 'travel_wikivoyage', 'food', 'book']:
-            doc_dir = f"/GW/PKB/work/data_personalization/TREC_format_quselection_C/documents/{domain}/"
+            doc_dir = f"/GW/PKB/work/data_personalization/TREC_format_quselection_C_final_profiles/documents/{domain}/"
 
             domain_documents[domain] = {}
 
