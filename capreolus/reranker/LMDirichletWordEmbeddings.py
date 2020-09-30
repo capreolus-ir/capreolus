@@ -36,7 +36,7 @@ class LMDirichletWordEmbeddingsReranker(Reranker):
     def test(self, d):
         if not hasattr(self["extractor"], "doc_len"):
             raise RuntimeError("reranker's extractor has not been created yet. try running the task's train() method first.")
-
+        os.makedirs(self.get_docscore_cache_path(), exist_ok=True)
         queryvocab = self["extractor"].qid_termprob[d["qid"]].keys()
         mu = self["extractor"].query_avg_doc_len[d["qid"]] * self.cfg['multiplymu']
         a = [self.score_document(queryvocab, docid, d["qid"], mu) for docid in [d["posdocid"]]]
@@ -60,7 +60,6 @@ class LMDirichletWordEmbeddingsReranker(Reranker):
             term_scores[term] = termscore
             scoresum += termscore
 
-        os.makedirs(self.get_docscore_cache_path(), exist_ok=True)
         outf = join(self.get_docscore_cache_path(), f"{qid}_{docid}")
         if not exists(outf):
             with open(outf, 'w') as f:

@@ -642,14 +642,11 @@ class DocStats(Extractor):
         for qid in qids:
             qtext = topics[qid]
             qdesc = []
-            
+            qentities = self.get_entities(qid)  # {"NE": [...], "C": [...]}
+
+            # since I just wanted to use this as a debug step, I didn't read from it when it was available
             entoutf = join(self.get_selected_entities_cache_path(), get_file_name(qid, self["entitylinking"].get_benchmark_name(), self["entitylinking"].get_benchmark_querytype()))
-            if exists(entoutf):
-                with open(entoutf, 'r') as f:
-                    # logger.debug(entoutf)
-                    qentities = json.loads(f.read())
-            else:
-                qentities = self.get_entities(qid) # {"NE": [...], "C": [...]}
+            if not exists(entoutf):
                 with open(entoutf, 'w') as f:
                     f.write(json.dumps(qentities, indent=4))
 

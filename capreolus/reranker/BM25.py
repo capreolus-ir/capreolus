@@ -36,7 +36,7 @@ class BM25Reranker(Reranker):
         if not hasattr(self["extractor"], "doc_len"):
             raise RuntimeError("reranker's extractor has not been created yet. try running the task's train() method first.")
 
-
+        os.makedirs(self.get_docscore_cache_path(), exist_ok=True)
         # query = self["extractor"].qid2toks[d["qid"]]
         # avg_doc_len = self["extractor"].query_avg_doc_len[d["qid"]]
         # return [self.score_document(query, d["qid"], docid, avg_doc_len) for docid in [d["posdocid"]]] not used any more since it is more optimal to use tf
@@ -63,7 +63,6 @@ class BM25Reranker(Reranker):
             term_scores[term] = termscore
             scoresum += termscore
 
-        os.makedirs(self.get_docscore_cache_path(), exist_ok=True)
         outf = join(self.get_docscore_cache_path(), f"{qid}_{docid}")
         with open(outf, 'w') as f:
             term_scores["OVERALL_SCORE"] = scoresum
