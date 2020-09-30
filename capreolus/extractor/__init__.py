@@ -450,7 +450,7 @@ class EmbedText(Extractor):
 
     def get_all_users_profiles_term_frequency(self, profiletype, qids):
         benchmarkdir = "/GW/PKB/work/data_personalization/TREC_format_quselection_C_final_profiles"  # TODO change these when rebasing to use the benchmark as inherited dependency
-        userfullprofiles = DocStats.get_all_profiles(join(benchmarkdir, f"alldomains_topics.{profiletype}.txt"))
+        userfullprofiles = DocStats.get_all_user_profiles(join(benchmarkdir, f"alldomains_topics.{profiletype}.txt"))
 
         user_profile_tfs = {}
         user_profile_len = {}

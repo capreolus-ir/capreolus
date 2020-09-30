@@ -25,10 +25,6 @@ class PytorchTrainer(Trainer):
 
     @staticmethod
     def config():
-        # TODO move maxdoclen, maxqlen to extractor? REMOVE these as they are not used (I kept them now for my result paths to be the same as my prev runs)
-        maxdoclen = 800  # maximum document length (in number of terms after tokenization)
-        maxqlen = 4  # maximum query length (in number of terms after tokenization)
-
         batch = 32  # batch size
         niters = 20  # number of iterations to train for
         itersize = 256  # number of training instances in one iteration (epoch)
