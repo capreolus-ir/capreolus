@@ -27,22 +27,26 @@ do
   sbatch -p cpu20 -c 4 -a 1-1260 --mem-per-cpu=64G -o ${logfolder}${step}_KNRM_${domain}_${entitystrategy}_${pipeline}_${doccut}_${assessed_set}.log --open-mode=append run_KNRM_single_complete.sh  $domain $pipeline $entitystrategy $doccut $assessed_set $step;
   sleep 60;
 done
-sleep 1000;
+#sleep 1000;
+#
+#assessed_set=random20
+#for doccut in "${doccuttypes[@]}"
+#do
+#  for domain in "${domains[@]}"
+#  do
+#    sbatch -p cpu20 -c 4 -a 1-1260 --mem-per-cpu=64G -o ${logfolder}${step}_KNRM_${domain}_${entitystrategy}_${pipeline}_${doccut}_${assessed_set}.log --open-mode=append run_KNRM_single_complete.sh  $domain $pipeline $entitystrategy $doccut $assessed_set $step;
+#    sleep 300;
+#  done
+#done
+#sleep 1000;
+#
+#assessed_set=top10
+#for doccut in "${doccuttypes[@]}"
+#do
+#  for domain in "${domains[@]}"
+#  do
+#    sbatch -p cpu20 -c 4 -a 1-1260 --mem-per-cpu=64G -o ${logfolder}${step}_KNRM_${domain}_${entitystrategy}_${pipeline}_${doccut}_${assessed_set}.log --open-mode=append run_KNRM_single_complete.sh  $domain $pipeline $entitystrategy $doccut $assessed_set $step;
+#    sleep 300;
+#  done
+#done
 
-for doccut in "${doccuttypes[@]}"
-do
-  for domain in "${domains[@]}"
-  do
-    sbatch -p cpu20 -c 4 -a 1-1260 --mem-per-cpu=64G -o ${logfolder}${step}_KNRM_${domain}_${entitystrategy}_${pipeline}_${doccut}_${assessed_set}.log --open-mode=append run_KNRM_single_complete.sh  $domain $pipeline $entitystrategy $doccut $assessed_set $step;
-    sleep 300;
-  done
-done
-
-
-
-assessed_set=random20
-for doccut in "${doccuttypes[@]}"
-do
-  sbatch -p cpu20 -c 2 -a 1201-1440 --mem-per-cpu=64G -o ${logfolder}${step}_KNRM_newprofiles_${domain}_${pipeline}_${entitystrategy}_${doccut}_${assessed_set}.log --open-mode=append run_KNRM_single_complete.sh  $domain $pipeline $entitystrategy $doccut $assessed_set $step;
-  sleep 60;
-done
