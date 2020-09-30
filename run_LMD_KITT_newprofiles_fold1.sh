@@ -9,7 +9,7 @@ export PYTHONPATH=/GW/PKB/work/ghazaleh/capreolus/ ;
 declare -a domains=('book' 'food' 'movie' 'travel_wikivoyage')
 pipeline=ENTITY_CONCEPT_JOINT_LINKING
 dataset=kitt
-declare -a profiles=('chatprofile_food_general' 'chatprofile_travel_general' 'chatprofile_book_general' 'chatprofile_movie_general' 'chatprofile_hobbies_general')
+declare -a profiles=('chatprofile_food_general' 'chatprofile_travel_general' 'chatprofile_book_general' 'chatprofile_movie_general' 'chatprofile_hobbies_general' 'chatprofile_food_general_hobbies' 'chatprofile_travel_general_hobbies' 'chatprofile_book_general_hobbies' 'chatprofile_movie_general_hobbies')
 FOLDNUM=1
 
 for querytype in "${profiles[@]}"
