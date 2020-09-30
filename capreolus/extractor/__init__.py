@@ -711,21 +711,18 @@ class DocStats(Extractor):
         # Then these weights are used in the rerankers.
         # we do this by multiplyinh these weights by the term-score of each reranker. TODO But other things also could be done!
         if self.domain_vocab_specific is not None:
-            tfoutf = self.get_domain_term_weight_cache_file()
-            if exists(tfoutf):
-                with open(tfoutf, 'r') as f:
-                    self.domain_term_weight = json.loads(f.read())
-            else:
-                logger.debug("creating domain term weights")
-                m = re.match(r"^(all_domains|amazon)_(tf|df)_k(\d+|-1)$", self.domain_vocab_specific)
-                if m:
-                    domain_vocab_sp_general_corpus = m.group(1)
-                    domain_vocab_sp_tf_or_df = m.group(2)
-                    domain_vocab_sp_cut_at_k = int(m.group(3))
-                    if domain_vocab_sp_cut_at_k != -1:
-                        raise ValueError(f"domain_vocab_sp_cut_at_k is not implemented!")
-                self.domain_term_weight = self.get_domain_specific_term_weights(domain_vocab_sp_general_corpus, domain_vocab_sp_tf_or_df, docids)
+            logger.debug("creating domain term weights")
+            m = re.match(r"^(all_domains|amazon)_(tf|df)_k(\d+|-1)$", self.domain_vocab_specific)
+            if m:
+                domain_vocab_sp_general_corpus = m.group(1)
+                domain_vocab_sp_tf_or_df = m.group(2)
+                domain_vocab_sp_cut_at_k = int(m.group(3))
+                if domain_vocab_sp_cut_at_k != -1:
+                    raise ValueError(f"domain_vocab_sp_cut_at_k is not implemented!")
+            self.domain_term_weight = self.get_domain_specific_term_weights(domain_vocab_sp_general_corpus, domain_vocab_sp_tf_or_df, docids)
 
+            tfoutf = self.get_domain_term_weight_cache_file()
+            if not exists(tfoutf):
                 with open(tfoutf, 'w') as f:
                     sortedweights = {k: v for k, v in sorted(self.domain_term_weight.items(), key=lambda item: item[1], reverse=True)}
                     f.write(json.dumps(sortedweights, indent=4))
