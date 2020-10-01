@@ -41,9 +41,7 @@ pvidx=$(( SLURM_ARRAY_TASK_ID - (qtidx * 50)  ))
 FOLDNUM=$(( ((pvidx-1)%10)+1 ))
 
 if ((pvidx >= 1 && pvidx <= 10)); then
-  if [ "$querytype" != "query" ] && [ "$querytype" != "basicprofile" ] && [ "$querytype" != "chatprofile" ]; then
-    filterq=None
-  fi
+  filterq=None
 fi
 if ((pvidx >= 11 && pvidx <= 20)); then
   if [ "$querytype" != "query" ] && [ "$querytype" != "basicprofile" ] && [ "$querytype" != "chatprofile" ]; then
