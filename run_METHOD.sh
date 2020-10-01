@@ -17,8 +17,15 @@ for domainvocsp in "${dvtypes[@]}"
 do
   for domain in "${domains[@]}"
   do
-    sbatch -p cpu20 -c 2 -a 1-1050 --mem-per-cpu=64G -o ${logfolder}${method}_${domain}_${entitystrategy}_${pipeline}_${domainvocsp}.log --open-mode=append run_STATISTICALs_single_complete.sh  $domain $pipeline $entitystrategy $domainvocsp $method;
-    sleep 10;
+    q=`sbatch -p cpu20 -c 2 -a 1-1050 --mem-per-cpu=64G -o ${logfolder}${method}_${domain}_${entitystrategy}_${pipeline}_${domainvocsp}.log --open-mode=append run_STATISTICALs_single_complete.sh  $domain $pipeline $entitystrategy $domainvocsp $method;`
+    if [ "$q" == "sbatch: error: Batch job submission failed: Socket timed out on send/recv operation" ];then
+      echo "sbatch -p cpu20 -c 2 -a 1-1050 --mem-per-cpu=64G -o ${logfolder}${method}_${domain}_${entitystrategy}_${pipeline}_${domainvocsp}.log --open-mode=append run_STATISTICALs_single_complete.sh  $domain $pipeline $entitystrategy $domainvocsp $method;"
+      echo "$q"
+      sleep 60;
+    else
+      echo "$q"
+      sleep 10;
+    fi
   done
 done
 sleep 300;
@@ -39,8 +46,15 @@ for domainvocsp in "${dvtypes[@]}"
 do
   for domain in "${domains[@]}"
   do
-    sbatch -p cpu20 -c 2 -a 1-1050 --mem-per-cpu=64G -o ${logfolder}${method}_${domain}_${entitystrategy}_${pipeline}_${domainvocsp}.log --open-mode=append run_STATISTICALs_single_complete.sh  $domain $pipeline $entitystrategy $domainvocsp $method;
-    sleep 10;
+    q=`sbatch -p cpu20 -c 2 -a 1-1050 --mem-per-cpu=64G -o ${logfolder}${method}_${domain}_${entitystrategy}_${pipeline}_${domainvocsp}.log --open-mode=append run_STATISTICALs_single_complete.sh  $domain $pipeline $entitystrategy $domainvocsp $method;`
+    if [ "$q" == "sbatch: error: Batch job submission failed: Socket timed out on send/recv operation" ];then
+      echo "sbatch -p cpu20 -c 2 -a 1-1050 --mem-per-cpu=64G -o ${logfolder}${method}_${domain}_${entitystrategy}_${pipeline}_${domainvocsp}.log --open-mode=append run_STATISTICALs_single_complete.sh  $domain $pipeline $entitystrategy $domainvocsp $method;"
+      echo "$q"
+      sleep 60;
+    else
+      echo
+      sleep 10;
+    fi
   done
 done
 sleep 300;
@@ -50,7 +64,15 @@ for domainvocsp in "${dvtypes[@]}"
 do
   for domain in "${domains[@]}"
   do
-    sbatch -p cpu20 -c 2 -a 1-1050 --mem-per-cpu=64G -o ${logfolder}${method}_${domain}_${entitystrategy}_${pipeline}_${domainvocsp}.log --open-mode=append run_STATISTICALs_single_complete.sh  $domain $pipeline $entitystrategy $domainvocsp $method;
+    q=`sbatch -p cpu20 -c 2 -a 1-1050 --mem-per-cpu=64G -o ${logfolder}${method}_${domain}_${entitystrategy}_${pipeline}_${domainvocsp}.log --open-mode=append run_STATISTICALs_single_complete.sh  $domain $pipeline $entitystrategy $domainvocsp $method;`
+    if [ "$q" == "sbatch: error: Batch job submission failed: Socket timed out on send/recv operation" ];then
+      echo "sbatch -p cpu20 -c 2 -a 1-1050 --mem-per-cpu=64G -o ${logfolder}${method}_${domain}_${entitystrategy}_${pipeline}_${domainvocsp}.log --open-mode=append run_STATISTICALs_single_complete.sh  $domain $pipeline $entitystrategy $domainvocsp $method;"
+      echo "$q"
+      sleep 60;
+    else
+      echo
+      sleep 10;
+    fi
     sleep 10;
   done
 done
@@ -61,7 +83,15 @@ for domainvocsp in "${dvtypes[@]}"
 do
   for domain in "${domains[@]}"
   do
-    sbatch -p cpu20 -c 2 -a 1-1050 --mem-per-cpu=64G -o ${logfolder}${method}_${domain}_${entitystrategy}_${pipeline}_${domainvocsp}.log --open-mode=append run_STATISTICALs_single_complete.sh  $domain $pipeline $entitystrategy $domainvocsp $method;
+    q=`sbatch -p cpu20 -c 2 -a 1-1050 --mem-per-cpu=64G -o ${logfolder}${method}_${domain}_${entitystrategy}_${pipeline}_${domainvocsp}.log --open-mode=append run_STATISTICALs_single_complete.sh  $domain $pipeline $entitystrategy $domainvocsp $method;`
+    if [ "$q" == "sbatch: error: Batch job submission failed: Socket timed out on send/recv operation" ];then
+      echo "sbatch -p cpu20 -c 2 -a 1-1050 --mem-per-cpu=64G -o ${logfolder}${method}_${domain}_${entitystrategy}_${pipeline}_${domainvocsp}.log --open-mode=append run_STATISTICALs_single_complete.sh  $domain $pipeline $entitystrategy $domainvocsp $method;"
+      echo "$q"
+      sleep 60;
+    else
+      echo
+      sleep 10;
+    fi
     sleep 10;
   done
 done
