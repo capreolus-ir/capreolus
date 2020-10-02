@@ -71,7 +71,7 @@ setuptools.setup(
         "scipy",
         "google-api-python-client",
         "oauth2client",
-        "tensorflow==2.3",
+        "tensorflow==2.3.1",
         "transformers==3.1.0",
         "tensorflow-ranking",
         "Pillow",
