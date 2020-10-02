@@ -1,15 +1,43 @@
 import tensorflow as tf
-from transformers import TFBertForSequenceClassification
+from transformers import TFAutoModelForSequenceClassification
 
 from capreolus import ConfigOption, Dependency
 from capreolus.reranker import Reranker
+
+
+class TFElectraRelevanceHead(tf.keras.layers.Layer):
+    """ BERT-style ClassificationHead (i.e., out_proj only -- no dense). See transformers.TFElectraClassificationHead """
+
+    def __init__(self, dropout, out_proj, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.dropout = dropout
+        self.out_proj = out_proj
+
+    def call(self, inputs, **kwargs):
+        x = inputs[:, 0, :]  # take <s> token (equiv. to [CLS])
+        x = self.dropout(x)
+        x = self.out_proj(x)
+        return x
 
 
 class TFBERTMaxP_Class(tf.keras.layers.Layer):
     def __init__(self, extractor, config, *args, **kwargs):
         super(TFBERTMaxP_Class, self).__init__(*args, **kwargs)
         self.extractor = extractor
-        self.bert = TFBertForSequenceClassification.from_pretrained(config["pretrained"], hidden_dropout_prob=0.1)
+
+        if config["pretrained"] == "electra-base-msmarco":
+            self.bert = TFAutoModelForSequenceClassification.from_pretrained("Capreolus/electra-base-msmarco")
+            dropout, fc = self.bert.classifier.dropout, self.bert.classifier.out_proj
+            self.bert.classifier = TFElectraRelevanceHead(dropout, fc)
+        elif config["pretrained"] == "bert-base-msmarco":
+            self.bert = TFAutoModelForSequenceClassification.from_pretrained("Capreolus/bert-base-msmarco")
+        elif config["pretrained"] == "bert-base-uncased":
+            self.bert = TFAutoModelForSequenceClassification.from_pretrained(config["pretrained"], hidden_dropout_prob=0.1)
+        else:
+            raise ValueError(
+                f"unsupported model: {config['pretrained']}; need to ensure correct tokenizers will be used before arbitrary hgf models are supported"
+            )
+
         self.config = config
 
     def call(self, x, **kwargs):
@@ -72,7 +100,9 @@ class TFBERTMaxP(Reranker):
         Dependency(key="trainer", module="trainer", name="tensorflow"),
     ]
     config_spec = [
-        ConfigOption("pretrained", "bert-base-uncased", "Hugging face transformer pretrained model"),
+        ConfigOption(
+            "pretrained", "bert-base-uncased", "Pretrained model: bert-base-uncased, bert-base-msmarco, or electra-base-msmarco"
+        ),
         ConfigOption("aggregation", "max"),
     ]
 

@@ -34,3 +34,8 @@ scispacy
 spacy
 pandas
 https://s3-us-west-2.amazonaws.com/ai2-s2-scispacy/releases/v0.2.4/en_core_sci_lg-0.2.4.tar.gz
+# deps that the pymagnitude package isn't pulling in:
+lz4
+xxhash
+annoy
+fasteners
