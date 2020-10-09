@@ -41,12 +41,6 @@ class AnseriniSearcherMixIn:
         os.makedirs(output_base_path, exist_ok=True)
         output_path = os.path.join(output_base_path, "searcher")
 
-        # add stemmer and stop options to match underlying index
-        indexopts = "-stemmer "
-        indexopts += "none" if self.index.config["stemmer"] is None else self.index.config["stemmer"]
-        if self.index.config["indexstops"]:
-            indexopts += " -keepstopwords"
-
         index_path = self.index.get_index_path()
         anserini_fat_jar = Anserini.get_fat_jar()
         cmd = [
@@ -61,7 +55,6 @@ class AnseriniSearcherMixIn:
             "Trec",
             "-index",
             index_path,
-            indexopts,
             "-topics",
             topicsfn,
             "-output",
@@ -71,8 +64,12 @@ class AnseriniSearcherMixIn:
             "-inmem",
             "-threads",
             str(MAX_THREADS),
-            anserini_param_str,
-        ]
+            "-stemmer",
+            "none" if self.index.config["stemmer"] is None else self.index.config["stemmer"],
+        ] + anserini_param_str.split()
+
+        if self.index.config["indexstops"]:
+            cmd += ["-keepStopwords"]
 
         logger.info("Anserini writing runs to %s", output_path)
         logger.debug(cmd)
