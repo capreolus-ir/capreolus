@@ -13,7 +13,7 @@ declare -a domains=('book' 'food' 'travel_wikivoyage')
 declare -a dvtypes=("None" "all_domains_tf_k-1" "all_domains_df_k-1" "amazon_tf_k-1" "amazon_df_k-1")
 
 if [ "$method" == "LMD" ];then
-  declare -a ents=('noneE')# 'allE' 'domainE' 'onlyNE' 'domainOnlyNE')
+  declare -a ents=('noneE' 'allE')# 'domainE' 'onlyNE' 'domainOnlyNE')
 else
   declare -a ents=('noneE')# ??? or not all
 fi
