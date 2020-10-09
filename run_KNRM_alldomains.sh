@@ -11,7 +11,7 @@ if [ "$step" == "" ];then
   exit
 fi
 
-domain=alldomains
+domain=alldomainsMR
 declare -a doccuttypes=("None" "most_frequent")
 
 assessed_set=random20
