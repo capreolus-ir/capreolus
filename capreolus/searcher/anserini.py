@@ -49,16 +49,35 @@ class AnseriniSearcherMixIn:
 
         index_path = self.index.get_index_path()
         anserini_fat_jar = Anserini.get_fat_jar()
-        cmd = (
-            f"java -classpath {anserini_fat_jar} "
-            f"-Xms512M -Xmx31G -Dapp.name=SearchCollection io.anserini.search.SearchCollection "
-            f"-topicreader Trec -index {index_path} {indexopts} -topics {topicsfn} -output {output_path} "
-            f"-topicfield {topicfield} -inmem -threads {MAX_THREADS} {anserini_param_str}"
-        )
+        cmd = [
+            "java",
+            "-classpath",
+            anserini_fat_jar,
+            "-Xms512M",
+            "-Xmx31G",
+            "-Dapp.name=SearchCollection",
+            "io.anserini.search.SearchCollection",
+            "-topicreader",
+            "Trec",
+            "-index",
+            index_path,
+            indexopts,
+            "-topics",
+            topicsfn,
+            "-output",
+            output_path,
+            "-topicfield",
+            topicfield,
+            "-inmem",
+            "-threads",
+            str(MAX_THREADS),
+            anserini_param_str,
+        ]
+
         logger.info("Anserini writing runs to %s", output_path)
         logger.debug(cmd)
 
-        app = subprocess.Popen(cmd.split(), stdout=subprocess.PIPE, universal_newlines=True)
+        app = subprocess.Popen(cmd, stdout=subprocess.PIPE, universal_newlines=True)
 
         # Anserini output is verbose, so ignore DEBUG log lines and send other output through our logger
         for line in app.stdout:

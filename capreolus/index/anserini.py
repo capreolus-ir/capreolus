@@ -21,22 +21,46 @@ class AnseriniIndex(Index):
 
     def _create_index(self):
         outdir = self.get_index_path()
-        stops = "-keepStopwords" if self.config["indexstops"] else ""
-        stemmer = "none" if self.config["stemmer"] is None else self.config["stemmer"]
-
         collection_path, document_type, generator_type = self.collection.get_path_and_types()
-
         anserini_fat_jar = Anserini.get_fat_jar()
-        if self.collection.is_large_collection:
-            cmd = f"java -classpath {anserini_fat_jar} -Xms512M -Xmx31G -Dapp.name='IndexCollection' io.anserini.index.IndexCollection -collection {document_type} -generator {generator_type} -threads {MAX_THREADS} -input {collection_path} -index {outdir} -stemmer {stemmer} {stops}"
-        else:
-            cmd = f"java -classpath {anserini_fat_jar} -Xms512M -Xmx31G -Dapp.name='IndexCollection' io.anserini.index.IndexCollection -collection {document_type} -generator {generator_type} -threads {MAX_THREADS} -input {collection_path} -index {outdir} -storePositions -storeDocvectors -storeContents -stemmer {stemmer} {stops}"
+
+        cmd = [
+            "java",
+            "-classpath",
+            anserini_fat_jar,
+            "-Xms512M",
+            "-Xmx31G",
+            "-Dapp.name='IndexCollection'",
+            "io.anserini.index.IndexCollection",
+            "-collection",
+            document_type,
+            "-generator",
+            generator_type,
+            "-threads",
+            str(MAX_THREADS),
+            "-input",
+            collection_path,
+            "-index",
+            outdir,
+            "-stemmer",
+            "none" if self.config["stemmer"] is None else self.config["stemmer"],
+        ]
+
+        if self.config["indexstops"]:
+            cmd += ["-keepStopwords"]
+
+        if not self.collection.is_large_collection:
+            cmd += [
+                "-storePositions",
+                "-storeDocvectors",
+                "-storeContents",
+            ]
 
         logger.info("building index %s", outdir)
         logger.debug(cmd)
         os.makedirs(os.path.basename(outdir), exist_ok=True)
 
-        app = subprocess.Popen(cmd.split(), stdout=subprocess.PIPE, universal_newlines=True)
+        app = subprocess.Popen(cmd, stdout=subprocess.PIPE, universal_newlines=True)
 
         # Anserini output is verbose, so ignore DEBUG log lines and send other output through our logger
         for line in app.stdout:
