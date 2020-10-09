@@ -41,7 +41,7 @@ setuptools.setup(
     name="capreolus",
     version=get_version("capreolus/__init__.py"),
     author="Andrew Yates",
-    author_email="initial-then-last at mpi-inf.mpg.de",
+    author_email="initial-then-last@mpi-inf.mpg.de",
     description="A toolkit for end-to-end neural ad hoc retrieval",
     long_description=long_description,
     long_description_content_type="text/markdown",
