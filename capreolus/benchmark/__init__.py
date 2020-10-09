@@ -84,7 +84,7 @@ class KITT(Benchmark):
         domain = "book"
         assessed_set = None
 #TODO make decision on this... with hobbies or without, it effects the baseprofile choosing
-        if querytype not in ['query', 'basicprofile', 'chatprofile',
+        if querytype not in ['query', 'basicprofile', 'chatprofile', 'basicprofileMR', 'chatprofileMR',
                               'basicprofile_general',
                               'basicprofile_food', 'basicprofile_travel',
                               'basicprofile_book', 'basicprofile_movie',
@@ -98,7 +98,7 @@ class KITT(Benchmark):
                              ]:
             raise ValueError(f"invalid querytype: {querytype}")
 
-        if domain not in ["book", "travel_wikivoyage", "movie", "food", "alldomains"]:
+        if domain not in ["book", "travel_wikivoyage", "movie", "food", "alldomains", "alldomainsMR"]:
             raise ValueError(f"invalid domain: {domain}")
 
         if assessed_set not in [None, 'random20', 'top10']:
