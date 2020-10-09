@@ -30,7 +30,6 @@ do
     time python -m capreolus.run rerank.evaluate with searcher=qrels reranker=LMDirichlet collection=$dataset collection.domain=$domain benchmark=$dataset benchmark.domain=$domain benchmark.querytype=$querytype reranker.extractor.entitylinking.pipeline=$pipeline fold=s$FOLDNUM &
     sleep 1
   done
-  sleep
 done
 wait
 echo "None finished"
