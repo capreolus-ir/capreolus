@@ -192,7 +192,7 @@ class EmbedText(Extractor):
                     self.qid2toks[qid] = sorted_terms
 
         elif self.cfg["query_cut"].startswith("unique_topic") or self.cfg["query_cut"].startswith("topic"):
-            if querytype in ['basicprofile', 'chatprofile', 'query']:
+            if querytype in ['basicprofileMR', 'chatprofileMR', 'basicprofile', 'chatprofile', 'query']:
                 raise ValueError(f"{self.cfg['query_cut']} query_cut do not work for querytype: {querytype}")
 
             term_weights = self.get_profile_term_weight_topic(qids, querytype)
@@ -280,7 +280,7 @@ class EmbedText(Extractor):
 
         d_num_docs = 0
         dfs = {}
-        for domain in ['movie', 'travel_wikivoyage', 'food', 'book']:
+        for domain in ['movie', 'travel_wikivoyage', 'food', 'book']: #TODO change!
             for d in all_docs[domain]:
                 doc = self["tokenizer"].tokenize(all_docs[domain][d])
                 for term in set(doc):
@@ -744,7 +744,7 @@ class DocStats(Extractor):
 
     def get_profile_term_weight_topic(self, qids):
         profiletype = self["entitylinking"].get_benchmark_querytype()
-        if profiletype in ['basicprofile', 'chatprofile', 'query']:
+        if profiletype in ['basicprofileMR', 'chatprofileMR', 'basicprofile', 'chatprofile', 'query']:
             raise ValueError(f"{self.profile_term_weight_by} query word filter cannot be used for querytype: {profiletype}")
 
         s_probs = self.get_all_users_profile_term_probs_tf(profiletype, qids)
