@@ -6,8 +6,8 @@ import json
 
 import numpy as np
 
+from capreolus.extractor import get_file_name
 from capreolus.registry import ModuleBase, RegisterableModule, Dependency, PACKAGE_PATH
-from capreolus.utils.common import get_file_name
 
 from capreolus.utils.loginit import get_logger
 
@@ -25,7 +25,7 @@ class DomainRelatedness(EntityDomainRelatedness):
     default_settings_dir = PACKAGE_PATH / "data" / "domain_entity_relatedness_setting"
     setting_file_name_mapping = {"book_prCacc": "book_maxPRAUC_maxACC",
                                  "food_prCacc": "food_maxPRAUC_maxACC",
-                                 "travel_wikivoyage_prCacc": "travel_wikivoyage_maxPRAUC_maxACC",
+                                 "travel_prCacc": "travel_maxPRAUC_maxACC",
                                  "movie_prCacc": "movie_maxPRAUC_maxACC"}
     dependencies = {
         "benchmark": Dependency(module="benchmark"),
@@ -36,6 +36,10 @@ class DomainRelatedness(EntityDomainRelatedness):
     strategy_C = None
     domain_relatedness_threshold_NE = None
     domain_relatedness_threshold_C = None
+    entity_linking_cache_path = None
+    domain_rep_NE = None
+    domain_rep_C = None
+    entity_rep_cache = {"C": {}, "NE": {}}
 
     @staticmethod
     def config():
@@ -44,26 +48,25 @@ class DomainRelatedness(EntityDomainRelatedness):
         strategy_C = None
         domain_relatedness_threshold_NE = None
         domain_relatedness_threshold_C = None
+        return_top = -1
 
         if strategy_NE is not None:
-            if not re.match("(book|food|travel_wikivoyage|movie)_prCacc", strategy_NE):
+            if not re.match("(book|food|travel|movie)_prCacc", strategy_NE):
                 raise ValueError(f"invalid strategy_NE {strategy_NE}")
 
         if strategy_C is not None:
-            if not re.match("(book|food|travel_wikivoyage|movie)_prCacc", strategy_C):
+            if not re.match("(book|food|travel|movie)_prCacc", strategy_C):
                 raise ValueError(f"invalid strategy_C {strategy_C}")
 
         if domain_relatedness_threshold_NE is not None:
-            if not re.match("(book|food|travel_wikivoyage|movie)_prCacc", domain_relatedness_threshold_NE):
+            if not re.match("(book|food|travel|movie)_prCacc", domain_relatedness_threshold_NE):
                 raise ValueError(f"invalid domain_relatedness_threshold_NE {domain_relatedness_threshold_NE}")
 
         if domain_relatedness_threshold_C is not None:
-            if not re.match("(book|food|travel_wikivoyage|movie)_prCacc", domain_relatedness_threshold_C):
+            if not re.match("(book|food|travel|movie)_prCacc", domain_relatedness_threshold_C):
                 raise ValueError(f"invalid domain_relatedness_threshold_C {domain_relatedness_threshold_C}")
 
-        return_top = -1
-
-    def e_strategy(self, isNE):
+    def entity_strategy(self, isNE):
         if isNE:
             m = re.match(r"^d-k:(0|(100|50|25|10|5)-(w?avg))_e-k:(0|(100|50|25|10|5)-(w?avg))$", self.strategy_NE)
         else:
@@ -78,7 +81,7 @@ class DomainRelatedness(EntityDomainRelatedness):
 
         return k, m
 
-    def d_strategy(self, isNE):
+    def domain_strategy(self, isNE):
         if isNE:
             m = re.match(r"^d-k:(0|(100|50|25|10|5)-(w?avg))_e-k:(0|(100|50|25|10|5)-(w?avg))$", self.strategy_NE)
         else:
@@ -94,7 +97,7 @@ class DomainRelatedness(EntityDomainRelatedness):
         return k, m
 
     def get_similarities_cache_path(self):
-        # logger.debug(self.entity_linking_cache_path / "similarities")
+        #logger.debug(self.entity_linking_cache_path)
         return self.entity_linking_cache_path / "similarities"
 
     def initialize(self, el_cache_path):
@@ -114,22 +117,19 @@ class DomainRelatedness(EntityDomainRelatedness):
         if self.strategy_C is not None and not re.match(r"^d-k:(0|(100|50|25|10|5)-(w?avg))_e-k:(0|(100|50|25|10|5)-(w?avg))$", self.strategy_C):
             raise ValueError(f"invalid domain embedding strategyC: {self.strategy_C}")
 
-
         self.domain_relatedness_threshold_NE = float(json.load(open(join(self.default_settings_dir, self.setting_file_name_mapping[self.cfg['domain_relatedness_threshold_NE']]), 'r'))['domain_relatedness_threshold_NE'])
         self.domain_relatedness_threshold_C = float(json.load(open(join(self.default_settings_dir, self.setting_file_name_mapping[self.cfg['domain_relatedness_threshold_C']]), 'r'))['domain_relatedness_threshold_C'])
 
-        k, m = self.d_strategy(True)
+        k, m = self.domain_strategy(True)
         self.domain_rep_NE = self.load_domain_vector_by_neighbors(k, m)
-        k, m = self.d_strategy(False)
+        k, m = self.domain_strategy(False)
         self.domain_rep_C = self.load_domain_vector_by_neighbors(k, m)
-
-        self.entity_rep_cache = {"C": {}, "NE": {}}
 
     def calculate_domain_entity_similarities(self, entities, isNE):
         logger.debug("calculating similarity between domain model and extracted entities")
 
-        ek, em = self.e_strategy(isNE)
-        corne = "NE" if isNE else "C"
+        ek, em = self.entity_strategy(isNE)
+        cORne = "NE" if isNE else "C"
 
         entities_in_w2v = []
         entity_vectors = []
@@ -137,9 +137,9 @@ class DomainRelatedness(EntityDomainRelatedness):
             w2ve = "ENTITY/{}".format(e.replace(" ", "_"))
             if self['utils'].wiki2vec.__contains__(w2ve):
                 entities_in_w2v.append(e)
-                if w2ve not in self.entity_rep_cache[corne]:
-                    self.entity_rep_cache[corne][w2ve] = self.get_representative(w2ve, ek, em)
-                entity_vectors.append(self.entity_rep_cache[corne][w2ve])
+                if w2ve not in self.entity_rep_cache[cORne]:
+                    self.entity_rep_cache[cORne][w2ve] = self.get_representative(w2ve, ek, em)
+                entity_vectors.append(self.entity_rep_cache[cORne][w2ve])
 
         if len(entity_vectors) == 0:
             return {}
@@ -193,7 +193,7 @@ class DomainRelatedness(EntityDomainRelatedness):
             domain_entity = "ENTITY/Book"
         elif self.domain == "movie":
             domain_entity = "ENTITY/Film"
-        elif self.domain == "travel_wikivoyage":
+        elif self.domain == "travel":
             domain_entity = "ENTITY/Travel"
         elif self.domain == "food":
             domain_entity = "ENTITY/Food"

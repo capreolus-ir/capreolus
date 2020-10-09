@@ -1,6 +1,6 @@
 #!/bin/bash
 
-logfolder=/GW/D5data-13/ghazaleh/ranking_outputs/logs_30092020/
+logfolder=`cat paths_env_vars/logfolderpath`
 pipeline=ENTITY_CONCEPT_JOINT_LINKING
 
 entitystrategy=noneE
@@ -10,23 +10,18 @@ if [ "$step" == "" ];then
   echo "give input step train or evaluate"
   exit
 fi
+assessed_set=$2
+if [ "assessed_set" == "" ];then
+  echo "assessed_set shoult be given: random20 top10"
+  exit
+fi
+SIMULRUN=50
 
-domain=alldomains
 declare -a doccuttypes=("None" "most_frequent")
-
-assessed_set=random20
+domain=alldomains
 for doccut in "${doccuttypes[@]}"
 do
-    echo "sbatch -p cpu20 -c 4 -a 1-100%20 --mem-per-cpu=64G -o ${logfolder}${step}_KNRM_${domain}_${entitystrategy}_${pipeline}_${doccut}_${assessed_set}.log --open-mode=append run_KNRM_single_fq2_newprofilesadded.sh  $domain $pipeline $entitystrategy $doccut $assessed_set $step;"
-    sbatch -p cpu20 -c 4 -a 1-100%20 --mem-per-cpu=64G -o ${logfolder}${step}_KNRM_${domain}_${entitystrategy}_${pipeline}_${doccut}_${assessed_set}.log --open-mode=append run_KNRM_single_fq2_newprofilesadded.sh  $domain $pipeline $entitystrategy $doccut $assessed_set $step;
-    sleep 60;
+  echo "sbatch -p cpu20 -c 4 -a 1-1020%${SIMULRUN} --mem-per-cpu=64G -o ${logfolder}${step}_KNRM_${domain}_${entitystrategy}_${pipeline}_${doccut}_${assessed_set}.log --open-mode=append run_KNRM_single_complete.sh  $domain $pipeline $entitystrategy $doccut $assessed_set $step;"
+  sbatch -p cpu20 -c 4 -a 1-1020%${SIMULRUN} --mem-per-cpu=64G -o ${logfolder}${step}_KNRM_${domain}_${entitystrategy}_${pipeline}_${doccut}_${assessed_set}.log --open-mode=append run_KNRM_single_complete.sh  $domain $pipeline $entitystrategy $doccut $assessed_set $step;
+  sleep 10
 done
-sleep 60;
-assessed_set=top10
-for doccut in "${doccuttypes[@]}"
-do
-  echo "sbatch -p cpu20 -c 4 -a 1-100%20 --mem-per-cpu=64G -o ${logfolder}${step}_KNRM_${domain}_${entitystrategy}_${pipeline}_${doccut}_${assessed_set}.log --open-mode=append run_KNRM_single_fq2_newprofilesadded.sh  $domain $pipeline $entitystrategy $doccut $assessed_set $step;"
-  sbatch -p cpu20 -c 4 -a 1-100%20 --mem-per-cpu=64G -o ${logfolder}${step}_KNRM_${domain}_${entitystrategy}_${pipeline}_${doccut}_${assessed_set}.log --open-mode=append run_KNRM_single_fq2_newprofilesadded.sh  $domain $pipeline $entitystrategy $doccut $assessed_set $step;
-  sleep 60;
-done
-

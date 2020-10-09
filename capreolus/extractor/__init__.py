@@ -1,18 +1,17 @@
 import json
-import logging
 import os
-import pickle
 import re
 from collections import defaultdict, Counter
-from os import listdir
 from os.path import join, exists
 
 import numpy as np
 from pymagnitude import Magnitude, MagnitudeUtils
 
-from capreolus.registry import ModuleBase, RegisterableModule, Dependency, CACHE_BASE_PATH, PACKAGE_PATH
+from capreolus.extractor.common import get_profile_term_weight_user, get_profile_term_weight_topic, \
+    get_domain_specific_term_weights, get_file_name
+from capreolus.registry import ModuleBase, RegisterableModule, Dependency, CACHE_BASE_PATH
 from capreolus.utils.loginit import get_logger
-from capreolus.utils.common import padlist, get_file_name, load_trec_topics
+from capreolus.utils.common import padlist
 from capreolus.utils.exceptions import MissingDocError
 
 logger = get_logger(__name__)
@@ -70,8 +69,10 @@ class EmbedText(Extractor):
         calcidf = True
         maxqlen = 50
         maxdoclen = 5000
+
         query_cut = None
         document_cut = None
+        alldomains = "travel,food,book"  # TODO this could be moved to benchmark, when rebased...
 
         if query_cut is not None and query_cut not in ["most_frequent", "topic-alltopics", "topic-amazon", "user-allusers", "user-amazon",
                                                        "unique_most_frequent", "unique_topic-alltopics", "unique_topic-amazon", "unique_user-allusers", "unique_user-amazon"]:
@@ -86,6 +87,17 @@ class EmbedText(Extractor):
 # travel #docs: 352 maxlen: 26468 avglen: 4239.082386363636
 # food:  #docs: 995 maxlen: 1396  avglen: 475.06532663316585
 #movie: #docs:  886 maxlen: 1037  avglen: 298.0056433408578
+    @property
+    def query_vocab_specific(self):
+        return self.cfg["query_cut"]
+
+    @property
+    def domain_vocab_specific(self):
+        return self.cfg["document_cut"]
+
+    @property
+    def all_domains(self):
+        return self.cfg["alldomains"].split(",")
 
     def _get_pretrained_emb(self):
         magnitude_cache = CACHE_BASE_PATH / "magnitude/"
@@ -93,11 +105,11 @@ class EmbedText(Extractor):
 
     def _build_vocab(self, qids, docids, topics, querytype=None):
         tokenize = self["tokenizer"].tokenize
-        self.qid2toks = {qid: tokenize(topics[qid]) for qid in qids} # todo: I think here I should sort them based on what I want
-        if self.cfg["query_cut"] is not None:
+        self.qid2toks = {qid: tokenize(topics[qid].replace("]", "").replace("[", "")) for qid in qids}  # removing the entity mention tags
+        if self.query_vocab_specific is not None:
             self.build_sorted_query_terms(qids, querytype)
         self.docid2toks = {docid: tokenize(self["index"].get_doc(docid)) for docid in docids}
-        if self.cfg["document_cut"] is not None:
+        if self.domain_vocab_specific is not None:
             self.build_sorted_document_terms(docids)
         self._extend_stoi(self.qid2toks.values(), calc_idf=self.cfg["calcidf"])
         self._extend_stoi(self.docid2toks.values(), calc_idf=self.cfg["calcidf"])
@@ -159,23 +171,20 @@ class EmbedText(Extractor):
         self._build_embedding_matrix()
 
     def build_sorted_query_terms(self, qids, querytype):
-        if self.cfg["query_cut"] in ["unique_most_frequent", "most_frequent"]:
+        if self.query_vocab_specific in ["unique_most_frequent", "most_frequent"]:
             for qid in qids:
                 terms = self.qid2toks[qid]
                 term_counts = Counter(terms)
-                if self.cfg["query_cut"].startswith("unique"):
+                if self.query_vocab_specific.startswith("unique"):
                     self.qid2toks[qid] = [t for t, v in sorted(term_counts.items(), key=lambda item:item[1], reverse=True)]
                 else:
                     self.qid2toks[qid] = []
                     for t, v in sorted(term_counts.items(), key=lambda item: item[1], reverse=True):
                         self.qid2toks[qid].extend(list(map(str, np.repeat(t, v))))
 
-        elif self.cfg["query_cut"].startswith("unique_user") or self.cfg["query_cut"].startswith("user"):
-            if querytype == 'query':
-                raise ValueError(f"{self.cfg['query_cut']} query_cut do not work for querytype: {querytype}")
-
-            user_term_weights = self.get_profile_term_weight_user(qids, querytype)
-            if self.cfg["query_cut"].startswith("unique_user"):
+        elif self.query_vocab_specific.startswith("unique_user") or self.query_vocab_specific.startswith("user"):
+            user_term_weights = get_profile_term_weight_user(qids, querytype, self.cfg['query_cut'], self.query_vocab_specific[self.query_vocab_specific.index("-")+1:], self["tokenizer"])
+            if self.query_vocab_specific.startswith("unique_user"):
                 for qid in qids:
                     uid = qid.split("_")[-1]
                     sorted_terms = [t for t, v in sorted(user_term_weights[uid].items(), key=lambda item: item[1], reverse=True) if t in self.qid2toks[qid]]
@@ -191,13 +200,10 @@ class EmbedText(Extractor):
                             sorted_terms.extend(list(map(str, np.repeat(t, term_counts[t]))))
                     self.qid2toks[qid] = sorted_terms
 
-        elif self.cfg["query_cut"].startswith("unique_topic") or self.cfg["query_cut"].startswith("topic"):
-            if querytype in ['basicprofileMR', 'chatprofileMR', 'basicprofile', 'chatprofile', 'query']:
-                raise ValueError(f"{self.cfg['query_cut']} query_cut do not work for querytype: {querytype}")
-
-            term_weights = self.get_profile_term_weight_topic(qids, querytype)
+        elif self.query_vocab_specific.startswith("unique_topic") or self.query_vocab_specific.startswith("topic"):
+            term_weights = get_profile_term_weight_topic(qids, querytype, self.cfg['query_cut'], self.query_vocab_specific[self.query_vocab_specific.index("-")+1:], self["tokenizer"])
             sorted_weights = sorted(term_weights.items(), key=lambda item: item[1], reverse=True)
-            if self.cfg["query_cut"].startswith("unique_topic"):
+            if self.query_vocab_specific.startswith("unique_topic"):
                 for qid in qids:
                     sorted_terms = [t for t, v in sorted_weights if t in self.qid2toks[qid]]
                     self.qid2toks[qid] = sorted_terms
@@ -212,30 +218,34 @@ class EmbedText(Extractor):
                     self.qid2toks[qid] = sorted_terms
 
     def build_sorted_document_terms(self, docids):
-        if self.cfg["document_cut"] in ["unique_most_frequent", "most_frequent"]:
+        if self.domain_vocab_specific in ["unique_most_frequent", "most_frequent"]:
             for docid in docids:
                 terms = self.docid2toks[docid]
                 term_counts = Counter(terms)
-                if self.cfg["document_cut"].startswith("unique"):
+                if self.domain_vocab_specific.startswith("unique"):
                     self.docid2toks[docid] = [t for t, v in sorted(term_counts.items(), key=lambda item:item[1], reverse=True)]
                 else:
                     self.docid2toks[docid] = []
                     for t, v in sorted(term_counts.items(), key=lambda item: item[1], reverse=True):
                         self.docid2toks[docid].extend(list(map(str, np.repeat(t, v))))
             return
-        elif self.cfg["document_cut"] in ['all_domains_tf', 'unique_all_domains_tf']:
-            term_weights = self.get_domain_specific_term_weights("all_domains", "tf", docids)
-        elif self.cfg["document_cut"] in ['all_domains_df', 'unique_all_domains_df']:
-            term_weights = self.get_domain_specific_term_weights("all_domains", "df", docids)
-        elif self.cfg["document_cut"] in ['amazon_tf', 'unique_amazon_tf']:
-            term_weights = self.get_domain_specific_term_weights("amazon", "tf", docids)
-        elif self.cfg["document_cut"] in ['amazon_df', 'unique_amazon_df']:
-            term_weights = self.get_domain_specific_term_weights("amazon", "df", docids)
+        elif self.domain_vocab_specific in ['all_domains_tf', 'unique_all_domains_tf']:
+            term_weights = get_domain_specific_term_weights("all_domains", "tf", docids,
+                                                            self.all_domains, self["index"], self["tokenizer"])
+        elif self.domain_vocab_specific in ['all_domains_df', 'unique_all_domains_df']:
+            term_weights = get_domain_specific_term_weights("all_domains", "df", docids,
+                                                            self.all_domains, self["index"], self["tokenizer"])
+        elif self.domain_vocab_specific in ['amazon_tf', 'unique_amazon_tf']:
+            term_weights = get_domain_specific_term_weights("amazon", "tf", docids,
+                                                            self.all_domains, self["index"], self["tokenizer"])
+        elif self.domain_vocab_specific in ['amazon_df', 'unique_amazon_df']:
+            term_weights = get_domain_specific_term_weights("amazon", "df", docids,
+                                                            self.all_domains, self["index"], self["tokenizer"])
         else:
             raise RuntimeError(f"did not load term_weights {self.cfg['document_cut']}")
 
         sorted_weights = sorted(term_weights.items(), key=lambda item: item[1], reverse=True)
-        if self.cfg["document_cut"].startswith("unique"):
+        if self.domain_vocab_specific.startswith("unique"):
             for docid in docids:
                 sorted_terms = [t for t, v in sorted_weights if t in self.docid2toks[docid]]
                 self.docid2toks[docid] = sorted_terms
@@ -248,245 +258,6 @@ class EmbedText(Extractor):
                     if t in self.docid2toks[docid]:
                         sorted_terms.extend(list(map(str, np.repeat(t, term_counts[t]))))
                 self.docid2toks[docid] = sorted_terms
-
-    def get_domain_specific_term_weights(self, corpus_name, tf_or_df, docids):
-        if tf_or_df == 'tf':
-            domain_term_probs = self.get_domain_term_probs_tf(docids)
-            if corpus_name == "all_domains":
-                G_probs = self.get_G_probs_all_corpus_tfs()
-            elif corpus_name == 'amazon':
-                G_probs = self.get_G_probs_amazon_tfs()
-            else:
-                raise ValueError(f"domain-term specific weighting not implemented for {corpus_name}")
-        elif tf_or_df == 'df':
-            domain_term_probs = self.get_domain_term_probs_df(docids)
-            if corpus_name == "all_domains":
-                G_probs = self.get_G_probs_all_corpus_dfs()
-            elif corpus_name == 'amazon':
-                G_probs = self.get_G_probs_amazon_dfs()
-            else:
-                raise ValueError(f"domain-term specific weighting not implemented for {corpus_name}")
-
-        term_weights = {}
-
-        for term, p in domain_term_probs.items():
-            term_weights[term] = p / G_probs[term]
-
-        return term_weights
-
-    def get_G_probs_amazon_dfs(self):
-        G_dfs_raw, G_num_docs_raw = DocStats.get_G_dfs_amazon_raw_from_file()
-        all_docs = DocStats.load_all_domains_corpus()
-
-        d_num_docs = 0
-        dfs = {}
-        for domain in ['movie', 'travel_wikivoyage', 'food', 'book']: #TODO change!
-            for d in all_docs[domain]:
-                doc = self["tokenizer"].tokenize(all_docs[domain][d])
-                for term in set(doc):
-                    if term not in dfs:
-                        dfs[term] = 0
-                    dfs[term] += 1
-                d_num_docs += 1
-
-        G_num_docs = d_num_docs + G_num_docs_raw
-        G_probs = {k: (v + (G_dfs_raw[k] if k in G_dfs_raw else 0)) / G_num_docs for k, v in dfs.items()}
-        return G_probs
-
-    def get_G_probs_all_corpus_dfs(self):
-        all_docs = DocStats.load_all_domains_corpus()
-        tokenized_docs = {}
-        all_vocab = set()
-        for domain in ['movie', 'travel_wikivoyage', 'food', 'book']:
-            for d in all_docs[domain]:
-                doc = self["tokenizer"].tokenize(all_docs[domain][d])
-                doc_counter = Counter(doc)
-                all_vocab.update(doc_counter.keys())
-                tokenized_docs[f"{domain}_{d}"] = doc_counter.keys()
-        dfs = {}
-        for v in all_vocab:
-            dfs[v] = 0
-            for d in tokenized_docs:
-                if v in tokenized_docs[d]:
-                    dfs[v] += 1
-
-        G_num_docs = len(tokenized_docs)
-        G_probs = {k: (v / G_num_docs) for k, v in dfs.items()}
-        return G_probs
-
-    def get_G_probs_all_corpus_tfs(self):
-        all_docs = DocStats.load_all_domains_corpus()
-        corpus = ""
-        for domain in ['movie', 'travel_wikivoyage', 'food', 'book']:
-            corpus += '\n'.join(all_docs[domain].values())
-            corpus += '\n'
-
-        doc = self["tokenizer"].tokenize(corpus)
-        doc_counter = Counter(doc)
-        G_probs = {k: (v / len(doc)) for k, v in doc_counter.items()}
-        G_len = len(doc)
-        return G_probs
-
-    def get_G_probs_amazon_tfs(self):
-        G_tfs_raw, G_len_raw = DocStats.get_G_tfs_amazon_raw_from_file()
-        all_docs = DocStats.load_all_domains_corpus()
-        corpus = ""
-        for domain in ['movie', 'travel_wikivoyage', 'food', 'book']:
-            corpus += '\n'.join(all_docs[domain].values())
-            corpus += '\n'
-
-        doc = self["tokenizer"].tokenize(corpus)
-        domain_counter = Counter(doc)
-        G_probs = {k: (v + (G_tfs_raw[k] if k in G_tfs_raw else 0)) / (len(doc) + G_len_raw) for k, v in domain_counter.items()}
-        G_len = len(doc) + G_len_raw
-        return G_probs
-
-    def get_domain_term_probs_tf(self, docids):
-        corpus = ""
-        for docid in docids:
-            corpus += self["index"].get_doc(docid)
-            corpus += '\n'
-        doc = self["tokenizer"].tokenize(corpus)
-        doc_counter = Counter(doc)
-        domain_term_probs = {k: (v / len(doc)) for k, v in doc_counter.items()}
-        return domain_term_probs
-
-    def get_domain_term_probs_df(self, docids):
-        tokenized_docs = {}
-        all_vocab = set()
-        #I could directly use the index to get the df,... but I just used this for now. It doesn't take much time.
-        for docid in docids:
-            doc = self["tokenizer"].tokenize(self["index"].get_doc(docid))
-            doc_counter = Counter(doc)
-            all_vocab.update(doc_counter.keys())
-            tokenized_docs[docid] = doc_counter.keys()
-        dfs = {}
-        for v in all_vocab:
-            dfs[v] = 0
-            for d in tokenized_docs:
-                if v in tokenized_docs[d]:
-                    dfs[v] += 1
-
-        domain_probs = {k: (v / len(docids)) for k, v in dfs.items()}
-        return domain_probs
-
-    def get_profile_term_weight_topic(self, qids, profiletype):
-        s_probs = self.get_all_users_profile_term_probs_tf(profiletype, qids)
-
-        if self.cfg["query_cut"] == 'unique_topic-alltopics':
-            baseprofiletype = "chatprofile" if profiletype.startswith("chatprofile") else "basicprofile"
-            G_probs = self.get_all_users_profile_term_probs_tf(baseprofiletype, qids)
-        elif self.cfg["query_cut"] == 'unique_topic-amazon':
-            baseprofiletype = "chatprofile" if profiletype.startswith("chatprofile") else "basicprofile"
-            G_probs = self.get_amazon_plus_all_users_profile_term_probs_tf(baseprofiletype, qids)
-
-        term_weights = {}
-        for term, p in s_probs.items():
-            term_weights[term] = p / G_probs[term]
-        return term_weights
-
-    def get_profile_term_weight_user(self, qids, profiletype):
-        baseprofiletype = "chatprofile" if profiletype.startswith("chatprofile") else "basicprofile"
-        voc, user_profile_tfs, total_len, user_profile_len = self.get_all_users_profiles_term_frequency(baseprofiletype, qids)
-
-        s_user_probs = {}
-        for uid in user_profile_tfs:
-            s_user_probs[uid] = {}
-            for term, tf in user_profile_tfs[uid].items():
-                s_user_probs[uid][term] = tf / user_profile_len[uid]
-
-        if self.cfg["query_cut"] == 'unique_user-allusers':
-            G_probs = {}
-            for term in voc:
-                nu = 0
-                for uid, tfs in user_profile_tfs.items():
-                    if term in tfs:
-                        nu += tfs[term]
-                G_probs[term] = nu / total_len
-            user_term_weights = {}
-            for uid in s_user_probs:
-                user_term_weights[uid] = {}
-                for term, p in s_user_probs[uid].items():
-                    user_term_weights[uid][term] = p / G_probs[term]
-            return user_term_weights
-        elif self.cfg["query_cut"] == 'unique_user-amazon':
-            G_tfs_raw, G_len_raw = DocStats.get_G_tfs_amazon_raw_from_file()
-            user_term_weights = {}
-            for uid in s_user_probs.keys():
-                user_term_weights[uid] = {}
-                G_probs = DocStats.get_amazon_plus_user_profile_term_probs_tf(G_tfs_raw, G_len_raw, user_profile_tfs[uid], user_profile_len[uid])
-                for term, p in s_user_probs[uid].items():
-                    user_term_weights[uid][term] = p / G_probs[term]
-            return user_term_weights
-
-    def get_all_users_profile_term_probs_tf(self, profiletype, qids):
-        voc, user_profile_tfs, total_len, _ = self.get_all_users_profiles_term_frequency(profiletype, qids)
-        allusers_term_probs = {}
-        for term in voc:
-            nu = 0
-            for uid, tfs in user_profile_tfs.items():
-                if term in tfs:
-                    nu += tfs[term]
-            allusers_term_probs[term] = nu / total_len
-        return allusers_term_probs
-
-    def get_amazon_plus_all_users_profile_term_probs_tf(self, profiletype, qids):
-        voc, user_profile_tfs, profs_len, _ = self.get_all_users_profiles_term_frequency(profiletype, qids)
-        G_tfs_raw, G_len_raw = DocStats.get_G_tfs_amazon_raw_from_file()
-        total_len = profs_len + G_len_raw
-
-        G_probs = {}
-        for term in voc:
-            nu = 0
-            for uid, tfs in user_profile_tfs.items():
-                if term in tfs:
-                    nu += tfs[term]
-            if term in G_tfs_raw:
-                nu += G_tfs_raw[term]
-
-            G_probs[term] = nu / total_len
-
-        return G_probs
-
-    def get_all_users_profiles_term_frequency(self, profiletype, qids):
-        benchmarkdir = "/GW/PKB/work/data_personalization/TREC_format_quselection_C_final_profiles"  # TODO change these when rebasing to use the benchmark as inherited dependency
-        userfullprofiles = DocStats.get_all_user_profiles(join(benchmarkdir, f"alldomains_topics.{profiletype}.txt"))
-
-        user_profile_tfs = {}
-        user_profile_len = {}
-        total_len = 0
-        voc = set()
-        for qid in qids:
-            uid = qid.split("_")[-1]
-            if uid not in user_profile_tfs:
-                #TODO if entities were added to this ranker, otherwise delete this part
-
-                # entoutf = join(self.get_selected_entities_cache_path(),
-                #                get_file_name(qid, self["entitylinking"].get_benchmark_name(), profiletype))
-                # if exists(entoutf):
-                #     with open(entoutf, 'r') as f:
-                #         qentities = json.loads(f.read())
-                # else:
-                #     raise RuntimeError(
-                #         "This is not implemented! You should have already have the entities for the full profile in the cache to use this. To this end, you need to run it once for fold1 for example.")
-                #
-                # qdesc = []
-                # for e in qentities["NE"]:
-                #     qdesc.append(self["entitylinking"].get_entity_description(e))
-                # for e in qentities["C"]:
-                #     qdesc.append(self["entitylinking"].get_entity_description(e))
-
-                qtext = userfullprofiles[uid] + "\n"
-                # qtext += "\n".join(qdesc)
-                query = self["tokenizer"].tokenize(qtext)
-                q_count = Counter(query)
-                user_profile_tfs[uid] = q_count
-                user_profile_len[uid] = len(query)
-                total_len += len(query)
-                voc.update(q_count.keys())
-
-        return voc, user_profile_tfs, total_len, user_profile_len
-
 
     def _tok2vec(self, toks):
         # return [self.embeddings[self.stoi[tok]] for tok in toks]
@@ -545,26 +316,28 @@ class DocStats(Extractor):
         "index": Dependency(module="index", name="anserini", config_overrides={"indexstops": True, "stemmer": "none"}),
         "backgroundindex": Dependency(module="index", name="anserinicorpus", config_overrides={"indexcorpus": "anserini0.9-index.clueweb09.englishonly.nostem.stopwording"}),##the other one could be:anserini0.9-index.clueweb09.englishonly.porterstem.stopwording
         "tokenizer": Dependency(module="tokenizer", name="anserini", config_overrides={"keepstops": False}),
-#        "tokenizerquery": Dependency(module="tokenizer", name="spacy", config_overrides={"keepstops": False, 'removesmallerlen': 2}), #removesmallerlen is actually only used for user profile (not the short queries) but I cannot separate them
-       # "tokenizer": Dependency(module="tokenizer", name="spacy", config_overrides={"keepstops": False}),
+#        "tokenizerquery": Dependency(module="tokenizer", name="spacy", config_overrides={"keepstops": False, 'removesmallerlen': 2}), #only in PES20 paper: removesmallerlen is actually only used for user profile (not the short queries) but I cannot separate them
+       # "tokenizer": Dependency(module="tokenizer", name="spacy", config_overrides={"keepstops": False}), # in PES20 paper I used spacy
         "entitylinking": Dependency(module="entitylinking", name='ambiversenlu'),
         "domainrelatedness": Dependency(module='entitydomainrelatedness', name='wiki2vecrepresentative',),
         "entityspecificity": Dependency(module='entityspecificity', name='higherneighborhoodmean',),
 #       "entityspecificity": Dependency(module='entityspecificity', name='twohoppath'),
     }
+    #TODO: maybe make one dependency like entity-handling? and then move these into that one.? maybe not.
 
     @staticmethod
     def config():
         entity_strategy = None
-        filter_query = None # this is profile term weighting (on profiles)
+        query_vocab_specific = None # this is profile term weighting (on profiles)
         domain_vocab_specific = None # this is domain term weighting (on docs)
         onlyNamedEntities = False
+        alldomains = "travel,food,book" # TODO this could be moved to benchmark, when rebased...
 
         if entity_strategy not in [None, 'all', 'domain', 'specific_domainrel']:  # TODO add strategies
             raise ValueError(f"invalid entity usage strategy (or not implemented): {entity_strategy}")
 
-        if filter_query is not None and not re.match(r"^(topic-alltopics|topic-amazon|user-allusers|user-amazon)_tf_k(\d+|-1)$", filter_query):
-            raise ValueError(f"invalid filter query: {filter_query}")
+        if query_vocab_specific is not None and not re.match(r"^(topic-alltopics|topic-amazon|user-allusers|user-amazon)_tf_k(\d+|-1)$", query_vocab_specific):
+            raise ValueError(f"invalid query_vocab_specific: {query_vocab_specific}")
 
         # cutting for this and fq, would be setting the rest of the weights = 0, as we multiply them by termscore
         # k-1 means that we are reweighting and not cutting them! TODO Add other G corpuses
@@ -576,12 +349,16 @@ class DocStats(Extractor):
         return self.cfg["entity_strategy"]
 
     @property
-    def filter_query(self):
-        return self.cfg["filter_query"]
+    def query_vocab_specific(self):
+        return self.cfg["query_vocab_specific"]
 
     @property
     def domain_vocab_specific(self):
         return self.cfg["domain_vocab_specific"]
+
+    @property
+    def all_domains(self):
+        return self.cfg["alldomains"].split(",")
 
     def exist(self):
         return hasattr(self, "doc_tf")
@@ -596,9 +373,13 @@ class DocStats(Extractor):
         # logger.debug(self.get_cache_path() / 'selectedentities')
         return self.get_cache_path() / 'selectedentities'
 
-    def create(self, qids, docids, topics, qdocs=None, querytype=None): #TODO make changes to not use benchmark querytype anymore
+    def create(self, qids, docids, topics, qdocs=None, querytype=None):  # TODO make changes to not use benchmark querytype anymore
         logger.debug(f"cache path: {self.get_cache_path()}")
-        #todo where can I check this: is here good?
+        # todo remove these, just for initial checks
+        logger.debug(f"len(qids)={len(qids)}")
+        logger.debug(f"len(docids)={len(docids)}")
+        # logger.debug(topics)
+        # Todo where can I check this: is here good?
         if "nostem" in self["backgroundindex"].cfg["indexcorpus"]:
             if 'stemmer' in self["tokenizer"].cfg and self["tokenizer"].cfg['stemmer'] != "none":
                 print("WARNING: tokenizer's stemming is on, but backgroundindex is without stemming.")
@@ -609,14 +390,15 @@ class DocStats(Extractor):
         if self.exist():
             return
 
+        logger.debug("Creating index")
         self["index"].create_index()
-        logger.debug("Openning background index")
+        logger.debug("Opening background index")
         self["backgroundindex"].open()
 
         if self.entity_strategy is not None:
             logger.debug("extracting entities from queries(user profiles)")
             for qid in qids:
-                # To avoid redundency in extracting (and as the user profiles are the same as many queries). We cache the extraction based on the profileid.
+                # To avoid redundancy in extracting (and as the user profiles are the same as many queries). We cache the extraction based on the profile_id/query_id.
                 # This is handled in entitylinking component. In case of using another benchmark there may be a need to extend.
                 self["entitylinking"].extract_entities(qid, topics[qid])
 
@@ -630,21 +412,23 @@ class DocStats(Extractor):
             self["entityspecificity"].initialize()
 
         logger.debug("tokenizing queries [+entity descriptions]")
-        if logger.level in [logging.DEBUG, logging.NOTSET]:
-            if not exists(self.get_profile_term_prob_cache_path()):
-                os.makedirs(self.get_profile_term_prob_cache_path(), exist_ok=True)
+        # if logger.level in [logging.DEBUG]:
+        if not exists(self.get_profile_term_prob_cache_path()):
+            os.makedirs(self.get_profile_term_prob_cache_path(), exist_ok=True)
         if not exists(self.get_selected_entities_cache_path()):
             os.makedirs(self.get_selected_entities_cache_path(), exist_ok=True)
 
-        # self.qid2toks = {}
-        self.qidlen = {}
+        self.qid_term_frequencies = {}
         self.qid_termprob = {}
         for qid in qids:
             qtext = topics[qid]
+            qtext = qtext.replace("[", "")
+            qtext = qtext.replace("]", "")
+
             qdesc = []
             qentities = self.get_entities(qid)  # {"NE": [...], "C": [...]}
-
             # since I just wanted to use this as a debug step, I didn't read from it when it was available
+            # if logger.level in [logging.DEBUG]:
             entoutf = join(self.get_selected_entities_cache_path(), get_file_name(qid, self["entitylinking"].get_benchmark_name(), self["entitylinking"].get_benchmark_querytype()))
             if not exists(entoutf):
                 with open(entoutf, 'w') as f:
@@ -658,44 +442,47 @@ class DocStats(Extractor):
                 qdesc.append(self["entitylinking"].get_entity_description(e))
 
             qtext += "\n" + "\n".join(qdesc)
+            qtext = qtext.strip()
             query = self["tokenizer"].tokenize(qtext)
 
-            # self.qid2toks[qid] = query
-            self.qidlen[qid] = len(query)
             q_count = Counter(query)
+            self.qid_term_frequencies[qid] = {k: v for k, v in q_count.items()}
             self.qid_termprob[qid] = {k: (v/len(query)) for k, v in q_count.items()}
 
-        # TODO re-implement this part carefully! it's not as easy as it sounds.
-        #  user-specific is another thing... than using amazon or topic-specific.
         # Here we calculate profile-term-weights based on the profile_topic or profile_user
         # Later we cut based on these weights or multiply the weight by the term-score (we are doing the latter now)
-        if self.filter_query is not None:
+        # cutting could be as easy as setting other weights to zero.
+        if self.query_vocab_specific is not None:
             logger.debug("creating profile term weights")
-            m = re.match(r"^(topic|user)-(alltopics|amazon|allusers)_tf_k(\d+|-1)$", self.filter_query)
+            m = re.match(r"^(topic|user)-(alltopics|amazon|allusers)_tf_k(\d+|-1)$", self.query_vocab_specific)
             if m:
                 filter_by = m.group(1)
                 filter_by_corpus = m.group(2)
-                filter_topk = int(m.group(3))  # TODO implement
+                filter_topk = int(m.group(3))
                 if filter_by == 'topic' and filter_by_corpus == 'allusers':
-                    raise ValueError(f"invalid filter query: {self.filter_query}")
+                    raise ValueError(f"invalid query_vocab_specific: {self.query_vocab_specific}")
                 if filter_by == 'user' and filter_by_corpus not in ['allusers', 'amazon']:
-                    raise ValueError(f"invalid filter query: {self.filter_query}")
-                self.profile_term_weight_by = m.group(1)
-                self.profile_term_weight_by_corpus = m.group(2)
-                filter_topk = int(m.group(3)) #TODO implement
+                    raise ValueError(f"invalid query_vocab_specific: {self.query_vocab_specific}")
+
+                # later used in rerankers, to multiply the term weight by the weights calculated in profile_term_weight
+                self.profile_term_weight_by = filter_by
+                self.profile_term_weight_by_corpus = filter_by_corpus
 
                 if self.profile_term_weight_by == 'topic':
-                    self.profile_term_weight = self.get_profile_term_weight_topic(qids) #term -> weight
+                    self.profile_term_weight = get_profile_term_weight_topic(qids, self["entitylinking"].get_benchmark_querytype(), self.profile_term_weight_by, self.profile_term_weight_by_corpus,
+                                                                             self["tokenizer"], True, self.get_selected_entities_cache_path(), self["entitylinking"]) #term -> weight
                 elif self.profile_term_weight_by == 'user':
-                    self.profile_term_weight = self.get_profile_term_weight_user(qids) #uid -> term -> weight
+                    self.profile_term_weight = get_profile_term_weight_user(qids, self["entitylinking"].get_benchmark_querytype(), self.profile_term_weight_by, self.profile_term_weight_by_corpus,
+                                                                            self["tokenizer"], True, self.get_selected_entities_cache_path(), self["entitylinking"]) #uid -> term -> weight
 
+        # since I just wanted to use this as a debug step, I didn't read from it when it was available
         for qid in qids:
-            if logger.level in [logging.DEBUG, logging.NOTSET]:  # since I just wanted to use this as a debug step, I didn't read from it when it was available
-                tfoutf = join(self.get_profile_term_prob_cache_path(), get_file_name(qid, self["entitylinking"].get_benchmark_name(), self["entitylinking"].get_benchmark_querytype()))
-                if not exists(tfoutf):
-                    with open(tfoutf, 'w') as f:
-                        sortedTP = {k: v for k, v in sorted(self.qid_termprob[qid].items(), key=lambda item: item[1], reverse=True)}
-                        f.write(json.dumps(sortedTP, indent=4))
+            # if logger.level in [logging.DEBUG]:
+            tfoutf = join(self.get_profile_term_prob_cache_path(), get_file_name(qid, self["entitylinking"].get_benchmark_name(), self["entitylinking"].get_benchmark_querytype()))
+            if not exists(tfoutf):
+                with open(tfoutf, 'w') as f:
+                    sortedTP = {k: v for k, v in sorted(self.qid_termprob[qid].items(), key=lambda item: item[1], reverse=True)}
+                    f.write(json.dumps(sortedTP, indent=4))
 
         logger.debug("tokenizing documents")
         self.doc_tf = {}
@@ -719,8 +506,9 @@ class DocStats(Extractor):
                 domain_vocab_sp_cut_at_k = int(m.group(3))
                 if domain_vocab_sp_cut_at_k != -1:
                     raise ValueError(f"domain_vocab_sp_cut_at_k is not implemented!")
-            self.domain_term_weight = self.get_domain_specific_term_weights(domain_vocab_sp_general_corpus, domain_vocab_sp_tf_or_df, docids)
 
+            self.domain_term_weight = get_domain_specific_term_weights(domain_vocab_sp_general_corpus, domain_vocab_sp_tf_or_df, docids,
+                                                                       self.all_domains, self["index"], self["tokenizer"])
             tfoutf = self.get_domain_term_weight_cache_file()
             if not exists(tfoutf):
                 with open(tfoutf, 'w') as f:
@@ -739,338 +527,7 @@ class DocStats(Extractor):
             for docid in docs:
                 doclen += self.doc_len[docid]
             self.query_avg_doc_len[qid] = doclen/len(docs)
-        
         logger.debug("extractor DONE")
-
-    def get_profile_term_weight_topic(self, qids):
-        profiletype = self["entitylinking"].get_benchmark_querytype()
-        if profiletype in ['basicprofileMR', 'chatprofileMR', 'basicprofile', 'chatprofile', 'query']:
-            raise ValueError(f"{self.profile_term_weight_by} query word filter cannot be used for querytype: {profiletype}")
-
-        s_probs = self.get_all_users_profile_term_probs_tf(profiletype, qids)
-        if self.profile_term_weight_by_corpus == 'alltopics':
-            baseprofiletype = "chatprofile" if profiletype.startswith("chatprofile") else "basicprofile"
-            G_probs = self.get_all_users_profile_term_probs_tf(baseprofiletype, qids)
-        elif self.profile_term_weight_by_corpus == 'amazon':
-            baseprofiletype = "chatprofile" if profiletype.startswith("chatprofile") else "basicprofile"
-            G_probs = self.get_amazon_plus_all_users_profile_term_probs_tf(baseprofiletype, qids)
-
-        term_weights = {}
-        for term, p in s_probs.items():
-            term_weights[term] = p / G_probs[term]
-        return term_weights
-
-    def get_profile_term_weight_user(self, qids):
-        profiletype = self["entitylinking"].get_benchmark_querytype()
-        if profiletype == 'query':
-            raise ValueError(f"{self.profile_term_weight_by} query word filter cannot be used for querytype: {profiletype}")
-
-        baseprofiletype = "chatprofile" if profiletype.startswith("chatprofile") else "basicprofile"
-        voc, user_profile_tfs, total_len, user_profile_len = self.get_all_users_profiles_term_frequency(baseprofiletype, qids)
-
-        s_user_probs = {}
-        for uid in user_profile_tfs:
-            s_user_probs[uid] = {}
-            for term, tf in user_profile_tfs[uid].items():
-                s_user_probs[uid][term] = tf / user_profile_len[uid]
-
-        if self.profile_term_weight_by_corpus == 'allusers':
-            G_probs = {}
-            for term in voc:
-                nu = 0
-                for uid, tfs in user_profile_tfs.items():
-                    if term in tfs:
-                        nu += tfs[term]
-                G_probs[term] = nu / total_len
-            user_term_weights = {}
-            for uid in s_user_probs:
-                user_term_weights[uid] = {}
-                for term, p in s_user_probs[uid].items():
-                    user_term_weights[uid][term] = p / G_probs[term]
-            return user_term_weights
-        elif self.profile_term_weight_by_corpus == 'amazon':
-            G_tfs_raw, G_len_raw = DocStats.get_G_tfs_amazon_raw_from_file()
-            user_term_weights = {}
-            for uid in s_user_probs.keys():
-                user_term_weights[uid] = {}
-                G_probs = DocStats.get_amazon_plus_user_profile_term_probs_tf(G_tfs_raw, G_len_raw, user_profile_tfs[uid], user_profile_len[uid])
-                for term, p in s_user_probs[uid].items():
-                    user_term_weights[uid][term] = p / G_probs[term]
-            return user_term_weights
-
-    def get_all_users_profiles_term_frequency(self, profiletype, qids):
-        benchmarkdir = "/GW/PKB/work/data_personalization/TREC_format_quselection_C_final_profiles"  # TODO change these when rebasing to use the benchmark as inherited dependency
-        userfullprofiles = DocStats.get_all_user_profiles(join(benchmarkdir, f"alldomains_topics.{profiletype}.txt"))
-
-        user_profile_tfs = {}
-        user_profile_len = {}
-        total_len = 0
-        voc = set()
-        for qid in qids:
-            uid = qid.split("_")[-1]
-            if uid not in user_profile_tfs:
-                entoutf = join(self.get_selected_entities_cache_path(),
-                               get_file_name(qid, self["entitylinking"].get_benchmark_name(), profiletype))
-                if exists(entoutf):
-                    with open(entoutf, 'r') as f:
-                        qentities = json.loads(f.read())
-                else:
-                    raise RuntimeError(
-                        "This is not implemented! You should have already have the entities for the full profile in the cache to use this. To this end, you need to run it once for fold1 for example.")
-
-                qdesc = []
-                for e in qentities["NE"]:
-                    qdesc.append(self["entitylinking"].get_entity_description(e))
-                for e in qentities["C"]:
-                    qdesc.append(self["entitylinking"].get_entity_description(e))
-
-                qtext = userfullprofiles[uid]
-                qtext += "\n" + "\n".join(qdesc)
-                query = self["tokenizer"].tokenize(qtext)
-                q_count = Counter(query)
-                user_profile_tfs[uid] = q_count
-                user_profile_len[uid] = len(query)
-                total_len += len(query)
-                voc.update(q_count.keys())
-
-        return voc, user_profile_tfs, total_len, user_profile_len
-
-    @staticmethod
-    def get_all_user_profiles(queryfn):
-        topics = load_trec_topics(queryfn)['title']
-        profiles = {}
-        for quid in topics:
-            uid = quid.split("_")[-1]
-            if uid not in profiles:
-                profiles[uid] = topics[quid]
-
-        return profiles
-
-    def get_all_users_profile_term_probs_tf(self, profiletype, qids):
-        voc, user_profile_tfs, total_len, _ = self.get_all_users_profiles_term_frequency(profiletype, qids)
-        allusers_term_probs = {}
-        for term in voc:
-            nu = 0
-            for uid, tfs in user_profile_tfs.items():
-                if term in tfs:
-                    nu += tfs[term]
-            allusers_term_probs[term] = nu / total_len
-        return allusers_term_probs
-
-    def get_amazon_plus_all_users_profile_term_probs_tf(self, profiletype, qids):
-        voc, user_profile_tfs, profs_len, _ = self.get_all_users_profiles_term_frequency(profiletype, qids)
-        G_tfs_raw, G_len_raw = DocStats.get_G_tfs_amazon_raw_from_file()
-        total_len = profs_len + G_len_raw
-
-        G_probs = {}
-        for term in voc:
-            nu = 0
-            for uid, tfs in user_profile_tfs.items():
-                if term in tfs:
-                    nu += tfs[term]
-            if term in G_tfs_raw:
-                nu += G_tfs_raw[term]
-
-            G_probs[term] = nu / total_len
-
-        return G_probs
-
-    @staticmethod
-    def get_amazon_plus_user_profile_term_probs_tf(G_tfs_raw, G_len_raw, profile_tfs, profile_len):
-        total_len = profile_len + G_len_raw
-
-        G_probs = {}
-        for term, tf in profile_tfs.items():
-            nu = tf
-            if term in G_tfs_raw:
-                nu += G_tfs_raw[term]
-            G_probs[term] = nu / total_len
-
-        return G_probs
-
-    def get_domain_specific_term_weights(self, corpus_name, tf_or_df, docids):
-        if tf_or_df == 'tf':
-            domain_term_probs = self.get_domain_term_probs_tf(docids)
-            if corpus_name == "all_domains":
-                G_probs = self.get_G_probs_all_corpus_tfs()
-            elif corpus_name == 'amazon':
-                G_probs = self.get_G_probs_amazon_tfs()
-            else:
-                raise ValueError(f"domain-term specific weighting not implemented for {corpus_name}")
-        elif tf_or_df == 'df':
-            domain_term_probs = self.get_domain_term_probs_df(docids)
-            if corpus_name == "all_domains":
-                G_probs = self.get_G_probs_all_corpus_dfs()
-            elif corpus_name == 'amazon':
-                G_probs = self.get_G_probs_amazon_dfs()
-            else:
-                raise ValueError(f"domain-term specific weighting not implemented for {corpus_name}")
-
-        reweighted_term_weights = {}
-
-        for term, p in domain_term_probs.items():
-            reweighted_term_weights[term] = p / G_probs[term]
-
-        # normalize : we could normalize them, but let's not...
-#         sum_vals = sum(reweighted_term_weights[domain].values())
-#         reweighted_term_weights[domain] = {k: v/sum_vals for k, v in reweighted_term_weights[domain].items()}
-
-        return reweighted_term_weights
-
-    def get_domain_term_probs_tf(self, docids):
-        corpus = ""
-        for docid in docids:
-            corpus += self["index"].get_doc(docid)
-            corpus += '\n'
-        doc = self["tokenizer"].tokenize(corpus)
-        doc_counter = Counter(doc)
-        domain_term_probs = {k: (v / len(doc)) for k, v in doc_counter.items()}
-        return domain_term_probs
-
-    def get_domain_term_probs_df(self, docids):
-        tokenized_docs = {}
-        all_vocab = set()
-        #I could directly use the index to get the df,... but I just used this for now. It doesn't take much time.
-        for docid in docids:
-            doc = self["tokenizer"].tokenize(self["index"].get_doc(docid))
-            doc_counter = Counter(doc)
-            all_vocab.update(doc_counter.keys())
-            tokenized_docs[docid] = doc_counter.keys()
-        dfs = {}
-        for v in all_vocab:
-            dfs[v] = 0
-            for d in tokenized_docs:
-                if v in tokenized_docs[d]:
-                    dfs[v] += 1
-
-        domain_probs = {k: (v / len(docids)) for k, v in dfs.items()}
-        return domain_probs
-
-    @staticmethod
-    def getcontent(file):
-        txt = []
-        content = False
-        with open(file) as f:
-            for l in f:
-                if l.strip().startswith("<TEXT>"):
-                    content = True
-                if l.strip().endswith("</TEXT>"):
-                    content = False
-                    l = l.replace("</TEXT>", '').strip()
-                    if len(l) > 0:
-                        txt.append(l)
-
-                if content:
-                    l = l.replace("<TEXT>", '').strip()
-                    if len(l) > 0:
-                        txt.append(l)
-
-        txt = '\n'.join(txt)
-        return txt
-
-    @staticmethod
-    def load_all_domains_corpus():
-        domain_documents = {}
-
-        for domain in ['movie', 'travel_wikivoyage', 'food', 'book']:
-            doc_dir = f"/GW/PKB/work/data_personalization/TREC_format_quselection_C_final_profiles/documents/{domain}/"
-
-            domain_documents[domain] = {}
-
-            files = listdir(doc_dir)
-            for fn in files:
-                fid = fn[:-4]
-                txt = DocStats.getcontent(join(doc_dir, fn))
-                domain_documents[domain][fid] = txt
-        return domain_documents
-
-    @staticmethod
-    def get_G_tfs_amazon_raw_from_file():
-        amazonfile = PACKAGE_PATH / "data" / "corpus_stats" / "amazon_reviews_term_freq"
-        if exists(amazonfile):
-            G_tfs = pickle.load(open(amazonfile, "rb"))
-            G_len = 0
-            for v, tf in G_tfs.items():
-                G_len += tf
-            return G_tfs, G_len
-        RuntimeError(f"{amazonfile} does not exist!")
-
-    @staticmethod
-    def get_G_dfs_amazon_raw_from_file():
-        amazonfile = PACKAGE_PATH / "data" / "corpus_stats" / "amazon_reviews_doc_freq"
-        if exists(amazonfile):
-            data = pickle.load(open(amazonfile, "rb"))
-            G_dfs = data["G_dfs"]
-            G_num_docs = data["G_num_docs"]
-            return G_dfs, G_num_docs
-        RuntimeError(f"{amazonfile} does not exist!")
-
-    def get_G_probs_all_corpus_tfs(self):
-        all_docs = DocStats.load_all_domains_corpus()
-        corpus = ""
-        for domain in ['movie', 'travel_wikivoyage', 'food', 'book']:
-            corpus += '\n'.join(all_docs[domain].values())
-            corpus += '\n'
-
-        doc = self["tokenizer"].tokenize(corpus)
-        doc_counter = Counter(doc)
-        G_probs = {k: (v / len(doc)) for k, v in doc_counter.items()}
-        G_len = len(doc)
-        return G_probs
-
-    def get_G_probs_amazon_tfs(self):
-        G_tfs_raw, G_len_raw = DocStats.get_G_tfs_amazon_raw_from_file()
-        all_docs = DocStats.load_all_domains_corpus()
-        corpus = ""
-        for domain in ['movie', 'travel_wikivoyage', 'food', 'book']:
-            corpus += '\n'.join(all_docs[domain].values())
-            corpus += '\n'
-
-        doc = self["tokenizer"].tokenize(corpus)
-        domain_counter = Counter(doc)
-        G_probs = {k: (v + (G_tfs_raw[k] if k in G_tfs_raw else 0)) / (len(doc) + G_len_raw) for k, v in domain_counter.items()}
-        G_len = len(doc) + G_len_raw
-        return G_probs
-
-    def get_G_probs_amazon_dfs(self):
-        G_dfs_raw, G_num_docs_raw = DocStats.get_G_dfs_amazon_raw_from_file()
-        all_docs = DocStats.load_all_domains_corpus()
-
-        d_num_docs = 0
-        dfs = {}
-        for domain in ['movie', 'travel_wikivoyage', 'food', 'book']:
-            for d in all_docs[domain]:
-                doc = self["tokenizer"].tokenize(all_docs[domain][d])
-                for term in set(doc):
-                    if term not in dfs:
-                        dfs[term] = 0
-                    dfs[term] += 1
-                d_num_docs += 1
-
-        G_num_docs = d_num_docs + G_num_docs_raw
-        G_probs = {k: (v + (G_dfs_raw[k] if k in G_dfs_raw else 0)) / G_num_docs for k, v in dfs.items()}
-        return G_probs
-    
-    def get_G_probs_all_corpus_dfs(self):
-        all_docs = DocStats.load_all_domains_corpus()
-        tokenized_docs = {}
-        all_vocab = set()
-        for domain in ['movie', 'travel_wikivoyage', 'food', 'book']:
-            for d in all_docs[domain]:
-                doc = self["tokenizer"].tokenize(all_docs[domain][d])
-                doc_counter = Counter(doc)
-                all_vocab.update(doc_counter.keys())
-                tokenized_docs[f"{domain}_{d}"] = doc_counter.keys()
-        dfs = {}
-        for v in all_vocab:
-            dfs[v] = 0
-            for d in tokenized_docs:
-                if v in tokenized_docs[d]:
-                    dfs[v] += 1
-
-        G_num_docs = len(tokenized_docs)
-        G_probs = {k: (v / G_num_docs) for k, v in dfs.items()}
-        return G_probs
 
     def background_idf(self, term):# TODO could be replaced by that: the index itself has a function for idf, but it has a +1...
         df = self["backgroundindex"].get_df(term)
@@ -1102,7 +559,7 @@ class DocStats(Extractor):
 
         if self.cfg["onlyNamedEntities"]:
             return {"NE": ret["NE"], "C": []}
-        
+
         return ret
 
     def id2vec(self, qid, posid, negid=None, query=None):
@@ -1137,21 +594,22 @@ class DocStatsEmbedding(DocStats):
     @staticmethod
     def config():
         entity_strategy = None
-        filter_query = None # this is profile term weighting (on profiles)
+        query_vocab_specific = None # this is profile term weighting (on profiles)
         domain_vocab_specific = None # this is domain term weighting (on docs)
         onlyNamedEntities = False
+        alldomains = "travel,food,book"  # TODO this could be moved to benchmark, when rebased...
 
         if entity_strategy not in [None, 'all', 'domain', 'specific_domainrel']:  # TODO add strategies
             raise ValueError(f"invalid entity usage strategy (or not implemented): {entity_strategy}")
 
-        if filter_query is not None and not re.match(r"^(topic-alltopics|topic-amazon|user-allusers|user-amazon)_tf_k(\d+|-1)$", filter_query):
-            raise ValueError(f"invalid filter query: {filter_query}")
+        if query_vocab_specific is not None and not re.match(r"^(topic-alltopics|topic-amazon|user-allusers|user-amazon)_tf_k(\d+|-1)$", query_vocab_specific):
+            raise ValueError(f"invalid query_vocab_specific: {query_vocab_specific}")
 
 
         # k-1 means that we are reweighting and not cutting them! TODO Add other G corpuses
         if domain_vocab_specific is not None and not re.match(r"^(all_domains|amazon)_(tf|df)_k(\d+|-1)$", domain_vocab_specific):
             raise ValueError(f"invalid domain vocab specific {domain_vocab_specific}")
-        
+
         embeddings = "w2vnews"
 
     def _get_pretrained_emb(self):

@@ -43,7 +43,7 @@ class LMDirichletWordEmbeddingsReranker(Reranker):
         return a
 
     def score_document(self, queryvocab, docid, qid, mu):
-        uid = qid.split("_")[1]
+        uid = qid.split("_")[-1]
         term_scores = {}
         scoresum = 0
         for term in queryvocab:
@@ -51,7 +51,7 @@ class LMDirichletWordEmbeddingsReranker(Reranker):
             if termscore != 0 and self["extractor"].domain_vocab_specific is not None:
                 if term in self["extractor"].domain_term_weight: #since we might have it from the smoothing only
                     termscore *= self["extractor"].domain_term_weight[term]
-            if termscore != 0 and self["extractor"].filter_query is not None:
+            if termscore != 0 and self["extractor"].query_vocab_specific is not None:
                 if self["extractor"].profile_term_weight_by == 'topic':
                     termscore *= self["extractor"].profile_term_weight[term]
                 elif self["extractor"].profile_term_weight_by == 'user':
@@ -72,7 +72,7 @@ class LMDirichletWordEmbeddingsReranker(Reranker):
                         domain_term_weight = self["extractor"].domain_term_weight[k] if k in self[
                             "extractor"].domain_term_weight else "-"
                     prof_term_weight = "-"
-                    if self["extractor"].filter_query is not None:
+                    if self["extractor"].query_vocab_specific is not None:
                         if self["extractor"].profile_term_weight_by == 'topic':
                             prof_term_weight = self["extractor"].profile_term_weight[k] if k in self[
                                 "extractor"].profile_term_weight else "-"
