@@ -22,12 +22,13 @@ jobs:
       - name: Test with pytest
         shell: bash -l {0}
         run: |
+          pwd
           pip freeze
           #conda activate capreolus
           # pip install pytest
-          export PYTHONPATH=${PYTHONPATH}:/home/runner/work/capreolus/capreolus/
+          #export PYTHONPATH=${PYTHONPATH}:/home/runner/work/capreolus/capreolus/
           # checks every test except those marked download
-          python -m pytest -vvv
+          pytest -vvv
 
   pip-build:
     timeout-minutes: 50
