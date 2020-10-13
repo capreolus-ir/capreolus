@@ -24,14 +24,11 @@ jobs:
         shell: bash -l {0}
         run: |
           conda activate capreolus
-          conda install cpuonly pytorch torchvision -c pytorch
-          # pip install pytest
-          #export PYTHONPATH=${PYTHONPATH}:/home/runner/work/capreolus/capreolus/
+          conda install pytorch=1.6 torchvision cpuonly -c pytorch
           # checks every test except those marked download
           pytest -vvv
 
   pip-build:
-    if: github.ref == 'refs/heads/TMPDISABLED'
     timeout-minutes: 50
     runs-on: ubuntu-latest
     strategy:
