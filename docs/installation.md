@@ -2,36 +2,23 @@
 
 This section covers installing Capreolus via its pip package or from source.
 
-### Java
-Java 11 is required. On Debian-based distributions, this can be installed with `sudo apt install openjdk-11-jre`. You may additionally need to set the `JAVA_HOME` environment variable and/or use `update-alternatives` to ensure the correct version of Java is used by default.
-```
-$ java -version
-openjdk version "11.0.5" 2019-10-15
-OpenJDK Runtime Environment (build 11.0.5+10-post-Ubuntu-0ubuntu1.119.04)
-OpenJDK 64-Bit Server VM (build 11.0.5+10-post-Ubuntu-0ubuntu1.119.04, mixed mode, sharing)
-```
 
-### Python
-Setup a Python 3.6+ environment in your home directory. We recommend using Conda for performance reasons, but this is not strictly necessary.
+## Prerequisites
+Capreolus requires both Python 3.7+ and Java 11.
 
- a) *Recommended conda approach*: install [pyenv](https://github.com/pyenv/pyenv) into your home directory, and then use pyenv to install a miniconda (or anaconda) distribution with Python 3.6+.
- 
- b) Alternate conda approach: [install a miniconda distribution](https://docs.conda.io/projects/conda/en/latest/user-guide/install/) with Python 3.6+.
- 
- c) Alternate approach with system Python: install Python 3.6+ with your system's package manager (e.g., `sudo apt install python3`). If you do not create and activate a virtual environment (*venv*) as described below, you will need to use `sudo` when installing packages with `pip` below.
- 
- You may optionally [setup a virtual environment using `venv`](https://docs.python.org/3/tutorial/venv.html) to isolate Capreolus and its dependencies from other packages. This is especially useful if using a system Python, because it allows you to install packages (for your own user) without `sudo`.
- 
-### Installing Capreolus
-#### Via pip package (**recommended**)
-`pip install capreolus`
- 
-#### From source
-- Clone the repository: `git clone git@github.com:capreolus-ir/capreolus.git` and `cd` into it.
-- Install [PyTorch 1.2](https://pytorch.org/get-started/previous-versions/#v120). Note that the installation command differs depending on your CUDA version and whether you're using a Conda distribution (see "Conda" section) or a  system Python (see "Wheel" section with `pip` commands).
-- Install other requirements: `pip install -r requirements.txt`
+The easiest way to install these dependencies is by using the *Conda package manager* as described in this [guide to installing Miniconda and Python 3](https://gist.github.com/andrewyates/970c570411c4a36785f6c0e9362eb1eb).
+We recommend installing Capreolus into its own Conda environment using the provided `environment.yml` file:
+1. `wget https://raw.githubusercontent.com/capreolus-ir/capreolus/master/environment.yml`
+2. `conda env create --name MyCapreolus -f environment.yml`
+3. `conda activate MyCapreolus`
 
-### Configuring Capreolus
+
+## Installing Capreolus via pip
+0. Activate the appropriate environment (if using conda): `conda activate MyCapreolus`
+1. `pip install capreolus`
+2. You can now use Capreolus on the command line via the `capreolus` command
+ 
+## Configuring Capreolus
  Capreolus uses environment variables to indicate where outputs should be stored and where document inputs can be found. Consult the list below to determine which variables should be set. [Set these environment variables](https://opensource.com/article/19/8/what-are-environment-variables) either on the fly (`export CAPREOLUS_RESULTS=...`) before running Capreolus or by editing your shell's initialization files (e.g., `~/.bashrc` or `~/.zshrc`).
 - `CAPREOLUS_RESULTS`: directory where results are stored (default: `~/.capreolus/results/`)
 - `CAPREOLUS_CACHE`: directory where cache files are stored (default: `~/.capreolus/cache/`)
@@ -41,3 +28,20 @@ Setup a Python 3.6+ environment in your home directory. We recommend using Conda
 To avoid confusion and failed experiments due to limited disk space, we recommend always setting `CAPREOLUS_RESULTS` and `CAPREOLUS_CACHE` rather than relying on the default behavior. Typically, `CUDA_VISIBLE_DEVICES` is set immediately before running an experiment (e.g., to run several separate experiments on different GPUs in parallel).
 
 You're now ready to run `capreolus`.
+
+
+<br/>
+<hr/>
+<br/>
+
+## Alternate installation approaches
+This section describes alternate ways to install Capreolus. We strongly recommend installing via pip when possible (as described above).
+
+### Installing Capreolus from source
+1. Clone the Capreolus repository: `git clone https://github.com/capreolus-ir/capreolus`
+2. You should now have a `capreolus` folder that contains various files as well as another `capreolus` folder, which contains the actual capreolus Python package. This is a [common layout for Python packages](https://python-packaging.readthedocs.io/en/latest/minimal.html); the inside folder (i.e., `capreolus/capreolus`) corresponds to the Python package.
+3. `cd capreolus`
+4. [Install PyTorch](https://pytorch.org/get-started/locally/)
+5. `pip install -r requirements.txt`
+6. You can now use Capreolus on the command line via the `scripts/capreolus` command. Note that this only works from the outer `capreolus` directory; you will need to [adjust PYTHONPATH](https://bic-berkeley.github.io/psych-214-fall-2016/using_pythonpath.html).
+
