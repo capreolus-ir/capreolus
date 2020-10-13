@@ -19,14 +19,12 @@ jobs:
           python-version: ${{ matrix.python-version }}
           activate-environment: capreolus
           environment-file: environment.yml
-          #auto-activate-base: false
+          auto-activate-base: false
       - name: Test with pytest
         shell: bash -l {0}
         run: |
-          pwd
+          conda activate capreolus
           pip freeze
-          cat /usr/share/miniconda/envs/capreolus/lib/python3.7/site-packages/torch/nn/__init__.py
-          #conda activate capreolus
           # pip install pytest
           #export PYTHONPATH=${PYTHONPATH}:/home/runner/work/capreolus/capreolus/
           # checks every test except those marked download
