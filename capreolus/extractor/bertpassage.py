@@ -34,9 +34,6 @@ class BertPassage(Extractor):
         Dependency(key="tokenizer", module="tokenizer", name="berttokenizer"),
     ]
 
-    pad = 0
-    pad_tok = "[PAD]"
-
     config_spec = [
         ConfigOption("maxseqlen", 256, "Maximum input length for BERT"),
         ConfigOption("usecache", False, "Should the extracted features be cached?"),
@@ -50,6 +47,15 @@ class BertPassage(Extractor):
             "The probability that a passage from the document will be used for training (the first passage is always used)",
         ),
     ]
+
+    def build(self):
+        self.pad = self.tokenizer.bert_tokenizer.pad_token_id
+        self.cls = self.tokenizer.bert_tokenizer.cls_token_id
+        self.sep  = self.tokenizer.bert_tokenizer.sep_token_id
+
+        self.pad_tok = self.tokenizer.bert_tokenizer.pad_token
+        self.cls_tok = self.tokenizer.bert_tokenizer.cls_token
+        self.sep_tok = self.tokenizer.bert_tokenizer.sep_token
 
     def load_state(self, qids, docids):
         cache_fn = self.get_state_cache_file_path(qids, docids)
@@ -113,10 +119,10 @@ class BertPassage(Extractor):
 
             bert_input_line = posdoc[i]
             bert_input_line = " ".join(self.tokenizer.bert_tokenizer.convert_ids_to_tokens(list(bert_input_line)))
-            passage = bert_input_line.split("[SEP]")[-2]
+            passage = bert_input_line.split(self.sep_token)[-2]
 
             # Ignore empty passages as well
-            if passage.strip() == "[PAD]":
+            if passage.strip() == self.pad_tok:
                 continue
 
             feature = {
@@ -245,7 +251,7 @@ class BertPassage(Extractor):
         else:
             # Pad until we have the required number of passages
             for _ in range(numpassages - n_actual_passages):
-                passages.append(["[PAD]"])
+                passages.append([self.pad_tok])
 
         assert len(passages) == self.config["numpassages"]
         return passages
@@ -344,10 +350,10 @@ class BertPassage(Extractor):
         # N.B: The passages in self.docid2passages are not bert tokenized
         pos_passages = self.docid2passages[posid]
         for tokenized_passage in pos_passages:
-            input_line = ["[CLS]"] + query_toks + ["[SEP]"] + tokenized_passage + ["[SEP]"]
+            input_line = [self.cls_token] + query_toks + [self.sep_token] + tokenized_passage + [self.sep_token]
             if len(input_line) > maxseqlen:
                 input_line = input_line[:maxseqlen]
-                input_line[-1] = "[SEP]"
+                input_line[-1] = self.sep_token
 
             padded_input_line = padlist(input_line, padlen=self.config["maxseqlen"], pad_token=self.pad_tok)
             pos_bert_masks.append([1] * len(input_line) + [0] * (len(padded_input_line) - len(input_line)))
@@ -374,10 +380,10 @@ class BertPassage(Extractor):
             neg_bert_segs = []
             neg_passages = self.docid2passages[negid]
             for tokenized_passage in neg_passages:
-                input_line = ["[CLS]"] + query_toks + ["[SEP]"] + tokenized_passage + ["[SEP]"]
+                input_line = [self.cls_token] + query_toks + [self.sep_token] + tokenized_passage + [self.sep_token]
                 if len(input_line) > maxseqlen:
                     input_line = input_line[:maxseqlen]
-                    input_line[-1] = "[SEP]"
+                    input_line[-1] = self.sep_token
 
                 padded_input_line = padlist(input_line, padlen=self.config["maxseqlen"], pad_token=self.pad_tok)
                 neg_bert_masks.append([1] * len(input_line) + [0] * (len(padded_input_line) - len(input_line)))
