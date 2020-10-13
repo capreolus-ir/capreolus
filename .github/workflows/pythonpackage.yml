@@ -24,6 +24,7 @@ jobs:
         run: |
           pwd
           pip freeze
+          cat /usr/share/miniconda/envs/capreolus/lib/python3.7/site-packages/torch/nn/__init__.py
           #conda activate capreolus
           # pip install pytest
           #export PYTHONPATH=${PYTHONPATH}:/home/runner/work/capreolus/capreolus/
@@ -31,6 +32,7 @@ jobs:
           pytest -vvv
 
   pip-build:
+    if: github.ref == 'refs/heads/TMPDISABLED'
     timeout-minutes: 50
     runs-on: ubuntu-latest
     strategy:
