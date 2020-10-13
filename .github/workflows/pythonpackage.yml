@@ -20,9 +20,9 @@ jobs:
           activate-environment: capreolus
           environment-file: environment.yml
       - name: Test with pytest
-        shell: bash -l {0}
+        #shell: bash -l {0}
         run: |
-          conda activate capreolus
+          #conda activate capreolus
           # pip install pytest
           export PYTHONPATH=${PYTHONPATH}:/home/runner/work/capreolus/capreolus/
           # checks every test except those marked download
