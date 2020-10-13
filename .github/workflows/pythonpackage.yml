@@ -24,7 +24,7 @@ jobs:
         shell: bash -l {0}
         run: |
           conda activate capreolus
-          conda env update --file environment.yml
+          conda install cpuonly pytorch torchvision -c pytorch
           # pip install pytest
           #export PYTHONPATH=${PYTHONPATH}:/home/runner/work/capreolus/capreolus/
           # checks every test except those marked download
