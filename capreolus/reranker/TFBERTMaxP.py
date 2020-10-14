@@ -31,12 +31,8 @@ class TFBERTMaxP_Class(tf.keras.layers.Layer):
             self.bert.classifier = TFElectraRelevanceHead(dropout, fc)
         elif config["pretrained"] == "bert-base-msmarco":
             self.bert = TFAutoModelForSequenceClassification.from_pretrained("Capreolus/bert-base-msmarco")
-        elif config["pretrained"] == "bert-base-uncased":
-            self.bert = TFAutoModelForSequenceClassification.from_pretrained(config["pretrained"], hidden_dropout_prob=0.1)
         else:
-            raise ValueError(
-                f"unsupported model: {config['pretrained']}; need to ensure correct tokenizers will be used before arbitrary hgf models are supported"
-            )
+            self.bert = TFAutoModelForSequenceClassification.from_pretrained(config["pretrained"], hidden_dropout_prob=0.1)
 
         self.config = config
 
