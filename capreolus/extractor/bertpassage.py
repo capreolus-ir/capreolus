@@ -41,10 +41,9 @@ class BertPassage(Extractor):
         ConfigOption("stride", 100, "Stride"),
         ConfigOption("sentences", False, "Use a sentence tokenizer to form passages"),
         ConfigOption("numpassages", 16, "Number of passages per document"),
-        ConfigOption(
-            "prob",
-            0.1,
-            "The probability that a passage from the document will be used for training (the first passage is always used)",
+        ConfigOption("prob", 0.1,
+            "The probability that a passage from the document will be used for training "
+            "(the first passage is always used)",
         ),
     ]
 
@@ -350,10 +349,10 @@ class BertPassage(Extractor):
         # N.B: The passages in self.docid2passages are not bert tokenized
         pos_passages = self.docid2passages[posid]
         for tokenized_passage in pos_passages:
-            input_line = [self.cls_token] + query_toks + [self.sep_token] + tokenized_passage + [self.sep_token]
+            input_line = [self.cls_tok] + query_toks + [self.sep_tok] + tokenized_passage + [self.sep_tok]
             if len(input_line) > maxseqlen:
                 input_line = input_line[:maxseqlen]
-                input_line[-1] = self.sep_token
+                input_line[-1] = self.sep_tok
 
             padded_input_line = padlist(input_line, padlen=self.config["maxseqlen"], pad_token=self.pad_tok)
             pos_bert_masks.append([1] * len(input_line) + [0] * (len(padded_input_line) - len(input_line)))
@@ -379,8 +378,9 @@ class BertPassage(Extractor):
             neg_bert_masks = []
             neg_bert_segs = []
             neg_passages = self.docid2passages[negid]
+
             for tokenized_passage in neg_passages:
-                input_line = [self.cls_token] + query_toks + [self.sep_token] + tokenized_passage + [self.sep_token]
+                input_line = [self.cls_tok] + query_toks + [self.sep_tok] + tokenized_passage + [self.sep_token]
                 if len(input_line) > maxseqlen:
                     input_line = input_line[:maxseqlen]
                     input_line[-1] = self.sep_token
