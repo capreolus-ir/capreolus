@@ -32,7 +32,8 @@ class TFBERTMaxP_Class(tf.keras.layers.Layer):
         elif config["pretrained"] == "bert-base-msmarco":
             self.bert = TFAutoModelForSequenceClassification.from_pretrained("Capreolus/bert-base-msmarco")
         else:
-            self.bert = TFAutoModelForSequenceClassification.from_pretrained(config["pretrained"], hidden_dropout_prob=0.1)
+            self.bert = TFAutoModelForSequenceClassification.from_pretrained(
+                config["pretrained"], hidden_dropout_prob=config["hidden_dropout_prob"])
 
         self.config = config
 
@@ -97,9 +98,10 @@ class TFBERTMaxP(Reranker):
     ]
     config_spec = [
         ConfigOption(
-            "pretrained", "bert-base-uncased", "Pretrained model: bert-base-uncased, bert-base-msmarco, or electra-base-msmarco"
+            "pretrained", "bert-base-uncased", "Pretrained model: bert-base-uncased, bert-base-msmarco, electra-base-msmarco, or HuggingFace supported models",
         ),
         ConfigOption("aggregation", "max"),
+        ConfigOption("hidden_dropout_prob", 0.1, "The dropout probability of BERT-like model's hidden layers."),
     ]
 
     def build_model(self):
