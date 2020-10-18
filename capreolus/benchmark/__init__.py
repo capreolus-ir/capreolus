@@ -38,7 +38,7 @@ class Benchmark(ModuleBase):
     @property
     def folds(self):
         if not hasattr(self, "_folds"):
-            self._folds = json.load(open(self.fold_file, "rt"))
+            self._folds = json.load(open(self.fold_file, "rt"), parse_int=str)
         return self._folds
 
 
