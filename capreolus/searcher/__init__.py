@@ -64,7 +64,8 @@ class Searcher(ModuleBase):
         config = {k: kwargs.get(k, self.config[k]) for k in self.config}
 
         cache_dir = self.get_cache_path()
-        cache_dir.mkdir(exist_ok=True)
+        cache_dir.mkdir(exist_ok=True, parents=True)
+        # REF-TODO add query hash here
         topic_fn, runfile_dir = cache_dir / "topic.txt", cache_dir / "runfiles"
 
         fake_qid = "1"

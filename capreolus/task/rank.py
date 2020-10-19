@@ -32,27 +32,27 @@ class RankTask(Task):
         self.evaluate()
 
     def search(self):
-        topics_fn = self.benchmark.topic_file
-        output_dir = self.get_results_path()
-
-        if hasattr(self.searcher, "index"):
-            self.searcher.index.create_index()
-
-        if self.config["filter"]:
-            qrels = load_qrels(self.benchmark.qrel_ignore)
-            docs_to_remove = {q: list(d.keys()) for q, d in qrels.items()}
-            search_results_folder = self.searcher.query_from_file(topics_fn, output_dir, docs_to_remove)
-        else:
-            search_results_folder = self.searcher.query_from_file(topics_fn, output_dir)
-
+        search_results_folder = self.searcher.fit()
         logger.info("searcher results written to: %s", search_results_folder)
         return search_results_folder
 
+        # REF-TODO handle docs to keep/remove logic
+        # if self.config["filter"]:
+        #     qrels = load_qrels(self.benchmark.qrel_ignore)
+        #     docs_to_remove = {q: list(d.keys()) for q, d in qrels.items()}
+        #     search_results_folder = self.searcher.query_from_file(topics_fn, output_dir, docs_to_remove)
+        # else:
+        #     search_results_folder = self.searcher.query_from_file(topics_fn, output_dir)
+
+        # logger.info("searcher results written to: %s", search_results_folder)
+        # return search_results_folder
+
     def evaluate(self):
+        # REF-TODO move inside searcher?
         metrics = self.config["metrics"] if list(self.config["metrics"]) != ["default"] else evaluator.DEFAULT_METRICS
 
         best_results = evaluator.search_best_run(
-            self.get_results_path(), self.benchmark, primary_metric=self.config["optimize"], metrics=metrics
+            self.searcher.get_cache_path(), self.benchmark, primary_metric=self.config["optimize"], metrics=metrics
         )
 
         for fold, path in best_results["path"].items():

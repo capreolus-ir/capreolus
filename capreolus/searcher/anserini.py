@@ -21,6 +21,19 @@ def list2str(l, delimiter="-"):
 class AnseriniSearcherMixIn:
     """ MixIn for searchers that use Anserini's SearchCollection script """
 
+    dependencies = [
+        Dependency(
+            key="benchmark", module="benchmark", name="robust04.yang19", provide_this=True, provide_children=["collection"]
+        ),
+        Dependency(key="index", module="index", name="anserini"),
+    ]
+
+    def fit(self):
+        # REF-TODO implement self.benchmark.get_topics_file(fold=None) ; related to moving fold to benchmark
+        output_dir = self.get_cache_path()
+        search_results_folder = self.query_from_file(self.benchmark.topic_file, output_dir)
+        return search_results_folder
+
     def _anserini_query_from_file(self, topicsfn, anserini_param_str, output_base_path, topicfield):
         if not os.path.exists(topicsfn):
             raise IOError(f"could not find topics file: {topicsfn}")
@@ -153,18 +166,18 @@ class PostprocessMixin:
 
 
 @Searcher.register
-class BM25(Searcher, AnseriniSearcherMixIn):
+class BM25(AnseriniSearcherMixIn, Searcher):
     """ Anserini BM25. This searcher's parameters can also be specified as lists indicating parameters to grid search (e.g., ``"0.4,0.6,0.8,1.0"`` or ``"0.4..1,0.2"``). """
 
     module_name = "BM25"
 
-    dependencies = [Dependency(key="index", module="index", name="anserini")]
     config_spec = [
         ConfigOption("k1", 0.9, "controls term saturation", value_type="floatlist"),
         ConfigOption("b", 0.4, "controls document length normalization", value_type="floatlist"),
         ConfigOption("hits", 1000, "number of results to return"),
         ConfigOption("fields", "title"),
     ]
+    # REF-TODO remove fields
 
     def _query_from_file(self, topicsfn, output_path, config):
         """
@@ -185,11 +198,10 @@ class BM25(Searcher, AnseriniSearcherMixIn):
 
 
 @Searcher.register
-class BM25Grid(Searcher, AnseriniSearcherMixIn):
+class BM25Grid(AnseriniSearcherMixIn, Searcher):
     """ Deprecated. BM25 with a grid search for k1 and b. Search is from 0.1 to bmax/k1max in 0.1 increments """
 
     module_name = "BM25Grid"
-    dependencies = [Dependency(key="index", module="index", name="anserini")]
     config_spec = [
         ConfigOption("k1max", 1.0, "maximum k1 value to include in grid search (starting at 0.1)"),
         ConfigOption("bmax", 1.0, "maximum b value to include in grid search (starting at 0.1)"),
@@ -211,11 +223,10 @@ class BM25Grid(Searcher, AnseriniSearcherMixIn):
 
 
 @Searcher.register
-class BM25RM3(Searcher, AnseriniSearcherMixIn):
+class BM25RM3(AnseriniSearcherMixIn, Searcher):
     """ Anserini BM25 with RM3 expansion. This searcher's parameters can also be specified as lists indicating parameters to grid search (e.g., ``"0.4,0.6,0.8,1.0"`` or ``"0.4..1,0.2"``). """
 
     module_name = "BM25RM3"
-    dependencies = [Dependency(key="index", module="index", name="anserini")]
     config_spec = [
         ConfigOption("k1", "0.9", "controls term saturation", value_type="floatlist"),
         ConfigOption("b", "0.4", "controls document length normalization", value_type="floatlist"),
@@ -278,6 +289,7 @@ class StaticBM25RM3Rob04Yang19(Searcher):
         import shutil
 
         outfn = os.path.join(output_path, "static.run")
+        os.makedirs(os.path.dirname(outfn), exist_ok=True)
         if not os.path.exists(outfn):
             os.makedirs(output_path, exist_ok=True)
             shutil.copy2(constants["PACKAGE_PATH"] / "data" / "rob04_yang19_rm3.run", outfn)
@@ -289,12 +301,10 @@ class StaticBM25RM3Rob04Yang19(Searcher):
 
 
 @Searcher.register
-class BM25PRF(Searcher, AnseriniSearcherMixIn):
+class BM25PRF(AnseriniSearcherMixIn, Searcher):
     """ Anserini BM25 PRF. This searcher's parameters can also be specified as lists indicating parameters to grid search (e.g., ``"0.4,0.6,0.8,1.0"`` or ``"0.4..1,0.2"``). """
 
     module_name = "BM25PRF"
-
-    dependencies = [Dependency(key="index", module="index", name="anserini")]
     config_spec = [
         ConfigOption("k1", [0.65, 0.70, 0.75], "controls term saturation", value_type="floatlist"),
         ConfigOption("b", [0.60, 0.7], "controls document length normalization", value_type="floatlist"),
@@ -322,11 +332,10 @@ class BM25PRF(Searcher, AnseriniSearcherMixIn):
 
 
 @Searcher.register
-class AxiomaticSemanticMatching(Searcher, AnseriniSearcherMixIn):
+class AxiomaticSemanticMatching(AnseriniSearcherMixIn, Searcher):
     """ Anserini BM25 with Axiomatic query expansion. This searcher's parameters can also be specified as lists indicating parameters to grid search (e.g., ``"0.4,0.6,0.8,1.0"`` or ``"0.4..1,0.2"``). """
 
     module_name = "axiomatic"
-    dependencies = [Dependency(key="index", module="index", name="anserini")]
     config_spec = [
         ConfigOption("k1", 0.9, "controls term saturation", value_type="floatlist"),
         ConfigOption("b", 0.4, "controls document length normalization", value_type="floatlist"),
@@ -352,12 +361,10 @@ class AxiomaticSemanticMatching(Searcher, AnseriniSearcherMixIn):
 
 
 @Searcher.register
-class DirichletQL(Searcher, AnseriniSearcherMixIn):
+class DirichletQL(AnseriniSearcherMixIn, Searcher):
     """ Anserini QL with Dirichlet smoothing. This searcher's parameters can also be specified as lists indicating parameters to grid search (e.g., ``"0.4,0.6,0.8,1.0"`` or ``"0.4..1,0.2"``). """
 
     module_name = "DirichletQL"
-    dependencies = [Dependency(key="index", module="index", name="anserini")]
-
     config_spec = [
         ConfigOption("mu", 1000, "smoothing parameter", value_type="intlist"),
         ConfigOption("hits", 1000, "number of results to return"),
@@ -383,11 +390,10 @@ class DirichletQL(Searcher, AnseriniSearcherMixIn):
 
 
 @Searcher.register
-class QLJM(Searcher, AnseriniSearcherMixIn):
+class QLJM(AnseriniSearcherMixIn, Searcher):
     """ Anserini QL with Jelinek-Mercer smoothing. This searcher's parameters can also be specified as lists indicating parameters to grid search (e.g., ``"0.4,0.6,0.8,1.0"`` or ``"0.4..1,0.2"``). """
 
     module_name = "QLJM"
-    dependencies = [Dependency(key="index", module="index", name="anserini")]
     config_spec = [
         ConfigOption("lam", 0.1, value_type="floatlist"),
         ConfigOption("hits", 1000, "number of results to return"),
@@ -403,11 +409,10 @@ class QLJM(Searcher, AnseriniSearcherMixIn):
 
 
 @Searcher.register
-class INL2(Searcher, AnseriniSearcherMixIn):
+class INL2(AnseriniSearcherMixIn, Searcher):
     """ Anserini I(n)L2 scoring model. This searcher does not support list parameters. """
 
     module_name = "INL2"
-    dependencies = [Dependency(key="index", module="index", name="anserini")]
     config_spec = [
         ConfigOption("c", 0.1),  # array input of this parameter is not support by anserini.SearchCollection
         ConfigOption("hits", 1000, "number of results to return"),
@@ -421,14 +426,12 @@ class INL2(Searcher, AnseriniSearcherMixIn):
 
 
 @Searcher.register
-class SPL(Searcher, AnseriniSearcherMixIn):
+class SPL(AnseriniSearcherMixIn, Searcher):
     """
     Anserini SPL scoring model. This searcher does not support list parameters.
     """
 
     module_name = "SPL"
-    dependencies = [Dependency(key="index", module="index", name="anserini")]
-
     config_spec = [
         ConfigOption("c", 0.1),  # array input of this parameter is not support by anserini.SearchCollection
         ConfigOption("hits", 1000, "number of results to return"),
@@ -444,14 +447,12 @@ class SPL(Searcher, AnseriniSearcherMixIn):
 
 
 @Searcher.register
-class F2Exp(Searcher, AnseriniSearcherMixIn):
+class F2Exp(AnseriniSearcherMixIn, Searcher):
     """
     F2Exp scoring model. This searcher does not support list parameters.
     """
 
     module_name = "F2Exp"
-    dependencies = [Dependency(key="index", module="index", name="anserini")]
-
     config_spec = [
         ConfigOption("s", 0.5),  # array input of this parameter is not support by anserini.SearchCollection
         ConfigOption("hits", 1000, "number of results to return"),
@@ -467,14 +468,12 @@ class F2Exp(Searcher, AnseriniSearcherMixIn):
 
 
 @Searcher.register
-class F2Log(Searcher, AnseriniSearcherMixIn):
+class F2Log(AnseriniSearcherMixIn, Searcher):
     """
     F2Log scoring model. This searcher does not support list parameters.
     """
 
     module_name = "F2Log"
-    dependencies = [Dependency(key="index", module="index", name="anserini")]
-
     config_spec = [
         ConfigOption("s", 0.5),  # array input of this parameter is not support by anserini.SearchCollection
         ConfigOption("hits", 1000, "number of results to return"),
@@ -490,14 +489,12 @@ class F2Log(Searcher, AnseriniSearcherMixIn):
 
 
 @Searcher.register
-class SDM(Searcher, AnseriniSearcherMixIn):
+class SDM(AnseriniSearcherMixIn, Searcher):
     """
     Anserini BM25 with the Sequential Dependency Model. This searcher supports list parameters for only k1 and b.
     """
 
     module_name = "SDM"
-    dependencies = [Dependency(key="index", module="index", name="anserini")]
-
     # array input of (tw, ow, uw) is not support by anserini.SearchCollection
     config_spec = [
         ConfigOption("k1", 0.9, "controls term saturation", value_type="floatlist"),
