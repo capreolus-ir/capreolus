@@ -1,6 +1,6 @@
 # Getting Started
 
-- Requirements: Python 3.6+, a Python environment you can install packages in (e.g., `virtualenv`), and Java 11. See the [detailed installation instructions](installation) for help with these.
+- Requirements: Python 3.7+, a Python environment you can install packages in (e.g., a [Conda environment](https://gist.github.com/andrewyates/970c570411c4a36785f6c0e9362eb1eb)), and Java 11. See the [detailed installation instructions](installation) for help with these.
 - Install: `pip install capreolus`
 
 ```eval_rst
