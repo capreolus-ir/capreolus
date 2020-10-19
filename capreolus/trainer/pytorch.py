@@ -28,6 +28,11 @@ class PytorchTrainer(Trainer):
         ConfigOption("softmaxloss", False, "True to use softmax loss (over pairs) or False to use hinge loss"),
         ConfigOption("fastforward", False),
         ConfigOption("validatefreq", 1),
+        ConfigOption(
+            "multithread",
+            False,
+            "True to load data in a separate thread; faster but causes PyTorch deadlock in some environments",
+        ),
         ConfigOption("boardname", "default"),
     ]
     config_keys_not_in_path = ["fastforward", "boardname"]
@@ -190,8 +195,9 @@ class PytorchTrainer(Trainer):
         initial_iter = self.fastforward_training(reranker, weights_output_path, loss_fn) if self.config["fastforward"] else 0
         logger.info("starting training from iteration %s/%s", initial_iter, self.config["niters"])
 
+        num_workers = 1 if self.config["multithread"] else 0
         train_dataloader = torch.utils.data.DataLoader(
-            train_dataset, batch_size=self.config["batch"], pin_memory=True, num_workers=1
+            train_dataset, batch_size=self.config["batch"], pin_memory=True, num_workers=num_workers
         )
         # dataiter = iter(train_dataloader)
         # sample_input = dataiter.next()
@@ -283,7 +289,10 @@ class PytorchTrainer(Trainer):
         model.eval()
 
         preds = {}
-        pred_dataloader = torch.utils.data.DataLoader(pred_data, batch_size=self.config["batch"], pin_memory=True, num_workers=1)
+        num_workers = 1 if self.config["multithread"] else 0
+        pred_dataloader = torch.utils.data.DataLoader(
+            pred_data, batch_size=self.config["batch"], pin_memory=True, num_workers=num_workers
+        )
         with torch.autograd.no_grad():
             for batch in tqdm(pred_dataloader, desc="Predicting", total=len(pred_data) // self.config["batch"]):
                 if len(batch["qid"]) != self.config["batch"]:
