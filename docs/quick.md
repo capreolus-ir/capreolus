@@ -1,5 +1,8 @@
 # Getting Started
 
+Want to jump in? [Get started with a Notebook.](https://colab.research.google.com/drive/161FnmLt3PgIXG-Z5eNg45z2iSZucVAnr?usp=sharing)  [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/161FnmLt3PgIXG-Z5eNg45z2iSZucVAnr?usp=sharing)
+
+## Prerequisites
 - Requirements: Python 3.7+, a Python environment you can install packages in (e.g., a [Conda environment](https://gist.github.com/andrewyates/970c570411c4a36785f6c0e9362eb1eb)), and Java 11. See the [detailed installation instructions](installation) for help with these.
 - Install: `pip install capreolus`
 

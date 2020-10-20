@@ -116,7 +116,7 @@ class TFParade(Reranker):
         ConfigOption(
             "pretrained", "bert-base-uncased", "Pretrained model: bert-base-uncased, bert-base-msmarco, or electra-base-msmarco"
         ),
-        ConfigOption("aggregation", "maxp"),
+        ConfigOption("aggregation", "transformer"),
     ]
 
     def build_model(self):
