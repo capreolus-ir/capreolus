@@ -282,7 +282,7 @@ class TensorflowTrainer(Trainer):
 
                 # TODO: Add checks to make sure that the child dir is not empty
                 if prefix == required_prefix and sample_count >= required_sample_count:
-                    return "{0}{1}".format(parent_dir, child_dir)
+                    return "{0}/{1}".format(parent_dir.rstrip("/"), child_dir)
 
             return None
 
@@ -296,7 +296,7 @@ class TensorflowTrainer(Trainer):
 
         if self.config["usecache"] and cached_tf_record_dir is not None:
             filenames = tf.io.gfile.listdir(cached_tf_record_dir)
-            filenames = ["{0}{1}".format(cached_tf_record_dir, name) for name in filenames]
+            filenames = ["{0}/{1}".format(cached_tf_record_dir.rstrip("/"), name) for name in filenames]
 
             return self.load_tf_train_records_from_file(reranker, filenames, self.config["batch"])
         else:
