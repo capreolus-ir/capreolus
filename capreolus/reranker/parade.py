@@ -113,6 +113,7 @@ class TFParade(Reranker):
     Canjia Li, Andrew Yates, Sean MacAvaney, Ben He, and Yingfei Sun. arXiv 2020.
     https://arxiv.org/pdf/2008.09093.pdf
     """
+
     module_name = "parade"
 
     dependencies = [

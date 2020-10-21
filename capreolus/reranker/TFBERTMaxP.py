@@ -99,6 +99,7 @@ class TFBERTMaxP(Reranker):
     Deeper Text Understanding for IR with Contextual Neural Language Modeling. Zhuyun Dai and Jamie Callan. SIGIR 2019.
     https://arxiv.org/pdf/1905.09217.pdf
     """
+
     module_name = "TFBERTMaxP"
 
     dependencies = [
