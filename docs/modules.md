@@ -318,9 +318,18 @@ For a complete list of modules, run the command `capreolus modules` or see the <
       :noindex:
 ```
 
-### TensorFlow VanillaBERT
+### TensorFlow BERT-MaxP
 ```eval_rst
-.. autoapiclass:: capreolus.reranker.TFVanillaBert.TFVanillaBERT
+.. autoapiclass:: capreolus.reranker.TFBERTMaxP.TFBERTMaxP
+   :noindex:
+   
+   .. autoapiattribute:: module_name
+      :noindex:
+```
+
+### TensorFlow PARADE
+```eval_rst
+.. autoapiclass:: capreolus.reranker.parade.TFParade
    :noindex:
    
    .. autoapiattribute:: module_name
