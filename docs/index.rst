@@ -20,6 +20,7 @@ Looking for the code? `Find Capreolus on GitHub. <https://github.com/capreolus-i
    installation
    cli
    modules
+   tpu
 
 .. Indices and tables
 ==================
