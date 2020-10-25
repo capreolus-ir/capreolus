@@ -118,7 +118,7 @@ class BertPassage(Extractor):
 
             bert_input_line = posdoc[i]
             bert_input_line = " ".join(self.tokenizer.bert_tokenizer.convert_ids_to_tokens(list(bert_input_line)))
-            passage = bert_input_line.split(self.sep_token)[-2]
+            passage = bert_input_line.split(self.sep_tok)[-2]
 
             # Ignore empty passages as well
             if passage.strip() == self.pad_tok:
@@ -380,10 +380,10 @@ class BertPassage(Extractor):
             neg_passages = self.docid2passages[negid]
 
             for tokenized_passage in neg_passages:
-                input_line = [self.cls_tok] + query_toks + [self.sep_tok] + tokenized_passage + [self.sep_token]
+                input_line = [self.cls_tok] + query_toks + [self.sep_tok] + tokenized_passage + [self.sep_tok]
                 if len(input_line) > maxseqlen:
                     input_line = input_line[:maxseqlen]
-                    input_line[-1] = self.sep_token
+                    input_line[-1] = self.sep_tok
 
                 padded_input_line = padlist(input_line, padlen=self.config["maxseqlen"], pad_token=self.pad_tok)
                 neg_bert_masks.append([1] * len(input_line) + [0] * (len(padded_input_line) - len(input_line)))
