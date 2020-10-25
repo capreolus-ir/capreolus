@@ -10,7 +10,7 @@ import numpy as np
 from tqdm import tqdm
 
 from capreolus.searcher import Searcher
-from capreolus import ConfigOption, evaluator
+from capreolus import ConfigOption, Dependency, evaluator
 from capreolus.trainer import Trainer
 from capreolus.utils.loginit import get_logger
 from capreolus.reranker.common import TFPairwiseHingeLoss, TFCategoricalCrossEntropyLoss, KerasPairModel, KerasTripletModel
@@ -34,7 +34,6 @@ class TensorflowTrainer(Trainer):
         ConfigOption("batch", 32, "batch size"),
         ConfigOption("niters", 20, "number of iterations to train for"),
         ConfigOption("itersize", 512, "number of training instances in one iteration"),
-        # ConfigOption("gradacc", 1, "number of batches to accumulate over before updating weights"),
         ConfigOption("bertlr", 2e-5, "learning rate for bert parameters"),
         ConfigOption("lr", 0.001, "learning rate"),
         ConfigOption("decay", 0.0, "learning rate decay"),
@@ -51,6 +50,10 @@ class TensorflowTrainer(Trainer):
         ConfigOption("decay", 0.96),
         ConfigOption("decaytype", None),
     ]
+    dependencies = [
+        Dependency(key="benchmark", module="benchmark"),
+    ]
+
     config_keys_not_in_path = ["fastforward", "boardname", "usecache", "tpuname", "tpuzone", "storage"]
 
     def build(self):

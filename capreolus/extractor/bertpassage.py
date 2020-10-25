@@ -32,6 +32,7 @@ class BertPassage(Extractor):
             key="index", module="index", name="anserini", default_config_overrides={"indexstops": True, "stemmer": "none"}
         ),
         Dependency(key="tokenizer", module="tokenizer", name="berttokenizer"),
+        Dependency(key="benchmark", module="benchmark"),
     ]
 
     config_spec = [

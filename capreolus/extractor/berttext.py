@@ -23,6 +23,7 @@ class BertText(Extractor):
             key="index", module="index", name="anserini", default_config_overrides={"indexstops": True, "stemmer": "none"}
         ),
         Dependency(key="tokenizer", module="tokenizer", name="berttokenizer"),
+        Dependency(key="benchmark", module="benchmark"),
     ]
     config_spec = [ConfigOption("maxqlen", 4), ConfigOption("maxdoclen", 800), ConfigOption("usecache", False)]
 
