@@ -207,8 +207,8 @@ class TensorflowTrainer(Trainer):
                     metrics = evaluator.eval_runs(trec_preds, dict(qrels), evaluator.DEFAULT_METRICS, relevance_level)
                     logger.info("dev metrics: %s", " ".join([f"{metric}={v:0.3f}" for metric, v in sorted(metrics.items())]))
                     if metrics[metric] > best_metric:
-                        logger.info("Writing checkpoint")
                         best_metric = metrics[metric]
+                        logger.info("new best dev metric: %0.4f", best_metric)
                         wrapped_model.save_weights("{0}/dev.best".format(train_output_path))
 
             if num_batches >= self.config["niters"] * self.config["itersize"]:
