@@ -44,6 +44,26 @@ class Sampler(ModuleBase):
         self.clean()
 
     def clean(self):
+        total_samples = 0  # keep tracks of the total possible number of unique training triples for this dataset
+        for qid in list(self.qid_to_docids.keys()):
+            posdocs = len(self.qid_to_reldocs[qid])
+            negdocs = len(self.qid_to_negdocs[qid])
+            total_samples += posdocs * negdocs
+
+        self.total_samples = total_samples
+
+    def get_hash(self):
+        raise NotImplementedError
+
+    def get_total_samples(self):
+        return self.total_samples
+
+    def generate_samples(self):
+        raise NotImplementedError
+
+
+class TrainingSamplerMixin:
+    def clean(self):
         # remove any ids that do not have any relevant docs or any non-relevant docs for training
         total_samples = 0  # keep tracks of the total possible number of unique training triples for this dataset
         for qid in list(self.qid_to_docids.keys()):
@@ -59,18 +79,9 @@ class Sampler(ModuleBase):
 
         self.total_samples = total_samples
 
-    def get_hash(self):
-        raise NotImplementedError
-
-    def get_total_samples(self):
-        return self.total_samples
-
-    def generate_samples(self):
-        raise NotImplementedError
-
 
 @Sampler.register
-class TrainTripletSampler(Sampler, torch.utils.data.IterableDataset):
+class TrainTripletSampler(Sampler, TrainingSamplerMixin, torch.utils.data.IterableDataset):
     """
     Samples training data triplets. Each samples is of the form (query, relevant doc, non-relevant doc)
     """
@@ -120,7 +131,7 @@ class TrainTripletSampler(Sampler, torch.utils.data.IterableDataset):
 
 
 @Sampler.register
-class TrainPairSampler(Sampler, torch.utils.data.IterableDataset):
+class TrainPairSampler(Sampler, TrainingSamplerMixin, torch.utils.data.IterableDataset):
     """
     Samples training data pairs. Each sample is of the form (query, doc)
     The number of generate positive and negative samples are the same.
