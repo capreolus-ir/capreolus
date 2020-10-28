@@ -70,7 +70,7 @@ class TrainingSamplerMixin:
             posdocs = len(self.qid_to_reldocs[qid])
             negdocs = len(self.qid_to_negdocs[qid])
             if posdocs == 0 or negdocs == 0:
-                logger.debug("removing training qid=%s with %s positive docs and %s negative docs", qid, posdocs, negdocs)
+                logger.warning("removing training qid=%s with %s positive docs and %s negative docs", qid, posdocs, negdocs)
                 del self.qid_to_reldocs[qid]
                 del self.qid_to_docids[qid]
                 del self.qid_to_negdocs[qid]
