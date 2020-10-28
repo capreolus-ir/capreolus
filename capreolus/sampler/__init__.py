@@ -43,15 +43,6 @@ class Sampler(ModuleBase):
         self.total_samples = 0
         self.clean()
 
-    def clean(self):
-        total_samples = 0  # keep tracks of the total possible number of unique training triples for this dataset
-        for qid in list(self.qid_to_docids.keys()):
-            posdocs = len(self.qid_to_reldocs[qid])
-            negdocs = len(self.qid_to_negdocs[qid])
-            total_samples += posdocs * negdocs
-
-        self.total_samples = total_samples
-
     def get_hash(self):
         raise NotImplementedError
 
@@ -195,6 +186,15 @@ class PredSampler(Sampler, torch.utils.data.IterableDataset):
                     # when predictiong we raise an exception on missing docs, as this may invalidate results
                     logger.error("got none features for prediction: qid=%s posid=%s", qid, docid)
                     raise
+
+    def clean(self):
+        total_samples = 0  # keep tracks of the total possible number of unique training triples for this dataset
+        for qid in list(self.qid_to_docids.keys()):
+            posdocs = len(self.qid_to_reldocs[qid])
+            negdocs = len(self.qid_to_negdocs[qid])
+            total_samples += posdocs * negdocs
+
+        self.total_samples = total_samples
 
     def __hash__(self):
         return self.get_hash()
