@@ -20,7 +20,8 @@ class Reranker(ModuleBase):
         Dependency(key="trainer", module="trainer", name="pytorch"),
     ]
 
-    def fit(self, run):
+    def fit(self, run, parent_dir=None):
+        parent_dir = parent_dir if parent_dir else constants["RESULTS_BASE_PATH"]
         output_path = parent_dir / run.get_module_path() / self.get_module_path()
         pass
 

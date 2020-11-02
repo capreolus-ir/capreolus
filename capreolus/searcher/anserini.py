@@ -22,16 +22,15 @@ class AnseriniSearcherMixIn:
     """ MixIn for searchers that use Anserini's SearchCollection script """
 
     dependencies = [
-        Dependency(
-            key="benchmark", module="benchmark", name="robust04.yang19", provide_this=True, provide_children=["collection"]
-        ),
+        Dependency(key="benchmark", module="benchmark", name=None, provide_this=True, provide_children=["collection"]),
         Dependency(key="index", module="index", name="anserini"),
     ]
 
-    def fit(self):
-        # REF-TODO implement self.benchmark.get_topics_file(fold=None) ; related to moving fold to benchmark
-        output_dir = self.get_cache_path()
-        search_results_folder = self.query_from_file(self.benchmark.topic_file, output_dir)
+    def fit(self, parent_dir=None):
+        parent_dir = parent_dir if parent_dir else constants["CACHE_BASE_PATH"]
+        output_dir = parent_dir / self.get_module_path()
+        topics = self.benchmark.get_topics_file()
+        search_results_folder = self.query_from_file(topics, output_dir)
         return search_results_folder
 
     def _anserini_query_from_file(self, topicsfn, anserini_param_str, output_base_path, topicfield):
@@ -65,7 +64,7 @@ class AnseriniSearcherMixIn:
             "-Dapp.name=SearchCollection",
             "io.anserini.search.SearchCollection",
             "-topicreader",
-            "Trec",
+            "TsvString",
             "-index",
             index_path,
             "-topics",

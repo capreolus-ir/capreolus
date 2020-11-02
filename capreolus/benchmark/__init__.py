@@ -43,17 +43,14 @@ class Benchmark(ModuleBase):
             self._folds = json.load(open(self.fold_file, "rt"), parse_int=str)
         return self._folds
 
-    def get_topics_file(self, fold=None):
-        if fold is not None:
-            fn = self.get_cache_path() / f"fold_{fold}-topics.txt"
-        else:
-            fn = self.get_cache_path() / "topics.txt"
+    def get_topics_file(self):
+        fn = self.get_cache_path() / "topics.txt"
 
         try:
             with cached_file(fn) as tmp_fn:
                 with open(tmp_fn, "wt") as outf:
-                    for qid, query in self.topics[self.query_type]:
-                        pass
+                    for qid, query in self.topics[self.query_type].items():
+                        print(f"{qid}\t{query}", file=outf)
         except TargetFileExists as e:
             pass
 

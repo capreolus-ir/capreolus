@@ -59,18 +59,19 @@ class Searcher(ModuleBase):
 
     def query(self, query, **kwargs):
         """
-        search document based on given query, using parameters in config as default
+        Search document based on given query, using parameters in config as default.
         """
         config = {k: kwargs.get(k, self.config[k]) for k in self.config}
 
+        # REF-TODO is handling of Searchers that don't want to fit anything fine as is?
         cache_dir = self.get_cache_path()
         cache_dir.mkdir(exist_ok=True, parents=True)
-        # REF-TODO add query hash here
+        # REF-TODO add query hash here? or ask for output path?
         topic_fn, runfile_dir = cache_dir / "topic.txt", cache_dir / "runfiles"
 
         fake_qid = "1"
         with open(topic_fn, "w", encoding="utf-8") as f:
-            f.write(topic_to_trectxt(fake_qid, query))
+            f.write(f"{fake_qid}\t{query}")
 
         self._query_from_file(topic_fn, runfile_dir, config)
 
