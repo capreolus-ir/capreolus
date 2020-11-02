@@ -48,4 +48,3 @@ dependencies:
     - xxhash
     - annoy
     - fasteners
-    - h5py==2.10.0  # required to prevent other deps from upgrading
