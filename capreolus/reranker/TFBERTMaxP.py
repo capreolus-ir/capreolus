@@ -42,7 +42,8 @@ class TFBERTMaxP_Class(tf.keras.layers.Layer):
         Returns logits of shape [2]
         """
         doc_bert_input, doc_mask, doc_seg = x[0], x[1], x[2]
-
+        if "roberta" in self.config["pretrained"]:
+            doc_seg = tf.zeros_like(doc_mask)  # since roberta does not have segment input
         passage_scores = self.bert(doc_bert_input, attention_mask=doc_mask, token_type_ids=doc_seg)[0]
 
         return passage_scores
@@ -81,7 +82,6 @@ class TFBERTMaxP_Class(tf.keras.layers.Layer):
 
     def score(self, x, **kwargs):
         posdoc_bert_input, posdoc_mask, posdoc_seg, negdoc_bert_input, negdoc_mask, negdoc_seg = x
-
         return self.call((posdoc_bert_input, posdoc_mask, posdoc_seg), **kwargs)
 
     def score_pair(self, x, **kwargs):
