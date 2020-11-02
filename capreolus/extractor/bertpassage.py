@@ -118,7 +118,7 @@ class BertPassage(Extractor):
 
             bert_input_line = posdoc[i]
             bert_input_line = " ".join(self.tokenizer.bert_tokenizer.convert_ids_to_tokens(list(bert_input_line)))
-            passage = bert_input_line.split(self.sep_token)[-2]
+            passage = bert_input_line.split(self.sep_tok)[-2]
 
             # Ignore empty passages as well
             if passage.strip() == self.pad_tok:
@@ -310,6 +310,7 @@ class BertPassage(Extractor):
             logger.info("Building bertpassage vocabulary")
             self.docid2passages = {}
 
+            docids = sorted(docids)
             for docid in tqdm(docids, "extract passages"):
                 # Naive tokenization based on white space
                 doc = self.index.get_doc(docid).split()
@@ -356,8 +357,11 @@ class BertPassage(Extractor):
 
             padded_input_line = padlist(input_line, padlen=self.config["maxseqlen"], pad_token=self.pad_tok)
             pos_bert_masks.append([1] * len(input_line) + [0] * (len(padded_input_line) - len(input_line)))
-            pos_bert_segs.append([0] * (len(query_toks) + 2) + [1] * (len(padded_input_line) - len(query_toks) - 2))
             pos_bert_inputs.append(tokenizer.convert_tokens_to_ids(padded_input_line))
+            if "roberta" not in self.tokenizer.config["pretrained"]:
+                pos_bert_segs.append([0] * (len(query_toks) + 2) + [1] * (len(padded_input_line) - len(query_toks) - 2))
+            else:
+                pos_bert_segs.append([0] * (len(query_toks) + 2) + [0] * (len(padded_input_line) - len(query_toks) - 2))
 
         # TODO: Rename the posdoc key in the below dict to 'pos_bert_input'
         data = {
@@ -380,15 +384,20 @@ class BertPassage(Extractor):
             neg_passages = self.docid2passages[negid]
 
             for tokenized_passage in neg_passages:
-                input_line = [self.cls_tok] + query_toks + [self.sep_tok] + tokenized_passage + [self.sep_token]
+                input_line = [self.cls_tok] + query_toks + [self.sep_tok] + tokenized_passage + [self.sep_tok]
                 if len(input_line) > maxseqlen:
                     input_line = input_line[:maxseqlen]
-                    input_line[-1] = self.sep_token
+                    input_line[-1] = self.sep_tok
 
                 padded_input_line = padlist(input_line, padlen=self.config["maxseqlen"], pad_token=self.pad_tok)
                 neg_bert_masks.append([1] * len(input_line) + [0] * (len(padded_input_line) - len(input_line)))
-                neg_bert_segs.append([0] * (len(query_toks) + 2) + [1] * (len(padded_input_line) - len(query_toks) - 2))
                 neg_bert_inputs.append(tokenizer.convert_tokens_to_ids(padded_input_line))
+                if "roberta" not in self.tokenizer.config["pretrained"]:
+                    neg_bert_segs.append([0] * (len(query_toks) + 2) + [1] * (len(padded_input_line) - len(query_toks) - 2))
+                else:
+                    neg_bert_segs.append([0] * (len(query_toks) + 2) + [0] * (len(padded_input_line) - len(query_toks) - 2))
+
+
 
             if not neg_bert_inputs:
                 raise MissingDocError(qid, negid)
