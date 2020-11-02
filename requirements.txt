@@ -10,7 +10,7 @@ colorlog>=4.0.2
 pytrec_eval>=0.5
 pytest>=3.8.0
 pyjnius>=1.2.1
-h5py>=2.9.0
+h5py==2.10.0
 nltk>=3.4.5
 pymagnitude>=0.1.143
 pytest-mock
