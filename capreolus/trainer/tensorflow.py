@@ -258,7 +258,9 @@ class TensorflowTrainer(Trainer):
             return "{0}/capreolus_tfrecords/{1}_{2}".format(self.config["storage"], dataset.get_hash(), total_samples)
         else:
             base_path = self.get_cache_path()
-            return "{0}/{1}_{2}".format(base_path, dataset.get_hash(), total_samples)
+            path = "{0}/{1}_{2}".format(base_path, dataset.get_hash(), total_samples)
+            logger.info(f"tf record path: {path}")
+            return path
 
     def find_cached_tf_records(self, dataset, required_sample_count):
         """
@@ -300,7 +302,6 @@ class TensorflowTrainer(Trainer):
         if self.config["usecache"] and cached_tf_record_dir is not None:
             filenames = tf.io.gfile.listdir(cached_tf_record_dir)
             filenames = ["{0}/{1}".format(cached_tf_record_dir.rstrip("/"), name) for name in filenames]
-
             return self.load_tf_train_records_from_file(reranker, filenames, self.config["batch"])
         else:
             tf_record_filenames = self.convert_to_tf_train_record(reranker, dataset)

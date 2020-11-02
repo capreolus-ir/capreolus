@@ -386,8 +386,9 @@ class BertPassage(Extractor):
             self.cache_state(qids, docids)
         else:
             logger.info("Building bertpassage vocabulary")
+
             self.qid2toks = {qid: self.tokenizer.tokenize(topics[qid]) for qid in tqdm(qids, desc="querytoks")}
             self.docid2passages = {
                 docid: self._prepare_doc_psgs(self.index.get_doc(docid).split())
-                for docid in tqdm(docids, "extract passages")}
+                for docid in tqdm(sorted(docids), "extract passages")}
             self.cache_state(qids, docids)
