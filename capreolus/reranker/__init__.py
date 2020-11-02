@@ -1,7 +1,7 @@
 import os
 import pickle
 
-from capreolus import Dependency, ModuleBase
+from capreolus import Dependency, ModuleBase, constants
 
 
 class Reranker(ModuleBase):
@@ -15,9 +15,14 @@ class Reranker(ModuleBase):
 
     module_type = "reranker"
     dependencies = [
+        Dependency(key="benchmark", module="benchmark", name=None, provide_this=True, provide_children=["collection"]),
         Dependency(key="extractor", module="extractor", name="embedtext"),
         Dependency(key="trainer", module="trainer", name="pytorch"),
     ]
+
+    def fit(self, run):
+        output_path = parent_dir / run.get_module_path() / self.get_module_path()
+        pass
 
     def add_summary(self, summary_writer, niter):
         """

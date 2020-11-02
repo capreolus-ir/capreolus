@@ -1,6 +1,8 @@
 import json
+import os
 
 from capreolus import ModuleBase
+from capreolus.utils.caching import cached_file, TargetFileExists
 from capreolus.utils.trec import load_qrels, load_trec_topics
 
 
@@ -40,6 +42,22 @@ class Benchmark(ModuleBase):
         if not hasattr(self, "_folds"):
             self._folds = json.load(open(self.fold_file, "rt"), parse_int=str)
         return self._folds
+
+    def get_topics_file(self, fold=None):
+        if fold is not None:
+            fn = self.get_cache_path() / f"fold_{fold}-topics.txt"
+        else:
+            fn = self.get_cache_path() / "topics.txt"
+
+        try:
+            with cached_file(fn) as tmp_fn:
+                with open(tmp_fn, "wt") as outf:
+                    for qid, query in self.topics[self.query_type]:
+                        pass
+        except TargetFileExists as e:
+            pass
+
+        return fn
 
 
 from profane import import_all_modules

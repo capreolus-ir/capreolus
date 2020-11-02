@@ -1,4 +1,4 @@
-from capreolus import Dependency, constants
+from capreolus import ConfigOption, Dependency, constants
 
 from . import Benchmark
 
@@ -17,6 +17,7 @@ class Robust04(Benchmark):
 
     module_name = "robust04"
     dependencies = [Dependency(key="collection", module="collection", name="robust04")]
+    config_spec = [ConfigOption("fold", "s1", "fold to run")]
     qrel_file = PACKAGE_PATH / "data" / "qrels.robust2004.txt"
     topic_file = PACKAGE_PATH / "data" / "topics.robust04.301-450.601-700.txt"
     fold_file = PACKAGE_PATH / "data" / "rob04_cedr_folds.json"
@@ -32,6 +33,7 @@ class Robust04Yang19(Benchmark):
 
     module_name = "robust04.yang19"
     dependencies = [Dependency(key="collection", module="collection", name="robust04")]
+    config_spec = [ConfigOption("fold", "s1", "fold to run")]
     qrel_file = PACKAGE_PATH / "data" / "qrels.robust2004.txt"
     topic_file = PACKAGE_PATH / "data" / "topics.robust04.301-450.601-700.txt"
     fold_file = PACKAGE_PATH / "data" / "rob04_yang19_folds.json"
