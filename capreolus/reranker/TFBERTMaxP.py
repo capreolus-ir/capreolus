@@ -56,7 +56,7 @@ class TFBERTMaxP_Class(tf.keras.layers.Layer):
         num_passages = self.extractor.config["numpassages"]
         maxseqlen = self.extractor.config["maxseqlen"]
 
-        passage_position = tf.reduce_sum(posdoc_mask * posdoc_seg, axis=-1) # (B, P)
+        passage_position = tf.reduce_sum(posdoc_mask * posdoc_seg, axis=-1)  # (B, P)
         passage_mask = tf.cast(tf.greater(passage_position, 5), tf.float32)  # (B, P) 
 
         posdoc_bert_input = tf.reshape(posdoc_bert_input, [batch_size * num_passages, maxseqlen])
@@ -71,10 +71,9 @@ class TFBERTMaxP_Class(tf.keras.layers.Layer):
         elif self.config["aggregation"] == "first":
             passage_scores = passage_scores[:, 0]
         elif self.config["aggregation"] == "sum":
-            # passage_scores = tf.math.reduce_sum(tf.nn.softmax(passage_scores), axis=1)
-            # passage_mask = tf.nn.softmax(passage_scores, axis=-1)
-            # passage_scores = tf.math.reduce_sum(passage_mask * passage_scores, axis=1) / tf.reduce_sum(passage_mask)  # so it's like an average
-            passage_scores = tf.math.reduce_sum(passage_mask * passage_scores, axis=1) 
+            passage_scores = tf.math.reduce_sum(passage_mask * passage_scores, axis=1)
+        elif self.config["aggregation"] == "avg":
+            passage_scores = tf.math.reduce_sum(passage_mask * passage_scores, axis=1) / tf.reduce_sum(passage_mask)
         else:
             raise ValueError("Unknown aggregation method: {}".format(self.config["aggregation"]))
 
