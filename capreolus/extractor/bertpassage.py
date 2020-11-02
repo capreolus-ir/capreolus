@@ -127,9 +127,9 @@ class BertPassage(Extractor):
 
         for tokenized_passage in neg_passages:
             inp, mask, seg = self._prepare_bert_input(query_toks, tokenized_passage)
-            pos_bert_masks.append(inp)
-            pos_bert_segs.append(mask)
-            pos_bert_inputs.append(seg)
+            neg_bert_inputs.append(inp)
+            neg_bert_masks.append(mask)
+            neg_bert_segs.append(seg)
 
         if not neg_bert_inputs:
             raise MissingDocError(qid, negid)
