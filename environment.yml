@@ -11,7 +11,7 @@ dependencies:
   - cython
   - jupyter
   - jupyterlab
-  - h5py>=2.9.0,<2.11
+  - h5py==2.10.0
   - pytorch::pytorch>=1.6,<1.7
   - pytorch::torchvision
   - cudatoolkit=10.1
@@ -48,4 +48,4 @@ dependencies:
     - xxhash
     - annoy
     - fasteners
-
+    - h5py==2.10.0  # required to prevent other deps from upgrading
