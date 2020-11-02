@@ -25,6 +25,7 @@ jobs:
         run: |
           conda activate capreolus
           conda install pytorch=1.6 torchvision cpuonly -c pytorch
+          conda list
           # checks every test except those marked download
           pytest -vvv
 
