@@ -43,14 +43,51 @@ class Benchmark(ModuleBase):
             self._folds = json.load(open(self.fold_file, "rt"), parse_int=str)
         return self._folds
 
-    def get_topics_file(self):
-        fn = self.get_cache_path() / "topics.txt"
+    @property
+    def fold(self):
+        return self.folds[self.config["fold"]]
+
+    def get_all_fold_benchmarks(self):
+        fold_benchmarks = []
+        for fold in sorted(self.folds):
+            cfg = self.config.unfrozen_copy()
+            cfg["fold"] = fold
+            print("***** doing fold bms")
+            fold_benchmarks.append(Benchmark.create(self.module_name, config=cfg))
+
+        return fold_benchmarks
+
+    def get_topics_file(self, query_sets=None):
+        """Returns path to a topics file in TSV format containing queries from query_sets.
+        query_sets may contain any combination of 'train', 'dev', and 'test'.
+        All are returned if query_sets is None."""
+
+        if query_sets:
+            query_sets = set(query_sets)
+            invalid = query_sets - {"train", "test", "dev"}
+            if invalid:
+                raise ValueError(f"query_sets contains invalid fold names: {invalid}")
+            query_sets = "_".join(sorted(query_sets))
+
+            valid_qids = set()
+            if "train" in query_sets:
+                valid_qids.update(self.fold["train_qids"])
+            if "dev" in query_sets:
+                valid_qids.update(self.fold["predict"]["dev"])
+            if "test" in query_sets:
+                valid_qids.update(self.fold["predict"]["test"])
+        else:
+            query_sets = "all"
+            valid_qids = None
+
+        fn = self.get_cache_path() / f"topics-{query_sets}.tsv"
 
         try:
             with cached_file(fn) as tmp_fn:
                 with open(tmp_fn, "wt") as outf:
                     for qid, query in self.topics[self.query_type].items():
-                        print(f"{qid}\t{query}", file=outf)
+                        if query_sets == "all" or qid in valid_qids:
+                            print(f"{qid}\t{query}", file=outf)
         except TargetFileExists as e:
             pass
 

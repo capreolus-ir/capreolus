@@ -14,7 +14,7 @@ searchers = set(module_registry.get_module_names("searcher")) - skip_searchers
 
 
 @pytest.mark.parametrize("searcher_name", searchers)
-def test_searcher_runnable(tmpdir_as_cache, tmpdir, dummy_index, searcher_name):
+def test_searcher_fit_runnable(tmpdir_as_cache, tmpdir, dummy_index, searcher_name):
     benchmark = DummyBenchmark()
     searcher = Searcher.create(searcher_name, provide=[benchmark, dummy_index])
     output_dir = searcher.fit()
@@ -24,22 +24,27 @@ def test_searcher_runnable(tmpdir_as_cache, tmpdir, dummy_index, searcher_name):
 @pytest.mark.parametrize("searcher_name", searchers)
 def test_searcher_query(tmpdir_as_cache, tmpdir, dummy_index, searcher_name):
     benchmark = DummyBenchmark()
-    query = list(benchmark.topics[benchmark.query_type].values())[0]
     nhits = 1
     searcher = Searcher.create(searcher_name, config={"hits": nhits}, provide=[benchmark, dummy_index])
+
+    # test manual querying
+    query = list(benchmark.topics[benchmark.query_type].values())[0]
     results = searcher.query(query)
     if searcher_name == "SPL":
-        # if searcher_name != "BM25":
+        # REF-TODO: make query() raise an error rather than returning empty searcher file
         return
 
-    print(results.values())
     if isinstance(list(results.values())[0], dict):
         assert all(len(d) == nhits for d in results.values())
     else:
         assert len(results) == nhits
 
+    # and from benchmark
+    output_dir = searcher.query_from_benchmark()
+    assert os.path.exists(os.path.join(output_dir, "done"))
 
-def test_searcher_bm25(tmpdir_as_cache, tmpdir, dummy_index):
+
+def test_searcher_bm25_scores(tmpdir_as_cache, tmpdir, dummy_index):
     benchmark = DummyBenchmark()
     searcher = BM25(provide=[benchmark, dummy_index])
 

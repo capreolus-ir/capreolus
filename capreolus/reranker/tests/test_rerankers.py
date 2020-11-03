@@ -35,7 +35,7 @@ rerankers = set(module_registry.get_module_names("reranker"))
 
 @pytest.mark.parametrize("reranker_name", rerankers)
 def test_reranker_creatable(tmpdir_as_cache, dummy_index, reranker_name):
-    provide = {"collection": dummy_index.collection, "index": dummy_index}
+    provide = {"benchmark": DummyBenchmark(), "index": dummy_index}
     reranker = Reranker.create(reranker_name, provide=provide)
 
 

@@ -96,6 +96,38 @@ def eval_runfile(runfile, qrels, metrics, relevance_level):
     return _eval_runs(runs, qrels, metrics, list(qrels.keys()), relevance_level)
 
 
+def new_best_run(fit_path, eval_path, benchmark, primary_metric, metrics=None):
+    fit_files = [f for f in os.listdir(fit_path) if (f != "done" and not os.path.isdir(os.path.join(fit_path, f)))]
+
+    best_scores = {primary_metric: -1}
+    for run_name in fit_files:
+        runfile = os.path.join(fit_path, run_name)
+        runs = Searcher.load_trec_run(runfile)
+        v = benchmark.fold
+        score = _eval_runs(
+            runs,
+            benchmark.qrels,
+            [primary_metric],
+            # REF-TODO don't need to pass qids here
+            (set(v["train_qids"]) | set(v["predict"]["dev"])),
+            benchmark.relevance_level,
+        )[primary_metric]
+        if score > best_scores[primary_metric]:
+            best_scores = {primary_metric: score, "path": runfile, "name": run_name}
+
+    test_runs = {}
+    test_qids = benchmark.fold["predict"]["test"]
+    # any empty (no results) queries need to be added so they contribute zeros to the average
+    test_runfn = os.path.join(eval_path, best_scores["name"])
+    test_runs.update({qid: {} for qid in test_qids})
+    test_runs.update({qid: v for qid, v in Searcher.load_trec_run(test_runfn).items() if qid in test_qids})
+
+    scores = eval_runs(test_runs, benchmark.qrels, metrics, benchmark.relevance_level)
+    out = {"dev": best_scores, "score": scores, "test_path": test_runfn}
+    return out
+
+
+# REF-TODO remove?
 def search_best_run(runfile_dirs, benchmark, primary_metric, metrics=None, folds=None):
     """
     Select the runfile with respect to the specified metric

@@ -15,7 +15,7 @@ class Reranker(ModuleBase):
 
     module_type = "reranker"
     dependencies = [
-        Dependency(key="benchmark", module="benchmark", name=None, provide_this=True, provide_children=["collection"]),
+        Dependency(key="benchmark", module="benchmark", name="dummy", provide_this=True, provide_children=["collection"]),
         Dependency(key="extractor", module="extractor", name="embedtext"),
         Dependency(key="trainer", module="trainer", name="pytorch"),
     ]
