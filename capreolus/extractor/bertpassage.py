@@ -102,9 +102,9 @@ class BertPassage(Extractor):
         pos_passages = self.docid2passages[posid]
         for tokenized_passage in pos_passages:
             inp, mask, seg = self._prepare_bert_input(query_toks, tokenized_passage)
-            pos_bert_masks.append(inp)
-            pos_bert_segs.append(mask)
-            pos_bert_inputs.append(seg)
+            pos_bert_inputs.append(inp)
+            pos_bert_masks.append(mask)
+            pos_bert_segs.append(seg)
 
         # TODO: Rename the posdoc key in the below dict to 'pos_bert_input'
         data = {
