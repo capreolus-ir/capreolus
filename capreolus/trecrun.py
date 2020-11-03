@@ -198,8 +198,8 @@ class TrecRun:
         }
         return TrecRun(results)
 
-    def evaluate(self, qrels, metrics, relevance_level=1):
+    def evaluate(self, qrels, metrics, relevance_level=1, average_only=True):
         # placed here to avoid circular imports
         from capreolus.evaluator import eval_runs
 
-        return eval_runs(self.results, qrels, metrics, relevance_level)
+        return eval_runs(self.results, qrels, metrics, relevance_level, average_only)

@@ -52,7 +52,6 @@ class Benchmark(ModuleBase):
         for fold in sorted(self.folds):
             cfg = self.config.unfrozen_copy()
             cfg["fold"] = fold
-            print("***** doing fold bms")
             fold_benchmarks.append(Benchmark.create(self.module_name, config=cfg))
 
         return fold_benchmarks
