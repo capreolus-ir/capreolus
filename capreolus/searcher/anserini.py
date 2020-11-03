@@ -1,11 +1,12 @@
 import math
 import os
 import subprocess
+import tempfile
 from collections import OrderedDict
 
 import numpy as np
 
-from capreolus import ConfigOption, Dependency, constants
+from capreolus import ConfigOption, Dependency, TrecRun, constants
 from capreolus.utils.common import Anserini
 from capreolus.utils.loginit import get_logger
 
@@ -23,14 +24,14 @@ class AnseriniSearcherMixIn:
     """ MixIn for searchers that use Anserini's SearchCollection script """
 
     dependencies = [
-        Dependency(key="benchmark", module="benchmark", name=None, provide_this=True, provide_children=["collection"]),
+        Dependency(key="benchmark", module="benchmark", name="dummy", provide_this=True, provide_children=["collection"]),
         Dependency(key="index", module="index", name="anserini"),
     ]
 
     fit_results = None
     eval_results = None
 
-    # RF-TODO should we keep parent here? weird interaction between the above?
+    # REF-TODO should we keep parent here? weird interaction between the above?
     def fit(self, parent_dir=None):
         parent_dir = parent_dir if parent_dir else constants["CACHE_BASE_PATH"]
         output_dir = parent_dir / self.get_module_path() / "fit"
@@ -51,28 +52,29 @@ class AnseriniSearcherMixIn:
         """
         config = {k: kwargs.get(k, self.config[k]) for k in self.config}
 
-        # REF-TODO is handling of Searchers that don't want to fit anything fine as is?
         cache_dir = self.get_cache_path()
         cache_dir.mkdir(exist_ok=True, parents=True)
-        # REF-TODO add query hash here? or ask for output path?
-        topic_fn, runfile_dir = cache_dir / "topic.txt", cache_dir / "runfiles"
 
-        fake_qid = "1"
-        with open(topic_fn, "w", encoding="utf-8") as f:
-            f.write(f"{fake_qid}\t{query}")
+        with tempfile.TemporaryDirectory(dir=cache_dir) as tmpdirname:
+            topic_fn = os.path.join(tmpdirname, "topics.tsv")
+            runfile_dir = os.path.join(tmpdirname, "runfiles")
 
-        self._query_from_file(topic_fn, runfile_dir, config)
+            fake_qid = "1"
+            with open(topic_fn, "wt") as f:
+                f.write(f"{fake_qid}\t{query}")
 
-        runfile_fns = [f for f in os.listdir(runfile_dir) if f != "done"]
-        config2runs = {}
-        for runfile in runfile_fns:
-            runfile_fn = runfile_dir / runfile
-            runs = self.load_trec_run(runfile_fn)
-            config2runs[runfile.replace("searcher_", "")] = OrderedDict(runs[fake_qid])
-            os.remove(runfile_fn)  # remove it in case the file accumulate
-        os.remove(runfile_dir / "done")
+            self._query_from_file(topic_fn, runfile_dir, config)
 
-        return config2runs["searcher"] if len(config2runs) == 1 else config2runs
+            results = {
+                fn.replace("searcher_", ""): TrecRun(os.path.join(runfile_dir, fn))
+                for fn in os.listdir(runfile_dir)
+                if fn != "done"
+            }
+
+        if len(results) == 0:
+            raise RuntimeError("no runfiles returned")
+
+        return results
 
     def _anserini_query_from_file(self, topicsfn, anserini_param_str, output_base_path):
         if not os.path.exists(topicsfn):

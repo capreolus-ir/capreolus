@@ -27,19 +27,21 @@ def test_searcher_query(tmpdir_as_cache, tmpdir, dummy_index, searcher_name):
     nhits = 1
     searcher = Searcher.create(searcher_name, config={"hits": nhits}, provide=[benchmark, dummy_index])
 
+    # SPL currently broken
+    if searcher_name == "SPL":
+        return
+
     # test manual querying
     query = list(benchmark.topics[benchmark.query_type].values())[0]
     results = searcher.query(query)
-    if searcher_name == "SPL":
-        # REF-TODO: make query() raise an error rather than returning empty searcher file
-        return
+    for runtag in results:
+        assert len(results[runtag]["1"]) == nhits
 
-    if isinstance(list(results.values())[0], dict):
-        assert all(len(d) == nhits for d in results.values())
-    else:
-        assert len(results) == nhits
+    # empty query
+    with pytest.raises(RuntimeError):
+        searcher.query("")
 
-    # and from benchmark
+    # querying from benchmark
     output_dir = searcher.query_from_benchmark()
     assert os.path.exists(os.path.join(output_dir, "done"))
 

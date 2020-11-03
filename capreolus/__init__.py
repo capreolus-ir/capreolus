@@ -40,6 +40,7 @@ jnius_config.set_classpath(Anserini.get_fat_jar())
 ### convenience imports
 # note: order is important to avoid circular imports
 from capreolus.utils.loginit import get_logger
+from capreolus.trecrun import TrecRun
 from capreolus.benchmark import Benchmark
 from capreolus.collection import Collection
 from capreolus.index import Index

@@ -4,15 +4,13 @@ from copy import deepcopy
 import sklearn.preprocessing
 import smart_open
 
-from capreolus.evaluator import eval_runs
 
-
-class ResultList:
+class TrecRun:
     # hashlib.md5(json.dumps(mrl.results, sort_keys=True).encode()).hexdigest()
 
     def __init__(self, results):
         if isinstance(results, dict):
-            self.results = {qid: {docid: score for docid, score in results[qid].items()} for qid in results}
+            self.results = {str(qid): {docid: score for docid, score in results[qid].items()} for qid in results}
         elif isinstance(results, str):
             self.results = {}
             with smart_open.open(results) as f:
@@ -28,7 +26,7 @@ class ResultList:
             raise ValueError("results must be a dict or a string containing a path")
 
     def _arithmetic_op(self, other, operator):
-        if isinstance(other, ResultList):
+        if isinstance(other, TrecRun):
             try:
                 results = {
                     qid: {docid: operator(score, other.results[qid][docid]) for docid, score in self.results[qid].items()}
@@ -36,7 +34,7 @@ class ResultList:
                 }
             except KeyError:
                 raise ValueError(
-                    "both ResultLists must contain the same qids and docids; perhaps you should intersect or concat first?"
+                    "both TrecRuns must contain the same qids and docids; perhaps you should intersect or concat first?"
                 )
         else:
             scalar = other
@@ -44,7 +42,7 @@ class ResultList:
                 qid: {docid: operator(score, scalar) for docid, score in self.results[qid].items()} for qid in self.results
             }
 
-        return ResultList(results)
+        return TrecRun(results)
 
     def add(self, other):
         return self._arithmetic_op(other, operator.add)
@@ -66,23 +64,23 @@ class ResultList:
             else:
                 results[qid] = docscores.copy()
 
-        return ResultList(results)
+        return TrecRun(results)
 
     def intersect(self, other):
-        if not isinstance(other, ResultList):
+        if not isinstance(other, TrecRun):
             raise NotImplementedError()
 
         shared_results = {
             qid: {docid: score for docid, score in self.results[qid].items() if docid in other.results[qid]}
             for qid in self.results.keys() & other.results.keys()
         }
-        return ResultList(shared_results)
+        return TrecRun(shared_results)
 
     def qids(self):
         return set(self.results.keys())
 
     def union_qids(self, other, shared_qids="disallow"):
-        if not isinstance(other, ResultList):
+        if not isinstance(other, TrecRun):
             raise NotImplementedError()
 
         if shared_qids == "disallow":
@@ -94,7 +92,7 @@ class ResultList:
         else:
             raise NotImplementedError("only disallow is implemented")
 
-        return ResultList(new_results)
+        return TrecRun(new_results)
 
     def concat(self, other):
         results = {qid: {docid: score for docid, score in self.results[qid].items()} for qid in self.results}
@@ -117,14 +115,14 @@ class ResultList:
             for docid, score in new_results[qid].items():
                 results[qid][docid] = a * score + b
 
-        return ResultList(results)
+        return TrecRun(results)
 
     def difference(self, other):
         results = {
             qid: {docid: score for docid, score in self.results[qid].items() if docid not in other.results.get(qid, {})}
             for qid in self.results
         }
-        return ResultList(results)
+        return TrecRun(results)
 
     def normalize(self, method="rr"):
         normalization_funcs = {"minmax": sklearn.preprocessing.minmax_scale, "standard": sklearn.preprocessing.scale}
@@ -146,7 +144,11 @@ class ResultList:
         else:
             raise ValueError(f"unknown method: {method}")
 
-        return ResultList(results)
+        return TrecRun(results)
+
+    def __getitem__(self, k):
+        # TODO is it ok to NOT return a copy here?
+        return self.results[k]
 
     def __and__(self, other):
         return self.intersect(other)
@@ -194,7 +196,10 @@ class ResultList:
         results = {
             qid: {docid: score for docid, score in self.results[qid].items() if docid in qrels[qid]} for qid in self.results
         }
-        return ResultList(results)
+        return TrecRun(results)
 
     def evaluate(self, qrels, metrics, relevance_level=1):
+        # placed here to avoid circular imports
+        from capreolus.evaluator import eval_runs
+
         return eval_runs(self.results, qrels, metrics, relevance_level)

@@ -1,4 +1,4 @@
-from capreolus import ConfigOption, Dependency, evaluator
+from capreolus import ConfigOption, Dependency, TrecRun, evaluator
 from capreolus.task import Task
 from capreolus.utils.loginit import get_logger
 from capreolus.utils.trec import load_qrels
@@ -58,7 +58,7 @@ class RankTask(Task):
         eval_path = self.searcher.query_from_benchmark()
 
         metrics = self.config["metrics"] if list(self.config["metrics"]) != ["default"] else evaluator.DEFAULT_METRICS
-        best_results = evaluator.new_best(
+        best_results = evaluator.new_best_run(
             fit_path, eval_path, self.benchmark, primary_metric=self.config["optimize"], metrics=metrics
         )
 
@@ -79,16 +79,12 @@ class RankTask(Task):
         return fold_tasks
 
     def evaluate_all_folds(self):
-        from trecrun import ResultList
-
         all_evals = {}
-        all_results = ResultList({})
+        all_results = TrecRun({})
         for task in self.get_all_fold_tasks():
             fold = task.benchmark.config["fold"]
             all_evals[fold] = task.evaluate()
-
-            print("HMMM:", all_evals[fold]["test_path"])
-            fold_results = ResultList(all_evals[fold]["test_path"])
+            fold_results = TrecRun(all_evals[fold]["test_path"])
             all_results = all_results.union_qids(fold_results)
 
         metrics = self.config["metrics"] if list(self.config["metrics"]) != ["default"] else evaluator.DEFAULT_METRICS
