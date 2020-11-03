@@ -49,17 +49,13 @@ class RankTask(Task):
         #     search_results_folder = self.searcher.query_from_file(topics_fn, output_dir)
 
     def evaluate(self):
-        # REF-TODO move inside searcher?
-
         if self.config["allfolds"]:
             return self.evaluate_all_folds()
 
-        eval_path = self.searcher.query_from_benchmark()
-        if not eval_path:
-            raise RuntimeError("searcher eval_path is not set")
         fit_path = self.searcher.fit_results
         if not fit_path:
             raise RuntimeError("searcher eval_path is not set")
+        eval_path = self.searcher.query_from_benchmark()
 
         metrics = self.config["metrics"] if list(self.config["metrics"]) != ["default"] else evaluator.DEFAULT_METRICS
         best_results = evaluator.new_best(
