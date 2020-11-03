@@ -79,6 +79,7 @@ class BertPassage(Extractor):
             else:
                 psg_toks = psg_toks[:-1]
 
+        psg_toks = " ".join(psg_toks).split()  # in case that psg_toks is np.array
         input_line = [self.cls_tok] + query_toks + [self.sep_tok] + psg_toks + [self.sep_tok]
         padded_input_line = padlist(input_line, padlen=maxseqlen, pad_token=self.pad_tok)
         inp = self.tokenizer.convert_tokens_to_ids(padded_input_line)
@@ -389,6 +390,6 @@ class BertPassage(Extractor):
 
             self.qid2toks = {qid: self.tokenizer.tokenize(topics[qid]) for qid in tqdm(qids, desc="querytoks")}
             self.docid2passages = {
-                docid: self._prepare_doc_psgs(self.index.get_doc(docid).split())
+                docid: self._prepare_doc_psgs(self.index.get_doc(docid))
                 for docid in tqdm(sorted(docids), "extract passages")}
             self.cache_state(qids, docids)
