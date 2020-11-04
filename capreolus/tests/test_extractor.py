@@ -632,7 +632,7 @@ def test_bertpassage_id2vec(monkeypatch):
         "that",
         "we",
         "now",
-        "had"
+        "had",
         "[SEP]",
     ]
     assert tokenizer.convert_ids_to_tokens(data["pos_bert_input"][1]) == [
@@ -701,7 +701,7 @@ def test_bertpassage_id2vec(monkeypatch):
         "that",
         "we",
         "now",
-        "had"
+        "had",
         "[SEP]",
     ]
     assert tokenizer.convert_ids_to_tokens(data["neg_bert_input"][1]) == [
