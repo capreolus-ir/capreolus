@@ -33,7 +33,8 @@ class TFBERTMaxP_Class(tf.keras.layers.Layer):
             self.bert = TFAutoModelForSequenceClassification.from_pretrained("Capreolus/bert-base-msmarco")
         else:
             self.bert = TFAutoModelForSequenceClassification.from_pretrained(
-                config["pretrained"], hidden_dropout_prob=config["hidden_dropout_prob"])
+                config["pretrained"], hidden_dropout_prob=config["hidden_dropout_prob"]
+            )
 
         self.config = config
 
@@ -58,7 +59,7 @@ class TFBERTMaxP_Class(tf.keras.layers.Layer):
         maxseqlen = self.extractor.config["maxseqlen"]
 
         passage_position = tf.reduce_sum(posdoc_mask * posdoc_seg, axis=-1)  # (B, P)
-        passage_mask = tf.cast(tf.greater(passage_position, 5), tf.float32)  # (B, P) 
+        passage_mask = tf.cast(tf.greater(passage_position, 5), tf.float32)  # (B, P)
 
         posdoc_bert_input = tf.reshape(posdoc_bert_input, [batch_size * num_passages, maxseqlen])
         posdoc_mask = tf.reshape(posdoc_mask, [batch_size * num_passages, maxseqlen])
@@ -103,7 +104,9 @@ class TFBERTMaxP(Reranker):
     ]
     config_spec = [
         ConfigOption(
-            "pretrained", "bert-base-uncased", "Pretrained model: bert-base-uncased, bert-base-msmarco, electra-base-msmarco, or HuggingFace supported models",
+            "pretrained",
+            "bert-base-uncased",
+            "Pretrained model: bert-base-uncased, bert-base-msmarco, electra-base-msmarco, or HuggingFace supported models",
         ),
         ConfigOption("aggregation", "max"),
         ConfigOption("hidden_dropout_prob", 0.1, "The dropout probability of BERT-like model's hidden layers."),

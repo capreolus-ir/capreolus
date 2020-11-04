@@ -41,16 +41,17 @@ class BertPassage(Extractor):
         ConfigOption("stride", 100, "Stride"),
         ConfigOption("sentences", False, "Use a sentence tokenizer to form passages"),
         ConfigOption("numpassages", 16, "Number of passages per document"),
-        ConfigOption("prob", 0.1,
-            "The probability that a passage from the document will be used for training "
-            "(the first passage is always used)",
+        ConfigOption(
+            "prob",
+            0.1,
+            "The probability that a passage from the document will be used for training " "(the first passage is always used)",
         ),
     ]
 
     def build(self):
         self.pad = self.tokenizer.bert_tokenizer.pad_token_id
         self.cls = self.tokenizer.bert_tokenizer.cls_token_id
-        self.sep  = self.tokenizer.bert_tokenizer.sep_token_id
+        self.sep = self.tokenizer.bert_tokenizer.sep_token_id
 
         self.pad_tok = self.tokenizer.bert_tokenizer.pad_token
         self.cls_tok = self.tokenizer.bert_tokenizer.cls_token
@@ -103,7 +104,11 @@ class BertPassage(Extractor):
 
         posdoc, negdoc, negdoc_id = sample["pos_bert_input"], sample["neg_bert_input"], sample["negdocid"]
         posdoc_mask, posdoc_seg, negdoc_mask, negdoc_seg = (
-            sample["pos_mask"], sample["pos_seg"], sample["neg_mask"], sample["neg_seg"])
+            sample["pos_mask"],
+            sample["pos_seg"],
+            sample["neg_mask"],
+            sample["neg_seg"],
+        )
         label = sample["label"]
         features = []
 
@@ -231,15 +236,13 @@ class BertPassage(Extractor):
             if i >= len(doc):
                 assert len(passages) > 0, f"no passage can be built from empty document {doc}"
                 break
-            passages.append(doc[i: i + self.config["passagelen"]])
+            passages.append(doc[i : i + self.config["passagelen"]])
 
         n_actual_passages = len(passages)
         # If we have a more passages than required, keep the first and last, and sample from the rest
         if n_actual_passages > numpassages:
             if numpassages > 1:
-                passages = [passages[0]] + \
-                           list(self.rng.choice(passages[1:-1], numpassages - 2, replace=False)) + \
-                           [passages[-1]]
+                passages = [passages[0]] + list(self.rng.choice(passages[1:-1], numpassages - 2, replace=False)) + [passages[-1]]
             else:
                 passages = [passages[0]]
         else:
@@ -305,8 +308,8 @@ class BertPassage(Extractor):
 
             self.qid2toks = {qid: self.tokenizer.tokenize(topics[qid]) for qid in tqdm(qids, desc="querytoks")}
             self.docid2passages = {
-                docid: self._prepare_doc_psgs(self.index.get_doc(docid))
-                for docid in tqdm(sorted(docids), "extract passages")}
+                docid: self._prepare_doc_psgs(self.index.get_doc(docid)) for docid in tqdm(sorted(docids), "extract passages")
+            }
             self.cache_state(qids, docids)
 
     def exist(self):
@@ -392,4 +395,3 @@ class BertPassage(Extractor):
         data["neg_mask"] = np.array(neg_bert_masks, dtype=np.long)
         data["neg_seg"] = np.array(neg_bert_segs, dtype=np.long)
         return data
-
