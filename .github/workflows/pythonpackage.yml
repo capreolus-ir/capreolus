@@ -25,6 +25,9 @@ jobs:
         run: |
           conda activate capreolus
           conda install pytorch=1.6 torchvision cpuonly -c pytorch
+          conda list
+          # hack to force h5py version. 3.0 is not compatible with TF. 
+          pip install h5py==2.10.0
           # checks every test except those marked download
           pytest -vvv
 

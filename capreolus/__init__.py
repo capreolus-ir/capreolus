@@ -5,7 +5,7 @@ from pathlib import Path
 from profane import ConfigOption, Dependency, ModuleBase, constants, config_list_to_dict, module_registry
 
 
-__version__ = "0.2.4.1"
+__version__ = "0.2.5"
 
 
 ### set constants used by capreolus and profane ###

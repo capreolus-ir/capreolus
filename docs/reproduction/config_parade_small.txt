@@ -6,15 +6,16 @@ rank.searcher.name=bm25staticrob04yang19
 
 reranker.name=parade
 reranker.aggregation=transformer
+reranker.pretrained=electra-base-msmarco
 
 reranker.extractor.usecache=True
-reranker.extractor.maxseqlen=150
+reranker.extractor.maxseqlen=125
 reranker.extractor.numpassages=12
-reranker.extractor.passagelen=125
-reranker.extractor.stride=25
+reranker.extractor.passagelen=100
+reranker.extractor.stride=75
 reranker.extractor.prob=0.1
 
-reranker.trainer.niters=36
+reranker.trainer.niters=4
 reranker.trainer.itersize=256
 reranker.trainer.validatefreq=2
 reranker.trainer.batch=2

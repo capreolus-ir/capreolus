@@ -24,10 +24,10 @@ class EmbedText(Extractor):
         Dependency(key="tokenizer", module="tokenizer", name="anserini"),
     ]
     config_spec = [
-        ConfigOption("embeddings", "glove6b"),
+        ConfigOption("embeddings", "glove6b", "embeddings to use: fasttext, glove6b, glove6b.50d, or w2vnews"),
         ConfigOption("calcidf", True),
-        ConfigOption("maxqlen", 4),
-        ConfigOption("maxdoclen", 800),
+        ConfigOption("maxqlen", 4, "maximum query length (shorter will be truncated)"),
+        ConfigOption("maxdoclen", 800, "maximum doc length (shorter will be truncated)"),
     ]
 
     pad_tok = "<pad>"
