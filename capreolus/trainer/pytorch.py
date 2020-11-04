@@ -32,10 +32,6 @@ class PytorchTrainer(Trainer):
     ]
     config_keys_not_in_path = ["fastforward", "boardname"]
 
-    dependencies = [
-        Dependency(key="benchmark", module="benchmark"),
-    ]
-
     def build(self):
         # sanity checks
         if self.config["batch"] < 1:

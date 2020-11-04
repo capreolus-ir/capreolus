@@ -22,7 +22,6 @@ class EmbedText(Extractor):
             key="index", module="index", name="anserini", default_config_overrides={"indexstops": True, "stemmer": "none"}
         ),
         Dependency(key="tokenizer", module="tokenizer", name="anserini"),
-        Dependency(key="benchmark", module="benchmark"),
     ]
     config_spec = [
         ConfigOption("embeddings", "glove6b"),

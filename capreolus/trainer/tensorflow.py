@@ -50,9 +50,6 @@ class TensorflowTrainer(Trainer):
         ConfigOption("decay", 0.96),
         ConfigOption("decaytype", None),
     ]
-    dependencies = [
-        Dependency(key="benchmark", module="benchmark"),
-    ]
 
     config_keys_not_in_path = ["fastforward", "boardname", "usecache", "tpuname", "tpuzone", "storage"]
 
