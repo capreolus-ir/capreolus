@@ -56,90 +56,6 @@ class BertPassage(Extractor):
         self.cls_tok = self.tokenizer.bert_tokenizer.cls_token
         self.sep_tok = self.tokenizer.bert_tokenizer.sep_token
 
-    def exist(self):
-        return hasattr(self, "docid2passages") and len(self.docid2passages)
-
-    def preprocess(self, qids, docids, topics):
-        if self.exist():
-            return
-
-        self.index.create_index()
-        self.qid2toks = defaultdict(list)
-        self.docid2passages = None
-
-        self._build_vocab(qids, docids, topics)
-
-    def _prepare_bert_input(self, query_toks, psg_toks):
-        maxseqlen = self.config["maxseqlen"]
-        while (len(query_toks) + len(psg_toks)) >= (maxseqlen - 3):
-            # remove the last token from the longer sequence
-            if len(query_toks) > len(psg_toks):
-                query_toks = query_toks[:-1]
-            else:
-                psg_toks = psg_toks[:-1]
-
-        psg_toks = " ".join(psg_toks).split()  # in case that psg_toks is np.array
-        input_line = [self.cls_tok] + query_toks + [self.sep_tok] + psg_toks + [self.sep_tok]
-        padded_input_line = padlist(input_line, padlen=maxseqlen, pad_token=self.pad_tok)
-        inp = self.tokenizer.convert_tokens_to_ids(padded_input_line)
-        mask = [1] * len(input_line) + [0] * (len(padded_input_line) - len(input_line))
-        seg = [0] * (len(query_toks) + 2) + [1] * (len(padded_input_line) - len(query_toks) - 2)
-        return inp, mask, seg
-
-    def id2vec(self, qid, posid, negid=None, label=None):
-        """
-        See parent class for docstring
-        """
-        assert label is not None
-        maxseqlen = self.config["maxseqlen"]
-        numpassages = self.config["numpassages"]
-
-        query_toks = self.qid2toks[qid]
-        pos_bert_inputs, pos_bert_masks, pos_bert_segs = [], [], []
-
-        # N.B: The passages in self.docid2passages are not bert tokenized
-        pos_passages = self.docid2passages[posid]
-        for tokenized_passage in pos_passages:
-            inp, mask, seg = self._prepare_bert_input(query_toks, tokenized_passage)
-            pos_bert_inputs.append(inp)
-            pos_bert_masks.append(mask)
-            pos_bert_segs.append(seg)
-
-        # TODO: Rename the posdoc key in the below dict to 'pos_bert_input'
-        data = {
-            "qid": qid,
-            "posdocid": posid,
-            "pos_bert_input": np.array(pos_bert_inputs, dtype=np.long),
-            "pos_mask": np.array(pos_bert_masks, dtype=np.long),
-            "pos_seg": np.array(pos_bert_segs, dtype=np.long),
-            "negdocid": "",
-            "neg_bert_input": np.zeros((numpassages, maxseqlen), dtype=np.long),
-            "neg_mask": np.zeros((numpassages, maxseqlen), dtype=np.long),
-            "neg_seg": np.zeros((numpassages, maxseqlen), dtype=np.long),
-            "label": np.repeat(np.array([label], dtype=np.float32), numpassages, 0),
-        }
-
-        if not negid:
-            return data
-
-        neg_bert_inputs, neg_bert_masks, neg_bert_segs = [], [], []
-        neg_passages = self.docid2passages[negid]
-
-        for tokenized_passage in neg_passages:
-            inp, mask, seg = self._prepare_bert_input(query_toks, tokenized_passage)
-            neg_bert_inputs.append(inp)
-            neg_bert_masks.append(mask)
-            neg_bert_segs.append(seg)
-
-        if not neg_bert_inputs:
-            raise MissingDocError(qid, negid)
-
-        data["negdocid"] = negid
-        data["neg_bert_input"] = np.array(neg_bert_inputs, dtype=np.long)
-        data["neg_mask"] = np.array(neg_bert_masks, dtype=np.long)
-        data["neg_seg"] = np.array(neg_bert_segs, dtype=np.long)
-        return data
-
     def load_state(self, qids, docids):
         cache_fn = self.get_state_cache_file_path(qids, docids)
         logger.debug("loading state from: %s", cache_fn)
@@ -392,3 +308,88 @@ class BertPassage(Extractor):
                 docid: self._prepare_doc_psgs(self.index.get_doc(docid))
                 for docid in tqdm(sorted(docids), "extract passages")}
             self.cache_state(qids, docids)
+
+    def exist(self):
+        return hasattr(self, "docid2passages") and len(self.docid2passages)
+
+    def preprocess(self, qids, docids, topics):
+        if self.exist():
+            return
+
+        self.index.create_index()
+        self.qid2toks = defaultdict(list)
+        self.docid2passages = None
+
+        self._build_vocab(qids, docids, topics)
+
+    def _prepare_bert_input(self, query_toks, psg_toks):
+        maxseqlen = self.config["maxseqlen"]
+        while (len(query_toks) + len(psg_toks)) >= (maxseqlen - 3):
+            # remove the last token from the longer sequence
+            if len(query_toks) > len(psg_toks):
+                query_toks = query_toks[:-1]
+            else:
+                psg_toks = psg_toks[:-1]
+
+        psg_toks = " ".join(psg_toks).split()  # in case that psg_toks is np.array
+        input_line = [self.cls_tok] + query_toks + [self.sep_tok] + psg_toks + [self.sep_tok]
+        padded_input_line = padlist(input_line, padlen=maxseqlen, pad_token=self.pad_tok)
+        inp = self.tokenizer.convert_tokens_to_ids(padded_input_line)
+        mask = [1] * len(input_line) + [0] * (len(padded_input_line) - len(input_line))
+        seg = [0] * (len(query_toks) + 2) + [1] * (len(padded_input_line) - len(query_toks) - 2)
+        return inp, mask, seg
+
+    def id2vec(self, qid, posid, negid=None, label=None):
+        """
+        See parent class for docstring
+        """
+        assert label is not None
+        maxseqlen = self.config["maxseqlen"]
+        numpassages = self.config["numpassages"]
+
+        query_toks = self.qid2toks[qid]
+        pos_bert_inputs, pos_bert_masks, pos_bert_segs = [], [], []
+
+        # N.B: The passages in self.docid2passages are not bert tokenized
+        pos_passages = self.docid2passages[posid]
+        for tokenized_passage in pos_passages:
+            inp, mask, seg = self._prepare_bert_input(query_toks, tokenized_passage)
+            pos_bert_inputs.append(inp)
+            pos_bert_masks.append(mask)
+            pos_bert_segs.append(seg)
+
+        # TODO: Rename the posdoc key in the below dict to 'pos_bert_input'
+        data = {
+            "qid": qid,
+            "posdocid": posid,
+            "pos_bert_input": np.array(pos_bert_inputs, dtype=np.long),
+            "pos_mask": np.array(pos_bert_masks, dtype=np.long),
+            "pos_seg": np.array(pos_bert_segs, dtype=np.long),
+            "negdocid": "",
+            "neg_bert_input": np.zeros((numpassages, maxseqlen), dtype=np.long),
+            "neg_mask": np.zeros((numpassages, maxseqlen), dtype=np.long),
+            "neg_seg": np.zeros((numpassages, maxseqlen), dtype=np.long),
+            "label": np.repeat(np.array([label], dtype=np.float32), numpassages, 0),
+        }
+
+        if not negid:
+            return data
+
+        neg_bert_inputs, neg_bert_masks, neg_bert_segs = [], [], []
+        neg_passages = self.docid2passages[negid]
+
+        for tokenized_passage in neg_passages:
+            inp, mask, seg = self._prepare_bert_input(query_toks, tokenized_passage)
+            neg_bert_inputs.append(inp)
+            neg_bert_masks.append(mask)
+            neg_bert_segs.append(seg)
+
+        if not neg_bert_inputs:
+            raise MissingDocError(qid, negid)
+
+        data["negdocid"] = negid
+        data["neg_bert_input"] = np.array(neg_bert_inputs, dtype=np.long)
+        data["neg_mask"] = np.array(neg_bert_masks, dtype=np.long)
+        data["neg_seg"] = np.array(neg_bert_segs, dtype=np.long)
+        return data
+
