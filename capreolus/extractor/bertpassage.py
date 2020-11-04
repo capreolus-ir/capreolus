@@ -324,7 +324,7 @@ class BertPassage(Extractor):
 
     def _prepare_bert_input(self, query_toks, psg_toks):
         maxseqlen = self.config["maxseqlen"]
-        while (len(query_toks) + len(psg_toks)) >= (maxseqlen - 3):
+        while (len(query_toks) + len(psg_toks)) > (maxseqlen - 3):
             # remove the last token from the longer sequence
             if len(query_toks) > len(psg_toks):
                 query_toks = query_toks[:-1]
