@@ -244,7 +244,7 @@ class BertPassage(Extractor):
                 passages = [passages[0]]
         else:
             # Pad until we have the required number of passages
-            passages.extend([self.pad_tok for _ in range(numpassages - n_actual_passages)])
+            passages.extend([[self.pad_tok] for _ in range(numpassages - n_actual_passages)])
 
         assert len(passages) == self.config["numpassages"]
         return passages
