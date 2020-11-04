@@ -96,6 +96,13 @@ class TFBERTMaxP_Class(tf.keras.layers.Layer):
 
 @Reranker.register
 class TFBERTMaxP(Reranker):
+    """
+    TensorFlow implementation of BERT-MaxP.
+
+    Deeper Text Understanding for IR with Contextual Neural Language Modeling. Zhuyun Dai and Jamie Callan. SIGIR 2019.
+    https://arxiv.org/pdf/1905.09217.pdf
+    """
+
     module_name = "TFBERTMaxP"
 
     dependencies = [

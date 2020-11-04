@@ -106,6 +106,14 @@ class TFParade_Class(tf.keras.layers.Layer):
 
 @Reranker.register
 class TFParade(Reranker):
+    """
+    TensorFlow implementation of PARADE.
+
+    PARADE: Passage Representation Aggregation for Document Reranking.
+    Canjia Li, Andrew Yates, Sean MacAvaney, Ben He, and Yingfei Sun. arXiv 2020.
+    https://arxiv.org/pdf/2008.09093.pdf
+    """
+
     module_name = "parade"
 
     dependencies = [
@@ -116,7 +124,7 @@ class TFParade(Reranker):
         ConfigOption(
             "pretrained", "bert-base-uncased", "Pretrained model: bert-base-uncased, bert-base-msmarco, or electra-base-msmarco"
         ),
-        ConfigOption("aggregation", "maxp"),
+        ConfigOption("aggregation", "transformer"),
     ]
 
     def build_model(self):

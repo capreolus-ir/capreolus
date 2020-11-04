@@ -26,11 +26,11 @@ class SlowEmbedText(Extractor):
         Dependency(key="tokenizer", module="tokenizer", name="anserini"),
     ]
     config_spec = [
-        ConfigOption("embeddings", "glove6b"),
-        ConfigOption("zerounk", False),
+        ConfigOption("embeddings", "glove6b", "embeddings to use: fasttext, glove6b, glove6b.50d, or w2vnews"),
+        ConfigOption("zerounk", False, "use all zeros for unknown terms (True) or generate a random embedding (False)"),
         ConfigOption("calcidf", True),
-        ConfigOption("maxqlen", 4),
-        ConfigOption("maxdoclen", 800),
+        ConfigOption("maxqlen", 4, "maximum query length (shorter will be truncated)"),
+        ConfigOption("maxdoclen", 800, "maximum doc length (shorter will be truncated)"),
         ConfigOption("usecache", False),
     ]
 
