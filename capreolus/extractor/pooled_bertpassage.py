@@ -2,7 +2,6 @@ import tensorflow as tf
 import numpy as np
 
 from capreolus import Dependency, ConfigOption, get_logger
-from capreolus.utils.common import padlist
 from capreolus.utils.exceptions import MissingDocError
 from . import Extractor
 from .bertpassage import BertPassage
@@ -121,7 +120,6 @@ class PooledBertPassage(BertPassage):
         """
         assert label is not None
 
-        tokenizer = self.tokenizer
         maxseqlen = self.config["maxseqlen"]
         numpassages = self.config["numpassages"]
 
