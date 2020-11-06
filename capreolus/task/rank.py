@@ -34,6 +34,7 @@ class RankTask(Task):
 
     def search(self):
         if self.config["allfolds"]:
+            # REF-TODO this is a dict, but normal output is a path ...
             return self.search_all_folds()
 
         search_results_folder = self.searcher.fit()
