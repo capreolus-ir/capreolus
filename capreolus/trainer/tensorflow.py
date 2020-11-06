@@ -10,7 +10,7 @@ import numpy as np
 from tqdm import tqdm
 
 from capreolus.searcher import Searcher
-from capreolus import ConfigOption, Dependency, evaluator
+from capreolus import ConfigOption, evaluator
 from capreolus.trainer import Trainer
 from capreolus.utils.loginit import get_logger
 from capreolus.reranker.common import TFPairwiseHingeLoss, TFCategoricalCrossEntropyLoss, KerasPairModel, KerasTripletModel
@@ -50,7 +50,6 @@ class TensorflowTrainer(Trainer):
         ConfigOption("decay", 0.96),
         ConfigOption("decaytype", None),
     ]
-
     config_keys_not_in_path = ["fastforward", "boardname", "usecache", "tpuname", "tpuzone", "storage"]
 
     def build(self):
@@ -255,9 +254,7 @@ class TensorflowTrainer(Trainer):
             return "{0}/capreolus_tfrecords/{1}_{2}".format(self.config["storage"], dataset.get_hash(), total_samples)
         else:
             base_path = self.get_cache_path()
-            path = "{0}/{1}_{2}".format(base_path, dataset.get_hash(), total_samples)
-            logger.info(f"tf record path: {path}")
-            return path
+            return "{0}/{1}_{2}".format(base_path, dataset.get_hash(), total_samples)
 
     def find_cached_tf_records(self, dataset, required_sample_count):
         """
