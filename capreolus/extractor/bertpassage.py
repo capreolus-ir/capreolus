@@ -328,10 +328,10 @@ class BertPassage(Extractor):
 
     def _prepare_bert_input(self, query_toks, psg_toks):
         maxseqlen, maxqlen = self.config["maxseqlen"], self.config["maxseqlen"]
-        if len(query_toks) > maxqlen: 
-            query_toks = query_toks[:maxqlen] 
+        if len(query_toks) > maxqlen:
+            query_toks = query_toks[:maxqlen]
             logger.warning(f"Truncating query from {len(query_toks)} to {maxqlen}")
-        psg_toks = psg_toks[:maxseqlen-len(query_toks)-3]  
+        psg_toks = psg_toks[: maxseqlen - len(query_toks) - 3]
 
         psg_toks = " ".join(psg_toks).split()  # in case that psg_toks is np.array
         input_line = [self.cls_tok] + query_toks + [self.sep_tok] + psg_toks + [self.sep_tok]
