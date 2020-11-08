@@ -36,6 +36,7 @@ class BertPassage(Extractor):
 
     config_spec = [
         ConfigOption("maxseqlen", 256, "Maximum input length for BERT"),
+        ConfigOption("maxqlen", 10, "Maximum input length for BERT"),
         ConfigOption("usecache", False, "Should the extracted features be cached?"),
         ConfigOption("passagelen", 150, "Length of the extracted passage"),
         ConfigOption("stride", 100, "Stride"),
@@ -326,13 +327,11 @@ class BertPassage(Extractor):
         self._build_vocab(qids, docids, topics)
 
     def _prepare_bert_input(self, query_toks, psg_toks):
-        maxseqlen = self.config["maxseqlen"]
-        while (len(query_toks) + len(psg_toks)) > (maxseqlen - 3):
-            # remove the last token from the longer sequence
-            if len(query_toks) > len(psg_toks):
-                query_toks = query_toks[:-1]
-            else:
-                psg_toks = psg_toks[:-1]
+        maxseqlen, maxqlen = self.config["maxseqlen"], self.config["maxseqlen"]
+        if len(query_toks) > maxqlen: 
+            query_toks = query_toks[:maxqlen] 
+            logger.warning(f"Truncating query from {len(query_toks)} to {maxqlen}")
+        psg_toks = psg_toks[:maxseqlen-len(query_toks)-3]  
 
         psg_toks = " ".join(psg_toks).split()  # in case that psg_toks is np.array
         input_line = [self.cls_tok] + query_toks + [self.sep_tok] + psg_toks + [self.sep_tok]
