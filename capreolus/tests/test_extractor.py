@@ -627,12 +627,12 @@ def test_bertpassage_id2vec(monkeypatch):
         "##by",
         "doo",
         "where",
+        "are",
+        "you",
         "[SEP]",
         "o",
         "that",
         "we",
-        "now",
-        "had",
         "[SEP]",
     ]
     assert tokenizer.convert_ids_to_tokens(data["pos_bert_input"][1]) == [
@@ -644,12 +644,12 @@ def test_bertpassage_id2vec(monkeypatch):
         "##by",
         "doo",
         "where",
+        "are",
+        "you",
         "[SEP]",
         "now",
         "had",
         "here",
-        "but",
-        "one",
         "[SEP]",
     ]
     assert tokenizer.convert_ids_to_tokens(data["pos_bert_input"][2]) == [
@@ -661,12 +661,12 @@ def test_bertpassage_id2vec(monkeypatch):
         "##by",
         "doo",
         "where",
+        "are",
+        "you",
         "[SEP]",
         "but",
         "one",
         "ten",
-        "thousand",
-        "of",
         "[SEP]",
     ]
     assert tokenizer.convert_ids_to_tokens(data["pos_bert_input"][3]) == [
@@ -678,12 +678,12 @@ def test_bertpassage_id2vec(monkeypatch):
         "##by",
         "doo",
         "where",
+        "are",
+        "you",
         "[SEP]",
         "thousand",
         "of",
         "those",
-        "men",
-        "in",
         "[SEP]",
     ]
 
@@ -696,12 +696,12 @@ def test_bertpassage_id2vec(monkeypatch):
         "##by",
         "doo",
         "where",
+        "are",
+        "you",
         "[SEP]",
         "o",
         "that",
         "we",
-        "now",
-        "had",
         "[SEP]",
     ]
     assert tokenizer.convert_ids_to_tokens(data["neg_bert_input"][1]) == [
@@ -713,12 +713,12 @@ def test_bertpassage_id2vec(monkeypatch):
         "##by",
         "doo",
         "where",
+        "are",
+        "you",
         "[SEP]",
         "now",
         "had",
         "here",
-        "but",
-        "one",
         "[SEP]",
     ]
     assert tokenizer.convert_ids_to_tokens(data["neg_bert_input"][2]) == [
@@ -730,12 +730,12 @@ def test_bertpassage_id2vec(monkeypatch):
         "##by",
         "doo",
         "where",
+        "are",
+        "you",
         "[SEP]",
         "but",
         "one",
         "ten",
-        "thousand",
-        "of",
         "[SEP]",
     ]
     assert tokenizer.convert_ids_to_tokens(data["neg_bert_input"][3]) == [
@@ -747,12 +747,12 @@ def test_bertpassage_id2vec(monkeypatch):
         "##by",
         "doo",
         "where",
+        "are",
+        "you",
         "[SEP]",
         "thousand",
         "of",
         "those",
-        "men",
-        "in",
         "[SEP]",
     ]
 
