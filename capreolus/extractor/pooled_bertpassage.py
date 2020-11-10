@@ -28,7 +28,8 @@ class PooledBertPassage(BertPassage):
     ]
 
     config_spec = [
-        ConfigOption("maxseqlen", 256, "Maximum input length for BERT"),
+        ConfigOption("maxseqlen", 256, "Maximum input length (query+document)"),
+        ConfigOption("maxqlen", 20, "Maximum query length"),
         ConfigOption("usecache", False, "Should the extracted features be cached?"),
         ConfigOption("passagelen", 150, "Length of the extracted passage"),
         ConfigOption("stride", 100, "Stride"),

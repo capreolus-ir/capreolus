@@ -35,8 +35,8 @@ class BertPassage(Extractor):
     ]
 
     config_spec = [
-        ConfigOption("maxseqlen", 256, "Maximum input length for BERT"),
-        ConfigOption("maxqlen", 10, "Maximum input length for BERT"),
+        ConfigOption("maxseqlen", 256, "Maximum input length (query+document)"),
+        ConfigOption("maxqlen", 20, "Maximum query length"),
         ConfigOption("usecache", False, "Should the extracted features be cached?"),
         ConfigOption("passagelen", 150, "Length of the extracted passage"),
         ConfigOption("stride", 100, "Stride"),
@@ -327,7 +327,7 @@ class BertPassage(Extractor):
         self._build_vocab(qids, docids, topics)
 
     def _prepare_bert_input(self, query_toks, psg_toks):
-        maxseqlen, maxqlen = self.config["maxseqlen"], self.config["maxseqlen"]
+        maxseqlen, maxqlen = self.config["maxseqlen"], self.config["maxqlen"]
         if len(query_toks) > maxqlen:
             query_toks = query_toks[:maxqlen]
             logger.warning(f"Truncating query from {len(query_toks)} to {maxqlen}")
