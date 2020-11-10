@@ -34,6 +34,10 @@ class PytorchTrainer(Trainer):
             "True to load data in a separate thread; faster but causes PyTorch deadlock in some environments",
         ),
         ConfigOption("boardname", "default"),
+        ConfigOption("warmupsteps", 0),
+        ConfigOption("decay", 0.0, "learning rate decay"),
+        ConfigOption("decaystep", 3),
+        ConfigOption("decaytype", None),
     ]
     config_keys_not_in_path = ["fastforward", "boardname"]
 
@@ -87,6 +91,8 @@ class PytorchTrainer(Trainer):
                 batches_since_update = 0
                 self.optimizer.step()
                 self.optimizer.zero_grad()
+                # REF-TODO: save scheduler state along with optimizer
+                self.lr_scheduler.step()
 
             if (bi + 1) % batches_per_epoch == 0:
                 break
@@ -182,6 +188,8 @@ class PytorchTrainer(Trainer):
         self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
         model = reranker.model.to(self.device)
         self.optimizer = torch.optim.Adam(filter(lambda param: param.requires_grad, model.parameters()), lr=self.config["lr"])
+        # REF-TODO how to handle interactions between fastforward and schedule?
+        self.lr_scheduler = torch.optim.lr_scheduler.LambdaLR(self.optimizer, self.lr_multiplier)
 
         if self.config["softmaxloss"]:
             self.loss = pair_softmax_loss
