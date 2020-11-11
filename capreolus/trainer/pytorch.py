@@ -39,7 +39,7 @@ class PytorchTrainer(Trainer):
         ConfigOption("decay", 0.0, "learning rate decay"),
         ConfigOption("decaystep", 3),
         ConfigOption("decaytype", None),
-        ConfigOption("amp", False, "Use automatic mixed precision"),
+        ConfigOption("amp", None, "Automatic mixed precision mode; one of: None, train, pred, both"),
     ]
     config_keys_not_in_path = ["boardname"]
 
@@ -59,6 +59,9 @@ class PytorchTrainer(Trainer):
 
         if self.config["lr"] <= 0:
             raise ValueError("lr must be > 0")
+
+        if self.config["amp"] not in (None, "train", "pred", "both"):
+            raise ValueError("amp must be one of: None, train, pred, both")
 
         torch.manual_seed(self.config["seed"])
         torch.cuda.manual_seed_all(self.config["seed"])
@@ -83,7 +86,7 @@ class PytorchTrainer(Trainer):
         for bi, batch in tqdm(enumerate(train_dataloader), desc="Training iteration", total=batches_per_epoch):
             batch = {k: v.to(self.device) if not isinstance(v, list) else v for k, v in batch.items()}
 
-            with self.amp_autocast():
+            with self.amp_train_autocast():
                 doc_scores = reranker.score(batch)
                 loss = self.loss(doc_scores)
 
@@ -199,11 +202,21 @@ class PytorchTrainer(Trainer):
         model = reranker.model.to(self.device)
         self.optimizer = torch.optim.Adam(filter(lambda param: param.requires_grad, model.parameters()), lr=self.config["lr"])
 
-        if self.config["amp"]:
-            self.amp_autocast = torch.cuda.amp.autocast
+        if self.config["amp"] == "both":
+            self.amp_train_autocast = torch.cuda.amp.autocast
+            self.amp_pred_autocast = torch.cuda.amp.autocast
             self.scaler = torch.cuda.amp.GradScaler()
+        elif self.config["amp"] == "train":
+            self.amp_train_autocast = torch.cuda.amp.autocast
+            self.amp_pred_autocast = contextlib.nullcontext
+            self.scaler = torch.cuda.amp.GradScaler()
+        elif self.config["amp"] == "pred":
+            self.amp_train_autocast = contextlib.nullcontext
+            self.amp_pred_autocast = torch.cuda.amp.autocast
+            self.scaler = None
         else:
-            self.amp_autocast = contextlib.nullcontext
+            self.amp_train_autocast = contextlib.nullcontext
+            self.amp_pred_autocast = contextlib.nullcontext
             self.scaler = None
 
         # REF-TODO how to handle interactions between fastforward and schedule?
@@ -325,7 +338,8 @@ class PytorchTrainer(Trainer):
                     batch = self.fill_incomplete_batch(batch)
 
                 batch = {k: v.to(self.device) if not isinstance(v, list) else v for k, v in batch.items()}
-                scores = reranker.test(batch)
+                with self.amp_pred_autocast():
+                    scores = reranker.test(batch)
                 scores = scores.view(-1).cpu().numpy()
                 for qid, docid, score in zip(batch["qid"], batch["posdocid"], scores):
                     # Need to use float16 because pytrec_eval's c function call crashes with higher precision floats
