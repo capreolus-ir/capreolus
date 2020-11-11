@@ -225,3 +225,8 @@ class PredSampler(Sampler, torch.utils.data.IterableDataset):
         for qid in self.qid_to_docids:
             for docid in self.qid_to_docids[qid]:
                 yield qid, docid
+
+
+from profane import import_all_modules
+
+import_all_modules(__file__, __package__)
