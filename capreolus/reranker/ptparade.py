@@ -53,7 +53,7 @@ class PTParade_Class(nn.Module):
         batch_size = expanded_cls.shape[0]
         tiled_initial_cls = self.initial_cls_embedding.repeat(batch_size, 1)
         merged_cls = torch.cat((tiled_initial_cls.view(batch_size, 1, self.bert.config.hidden_size), expanded_cls), dim=1)
-        merged_cls += self.full_position_embeddings
+        merged_cls = merged_cls + self.full_position_embeddings
 
         (transformer_out_1,) = self.transformer_layer_1(merged_cls, None, None, None)
         (transformer_out_2,) = self.transformer_layer_2(transformer_out_1, None, None, None)
