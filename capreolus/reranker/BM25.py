@@ -40,18 +40,17 @@ class BM25Reranker(Reranker):
         # query = self["extractor"].qid2toks[d["qid"]]
         # avg_doc_len = self["extractor"].query_avg_doc_len[d["qid"]]
         # return [self.score_document(query, d["qid"], docid, avg_doc_len) for docid in [d["posdocid"]]] not used any more since it is more optimal to use tf
-        querytp = self["extractor"].qid_termprob[d["qid"]]
-        querylen = self["extractor"].qidlen[d["qid"]]
+        querytf = self["extractor"].qid_termprob[d["qid"]]
         avg_doc_len = self["extractor"].query_avg_doc_len[d["qid"]]
-        return [self.score_document_tf(querytp, querylen, d["qid"], docid, avg_doc_len) for docid in [d["posdocid"]]]
+        return [self.score_document_tf(querytf, d["qid"], docid, avg_doc_len) for docid in [d["posdocid"]]]
 
 
-    def score_document_tf(self, querytp, querylen, qid, docid, avg_doc_len):
+    def score_document_tf(self, querytf, qid, docid, avg_doc_len):
         uid = qid.split("_")[1]
         term_scores = {}
         scoresum = 0
-        for term, tp in querytp.items():
-            termscore = self.score_document_term(term, docid, avg_doc_len, round(tp * querylen)) #query: tf = tp*len
+        for term, tf in querytf.items():
+            termscore = self.score_document_term(term, docid, avg_doc_len, tf)
             if termscore != 0 and self["extractor"].domain_vocab_specific is not None:
                 termscore *= self["extractor"].domain_term_weight[term]
             if termscore != 0 and self["extractor"].filter_query is not None:

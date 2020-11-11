@@ -1,18 +1,18 @@
 import json
 import logging
 import os
-import pickle
 import re
 from collections import defaultdict, Counter
-from os import listdir
 from os.path import join, exists
 
 import numpy as np
 from pymagnitude import Magnitude, MagnitudeUtils
 
-from capreolus.registry import ModuleBase, RegisterableModule, Dependency, CACHE_BASE_PATH, PACKAGE_PATH
+from capreolus.extractor.common import get_file_name, get_amazon_plus_user_profile_term_probs_tf, \
+    get_G_tfs_amazon_raw_from_file, get_G_dfs_amazon_raw_from_file, load_all_domains_corpus, get_all_user_profiles
+from capreolus.registry import ModuleBase, RegisterableModule, Dependency, CACHE_BASE_PATH
 from capreolus.utils.loginit import get_logger
-from capreolus.utils.common import padlist, get_file_name, load_trec_topics
+from capreolus.utils.common import padlist
 from capreolus.utils.exceptions import MissingDocError
 
 logger = get_logger(__name__)
@@ -251,19 +251,19 @@ class EmbedText(Extractor):
 
     def get_domain_specific_term_weights(self, corpus_name, tf_or_df, docids):
         if tf_or_df == 'tf':
-            domain_term_probs = self.get_domain_term_probs_tf(docids)
+            domain_term_probs = self.get_domain_term_probabilities_tf(docids)
             if corpus_name == "all_domains":
-                G_probs = self.get_G_probs_all_corpus_tfs()
+                G_probs = self.get_G_probabilities_all_corpus_tfs()
             elif corpus_name == 'amazon':
-                G_probs = self.get_G_probs_amazon_tfs()
+                G_probs = self.get_G_probabilities_amazon_tfs()
             else:
                 raise ValueError(f"domain-term specific weighting not implemented for {corpus_name}")
         elif tf_or_df == 'df':
             domain_term_probs = self.get_domain_term_probs_df(docids)
             if corpus_name == "all_domains":
-                G_probs = self.get_G_probs_all_corpus_dfs()
+                G_probs = self.get_G_probabilities_all_corpus_dfs()
             elif corpus_name == 'amazon':
-                G_probs = self.get_G_probs_amazon_dfs()
+                G_probs = self.get_G_probabilities_amazon_dfs()
             else:
                 raise ValueError(f"domain-term specific weighting not implemented for {corpus_name}")
 
@@ -274,9 +274,9 @@ class EmbedText(Extractor):
 
         return term_weights
 
-    def get_G_probs_amazon_dfs(self):
-        G_dfs_raw, G_num_docs_raw = DocStats.get_G_dfs_amazon_raw_from_file()
-        all_docs = DocStats.load_all_domains_corpus()
+    def get_G_probabilities_amazon_dfs(self):
+        G_dfs_raw, G_num_docs_raw = get_G_dfs_amazon_raw_from_file()
+        all_docs = load_all_domains_corpus()
 
         d_num_docs = 0
         dfs = {}
@@ -293,8 +293,8 @@ class EmbedText(Extractor):
         G_probs = {k: (v + (G_dfs_raw[k] if k in G_dfs_raw else 0)) / G_num_docs for k, v in dfs.items()}
         return G_probs
 
-    def get_G_probs_all_corpus_dfs(self):
-        all_docs = DocStats.load_all_domains_corpus()
+    def get_G_probabilities_all_corpus_dfs(self):
+        all_docs = load_all_domains_corpus()
         tokenized_docs = {}
         all_vocab = set()
         for domain in ['movie', 'travel_wikivoyage', 'food', 'book']:
@@ -314,8 +314,8 @@ class EmbedText(Extractor):
         G_probs = {k: (v / G_num_docs) for k, v in dfs.items()}
         return G_probs
 
-    def get_G_probs_all_corpus_tfs(self):
-        all_docs = DocStats.load_all_domains_corpus()
+    def get_G_probabilities_all_corpus_tfs(self):
+        all_docs = load_all_domains_corpus()
         corpus = ""
         for domain in ['movie', 'travel_wikivoyage', 'food', 'book']:
             corpus += '\n'.join(all_docs[domain].values())
@@ -323,13 +323,13 @@ class EmbedText(Extractor):
 
         doc = self["tokenizer"].tokenize(corpus)
         doc_counter = Counter(doc)
-        G_probs = {k: (v / len(doc)) for k, v in doc_counter.items()}
+        G_probabilities = {k: (v / len(doc)) for k, v in doc_counter.items()}
         G_len = len(doc)
-        return G_probs
+        return G_probabilities
 
-    def get_G_probs_amazon_tfs(self):
-        G_tfs_raw, G_len_raw = DocStats.get_G_tfs_amazon_raw_from_file()
-        all_docs = DocStats.load_all_domains_corpus()
+    def get_G_probabilities_amazon_tfs(self):
+        G_tfs_raw, G_len_raw = get_G_tfs_amazon_raw_from_file()
+        all_docs = load_all_domains_corpus()
         corpus = ""
         for domain in ['movie', 'travel_wikivoyage', 'food', 'book']:
             corpus += '\n'.join(all_docs[domain].values())
@@ -341,15 +341,15 @@ class EmbedText(Extractor):
         G_len = len(doc) + G_len_raw
         return G_probs
 
-    def get_domain_term_probs_tf(self, docids):
+    def get_domain_term_probabilities_tf(self, docids):
         corpus = ""
         for docid in docids:
             corpus += self["index"].get_doc(docid)
             corpus += '\n'
         doc = self["tokenizer"].tokenize(corpus)
         doc_counter = Counter(doc)
-        domain_term_probs = {k: (v / len(doc)) for k, v in doc_counter.items()}
-        return domain_term_probs
+        domain_term_probabilities = {k: (v / len(doc)) for k, v in doc_counter.items()}
+        return domain_term_probabilities
 
     def get_domain_term_probs_df(self, docids):
         tokenized_docs = {}
@@ -367,33 +367,33 @@ class EmbedText(Extractor):
                 if v in tokenized_docs[d]:
                     dfs[v] += 1
 
-        domain_probs = {k: (v / len(docids)) for k, v in dfs.items()}
-        return domain_probs
+        domain_probabilities = {k: (v / len(docids)) for k, v in dfs.items()}
+        return domain_probabilities
 
     def get_profile_term_weight_topic(self, qids, profiletype):
-        s_probs = self.get_all_users_profile_term_probs_tf(profiletype, qids)
+        s_probabilities = self.get_all_users_profile_term_probs_tf(profiletype, qids)
 
         if self.cfg["query_cut"] == 'unique_topic-alltopics':
             baseprofiletype = "chatprofile" if profiletype.startswith("chatprofile") else "basicprofile"
-            G_probs = self.get_all_users_profile_term_probs_tf(baseprofiletype, qids)
+            G_probabilities = self.get_all_users_profile_term_probs_tf(baseprofiletype, qids)
         elif self.cfg["query_cut"] == 'unique_topic-amazon':
             baseprofiletype = "chatprofile" if profiletype.startswith("chatprofile") else "basicprofile"
-            G_probs = self.get_amazon_plus_all_users_profile_term_probs_tf(baseprofiletype, qids)
+            G_probabilities = self.get_amazon_plus_all_users_profile_term_probs_tf(baseprofiletype, qids)
 
         term_weights = {}
-        for term, p in s_probs.items():
-            term_weights[term] = p / G_probs[term]
+        for term, p in s_probabilities.items():
+            term_weights[term] = p / G_probabilities[term]
         return term_weights
 
     def get_profile_term_weight_user(self, qids, profiletype):
         baseprofiletype = "chatprofile" if profiletype.startswith("chatprofile") else "basicprofile"
         voc, user_profile_tfs, total_len, user_profile_len = self.get_all_users_profiles_term_frequency(baseprofiletype, qids)
 
-        s_user_probs = {}
+        s_user_probabilities = {}
         for uid in user_profile_tfs:
-            s_user_probs[uid] = {}
+            s_user_probabilities[uid] = {}
             for term, tf in user_profile_tfs[uid].items():
-                s_user_probs[uid][term] = tf / user_profile_len[uid]
+                s_user_probabilities[uid][term] = tf / user_profile_len[uid]
 
         if self.cfg["query_cut"] == 'unique_user-allusers':
             G_probs = {}
@@ -404,18 +404,18 @@ class EmbedText(Extractor):
                         nu += tfs[term]
                 G_probs[term] = nu / total_len
             user_term_weights = {}
-            for uid in s_user_probs:
+            for uid in s_user_probabilities:
                 user_term_weights[uid] = {}
-                for term, p in s_user_probs[uid].items():
+                for term, p in s_user_probabilities[uid].items():
                     user_term_weights[uid][term] = p / G_probs[term]
             return user_term_weights
         elif self.cfg["query_cut"] == 'unique_user-amazon':
-            G_tfs_raw, G_len_raw = DocStats.get_G_tfs_amazon_raw_from_file()
+            G_tfs_raw, G_len_raw = get_G_tfs_amazon_raw_from_file()
             user_term_weights = {}
-            for uid in s_user_probs.keys():
+            for uid in s_user_probabilities.keys():
                 user_term_weights[uid] = {}
-                G_probs = DocStats.get_amazon_plus_user_profile_term_probs_tf(G_tfs_raw, G_len_raw, user_profile_tfs[uid], user_profile_len[uid])
-                for term, p in s_user_probs[uid].items():
+                G_probs = get_amazon_plus_user_profile_term_probs_tf(G_tfs_raw, G_len_raw, user_profile_tfs[uid], user_profile_len[uid])
+                for term, p in s_user_probabilities[uid].items():
                     user_term_weights[uid][term] = p / G_probs[term]
             return user_term_weights
 
@@ -432,7 +432,7 @@ class EmbedText(Extractor):
 
     def get_amazon_plus_all_users_profile_term_probs_tf(self, profiletype, qids):
         voc, user_profile_tfs, profs_len, _ = self.get_all_users_profiles_term_frequency(profiletype, qids)
-        G_tfs_raw, G_len_raw = DocStats.get_G_tfs_amazon_raw_from_file()
+        G_tfs_raw, G_len_raw = get_G_tfs_amazon_raw_from_file()
         total_len = profs_len + G_len_raw
 
         G_probs = {}
@@ -450,7 +450,7 @@ class EmbedText(Extractor):
 
     def get_all_users_profiles_term_frequency(self, profiletype, qids):
         benchmarkdir = "/GW/PKB/work/data_personalization/TREC_format_quselection_C_final_profiles"  # TODO change these when rebasing to use the benchmark as inherited dependency
-        userfullprofiles = DocStats.get_all_user_profiles(join(benchmarkdir, f"alldomains_topics.{profiletype}.txt"))
+        userfullprofiles = get_all_user_profiles(join(benchmarkdir, f"alldomains_topics.{profiletype}.txt"))
 
         user_profile_tfs = {}
         user_profile_len = {}
@@ -545,26 +545,27 @@ class DocStats(Extractor):
         "index": Dependency(module="index", name="anserini", config_overrides={"indexstops": True, "stemmer": "none"}),
         "backgroundindex": Dependency(module="index", name="anserinicorpus", config_overrides={"indexcorpus": "anserini0.9-index.clueweb09.englishonly.nostem.stopwording"}),##the other one could be:anserini0.9-index.clueweb09.englishonly.porterstem.stopwording
         "tokenizer": Dependency(module="tokenizer", name="anserini", config_overrides={"keepstops": False}),
-#        "tokenizerquery": Dependency(module="tokenizer", name="spacy", config_overrides={"keepstops": False, 'removesmallerlen': 2}), #removesmallerlen is actually only used for user profile (not the short queries) but I cannot separate them
-       # "tokenizer": Dependency(module="tokenizer", name="spacy", config_overrides={"keepstops": False}),
+#        "tokenizerquery": Dependency(module="tokenizer", name="spacy", config_overrides={"keepstops": False, 'removesmallerlen': 2}), #only in PES20 paper: removesmallerlen is actually only used for user profile (not the short queries) but I cannot separate them
+       # "tokenizer": Dependency(module="tokenizer", name="spacy", config_overrides={"keepstops": False}), # in PES20 paper I used spacy
         "entitylinking": Dependency(module="entitylinking", name='ambiversenlu'),
         "domainrelatedness": Dependency(module='entitydomainrelatedness', name='wiki2vecrepresentative',),
         "entityspecificity": Dependency(module='entityspecificity', name='higherneighborhoodmean',),
 #       "entityspecificity": Dependency(module='entityspecificity', name='twohoppath'),
     }
+    #TODO: maybe make one dependency like entity-handling? and then move these into that one.? maybe not.
 
     @staticmethod
     def config():
         entity_strategy = None
-        filter_query = None # this is profile term weighting (on profiles)
+        query_vocab_specific = None # this is profile term weighting (on profiles)
         domain_vocab_specific = None # this is domain term weighting (on docs)
         onlyNamedEntities = False
 
         if entity_strategy not in [None, 'all', 'domain', 'specific_domainrel']:  # TODO add strategies
             raise ValueError(f"invalid entity usage strategy (or not implemented): {entity_strategy}")
 
-        if filter_query is not None and not re.match(r"^(topic-alltopics|topic-amazon|user-allusers|user-amazon)_tf_k(\d+|-1)$", filter_query):
-            raise ValueError(f"invalid filter query: {filter_query}")
+        if query_vocab_specific is not None and not re.match(r"^(topic-alltopics|topic-amazon|user-allusers|user-amazon)_tf_k(\d+|-1)$", query_vocab_specific):
+            raise ValueError(f"invalid query_vocab_specific: {query_vocab_specific}")
 
         # cutting for this and fq, would be setting the rest of the weights = 0, as we multiply them by termscore
         # k-1 means that we are reweighting and not cutting them! TODO Add other G corpuses
@@ -576,8 +577,8 @@ class DocStats(Extractor):
         return self.cfg["entity_strategy"]
 
     @property
-    def filter_query(self):
-        return self.cfg["filter_query"]
+    def query_vocab_specific(self):
+        return self.cfg["query_vocab_specific"]
 
     @property
     def domain_vocab_specific(self):
@@ -636,14 +637,14 @@ class DocStats(Extractor):
         if not exists(self.get_selected_entities_cache_path()):
             os.makedirs(self.get_selected_entities_cache_path(), exist_ok=True)
 
-        # self.qid2toks = {}
-        self.qidlen = {}
+        self.qid_term_frequencies = {}
         self.qid_termprob = {}
         for qid in qids:
             qtext = topics[qid]
             qdesc = []
             qentities = self.get_entities(qid)  # {"NE": [...], "C": [...]}
 
+            ###TODO if debug...
             # since I just wanted to use this as a debug step, I didn't read from it when it was available
             entoutf = join(self.get_selected_entities_cache_path(), get_file_name(qid, self["entitylinking"].get_benchmark_name(), self["entitylinking"].get_benchmark_querytype()))
             if not exists(entoutf):
@@ -658,28 +659,27 @@ class DocStats(Extractor):
                 qdesc.append(self["entitylinking"].get_entity_description(e))
 
             qtext += "\n" + "\n".join(qdesc)
+            qtext = qtext.strip()
             query = self["tokenizer"].tokenize(qtext)
 
-            # self.qid2toks[qid] = query
-            self.qidlen[qid] = len(query)
             q_count = Counter(query)
+            self.qid_term_frequencies[qid] = {k: v for k, v in q_count.items()}
             self.qid_termprob[qid] = {k: (v/len(query)) for k, v in q_count.items()}
 
-        # TODO re-implement this part carefully! it's not as easy as it sounds.
-        #  user-specific is another thing... than using amazon or topic-specific.
         # Here we calculate profile-term-weights based on the profile_topic or profile_user
         # Later we cut based on these weights or multiply the weight by the term-score (we are doing the latter now)
-        if self.filter_query is not None:
+        # cutting could be as easy as setting other weights to zero.
+        if self.query_vocab_specific is not None:
             logger.debug("creating profile term weights")
-            m = re.match(r"^(topic|user)-(alltopics|amazon|allusers)_tf_k(\d+|-1)$", self.filter_query)
+            m = re.match(r"^(topic|user)-(alltopics|amazon|allusers)_tf_k(\d+|-1)$", self.query_vocab_specific)
             if m:
                 filter_by = m.group(1)
                 filter_by_corpus = m.group(2)
                 filter_topk = int(m.group(3))  # TODO implement
                 if filter_by == 'topic' and filter_by_corpus == 'allusers':
-                    raise ValueError(f"invalid filter query: {self.filter_query}")
+                    raise ValueError(f"invalid query_vocab_specific: {self.query_vocab_specific}")
                 if filter_by == 'user' and filter_by_corpus not in ['allusers', 'amazon']:
-                    raise ValueError(f"invalid filter query: {self.filter_query}")
+                    raise ValueError(f"invalid query_vocab_specific: {self.query_vocab_specific}")
                 self.profile_term_weight_by = m.group(1)
                 self.profile_term_weight_by_corpus = m.group(2)
                 filter_topk = int(m.group(3)) #TODO implement
@@ -689,8 +689,9 @@ class DocStats(Extractor):
                 elif self.profile_term_weight_by == 'user':
                     self.profile_term_weight = self.get_profile_term_weight_user(qids) #uid -> term -> weight
 
+        # since I just wanted to use this as a debug step, I didn't read from it when it was available
         for qid in qids:
-            if logger.level in [logging.DEBUG, logging.NOTSET]:  # since I just wanted to use this as a debug step, I didn't read from it when it was available
+            if logger.level in [logging.DEBUG, logging.NOTSET]:
                 tfoutf = join(self.get_profile_term_prob_cache_path(), get_file_name(qid, self["entitylinking"].get_benchmark_name(), self["entitylinking"].get_benchmark_querytype()))
                 if not exists(tfoutf):
                     with open(tfoutf, 'w') as f:
@@ -789,18 +790,18 @@ class DocStats(Extractor):
                     user_term_weights[uid][term] = p / G_probs[term]
             return user_term_weights
         elif self.profile_term_weight_by_corpus == 'amazon':
-            G_tfs_raw, G_len_raw = DocStats.get_G_tfs_amazon_raw_from_file()
+            G_tfs_raw, G_len_raw = get_G_tfs_amazon_raw_from_file()
             user_term_weights = {}
             for uid in s_user_probs.keys():
                 user_term_weights[uid] = {}
-                G_probs = DocStats.get_amazon_plus_user_profile_term_probs_tf(G_tfs_raw, G_len_raw, user_profile_tfs[uid], user_profile_len[uid])
+                G_probs = get_amazon_plus_user_profile_term_probs_tf(G_tfs_raw, G_len_raw, user_profile_tfs[uid], user_profile_len[uid])
                 for term, p in s_user_probs[uid].items():
                     user_term_weights[uid][term] = p / G_probs[term]
             return user_term_weights
 
     def get_all_users_profiles_term_frequency(self, profiletype, qids):
         benchmarkdir = "/GW/PKB/work/data_personalization/TREC_format_quselection_C_final_profiles"  # TODO change these when rebasing to use the benchmark as inherited dependency
-        userfullprofiles = DocStats.get_all_user_profiles(join(benchmarkdir, f"alldomains_topics.{profiletype}.txt"))
+        userfullprofiles = get_all_user_profiles(join(benchmarkdir, f"alldomains_topics.{profiletype}.txt"))
 
         user_profile_tfs = {}
         user_profile_len = {}
@@ -835,17 +836,6 @@ class DocStats(Extractor):
 
         return voc, user_profile_tfs, total_len, user_profile_len
 
-    @staticmethod
-    def get_all_user_profiles(queryfn):
-        topics = load_trec_topics(queryfn)['title']
-        profiles = {}
-        for quid in topics:
-            uid = quid.split("_")[-1]
-            if uid not in profiles:
-                profiles[uid] = topics[quid]
-
-        return profiles
-
     def get_all_users_profile_term_probs_tf(self, profiletype, qids):
         voc, user_profile_tfs, total_len, _ = self.get_all_users_profiles_term_frequency(profiletype, qids)
         allusers_term_probs = {}
@@ -859,7 +849,7 @@ class DocStats(Extractor):
 
     def get_amazon_plus_all_users_profile_term_probs_tf(self, profiletype, qids):
         voc, user_profile_tfs, profs_len, _ = self.get_all_users_profiles_term_frequency(profiletype, qids)
-        G_tfs_raw, G_len_raw = DocStats.get_G_tfs_amazon_raw_from_file()
+        G_tfs_raw, G_len_raw = get_G_tfs_amazon_raw_from_file()
         total_len = profs_len + G_len_raw
 
         G_probs = {}
@@ -871,19 +861,6 @@ class DocStats(Extractor):
             if term in G_tfs_raw:
                 nu += G_tfs_raw[term]
 
-            G_probs[term] = nu / total_len
-
-        return G_probs
-
-    @staticmethod
-    def get_amazon_plus_user_profile_term_probs_tf(G_tfs_raw, G_len_raw, profile_tfs, profile_len):
-        total_len = profile_len + G_len_raw
-
-        G_probs = {}
-        for term, tf in profile_tfs.items():
-            nu = tf
-            if term in G_tfs_raw:
-                nu += G_tfs_raw[term]
             G_probs[term] = nu / total_len
 
         return G_probs
@@ -946,67 +923,8 @@ class DocStats(Extractor):
         domain_probs = {k: (v / len(docids)) for k, v in dfs.items()}
         return domain_probs
 
-    @staticmethod
-    def getcontent(file):
-        txt = []
-        content = False
-        with open(file) as f:
-            for l in f:
-                if l.strip().startswith("<TEXT>"):
-                    content = True
-                if l.strip().endswith("</TEXT>"):
-                    content = False
-                    l = l.replace("</TEXT>", '').strip()
-                    if len(l) > 0:
-                        txt.append(l)
-
-                if content:
-                    l = l.replace("<TEXT>", '').strip()
-                    if len(l) > 0:
-                        txt.append(l)
-
-        txt = '\n'.join(txt)
-        return txt
-
-    @staticmethod
-    def load_all_domains_corpus():
-        domain_documents = {}
-
-        for domain in ['movie', 'travel_wikivoyage', 'food', 'book']:
-            doc_dir = f"/GW/PKB/work/data_personalization/TREC_format_quselection_C_final_profiles/documents/{domain}/"
-
-            domain_documents[domain] = {}
-
-            files = listdir(doc_dir)
-            for fn in files:
-                fid = fn[:-4]
-                txt = DocStats.getcontent(join(doc_dir, fn))
-                domain_documents[domain][fid] = txt
-        return domain_documents
-
-    @staticmethod
-    def get_G_tfs_amazon_raw_from_file():
-        amazonfile = PACKAGE_PATH / "data" / "corpus_stats" / "amazon_reviews_term_freq"
-        if exists(amazonfile):
-            G_tfs = pickle.load(open(amazonfile, "rb"))
-            G_len = 0
-            for v, tf in G_tfs.items():
-                G_len += tf
-            return G_tfs, G_len
-        RuntimeError(f"{amazonfile} does not exist!")
-
-    @staticmethod
-    def get_G_dfs_amazon_raw_from_file():
-        amazonfile = PACKAGE_PATH / "data" / "corpus_stats" / "amazon_reviews_doc_freq"
-        if exists(amazonfile):
-            data = pickle.load(open(amazonfile, "rb"))
-            G_dfs = data["G_dfs"]
-            G_num_docs = data["G_num_docs"]
-            return G_dfs, G_num_docs
-        RuntimeError(f"{amazonfile} does not exist!")
-
     def get_G_probs_all_corpus_tfs(self):
-        all_docs = DocStats.load_all_domains_corpus()
+        all_docs = load_all_domains_corpus()
         corpus = ""
         for domain in ['movie', 'travel_wikivoyage', 'food', 'book']:
             corpus += '\n'.join(all_docs[domain].values())
@@ -1019,8 +937,8 @@ class DocStats(Extractor):
         return G_probs
 
     def get_G_probs_amazon_tfs(self):
-        G_tfs_raw, G_len_raw = DocStats.get_G_tfs_amazon_raw_from_file()
-        all_docs = DocStats.load_all_domains_corpus()
+        G_tfs_raw, G_len_raw = get_G_tfs_amazon_raw_from_file()
+        all_docs = load_all_domains_corpus()
         corpus = ""
         for domain in ['movie', 'travel_wikivoyage', 'food', 'book']:
             corpus += '\n'.join(all_docs[domain].values())
@@ -1033,8 +951,8 @@ class DocStats(Extractor):
         return G_probs
 
     def get_G_probs_amazon_dfs(self):
-        G_dfs_raw, G_num_docs_raw = DocStats.get_G_dfs_amazon_raw_from_file()
-        all_docs = DocStats.load_all_domains_corpus()
+        G_dfs_raw, G_num_docs_raw = get_G_dfs_amazon_raw_from_file()
+        all_docs = load_all_domains_corpus()
 
         d_num_docs = 0
         dfs = {}
@@ -1052,7 +970,7 @@ class DocStats(Extractor):
         return G_probs
     
     def get_G_probs_all_corpus_dfs(self):
-        all_docs = DocStats.load_all_domains_corpus()
+        all_docs = load_all_domains_corpus()
         tokenized_docs = {}
         all_vocab = set()
         for domain in ['movie', 'travel_wikivoyage', 'food', 'book']:
@@ -1137,21 +1055,21 @@ class DocStatsEmbedding(DocStats):
     @staticmethod
     def config():
         entity_strategy = None
-        filter_query = None # this is profile term weighting (on profiles)
+        query_vocab_specific = None # this is profile term weighting (on profiles)
         domain_vocab_specific = None # this is domain term weighting (on docs)
         onlyNamedEntities = False
 
         if entity_strategy not in [None, 'all', 'domain', 'specific_domainrel']:  # TODO add strategies
             raise ValueError(f"invalid entity usage strategy (or not implemented): {entity_strategy}")
 
-        if filter_query is not None and not re.match(r"^(topic-alltopics|topic-amazon|user-allusers|user-amazon)_tf_k(\d+|-1)$", filter_query):
-            raise ValueError(f"invalid filter query: {filter_query}")
+        if query_vocab_specific is not None and not re.match(r"^(topic-alltopics|topic-amazon|user-allusers|user-amazon)_tf_k(\d+|-1)$", query_vocab_specific):
+            raise ValueError(f"invalid query_vocab_specific: {query_vocab_specific}")
 
 
         # k-1 means that we are reweighting and not cutting them! TODO Add other G corpuses
         if domain_vocab_specific is not None and not re.match(r"^(all_domains|amazon)_(tf|df)_k(\d+|-1)$", domain_vocab_specific):
             raise ValueError(f"invalid domain vocab specific {domain_vocab_specific}")
-        
+
         embeddings = "w2vnews"
 
     def _get_pretrained_emb(self):
