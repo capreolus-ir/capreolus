@@ -65,7 +65,7 @@ def load_trec_topics(queryfn):
     if len(title) > 0:
         out["title"] = {qid: " ".join(terms) for qid, terms in title.items()}
     if len(desc) > 0:
-        out["desc"] = {qid: " ".join(terms) for qid, terms in desc.items()}
+        out["desc"] = {qid: " ".join(terms).replace("Description: ", "") for qid, terms in desc.items()}
     if len(narr) > 0:
         out["narr"] = {qid: " ".join(terms) for qid, terms in narr.items()}
 

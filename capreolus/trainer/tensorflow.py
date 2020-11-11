@@ -34,7 +34,6 @@ class TensorflowTrainer(Trainer):
         ConfigOption("batch", 32, "batch size"),
         ConfigOption("niters", 20, "number of iterations to train for"),
         ConfigOption("itersize", 512, "number of training instances in one iteration"),
-        # ConfigOption("gradacc", 1, "number of batches to accumulate over before updating weights"),
         ConfigOption("bertlr", 2e-5, "learning rate for bert parameters"),
         ConfigOption("lr", 0.001, "learning rate"),
         ConfigOption("decay", 0.0, "learning rate decay"),
@@ -282,7 +281,7 @@ class TensorflowTrainer(Trainer):
 
                 # TODO: Add checks to make sure that the child dir is not empty
                 if prefix == required_prefix and sample_count >= required_sample_count:
-                    return "{0}{1}".format(parent_dir, child_dir)
+                    return "{0}/{1}".format(parent_dir.rstrip("/"), child_dir)
 
             return None
 
@@ -296,8 +295,7 @@ class TensorflowTrainer(Trainer):
 
         if self.config["usecache"] and cached_tf_record_dir is not None:
             filenames = tf.io.gfile.listdir(cached_tf_record_dir)
-            filenames = ["{0}{1}".format(cached_tf_record_dir, name) for name in filenames]
-
+            filenames = ["{0}/{1}".format(cached_tf_record_dir.rstrip("/"), name) for name in filenames]
             return self.load_tf_train_records_from_file(reranker, filenames, self.config["batch"])
         else:
             tf_record_filenames = self.convert_to_tf_train_record(reranker, dataset)

@@ -1,4 +1,4 @@
-from transformers import BertTokenizerFast
+from transformers import AutoTokenizer
 
 from capreolus import ConfigOption
 
@@ -11,7 +11,8 @@ class BertTokenizer(Tokenizer):
     config_spec = [ConfigOption("pretrained", "bert-base-uncased", "pretrained model to load vocab from")]
 
     def build(self):
-        self.bert_tokenizer = BertTokenizerFast.from_pretrained(self.config["pretrained"])
+        self.bert_tokenizer = AutoTokenizer.from_pretrained(self.config["pretrained"], use_fast=True)
+        # see supported tokenizers here: https://huggingface.co/transformers/model_doc/auto.html#transformers.AutoTokenizer
 
     def convert_tokens_to_ids(self, tokens):
         return self.bert_tokenizer.convert_tokens_to_ids(tokens)
