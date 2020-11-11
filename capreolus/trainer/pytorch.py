@@ -1,3 +1,4 @@
+import contextlib
 import math
 import os
 import time
@@ -38,8 +39,9 @@ class PytorchTrainer(Trainer):
         ConfigOption("decay", 0.0, "learning rate decay"),
         ConfigOption("decaystep", 3),
         ConfigOption("decaytype", None),
+        ConfigOption("amp", False, "Use automatic mixed precision"),
     ]
-    config_keys_not_in_path = ["fastforward", "boardname"]
+    config_keys_not_in_path = ["boardname"]
 
     def build(self):
         # sanity checks
@@ -78,23 +80,31 @@ class PytorchTrainer(Trainer):
         batches_per_epoch = (self.config["itersize"] // self.config["batch"]) or 1
         batches_per_step = self.config["gradacc"]
 
-        for bi, batch in tqdm(enumerate(train_dataloader), desc="Iter progression", total=batches_per_epoch):
-            # TODO make sure _prepare_batch_with_strings equivalent is happening inside the sampler
+        for bi, batch in tqdm(enumerate(train_dataloader), desc="Training iteration", total=batches_per_epoch):
             batch = {k: v.to(self.device) if not isinstance(v, list) else v for k, v in batch.items()}
-            doc_scores = reranker.score(batch)
-            loss = self.loss(doc_scores)
+
+            with self.amp_autocast():
+                doc_scores = reranker.score(batch)
+                loss = self.loss(doc_scores)
+
             iter_loss.append(loss)
+            loss = self.scaler.scale(loss) if self.scaler else loss
             loss.backward()
 
             batches_since_update += 1
             if batches_since_update == batches_per_step:
                 batches_since_update = 0
-                self.optimizer.step()
+                # REF-TODO: save scaler state
+                if self.scaler:
+                    self.scaler.step(self.optimizer)
+                    self.scaler.update()
+                else:
+                    self.optimizer.step()
                 self.optimizer.zero_grad()
-                # REF-TODO: save scheduler state along with optimizer
-                self.lr_scheduler.step()
 
             if (bi + 1) % batches_per_epoch == 0:
+                # REF-TODO: save scheduler state along with optimizer
+                self.lr_scheduler.step()
                 break
 
         return torch.stack(iter_loss).mean()
@@ -188,6 +198,14 @@ class PytorchTrainer(Trainer):
         self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
         model = reranker.model.to(self.device)
         self.optimizer = torch.optim.Adam(filter(lambda param: param.requires_grad, model.parameters()), lr=self.config["lr"])
+
+        if self.config["amp"]:
+            self.amp_autocast = torch.cuda.amp.autocast
+            self.scaler = torch.cuda.amp.GradScaler()
+        else:
+            self.amp_autocast = contextlib.nullcontext
+            self.scaler = None
+
         # REF-TODO how to handle interactions between fastforward and schedule?
         self.lr_scheduler = torch.optim.lr_scheduler.LambdaLR(self.optimizer, self.lr_multiplier)
 
@@ -200,30 +218,21 @@ class PytorchTrainer(Trainer):
             train_output_path, dev_output_path
         )
 
-        initial_iter = self.fastforward_training(reranker, weights_output_path, loss_fn) if self.config["fastforward"] else 0
-        logger.info("starting training from iteration %s/%s", initial_iter, self.config["niters"])
-
         num_workers = 1 if self.config["multithread"] else 0
         train_dataloader = torch.utils.data.DataLoader(
             train_dataset, batch_size=self.config["batch"], pin_memory=True, num_workers=num_workers
         )
-        # dataiter = iter(train_dataloader)
-        # sample_input = dataiter.next()
-        # summary_writer.add_graph(
-        #     reranker.model,
-        #     [
-        #         sample_input["query"].to(self.device),
-        #         sample_input["posdoc"].to(self.device),
-        #         sample_input["negdoc"].to(self.device),
-        #     ],
-        # )
+
+        # if we're fastforwarding, set first iteration and load last saved weights
+        initial_iter = self.fastforward_training(reranker, weights_output_path, loss_fn) if self.config["fastforward"] else 0
+        logger.info("starting training from iteration %s/%s", initial_iter + 1, self.config["niters"])
 
         train_loss = []
-        # are we resuming training?
+        # are we resuming training? fastforward loss and data if so
         if initial_iter > 0:
             train_loss = self.load_loss_file(loss_fn)
 
-            # are we done training?
+            # are we done training? if not, fastforward through prior batches
             if initial_iter < self.config["niters"]:
                 logger.debug("fastforwarding train_dataloader to iteration %s", initial_iter)
                 batches_per_epoch = self.config["itersize"] // self.config["batch"]
@@ -236,6 +245,7 @@ class PytorchTrainer(Trainer):
         validation_frequency = self.config["validatefreq"]
         train_start_time = time.time()
         for niter in range(initial_iter, self.config["niters"]):
+            niter = niter + 1  # index from 1
             model.train()
 
             iter_start_time = time.time()
@@ -244,11 +254,12 @@ class PytorchTrainer(Trainer):
             train_loss.append(iter_loss_tensor.item())
             logger.info("iter = %d loss = %f", niter, train_loss[-1])
 
-            # write model weights to file
-            weights_fn = weights_output_path / f"{niter}.p"
-            reranker.save_weights(weights_fn, self.optimizer)
-            # predict performance on dev set
+            # save model weights only when fastforward enabled
+            if self.config["fastforward"]:
+                weights_fn = weights_output_path / f"{niter}.p"
+                reranker.save_weights(weights_fn, self.optimizer)
 
+            # predict performance on dev set
             if niter % validation_frequency == 0:
                 pred_fn = dev_output_path / f"{niter}.run"
                 preds = self.predict(reranker, dev_data, pred_fn)
