@@ -202,21 +202,11 @@ class PytorchTrainer(Trainer):
         model = reranker.model.to(self.device)
         self.optimizer = torch.optim.Adam(filter(lambda param: param.requires_grad, model.parameters()), lr=self.config["lr"])
 
-        if self.config["amp"] == "both":
+        if self.config["amp"] in ("both", "train"):
             self.amp_train_autocast = torch.cuda.amp.autocast
-            self.amp_pred_autocast = torch.cuda.amp.autocast
             self.scaler = torch.cuda.amp.GradScaler()
-        elif self.config["amp"] == "train":
-            self.amp_train_autocast = torch.cuda.amp.autocast
-            self.amp_pred_autocast = contextlib.nullcontext
-            self.scaler = torch.cuda.amp.GradScaler()
-        elif self.config["amp"] == "pred":
-            self.amp_train_autocast = contextlib.nullcontext
-            self.amp_pred_autocast = torch.cuda.amp.autocast
-            self.scaler = None
         else:
             self.amp_train_autocast = contextlib.nullcontext
-            self.amp_pred_autocast = contextlib.nullcontext
             self.scaler = None
 
         # REF-TODO how to handle interactions between fastforward and schedule?
@@ -321,6 +311,11 @@ class PytorchTrainer(Trainer):
            TREC Run
 
         """
+
+        if self.config["amp"] in ("both", "pred"):
+            self.amp_pred_autocast = torch.cuda.amp.autocast
+        else:
+            self.amp_pred_autocast = contextlib.nullcontext
 
         self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
         # save to pred_fn
