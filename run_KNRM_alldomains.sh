@@ -14,7 +14,7 @@ fi
 domain=alldomainsMR
 declare -a doccuttypes=("None" "most_frequent")
 
-assessed_set=random20
+assessed_set=top10
 for doccut in "${doccuttypes[@]}"
 do
     echo "sbatch -p cpu20 -c 4 -a 1-100%20 --mem-per-cpu=64G -o ${logfolder}${step}_KNRM_${domain}_${entitystrategy}_${pipeline}_${doccut}_${assessed_set}.log --open-mode=append run_KNRM_single_fq2_newprofilesadded.sh  $domain $pipeline $entitystrategy $doccut $assessed_set $step;"
