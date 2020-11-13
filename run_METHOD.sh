@@ -1,6 +1,6 @@
 #!/bin/bash
 
-logfolder=/GW/D5data-13/ghazaleh/ranking_outputs/logs_30092020/
+logfolder=`cat paths_env_vars/logfolderpath`
 pipeline=ENTITY_CONCEPT_JOINT_LINKING
 
 method=$1

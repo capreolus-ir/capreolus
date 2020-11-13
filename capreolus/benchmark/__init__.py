@@ -83,7 +83,6 @@ class KITT(Benchmark):
         querytype = "query"
         domain = "book"
         assessed_set = None
-#TODO make decision on this... with hobbies or without, it effects the baseprofile choosing
         if querytype not in ['query', 'basicprofile', 'chatprofile', 'basicprofileMR', 'chatprofileMR',
                               'basicprofile_general',
                               'basicprofile_food', 'basicprofile_travel',

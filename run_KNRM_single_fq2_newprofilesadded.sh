@@ -1,14 +1,14 @@
 #!/bin/bash
-source /GW/PKB/work/ghazaleh/anaconda3/bin/activate myenv
+source `cat paths_env_vars/virtualenv`
 which python
 
-export JAVA_HOME=/home/ghazaleh/Projects_Workspace_new/jdk/jdk-11.0.4
+export JAVA_HOME=`cat paths_env_vars/javahomepath`
 export PATH="$JAVA_HOME/bin:$PATH"
 
 export CAPREOLUS_LOGGING="DEBUG" ;
-export CAPREOLUS_RESULTS=/GW/D5data-13/ghazaleh/ranking_outputs/results_30092020/ ;
-export CAPREOLUS_CACHE=/GW/D5data-13/ghazaleh/ranking_outputs/cache_30092020/ ;
-export PYTHONPATH=/GW/PKB/work/ghazaleh/capreolus/ ;
+export CAPREOLUS_RESULTS=`cat paths_env_vars/capreolusresultpath` ;
+export CAPREOLUS_CACHE=`cat paths_env_vars/capreoluscachepath` ;
+export PYTHONPATH=`cat paths_env_vars/capreoluspythonpath` ;
 
 declare -a profiles=('basicprofileMR' 'chatprofileMR' 'query' 'basicprofile_general' 'chatprofile_general')
 
