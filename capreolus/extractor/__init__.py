@@ -9,7 +9,7 @@ import numpy as np
 from pymagnitude import Magnitude, MagnitudeUtils
 
 from capreolus.extractor.common import get_file_name, get_amazon_plus_user_profile_term_probs_tf, \
-    get_G_tfs_amazon_raw_from_file, get_G_dfs_amazon_raw_from_file, load_all_domains_corpus, get_all_user_profiles
+    get_G_tfs_amazon_raw_from_file, get_G_dfs_amazon_raw_from_file, load_all_domains_corpus, get_all_user_profiles, get_all_users_profiles_term_frequency
 from capreolus.registry import ModuleBase, RegisterableModule, Dependency, CACHE_BASE_PATH
 from capreolus.utils.loginit import get_logger
 from capreolus.utils.common import padlist
@@ -387,7 +387,7 @@ class EmbedText(Extractor):
 
     def get_profile_term_weight_user(self, qids, profiletype):
         baseprofiletype = "chatprofile" if profiletype.startswith("chatprofile") else "basicprofile"
-        voc, user_profile_tfs, total_len, user_profile_len = self.get_all_users_profiles_term_frequency(baseprofiletype, qids)
+        voc, user_profile_tfs, total_len, user_profile_len = get_all_users_profiles_term_frequency(baseprofiletype, qids, self["tokenizer"])
 
         s_user_probabilities = {}
         for uid in user_profile_tfs:
@@ -420,7 +420,7 @@ class EmbedText(Extractor):
             return user_term_weights
 
     def get_all_users_profile_term_probs_tf(self, profiletype, qids):
-        voc, user_profile_tfs, total_len, _ = self.get_all_users_profiles_term_frequency(profiletype, qids)
+        voc, user_profile_tfs, total_len, _ = get_all_users_profiles_term_frequency(profiletype, qids, self["tokenizer"])
         allusers_term_probs = {}
         for term in voc:
             nu = 0
@@ -431,7 +431,7 @@ class EmbedText(Extractor):
         return allusers_term_probs
 
     def get_amazon_plus_all_users_profile_term_probs_tf(self, profiletype, qids):
-        voc, user_profile_tfs, profs_len, _ = self.get_all_users_profiles_term_frequency(profiletype, qids)
+        voc, user_profile_tfs, profs_len, _ = get_all_users_profiles_term_frequency(profiletype, qids, self["tokenizer"])
         G_tfs_raw, G_len_raw = get_G_tfs_amazon_raw_from_file()
         total_len = profs_len + G_len_raw
 
@@ -447,46 +447,6 @@ class EmbedText(Extractor):
             G_probs[term] = nu / total_len
 
         return G_probs
-
-    def get_all_users_profiles_term_frequency(self, profiletype, qids):
-        benchmarkdir = "/GW/PKB/work/data_personalization/TREC_format_quselection_C_final_profiles"  # TODO change these when rebasing to use the benchmark as inherited dependency
-        userfullprofiles = get_all_user_profiles(join(benchmarkdir, f"alldomains_topics.{profiletype}.txt"))
-
-        user_profile_tfs = {}
-        user_profile_len = {}
-        total_len = 0
-        voc = set()
-        for qid in qids:
-            uid = qid.split("_")[-1]
-            if uid not in user_profile_tfs:
-                #TODO if entities were added to this ranker, otherwise delete this part
-
-                # entoutf = join(self.get_selected_entities_cache_path(),
-                #                get_file_name(qid, self["entitylinking"].get_benchmark_name(), profiletype))
-                # if exists(entoutf):
-                #     with open(entoutf, 'r') as f:
-                #         qentities = json.loads(f.read())
-                # else:
-                #     raise RuntimeError(
-                #         "This is not implemented! You should have already have the entities for the full profile in the cache to use this. To this end, you need to run it once for fold1 for example.")
-                #
-                # qdesc = []
-                # for e in qentities["NE"]:
-                #     qdesc.append(self["entitylinking"].get_entity_description(e))
-                # for e in qentities["C"]:
-                #     qdesc.append(self["entitylinking"].get_entity_description(e))
-
-                qtext = userfullprofiles[uid] + "\n"
-                # qtext += "\n".join(qdesc)
-                query = self["tokenizer"].tokenize(qtext)
-                q_count = Counter(query)
-                user_profile_tfs[uid] = q_count
-                user_profile_len[uid] = len(query)
-                total_len += len(query)
-                voc.update(q_count.keys())
-
-        return voc, user_profile_tfs, total_len, user_profile_len
-
 
     def _tok2vec(self, toks):
         # return [self.embeddings[self.stoi[tok]] for tok in toks]
@@ -767,7 +727,8 @@ class DocStats(Extractor):
             raise ValueError(f"{self.profile_term_weight_by} query word filter cannot be used for querytype: {profiletype}")
 
         baseprofiletype = "chatprofile" if profiletype.startswith("chatprofile") else "basicprofile"
-        voc, user_profile_tfs, total_len, user_profile_len = self.get_all_users_profiles_term_frequency(baseprofiletype, qids)
+        voc, user_profile_tfs, total_len, user_profile_len = get_all_users_profiles_term_frequency(baseprofiletype, qids, self["tokenizer"], True,
+                                                                                                        self.get_selected_entities_cache_path(), self["entitylinking"])
 
         s_user_probs = {}
         for uid in user_profile_tfs:
@@ -799,45 +760,9 @@ class DocStats(Extractor):
                     user_term_weights[uid][term] = p / G_probs[term]
             return user_term_weights
 
-    def get_all_users_profiles_term_frequency(self, profiletype, qids):
-        benchmarkdir = "/GW/PKB/work/data_personalization/TREC_format_quselection_C_final_profiles"  # TODO change these when rebasing to use the benchmark as inherited dependency
-        userfullprofiles = get_all_user_profiles(join(benchmarkdir, f"alldomains_topics.{profiletype}.txt"))
-
-        user_profile_tfs = {}
-        user_profile_len = {}
-        total_len = 0
-        voc = set()
-        for qid in qids:
-            uid = qid.split("_")[-1]
-            if uid not in user_profile_tfs:
-                entoutf = join(self.get_selected_entities_cache_path(),
-                               get_file_name(qid, self["entitylinking"].get_benchmark_name(), profiletype))
-                if exists(entoutf):
-                    with open(entoutf, 'r') as f:
-                        qentities = json.loads(f.read())
-                else:
-                    raise RuntimeError(
-                        "This is not implemented! You should have already have the entities for the full profile in the cache to use this. To this end, you need to run it once for fold1 for example.")
-
-                qdesc = []
-                for e in qentities["NE"]:
-                    qdesc.append(self["entitylinking"].get_entity_description(e))
-                for e in qentities["C"]:
-                    qdesc.append(self["entitylinking"].get_entity_description(e))
-
-                qtext = userfullprofiles[uid]
-                qtext += "\n" + "\n".join(qdesc)
-                query = self["tokenizer"].tokenize(qtext)
-                q_count = Counter(query)
-                user_profile_tfs[uid] = q_count
-                user_profile_len[uid] = len(query)
-                total_len += len(query)
-                voc.update(q_count.keys())
-
-        return voc, user_profile_tfs, total_len, user_profile_len
-
     def get_all_users_profile_term_probs_tf(self, profiletype, qids):
-        voc, user_profile_tfs, total_len, _ = self.get_all_users_profiles_term_frequency(profiletype, qids)
+        voc, user_profile_tfs, total_len, _ = get_all_users_profiles_term_frequency(profiletype, qids, self["tokenizer"], True,
+                                                                                    self.get_selected_entities_cache_path(), self["entitylinking"])
         allusers_term_probs = {}
         for term in voc:
             nu = 0
@@ -848,7 +773,8 @@ class DocStats(Extractor):
         return allusers_term_probs
 
     def get_amazon_plus_all_users_profile_term_probs_tf(self, profiletype, qids):
-        voc, user_profile_tfs, profs_len, _ = self.get_all_users_profiles_term_frequency(profiletype, qids)
+        voc, user_profile_tfs, profs_len, _ = get_all_users_profiles_term_frequency(profiletype, qids, self["tokenizer"], True,
+                                                                                    self.get_selected_entities_cache_path(), self["entitylinking"])
         G_tfs_raw, G_len_raw = get_G_tfs_amazon_raw_from_file()
         total_len = profs_len + G_len_raw
 

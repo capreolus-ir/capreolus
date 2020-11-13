@@ -1,5 +1,7 @@
+import json
 import pickle
 from os.path import join, exists
+from collections import Counter
 from os import listdir
 import re
 
@@ -95,3 +97,45 @@ def get_file_name(fid, benchmark_name, benchmark_querytype):
             return re.sub(r'(\d+)_(.+)', r'\g<2>', fid)
     else:
         return fid
+
+### made static:
+def get_all_users_profiles_term_frequency(profiletype, qids, tokenizer, docstat=False,
+                                          entitycachepath=None, entitylinking=None):
+    benchmarkdir = "/GW/PKB/work/data_personalization/TREC_format_quselection_C_final_profiles"  # TODO change these when rebasing to use the benchmark as inherited dependency
+    userfullprofiles = get_all_user_profiles(join(benchmarkdir, f"alldomains_topics.{profiletype}.txt"))
+
+    user_profile_tfs = {}
+    user_profile_len = {}
+    total_len = 0
+    voc = set()
+    for qid in qids:
+        uid = qid.split("_")[-1]
+        if uid not in user_profile_tfs:
+            #TODO entities are not incorporated to textembed extractor,
+            # we just have them for the Docstat. Rm this if if it was added
+            qdesc = []
+            if docstat:
+                entoutf = join(entitycachepath,
+                               get_file_name(qid, entitylinking.get_benchmark_name(), profiletype))
+                if exists(entoutf):
+                    with open(entoutf, 'r') as f:
+                        qentities = json.loads(f.read())
+                else:
+                    raise RuntimeError(
+                        "This is not implemented! You should have already have the entities for the full profile in the cache to use this. To this end, you need to run it once for fold1 for example.")
+
+                for e in qentities["NE"]:
+                    qdesc.append(entitylinking.get_entity_description(e))
+                for e in qentities["C"]:
+                    qdesc.append(entitylinking.get_entity_description(e))
+
+            qtext = userfullprofiles[uid]
+            qtext += "\n" + "\n".join(qdesc)
+            query = tokenizer.tokenize(qtext)
+            q_count = Counter(query)
+            user_profile_tfs[uid] = q_count
+            user_profile_len[uid] = len(query)
+            total_len += len(query)
+            voc.update(q_count.keys())
+
+    return voc, user_profile_tfs, total_len, user_profile_len
