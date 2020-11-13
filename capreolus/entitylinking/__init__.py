@@ -4,7 +4,7 @@ from os.path import exists, join
 
 import json
 
-from capreolus.utils.common import get_file_name
+from capreolus.extractor import get_file_name
 from capreolus.utils.loginit import get_logger
 
 from capreolus.registry import ModuleBase, RegisterableModule, Dependency, PACKAGE_PATH

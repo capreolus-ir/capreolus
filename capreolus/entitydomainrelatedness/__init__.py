@@ -6,8 +6,8 @@ import json
 
 import numpy as np
 
+from capreolus.extractor import get_file_name
 from capreolus.registry import ModuleBase, RegisterableModule, Dependency, PACKAGE_PATH
-from capreolus.utils.common import get_file_name
 
 from capreolus.utils.loginit import get_logger
 
