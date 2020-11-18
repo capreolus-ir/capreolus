@@ -209,6 +209,7 @@ class TensorflowTrainer(Trainer):
                         best_metric = metrics[metric]
                         logger.info("new best dev metric: %0.4f", best_metric)
                         wrapped_model.save_weights("{0}/dev.best".format(train_output_path))
+                        logger.info(f"Checkpoint wroted to {train_output_path}")
 
             if num_batches >= self.config["niters"] * self.config["itersize"]:
                 break
