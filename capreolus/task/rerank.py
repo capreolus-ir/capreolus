@@ -8,6 +8,7 @@ from capreolus.searcher import Searcher
 from capreolus.task import Task
 from capreolus.utils.loginit import get_logger
 
+from time import time
 logger = get_logger(__name__)
 
 
@@ -38,10 +39,17 @@ class RerankTask(Task):
     def train(self):
         fold = self.config["fold"]
 
+        t1 = time()
         self.rank.search()
+        logger.info(f"Time to rank.search: {time() - t1}")
+        t1 = time()
+
         rank_results = self.rank.evaluate()
+        logger.info(f"Time to rank.evaluate: {time() - t1}")
+        t1 = time()
         best_search_run_path = rank_results["path"][fold]
         best_search_run = Searcher.load_trec_run(best_search_run_path)
+        logger.info(f"Time to load best search run: {time() - t1}")
 
         return self.rerank_run(best_search_run, self.get_results_path())
 
