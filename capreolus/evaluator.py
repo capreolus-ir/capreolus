@@ -134,7 +134,8 @@ def search_best_run(runfile_dirs, benchmark, primary_metric, metrics=None, folds
                 runs,
                 benchmark.qrels,
                 [primary_metric],
-                (set(v["train_qids"]) | set(v["predict"]["dev"])),
+                set(v["predict"]["dev"]),
+                # (set(v["train_qids"]) | set(v["predict"]["dev"])),
                 benchmark.relevance_level,
             )[primary_metric]
             if score > best_scores[s][primary_metric]:

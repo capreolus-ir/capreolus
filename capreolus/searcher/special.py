@@ -33,8 +33,8 @@ class MsmarcoPsgSearcherMixin:
         return url.split("/")[-1].replace(".gz", "").replace(".tar", "")
 
     def download_and_prepare_train_set(self, tmp_dir):
-        url = "https://msmarco.blob.core.windows.net/msmarcoranking/qidpidtriples.train.full.tsv.gz",
-        extract_file_name = self.get_fn_from_url()
+        url = "https://msmarco.blob.core.windows.net/msmarcoranking/qidpidtriples.train.full.tsv.gz"
+        extract_file_name = self.get_fn_from_url(url)
         extract_dir = self.benchmark.collection.download_and_extract(url, tmp_dir, expected_fns=extract_file_name)
         runs = self.convert_to_trec_runs(extract_dir / extract_file_name, train=True)
         return runs
