@@ -330,7 +330,7 @@ class TensorflowTrainer(Trainer):
         iter_bar = tqdm(total=required_sample_count)
         for sample in dataset:
             tf_features.extend(reranker.extractor.create_tf_train_feature(sample))
-            if len(tf_features) > 20000:
+            if len(tf_features) == 20000:
                 tf_record_filenames.append(self.write_tf_record_to_file(dir_name, tf_features))
                 tf_features = []
 
@@ -377,7 +377,7 @@ class TensorflowTrainer(Trainer):
 
         for sample in dataset:
             tf_features.extend(reranker.extractor.create_tf_dev_feature(sample))
-            if len(tf_features) > 20000:
+            if len(tf_features) == 20000:
                 tf_record_filenames.append(self.write_tf_record_to_file(dir_name, tf_features))
                 tf_features = []
 
