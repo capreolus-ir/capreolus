@@ -36,7 +36,6 @@ class TensorflowTrainer(Trainer):
         ConfigOption("itersize", 512, "number of training instances in one iteration"),
         ConfigOption("bertlr", 2e-5, "learning rate for bert parameters"),
         ConfigOption("lr", 0.001, "learning rate"),
-        ConfigOption("decay", 0.0, "learning rate decay"),
         ConfigOption("warmupsteps", 0),
         ConfigOption("loss", "pairwise_hinge_loss", "must be one of tfr.losses.RankingLossKey"),
         ConfigOption("validatefreq", 1),
@@ -46,8 +45,8 @@ class TensorflowTrainer(Trainer):
         ConfigOption("tpuzone", None),
         ConfigOption("storage", None),
         ConfigOption("eager", False),
+        ConfigOption("decay", 0.0, "learning rate decay"),
         ConfigOption("decaystep", 3),
-        ConfigOption("decay", 0.96),
         ConfigOption("decaytype", None),
     ]
     config_keys_not_in_path = ["fastforward", "boardname", "usecache", "tpuname", "tpuzone", "storage"]
@@ -209,7 +208,6 @@ class TensorflowTrainer(Trainer):
                         best_metric = metrics[metric]
                         logger.info("new best dev metric: %0.4f", best_metric)
                         wrapped_model.save_weights("{0}/dev.best".format(train_output_path))
-                        logger.info(f"Checkpoint wroted to {train_output_path}")
 
             if num_batches >= self.config["niters"] * self.config["itersize"]:
                 break
@@ -330,7 +328,7 @@ class TensorflowTrainer(Trainer):
         iter_bar = tqdm(total=required_sample_count)
         for sample in dataset:
             tf_features.extend(reranker.extractor.create_tf_train_feature(sample))
-            if len(tf_features) == 20000:
+            if len(tf_features) > 20000:
                 tf_record_filenames.append(self.write_tf_record_to_file(dir_name, tf_features))
                 tf_features = []
 
@@ -377,21 +375,16 @@ class TensorflowTrainer(Trainer):
 
         for sample in dataset:
             tf_features.extend(reranker.extractor.create_tf_dev_feature(sample))
-            if len(tf_features) == 20000:
+            if len(tf_features) > 20000:
                 tf_record_filenames.append(self.write_tf_record_to_file(dir_name, tf_features))
                 tf_features = []
 
         # TPU's require drop_remainder = True. But we cannot drop things from validation dataset
         # As a workaroud, we pad the dataset with the last sample until it reaches the batch size.
-        if len(tf_features) % self.config["batch"]:
-            num_elements_to_add = self.config["batch"] - (len(tf_features) % self.config["batch"])
-            logger.debug("Number of elements to add in the last batch: {}".format(num_elements_to_add))
-            element_to_copy = tf_features[-1]
-            for i in range(num_elements_to_add):
-                tf_features.append(copy(element_to_copy))
-
-        if len(tf_features):
-            tf_record_filenames.append(self.write_tf_record_to_file(dir_name, tf_features))
+        element_to_copy = tf_features[-1]
+        for i in range(self.config["batch"]):
+            tf_features.append(copy(element_to_copy))
+        tf_record_filenames.append(self.write_tf_record_to_file(dir_name, tf_features))
 
         return tf_record_filenames
 
