@@ -82,6 +82,9 @@ class MsmarcoPsg(Searcher, MsmarcoPsgSearcherMixin):
 @Searcher.register
 class MsmarcoPsgBm25(BM25, MsmarcoPsgSearcherMixin):
     module_name = "msmarcopsgbm25"
+    dependencies = [
+        Dependency(key="benchmark", module="benchmark", name="msmarcopsg")
+    ]
 
     def _query_from_file(self, topicsfn, output_path, config):
         final_runfn = output_path / "searcher"
@@ -96,7 +99,8 @@ class MsmarcoPsgBm25(BM25, MsmarcoPsgSearcherMixin):
 
         train_runs = self.download_and_prepare_train_set(tmp_dir=tmp_dir)
         with open(tmp_topicfn, "wt") as f:
-            for qid, title in load_trec_topics(tmp_topicfn)["title"]:
+            # t = load_trec_topics(tmp_topicfn) 
+            for qid, title in load_trec_topics(topicsfn)["title"].items():
                 f.write(topic_to_trectxt(qid, title))
         super()._query_from_file(topicsfn=tmp_topicfn, output_path=tmp_output_dir, config=config)
         dev_test_runfile = tmp_output_dir / "searcher"
