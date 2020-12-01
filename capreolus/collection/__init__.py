@@ -1,6 +1,7 @@
 import os
 import shutil
 import tarfile
+from os.path import join
 
 from capreolus.registry import ModuleBase, RegisterableModule, PACKAGE_PATH
 from capreolus.utils.common import download_file, hash_file
@@ -250,7 +251,7 @@ class PES20(Collection):
 
     @staticmethod
     def config():
-        path = "/GW/NeuralIR/work/PES20/book_documents"
+        path = open(join(PACKAGE_PATH, "..", "paths_env_vars", "pes20benchmarkpath"), 'r').read().strip() + "book_documents"
 
 
 class KITT(Collection):
@@ -263,7 +264,7 @@ class KITT(Collection):
     def config():
         domain = 'book'
 
-        if domain not in ["book", "travel_wikivoyage", "movie", "food", "alldomains", "alldomainsMR"]:
+        if domain not in ["book", "travel", "food", "alldomains"]:
             raise ValueError(f"invalid domain: {domain}")
 
-        path = "/GW/PKB/work/data_personalization/TREC_format_quselection_C_final_profiles/documents/{}".format(domain)
+        path = open(join(PACKAGE_PATH, "..", "paths_env_vars", "YGWYC_experiments_data_path"), 'r').read().strip() + "documents"
