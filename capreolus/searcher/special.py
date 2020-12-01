@@ -94,6 +94,8 @@ class MsmarcoPsgBm25(BM25, MsmarcoPsgSearcherMixin):
         if final_donefn.exists():
             return output_path
 
+        output_path.mkdir(exist_ok=True, parents=True)
+
         tmp_dir = self.get_cache_path() / "tmp"
         tmp_topicfn = tmp_dir / os.path.basename(topicsfn)
         tmp_output_dir = tmp_dir / "BM25_results"

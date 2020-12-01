@@ -17,6 +17,12 @@ from capreolus.reranker.common import TFPairwiseHingeLoss, TFCategoricalCrossEnt
 
 logger = get_logger(__name__)
 
+from tensorflow.python.client import device_lib
+
+def get_available_gpus():
+    local_device_protos = device_lib.list_local_devices()
+    return [x.name for x in local_device_protos if x.device_type == 'GPU']
+
 
 @Trainer.register
 class TensorflowTrainer(Trainer):
@@ -67,6 +73,8 @@ class TensorflowTrainer(Trainer):
             tf.config.experimental_connect_to_cluster(self.tpu)
             tf.tpu.experimental.initialize_tpu_system(self.tpu)
             self.strategy = tf.distribute.experimental.TPUStrategy(self.tpu)
+        elif len(get_available_gpus()) > 1:
+            self.strategy = tf.distribute.MirroredStrategy()
         else:  # default strategy that works on CPU and single GPU
             self.strategy = tf.distribute.get_strategy()
 
