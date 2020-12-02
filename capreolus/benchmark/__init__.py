@@ -80,7 +80,7 @@ class KITT(Benchmark):
     def config():
         querytype = "query"
         domain = "book"
-        assessed_set = 'random20'
+        assessed_set = 'all'
         if querytype not in ['query', 'basicprofile', 'chatprofile',
                               'basicprofile_general', 'basicprofile_food', 'basicprofile_travel', 'basicprofile_book',
                               'basicprofile_food_general', 'basicprofile_travel_general', 'basicprofile_book_general',
