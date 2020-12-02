@@ -98,6 +98,7 @@ def get_file_name(fid, benchmark_name, benchmark_querytype):
     else:
         return fid
 
+
 ### made static:
 def get_all_users_profiles_term_frequency(profiletype, qids, tokenizer, docstat=False,
                                           entitycachepath=None, entitylinking=None):
@@ -139,3 +140,229 @@ def get_all_users_profiles_term_frequency(profiletype, qids, tokenizer, docstat=
             voc.update(q_count.keys())
 
     return voc, user_profile_tfs, total_len, user_profile_len
+
+
+def get_all_users_profile_term_probs_tf(profiletype, qids, tokenizer, docstat=False,
+                                          entitycachepath=None, entitylinking=None):
+    voc, user_profile_tfs, total_len, _ = get_all_users_profiles_term_frequency(profiletype, qids, tokenizer, docstat, entitycachepath, entitylinking)
+    allusers_term_probs = {}
+    for term in voc:
+        nu = 0
+        for uid, tfs in user_profile_tfs.items():
+            if term in tfs:
+                nu += tfs[term]
+        allusers_term_probs[term] = nu / total_len
+    return allusers_term_probs
+
+
+def get_amazon_plus_all_users_profile_term_probs_tf(profiletype, qids, tokenizer, docstat=False,
+                                                        entitycachepath=None, entitylinking=None):
+    voc, user_profile_tfs, profs_len, _ = get_all_users_profiles_term_frequency(profiletype, qids, tokenizer, docstat, entitycachepath, entitylinking)
+    G_tfs_raw, G_len_raw = get_G_tfs_amazon_raw_from_file()
+    total_len = profs_len + G_len_raw
+
+    G_probs = {}
+    for term in voc:
+        nu = 0
+        for uid, tfs in user_profile_tfs.items():
+            if term in tfs:
+                nu += tfs[term]
+        if term in G_tfs_raw:
+            nu += G_tfs_raw[term]
+
+        G_probs[term] = nu / total_len
+
+    return G_probs
+
+
+def get_domain_term_probabilities_tf(docids, index, tokenizer):
+    corpus = ""
+    for docid in docids:
+        corpus += index.get_doc(docid)
+        corpus += '\n'
+    doc = tokenizer.tokenize(corpus)
+    doc_counter = Counter(doc)
+    domain_term_probabilities = {k: (v / len(doc)) for k, v in doc_counter.items()}
+    return domain_term_probabilities
+
+
+def get_G_probabilities_all_corpus_tfs(all_domains, tokenizer):
+    all_docs = load_all_domains_corpus()
+    corpus = ""
+    for domain in all_domains:
+        corpus += '\n'.join(all_docs[domain].values())
+        corpus += '\n'
+
+    doc = tokenizer.tokenize(corpus)
+    doc_counter = Counter(doc)
+    G_probabilities = {k: (v / len(doc)) for k, v in doc_counter.items()}
+    G_len = len(doc)
+    return G_probabilities
+
+
+def get_G_probabilities_amazon_tfs(all_domains, tokenizer):
+    G_tfs_raw, G_len_raw = get_G_tfs_amazon_raw_from_file()
+    all_docs = load_all_domains_corpus()
+    corpus = ""
+    for domain in all_domains:
+        corpus += '\n'.join(all_docs[domain].values())
+        corpus += '\n'
+
+    doc = tokenizer.tokenize(corpus)
+    domain_counter = Counter(doc)
+    G_probs = {k: (v + (G_tfs_raw[k] if k in G_tfs_raw else 0)) / (len(doc) + G_len_raw) for k, v in domain_counter.items()}
+    G_len = len(doc) + G_len_raw
+    return G_probs
+
+
+def get_domain_term_probabilities_df(docids, index, tokenizer):
+    tokenized_docs = {}
+    all_vocab = set()
+    #I could directly use the index to get the df,... but I just used this for now. It doesn't take much time.
+    for docid in docids:
+        doc = tokenizer.tokenize(index.get_doc(docid))
+        doc_counter = Counter(doc)
+        all_vocab.update(doc_counter.keys())
+        tokenized_docs[docid] = doc_counter.keys()
+    dfs = {}
+    for v in all_vocab:
+        dfs[v] = 0
+        for d in tokenized_docs:
+            if v in tokenized_docs[d]:
+                dfs[v] += 1
+
+    domain_probabilities = {k: (v / len(docids)) for k, v in dfs.items()}
+    return domain_probabilities
+
+
+def get_G_probabilities_all_corpus_dfs(all_domains, tokenizer):
+    all_docs = load_all_domains_corpus()
+    tokenized_docs = {}
+    all_vocab = set()
+    for domain in all_domains:
+        for d in all_docs[domain]:
+            doc = tokenizer.tokenize(all_docs[domain][d])
+            doc_counter = Counter(doc)
+            all_vocab.update(doc_counter.keys())
+            tokenized_docs[f"{domain}_{d}"] = doc_counter.keys()
+    dfs = {}
+    for v in all_vocab:
+        dfs[v] = 0
+        for d in tokenized_docs:
+            if v in tokenized_docs[d]:
+                dfs[v] += 1
+
+    G_num_docs = len(tokenized_docs)
+    G_probs = {k: (v / G_num_docs) for k, v in dfs.items()}
+    return G_probs
+
+
+def get_G_probabilities_amazon_dfs(all_domains, tokenizer):
+    G_dfs_raw, G_num_docs_raw = get_G_dfs_amazon_raw_from_file()
+    all_docs = load_all_domains_corpus()
+
+    d_num_docs = 0
+    dfs = {}
+    for domain in all_domains:
+        for d in all_docs[domain]:
+            doc = tokenizer.tokenize(all_docs[domain][d])
+            for term in set(doc):
+                if term not in dfs:
+                    dfs[term] = 0
+                dfs[term] += 1
+            d_num_docs += 1
+
+    G_num_docs = d_num_docs + G_num_docs_raw
+    G_probs = {k: (v + (G_dfs_raw[k] if k in G_dfs_raw else 0)) / G_num_docs for k, v in dfs.items()}
+    return G_probs
+
+
+def get_domain_specific_term_weights(corpus_name, tf_or_df, docids,
+                                     all_domains, index, tokenizer):
+    if tf_or_df == 'tf':
+        domain_term_probs = get_domain_term_probabilities_tf(docids, index, tokenizer)
+        if corpus_name == "all_domains":
+            G_probs = get_G_probabilities_all_corpus_tfs(all_domains, tokenizer)
+        elif corpus_name == 'amazon':
+            G_probs = get_G_probabilities_amazon_tfs(all_domains, tokenizer)
+        else:
+            raise ValueError(f"domain-term specific weighting not implemented for {corpus_name}")
+    elif tf_or_df == 'df':
+        domain_term_probs = get_domain_term_probabilities_df(docids, index, tokenizer)
+        if corpus_name == "all_domains":
+            G_probs = get_G_probabilities_all_corpus_dfs(all_domains, tokenizer)
+        elif corpus_name == 'amazon':
+            G_probs = get_G_probabilities_amazon_dfs(all_domains, tokenizer)
+        else:
+            raise ValueError(f"domain-term specific weighting not implemented for {corpus_name}")
+
+    term_weights = {}
+
+    for term, p in domain_term_probs.items():
+        term_weights[term] = p / G_probs[term]
+
+    # normalize : we could normalize them, but let's not...
+    #         sum_vals = sum(reweighted_term_weights[domain].values())
+    #         reweighted_term_weights[domain] = {k: v/sum_vals for k, v in reweighted_term_weights[domain].items()}
+
+    return term_weights
+
+
+def get_profile_term_weight_topic(qids, profiletype, query_term_weighting_strategy, query_term_weighting_strategy_corpus,
+                                  tokenizer, docstat=False, entitycachepath=None, entitylinking=None):
+    if profiletype in ['basicprofile', 'chatprofile', 'query']:
+        raise ValueError(f"{query_term_weighting_strategy} query word weighting/cut cannot be used for querytype: {profiletype}")
+
+    # profiletype is topical. s_probs contains term probs given a topic
+    s_probabilities = get_all_users_profile_term_probs_tf(profiletype, qids, tokenizer, docstat, entitycachepath, entitylinking)
+    if query_term_weighting_strategy_corpus == 'alltopics':
+        baseprofiletype = "chatprofile" if profiletype.startswith("chatprofile") else "basicprofile"
+        G_probs = get_all_users_profile_term_probs_tf(baseprofiletype, qids, tokenizer, docstat, entitycachepath, entitylinking)
+    elif query_term_weighting_strategy_corpus == 'amazon':
+        baseprofiletype = "chatprofile" if profiletype.startswith("chatprofile") else "basicprofile"
+        G_probs = get_amazon_plus_all_users_profile_term_probs_tf(baseprofiletype, qids, tokenizer, docstat, entitycachepath, entitylinking)
+
+    term_weights = {}
+    for term, p in s_probabilities.items():
+        term_weights[term] = p / G_probs[term]
+    return term_weights
+
+# self["tokenizer"], True, self.get_selected_entities_cache_path(), self["entitylinking"]
+# profiletype = self["entitylinking"].get_benchmark_querytype()
+def get_profile_term_weight_user(qids, profiletype, query_term_weighting_strategy, query_term_weighting_strategy_corpus,
+                                 tokenizer, docstat=False, entitycachepath=None, entitylinking=None):
+    if profiletype == 'query':
+        raise ValueError(f"{query_term_weighting_strategy} query word weighting/cut cannot be used for querytype: {profiletype}")
+
+    baseprofiletype = "chatprofile" if profiletype.startswith("chatprofile") else "basicprofile"
+    voc, user_profile_tfs, total_len, user_profile_len = get_all_users_profiles_term_frequency(baseprofiletype, qids, tokenizer,
+                                                                                               docstat, entitycachepath, entitylinking)
+    s_user_probabilities = {}
+    for uid in user_profile_tfs:
+        s_user_probabilities[uid] = {}
+        for term, tf in user_profile_tfs[uid].items():
+            s_user_probabilities[uid][term] = tf / user_profile_len[uid]
+
+    if query_term_weighting_strategy_corpus == 'allusers':
+        G_probs = {}
+        for term in voc:
+            nu = 0
+            for uid, tfs in user_profile_tfs.items():
+                if term in tfs:
+                    nu += tfs[term]
+            G_probs[term] = nu / total_len
+        user_term_weights = {}
+        for uid in s_user_probabilities:
+            user_term_weights[uid] = {}
+            for term, p in s_user_probabilities[uid].items():
+                user_term_weights[uid][term] = p / G_probs[term]
+        return user_term_weights
+    elif query_term_weighting_strategy_corpus == 'amazon':
+        G_tfs_raw, G_len_raw = get_G_tfs_amazon_raw_from_file()
+        user_term_weights = {}
+        for uid in s_user_probabilities.keys():
+            user_term_weights[uid] = {}
+            G_probs = get_amazon_plus_user_profile_term_probs_tf(G_tfs_raw, G_len_raw, user_profile_tfs[uid], user_profile_len[uid])
+            for term, p in s_user_probabilities[uid].items():
+                user_term_weights[uid][term] = p / G_probs[term]
+        return user_term_weights

@@ -57,73 +57,84 @@ class AmbiverseNLU(EntityLinking):
         return self.cfg["pipeline"]
 
     def extract_entities(self, textid, text):
-        if self.get_benchmark_querytype() == 'entityprofile':
+        if self.get_benchmark_querytype() == 'entityprofile':  # This is only using PES20 benchmark which we are not going to release
             raise ValueError("wrong usage of incorporate entities. Do not use it with querytype 'entityprofile'")
 
-        outdir = self.get_extracted_entities_cache_path()
-        if exists(join(outdir, get_file_name(textid, self.get_benchmark_name(), self.get_benchmark_querytype()))):
+        out_dir = self.get_extracted_entities_cache_path()
+        if exists(join(out_dir, get_file_name(textid, self.get_benchmark_name(), self.get_benchmark_querytype()))):
             entities = self.get_all_entities(textid)
+            # we want to only read entity descriptions which we need, so we initialize this here
             for e in entities["NE"]:
                 self.entity_descriptions[e] = ""
             for e in entities["C"]:
                 self.entity_descriptions[e] = ""
             return
 
-        os.makedirs(outdir, exist_ok=True)
+        os.makedirs(out_dir, exist_ok=True)
 
-
-        ## manually strip the annotations grep "\[ " and  grep " \]"
-        ## remove the overlapping annotations before here. check_overlapping_annotations -> data_prepration - clean profiles
         annotationsNE = []
         annotationsC = []
         annotationsEither = []
         if self.pipeline in ["ENTITY_CONCEPT_JOINT_LINKING", "ENTITY_CONCEPT_SEPARATE_LINKING"]:
-            openbracket = 0
+            # we want to remove the brackets before sending this to the
+            total_ignored_chars = 0
+            open_brackets = 0
             offset = None
             tag = None
+            temp_text = ""
+            # i = 0
+            # while i < len(text):
             for i in range(0, len(text)):
                 ch = text[i]
                 if ch == '[':
-                    openbracket+=1
-                    if openbracket == 2:
+                    total_ignored_chars += 1
+                    open_brackets += 1
+                    if open_brackets == 2:
                         tag = "NE"
-                    elif openbracket == 3:
+                    elif open_brackets == 3:
                         tag = "C"
-                    elif openbracket == 4:
+                    elif open_brackets == 4:
                         tag = "E"
                 elif ch == ']':
-                    openbracket -= 1
                     if tag == "NE":
-#                        logger.debug(f"annotationsNE {textid}: {text[offset:i]}")
-                        annotationsNE.append({"charLength": i-offset, "charOffset": offset})
+                        # logger.debug(f"annotationsNE1 {textid}: {text[offset:i]}")
+                        # logger.debug(f"annotationsNE {textid}: {temp_text[offset-total_ignored_chars:i-total_ignored_chars]}")
+                        annotationsNE.append({"charLength": i - offset , "charOffset": offset - total_ignored_chars})
                     elif tag == "C":
-#                        logger.debug(f"annotationsC {textid}: {text[offset:i]}")
-                        annotationsC.append({"charLength": i - offset, "charOffset": offset})
+                        # logger.debug(f"annotationsC1 {textid}: {text[offset:i]}")
+                        # logger.debug(f"annotationsC {textid}: {temp_text[offset-total_ignored_chars:i-total_ignored_chars]}")
+                        annotationsC.append({"charLength": i - offset, "charOffset": offset - total_ignored_chars})
                     elif tag == "E":
-                        logger.debug(f"annotationsEither {textid}: {text[offset:i]}")
-                        annotationsEither.append({"charLength": i - offset, "charOffset": offset})
+                        # logger.debug(f"annotationsEither1 {textid}: {text[offset:i]}")
+                        # logger.debug(f"annotationsEither {textid}: {temp_text[offset-total_ignored_chars:i-total_ignored_chars]}")
+                        annotationsEither.append({"charLength": i - offset, "charOffset": offset - total_ignored_chars})
+                    total_ignored_chars += 1
+                    open_brackets -= 1
                     offset = None
                     tag = None
                 else:
+                    temp_text += ch
                     if tag is None:
                         continue
-                    if offset == None:
+                    if offset is None:
                         offset = i
-            
-#            if len(annotationsC) > 0:
-#                logger.debug(f"annotationsC {textid}: {annotationsC}")
-#            if len(annotationsNE) > 0:
-#                logger.debug(f"annotationsNE {textid}: {annotationsNE}")
-#            if len(annotationsEither) > 0:
-#                logger.debug(f"annotationsEither {textid}: {annotationsEither}")
-            if self.pipeline == "ENTITY_CONCEPT_JOINT_LINKING":
-                for e in annotationsEither:
-                    annotationsNE.append(e)
-                    annotationsC.append(e)
-            elif self.pipeline == "ENTITY_CONCEPT_SEPARATE_LINKING":
-                for e in annotationsEither:#we will get 2 results (probably). Then we will add both to the entities. if they were different.
-                    annotationsNE.append(e)
-                    annotationsC.append(e)
+            text = temp_text
+            if len(annotationsC) > 0:
+                for mention in annotationsC:
+                    logger.debug(f"annotationsC {textid}: {text[mention['charOffset']:mention['charOffset'] + mention['charLength']]}")
+            if len(annotationsNE) > 0:
+                for mention in annotationsNE:
+                    logger.debug(f"annotationsNE {textid}: {text[mention['charOffset']:mention['charOffset'] + mention['charLength']]}")
+            if len(annotationsEither) > 0:
+                for mention in annotationsEither:
+                    logger.debug(f"annotationsEither {textid}: {text[mention['charOffset']:mention['charOffset'] + mention['charLength']]}")
+
+            # We are adding the "either" tags to both named entity and concept annotations
+            # in case of joint linking, we will get one final result for them.
+            # in case of separate linking, we may get 2 different results for them one NE one C, and we will add both to our results
+            for e in annotationsEither:
+                annotationsNE.append(e)
+                annotationsC.append(e)
 
         else:
             text = text.replace("[", "")
@@ -144,15 +155,14 @@ class AmbiverseNLU(EntityLinking):
         except requests.exceptions.RequestException as e:
             raise RuntimeError(e)
 
-        # TODO: later maybe I could use the annotatedMentions to annotate the input?
         # logger.debug(f"entitylinking id:{textid} {benchmark_name} {benchmark_querytype}  status:{r.status_code}")
         if r.status_code == 200:
-            with open(join(outdir, get_file_name(textid, self.get_benchmark_name(), self.get_benchmark_querytype())), 'w') as f:
+            with open(join(out_dir, get_file_name(textid, self.get_benchmark_name(), self.get_benchmark_querytype())), 'w') as f:
                 f.write(json.dumps(r.json(), sort_keys=True, indent=4))
 
             if 'entities' in r.json():
                 for e in r.json()['entities']:
-                    self.entity_descriptions[e['name']] = "" #set of entities
+                    self.entity_descriptions[e['name']] = ""
         else:
             raise RuntimeError(f"request status_code is {r.status_code}")
 
@@ -198,12 +208,10 @@ class AmbiverseNLU(EntityLinking):
     def get_all_entities(self, textid):
         data = json.load(open(join(self.get_extracted_entities_cache_path(), get_file_name(textid, self.get_benchmark_name(), self.get_benchmark_querytype())), 'r'))
 
-        # all_entities = set()
         named_entities = set()
         concepts = set()
 
         if 'entities' in data:
-            # all_entities.update([e['name'] for e in data['entities']])
             named_entities.update([e['name'] for e in data['entities'] if e['type'] != 'CONCEPT'])
             concepts.update([e['name'] for e in data['entities'] if e['type'] == 'CONCEPT'])
 
