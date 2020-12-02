@@ -1,7 +1,6 @@
 import os
-from time import time
 from collections import defaultdict
-from pathlib import Path
+from tqdm import tqdm
 
 from capreolus import ConfigOption, Dependency, constants
 from capreolus.utils.loginit import get_logger
@@ -83,7 +82,8 @@ class MsmarcoPsg(Searcher, MsmarcoPsgSearcherMixin):
 class MsmarcoPsgBm25(BM25, MsmarcoPsgSearcherMixin):
     module_name = "msmarcopsgbm25"
     dependencies = [
-        Dependency(key="benchmark", module="benchmark", name="msmarcopsg")
+        Dependency(key="benchmark", module="benchmark", name="msmarcopsg"),
+        Dependency(key="index", module="index", name="anserini")
     ]
 
     def _query_from_file(self, topicsfn, output_path, config):
@@ -92,6 +92,7 @@ class MsmarcoPsgBm25(BM25, MsmarcoPsgSearcherMixin):
         if final_donefn.exists():
             return output_path
 
+        output_path.mkdir(exist_ok=True, parents=True)
         tmp_dir = self.get_cache_path() / "tmp"
         tmp_topicsfn = tmp_dir / os.path.basename(topicsfn)
         tmp_output_dir = tmp_dir / "BM25_results"
@@ -99,8 +100,9 @@ class MsmarcoPsgBm25(BM25, MsmarcoPsgSearcherMixin):
 
         train_runs = self.download_and_prepare_train_set(tmp_dir=tmp_dir)
         with open(tmp_topicsfn, "wt") as f:
-            for qid, title in load_trec_topics(topicsfn)["title"].items():
-                f.write(topic_to_trectxt(qid, title))
+            for qid, title in tqdm(load_trec_topics(topicsfn)["title"].items()):
+                if qid not in self.benchmark.folds["s1"]["train_qids"]:
+                    f.write(topic_to_trectxt(qid, title))
         super()._query_from_file(topicsfn=tmp_topicsfn, output_path=tmp_output_dir, config=config)
         dev_test_runfile = tmp_output_dir / "searcher"
         assert os.path.exists(dev_test_runfile)
@@ -111,6 +113,6 @@ class MsmarcoPsgBm25(BM25, MsmarcoPsgSearcherMixin):
             for line in fin:
                 fout.write(line)
 
-        with open(final_donefn) as f:
+        with open(final_donefn, "w") as f:
             f.write("done")
         return output_path
