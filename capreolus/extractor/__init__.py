@@ -72,6 +72,7 @@ class EmbedText(Extractor):
         maxdoclen = 5000
         query_cut = None
         document_cut = None
+        alldomains = ["travel", "food", "book"]  # TODO this could be moved to benchmark, when rebased...
 
         if query_cut is not None and query_cut not in ["most_frequent", "topic-alltopics", "topic-amazon", "user-allusers", "user-amazon",
                                                        "unique_most_frequent", "unique_topic-alltopics", "unique_topic-amazon", "unique_user-allusers", "unique_user-amazon"]:
@@ -86,6 +87,9 @@ class EmbedText(Extractor):
 # travel #docs: 352 maxlen: 26468 avglen: 4239.082386363636
 # food:  #docs: 995 maxlen: 1396  avglen: 475.06532663316585
 #movie: #docs:  886 maxlen: 1037  avglen: 298.0056433408578
+    @property
+    def all_domains(self):
+        return self.cfg["alldomains"]
 
     def _get_pretrained_emb(self):
         magnitude_cache = CACHE_BASE_PATH / "magnitude/"
@@ -280,7 +284,7 @@ class EmbedText(Extractor):
 
         d_num_docs = 0
         dfs = {}
-        for domain in ['movie', 'travel_wikivoyage', 'food', 'book']: #TODO change!
+        for domain in self.all_domains: #TODO change!
             for d in all_docs[domain]:
                 doc = self["tokenizer"].tokenize(all_docs[domain][d])
                 for term in set(doc):
@@ -297,7 +301,7 @@ class EmbedText(Extractor):
         all_docs = load_all_domains_corpus()
         tokenized_docs = {}
         all_vocab = set()
-        for domain in ['movie', 'travel_wikivoyage', 'food', 'book']:
+        for domain in self.all_domains:
             for d in all_docs[domain]:
                 doc = self["tokenizer"].tokenize(all_docs[domain][d])
                 doc_counter = Counter(doc)
@@ -317,7 +321,7 @@ class EmbedText(Extractor):
     def get_G_probabilities_all_corpus_tfs(self):
         all_docs = load_all_domains_corpus()
         corpus = ""
-        for domain in ['movie', 'travel_wikivoyage', 'food', 'book']:
+        for domain in self.all_domains:
             corpus += '\n'.join(all_docs[domain].values())
             corpus += '\n'
 
@@ -331,7 +335,7 @@ class EmbedText(Extractor):
         G_tfs_raw, G_len_raw = get_G_tfs_amazon_raw_from_file()
         all_docs = load_all_domains_corpus()
         corpus = ""
-        for domain in ['movie', 'travel_wikivoyage', 'food', 'book']:
+        for domain in self.all_domains:
             corpus += '\n'.join(all_docs[domain].values())
             corpus += '\n'
 
@@ -520,6 +524,7 @@ class DocStats(Extractor):
         query_vocab_specific = None # this is profile term weighting (on profiles)
         domain_vocab_specific = None # this is domain term weighting (on docs)
         onlyNamedEntities = False
+        alldomains = ["travel", "food", "book"] # TODO this could be moved to benchmark, when rebased...
 
         if entity_strategy not in [None, 'all', 'domain', 'specific_domainrel']:  # TODO add strategies
             raise ValueError(f"invalid entity usage strategy (or not implemented): {entity_strategy}")
@@ -544,6 +549,10 @@ class DocStats(Extractor):
     def domain_vocab_specific(self):
         return self.cfg["domain_vocab_specific"]
 
+    @property
+    def all_domains(self):
+        return self.cfg["alldomains"]
+
     def exist(self):
         return hasattr(self, "doc_tf")
 
@@ -557,9 +566,13 @@ class DocStats(Extractor):
         # logger.debug(self.get_cache_path() / 'selectedentities')
         return self.get_cache_path() / 'selectedentities'
 
-    def create(self, qids, docids, topics, qdocs=None, querytype=None): #TODO make changes to not use benchmark querytype anymore
+    def create(self, qids, docids, topics, qdocs=None, querytype=None):  # TODO make changes to not use benchmark querytype anymore
         logger.debug(f"cache path: {self.get_cache_path()}")
-        #todo where can I check this: is here good?
+        # todo remove these, just for initial checks
+        logger.debug(qids)
+        logger.debug(docids)
+        logger.debug(topics)
+        # Todo where can I check this: is here good?
         if "nostem" in self["backgroundindex"].cfg["indexcorpus"]:
             if 'stemmer' in self["tokenizer"].cfg and self["tokenizer"].cfg['stemmer'] != "none":
                 print("WARNING: tokenizer's stemming is on, but backgroundindex is without stemming.")
@@ -570,14 +583,15 @@ class DocStats(Extractor):
         if self.exist():
             return
 
+        logger.debug("Creating index")
         self["index"].create_index()
-        logger.debug("Openning background index")
+        logger.debug("Opening background index")
         self["backgroundindex"].open()
 
         if self.entity_strategy is not None:
             logger.debug("extracting entities from queries(user profiles)")
             for qid in qids:
-                # To avoid redundency in extracting (and as the user profiles are the same as many queries). We cache the extraction based on the profileid.
+                # To avoid redundancy in extracting (and as the user profiles are the same as many queries). We cache the extraction based on the profile_id/query_id.
                 # This is handled in entitylinking component. In case of using another benchmark there may be a need to extend.
                 self["entitylinking"].extract_entities(qid, topics[qid])
 
@@ -591,7 +605,7 @@ class DocStats(Extractor):
             self["entityspecificity"].initialize()
 
         logger.debug("tokenizing queries [+entity descriptions]")
-        if logger.level in [logging.DEBUG, logging.NOTSET]:
+        if logger.level in [logging.DEBUG]:
             if not exists(self.get_profile_term_prob_cache_path()):
                 os.makedirs(self.get_profile_term_prob_cache_path(), exist_ok=True)
         if not exists(self.get_selected_entities_cache_path()):
@@ -700,7 +714,7 @@ class DocStats(Extractor):
             for docid in docs:
                 doclen += self.doc_len[docid]
             self.query_avg_doc_len[qid] = doclen/len(docs)
-        
+
         logger.debug("extractor DONE")
 
     def get_profile_term_weight_topic(self, qids):
@@ -852,7 +866,7 @@ class DocStats(Extractor):
     def get_G_probs_all_corpus_tfs(self):
         all_docs = load_all_domains_corpus()
         corpus = ""
-        for domain in ['movie', 'travel_wikivoyage', 'food', 'book']:
+        for domain in self.all_domains:
             corpus += '\n'.join(all_docs[domain].values())
             corpus += '\n'
 
@@ -866,7 +880,7 @@ class DocStats(Extractor):
         G_tfs_raw, G_len_raw = get_G_tfs_amazon_raw_from_file()
         all_docs = load_all_domains_corpus()
         corpus = ""
-        for domain in ['movie', 'travel_wikivoyage', 'food', 'book']:
+        for domain in self.all_domains:
             corpus += '\n'.join(all_docs[domain].values())
             corpus += '\n'
 
@@ -882,7 +896,7 @@ class DocStats(Extractor):
 
         d_num_docs = 0
         dfs = {}
-        for domain in ['movie', 'travel_wikivoyage', 'food', 'book']:
+        for domain in self.all_domains:
             for d in all_docs[domain]:
                 doc = self["tokenizer"].tokenize(all_docs[domain][d])
                 for term in set(doc):
@@ -894,12 +908,12 @@ class DocStats(Extractor):
         G_num_docs = d_num_docs + G_num_docs_raw
         G_probs = {k: (v + (G_dfs_raw[k] if k in G_dfs_raw else 0)) / G_num_docs for k, v in dfs.items()}
         return G_probs
-    
+
     def get_G_probs_all_corpus_dfs(self):
         all_docs = load_all_domains_corpus()
         tokenized_docs = {}
         all_vocab = set()
-        for domain in ['movie', 'travel_wikivoyage', 'food', 'book']:
+        for domain in self.all_domains:
             for d in all_docs[domain]:
                 doc = self["tokenizer"].tokenize(all_docs[domain][d])
                 doc_counter = Counter(doc)
@@ -946,7 +960,7 @@ class DocStats(Extractor):
 
         if self.cfg["onlyNamedEntities"]:
             return {"NE": ret["NE"], "C": []}
-        
+
         return ret
 
     def id2vec(self, qid, posid, negid=None, query=None):
@@ -984,6 +998,7 @@ class DocStatsEmbedding(DocStats):
         query_vocab_specific = None # this is profile term weighting (on profiles)
         domain_vocab_specific = None # this is domain term weighting (on docs)
         onlyNamedEntities = False
+        alldomains = ["travel", "food", "book"]  # TODO this could be moved to benchmark, when rebased...
 
         if entity_strategy not in [None, 'all', 'domain', 'specific_domainrel']:  # TODO add strategies
             raise ValueError(f"invalid entity usage strategy (or not implemented): {entity_strategy}")

@@ -25,7 +25,7 @@ class DomainRelatedness(EntityDomainRelatedness):
     default_settings_dir = PACKAGE_PATH / "data" / "domain_entity_relatedness_setting"
     setting_file_name_mapping = {"book_prCacc": "book_maxPRAUC_maxACC",
                                  "food_prCacc": "food_maxPRAUC_maxACC",
-                                 "travel_wikivoyage_prCacc": "travel_wikivoyage_maxPRAUC_maxACC",
+                                 "travel_prCacc": "travel_maxPRAUC_maxACC",
                                  "movie_prCacc": "movie_maxPRAUC_maxACC"}
     dependencies = {
         "benchmark": Dependency(module="benchmark"),
@@ -46,19 +46,19 @@ class DomainRelatedness(EntityDomainRelatedness):
         domain_relatedness_threshold_C = None
 
         if strategy_NE is not None:
-            if not re.match("(book|food|travel_wikivoyage|movie)_prCacc", strategy_NE):
+            if not re.match("(book|food|travel|movie)_prCacc", strategy_NE):
                 raise ValueError(f"invalid strategy_NE {strategy_NE}")
 
         if strategy_C is not None:
-            if not re.match("(book|food|travel_wikivoyage|movie)_prCacc", strategy_C):
+            if not re.match("(book|food|travel|movie)_prCacc", strategy_C):
                 raise ValueError(f"invalid strategy_C {strategy_C}")
 
         if domain_relatedness_threshold_NE is not None:
-            if not re.match("(book|food|travel_wikivoyage|movie)_prCacc", domain_relatedness_threshold_NE):
+            if not re.match("(book|food|travel|movie)_prCacc", domain_relatedness_threshold_NE):
                 raise ValueError(f"invalid domain_relatedness_threshold_NE {domain_relatedness_threshold_NE}")
 
         if domain_relatedness_threshold_C is not None:
-            if not re.match("(book|food|travel_wikivoyage|movie)_prCacc", domain_relatedness_threshold_C):
+            if not re.match("(book|food|travel|movie)_prCacc", domain_relatedness_threshold_C):
                 raise ValueError(f"invalid domain_relatedness_threshold_C {domain_relatedness_threshold_C}")
 
         return_top = -1
@@ -193,7 +193,7 @@ class DomainRelatedness(EntityDomainRelatedness):
             domain_entity = "ENTITY/Book"
         elif self.domain == "movie":
             domain_entity = "ENTITY/Film"
-        elif self.domain == "travel_wikivoyage":
+        elif self.domain == "travel":
             domain_entity = "ENTITY/Travel"
         elif self.domain == "food":
             domain_entity = "ENTITY/Food"
