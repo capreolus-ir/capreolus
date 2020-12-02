@@ -63,6 +63,7 @@ class AmbiverseNLU(EntityLinking):
         out_dir = self.get_extracted_entities_cache_path()
         if exists(join(out_dir, get_file_name(textid, self.get_benchmark_name(), self.get_benchmark_querytype()))):
             entities = self.get_all_entities(textid)
+            # we want to only read entity descriptions which we need, so we initialize this here
             for e in entities["NE"]:
                 self.entity_descriptions[e] = ""
             for e in entities["C"]:
@@ -154,7 +155,6 @@ class AmbiverseNLU(EntityLinking):
         except requests.exceptions.RequestException as e:
             raise RuntimeError(e)
 
-        # TODO: later maybe I could use the annotatedMentions to annotate the input?
         # logger.debug(f"entitylinking id:{textid} {benchmark_name} {benchmark_querytype}  status:{r.status_code}")
         if r.status_code == 200:
             with open(join(out_dir, get_file_name(textid, self.get_benchmark_name(), self.get_benchmark_querytype())), 'w') as f:
@@ -162,7 +162,7 @@ class AmbiverseNLU(EntityLinking):
 
             if 'entities' in r.json():
                 for e in r.json()['entities']:
-                    self.entity_descriptions[e['name']] = "" #set of entities
+                    self.entity_descriptions[e['name']] = ""
         else:
             raise RuntimeError(f"request status_code is {r.status_code}")
 
@@ -208,12 +208,10 @@ class AmbiverseNLU(EntityLinking):
     def get_all_entities(self, textid):
         data = json.load(open(join(self.get_extracted_entities_cache_path(), get_file_name(textid, self.get_benchmark_name(), self.get_benchmark_querytype())), 'r'))
 
-        # all_entities = set()
         named_entities = set()
         concepts = set()
 
         if 'entities' in data:
-            # all_entities.update([e['name'] for e in data['entities']])
             named_entities.update([e['name'] for e in data['entities'] if e['type'] != 'CONCEPT'])
             concepts.update([e['name'] for e in data['entities'] if e['type'] == 'CONCEPT'])
 

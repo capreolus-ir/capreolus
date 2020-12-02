@@ -618,12 +618,12 @@ class DocStats(Extractor):
             qdesc = []
             qentities = self.get_entities(qid)  # {"NE": [...], "C": [...]}
 
-            ###TODO if debug...
             # since I just wanted to use this as a debug step, I didn't read from it when it was available
-            entoutf = join(self.get_selected_entities_cache_path(), get_file_name(qid, self["entitylinking"].get_benchmark_name(), self["entitylinking"].get_benchmark_querytype()))
-            if not exists(entoutf):
-                with open(entoutf, 'w') as f:
-                    f.write(json.dumps(qentities, indent=4))
+            if logger.level in [logging.DEBUG]:
+                entoutf = join(self.get_selected_entities_cache_path(), get_file_name(qid, self["entitylinking"].get_benchmark_name(), self["entitylinking"].get_benchmark_querytype()))
+                if not exists(entoutf):
+                    with open(entoutf, 'w') as f:
+                        f.write(json.dumps(qentities, indent=4))
 
 #            logger.debug(f"{self.entity_strategy}: {qentities}")
 #            logger.debug(f"qid: {qid} - {qentities}")
