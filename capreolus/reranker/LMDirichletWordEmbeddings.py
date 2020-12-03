@@ -43,7 +43,7 @@ class LMDirichletWordEmbeddingsReranker(Reranker):
         return a
 
     def score_document(self, queryvocab, docid, qid, mu):
-        uid = qid.split("_")[1]
+        uid = qid.split("_")[-1]
         term_scores = {}
         scoresum = 0
         for term in queryvocab:
