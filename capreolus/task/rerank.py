@@ -79,7 +79,7 @@ def evaluate(config, modules):
         searcher_run_dir = searcher.query_from_file(topics_fn, searcher_cache_dir)
         best_search_run_path = evaluator.search_best_run(searcher_run_dir, benchmark, metric)["path"][fold]
         best_search_run = searcher.load_trec_run(best_search_run_path)
-        
+        logger.debug(best_search_run_path)
 
         docids = set(docid for querydocs in best_search_run.values() for docid in querydocs)
         qdocs = {k:v.keys() for k,v in best_search_run.items()} #todo: to calc avgdoclen
