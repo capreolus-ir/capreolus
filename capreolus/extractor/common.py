@@ -92,9 +92,9 @@ def get_file_name(fid, benchmark_name, benchmark_querytype):
 
     if benchmark_name in ['pes20', 'kitt']:
         if benchmark_querytype == "query":
-            return re.sub(r'(\d+)_(.+)', r'\g<1>', fid)
+            return re.sub(r'(.+)_(\d+)_(.+)', r'\g<1>\g<2>', fid)
         else:
-            return re.sub(r'(\d+)_(.+)', r'\g<2>', fid)
+            return re.sub(r'(.+)_(\d+)_(.+)', r'\g<3>', fid)
     else:
         return fid
 
