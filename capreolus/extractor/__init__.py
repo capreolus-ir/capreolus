@@ -78,7 +78,7 @@ class EmbedText(Extractor):
 
         query_cut = None
         document_cut = None
-        alldomains = ["travel", "food", "book"]  # TODO this could be moved to benchmark, when rebased...
+        alldomains = "travel,food,book"  # TODO this could be moved to benchmark, when rebased...
 
         if query_cut is not None and query_cut not in ["most_frequent", "topic-alltopics", "topic-amazon", "user-allusers", "user-amazon",
                                                        "unique_most_frequent", "unique_topic-alltopics", "unique_topic-amazon", "unique_user-allusers", "unique_user-amazon"]:
@@ -103,7 +103,7 @@ class EmbedText(Extractor):
 
     @property
     def all_domains(self):
-        return self.cfg["alldomains"]
+        return self.cfg["alldomains"].split(",")
 
     def _get_pretrained_emb(self):
         magnitude_cache = CACHE_BASE_PATH / "magnitude/"
@@ -337,7 +337,7 @@ class DocStats(Extractor):
         query_vocab_specific = None # this is profile term weighting (on profiles)
         domain_vocab_specific = None # this is domain term weighting (on docs)
         onlyNamedEntities = False
-        alldomains = ["travel", "food", "book"] # TODO this could be moved to benchmark, when rebased...
+        alldomains = "travel,food,book" # TODO this could be moved to benchmark, when rebased...
 
         if entity_strategy not in [None, 'all', 'domain', 'specific_domainrel']:  # TODO add strategies
             raise ValueError(f"invalid entity usage strategy (or not implemented): {entity_strategy}")
@@ -364,7 +364,7 @@ class DocStats(Extractor):
 
     @property
     def all_domains(self):
-        return self.cfg["alldomains"]
+        return self.cfg["alldomains"].split(",")
 
     def exist(self):
         return hasattr(self, "doc_tf")
@@ -384,7 +384,7 @@ class DocStats(Extractor):
         # todo remove these, just for initial checks
         logger.debug(qids)
         logger.debug(docids)
-        logger.debug(topics)
+        # logger.debug(topics)
         # Todo where can I check this: is here good?
         if "nostem" in self["backgroundindex"].cfg["indexcorpus"]:
             if 'stemmer' in self["tokenizer"].cfg and self["tokenizer"].cfg['stemmer'] != "none":
@@ -418,9 +418,9 @@ class DocStats(Extractor):
             self["entityspecificity"].initialize()
 
         logger.debug("tokenizing queries [+entity descriptions]")
-        if logger.level in [logging.DEBUG]:
-            if not exists(self.get_profile_term_prob_cache_path()):
-                os.makedirs(self.get_profile_term_prob_cache_path(), exist_ok=True)
+        # if logger.level in [logging.DEBUG]:
+        if not exists(self.get_profile_term_prob_cache_path()):
+            os.makedirs(self.get_profile_term_prob_cache_path(), exist_ok=True)
         if not exists(self.get_selected_entities_cache_path()):
             os.makedirs(self.get_selected_entities_cache_path(), exist_ok=True)
 
@@ -432,11 +432,11 @@ class DocStats(Extractor):
             qentities = self.get_entities(qid)  # {"NE": [...], "C": [...]}
 
             # since I just wanted to use this as a debug step, I didn't read from it when it was available
-            if logger.level in [logging.DEBUG]:
-                entoutf = join(self.get_selected_entities_cache_path(), get_file_name(qid, self["entitylinking"].get_benchmark_name(), self["entitylinking"].get_benchmark_querytype()))
-                if not exists(entoutf):
-                    with open(entoutf, 'w') as f:
-                        f.write(json.dumps(qentities, indent=4))
+            # if logger.level in [logging.DEBUG]:
+            entoutf = join(self.get_selected_entities_cache_path(), get_file_name(qid, self["entitylinking"].get_benchmark_name(), self["entitylinking"].get_benchmark_querytype()))
+            if not exists(entoutf):
+                with open(entoutf, 'w') as f:
+                    f.write(json.dumps(qentities, indent=4))
 
 #            logger.debug(f"{self.entity_strategy}: {qentities}")
 #            logger.debug(f"qid: {qid} - {qentities}")
@@ -481,12 +481,12 @@ class DocStats(Extractor):
 
         # since I just wanted to use this as a debug step, I didn't read from it when it was available
         for qid in qids:
-            if logger.level in [logging.DEBUG, logging.NOTSET]:
-                tfoutf = join(self.get_profile_term_prob_cache_path(), get_file_name(qid, self["entitylinking"].get_benchmark_name(), self["entitylinking"].get_benchmark_querytype()))
-                if not exists(tfoutf):
-                    with open(tfoutf, 'w') as f:
-                        sortedTP = {k: v for k, v in sorted(self.qid_termprob[qid].items(), key=lambda item: item[1], reverse=True)}
-                        f.write(json.dumps(sortedTP, indent=4))
+            # if logger.level in [logging.DEBUG]:
+            tfoutf = join(self.get_profile_term_prob_cache_path(), get_file_name(qid, self["entitylinking"].get_benchmark_name(), self["entitylinking"].get_benchmark_querytype()))
+            if not exists(tfoutf):
+                with open(tfoutf, 'w') as f:
+                    sortedTP = {k: v for k, v in sorted(self.qid_termprob[qid].items(), key=lambda item: item[1], reverse=True)}
+                    f.write(json.dumps(sortedTP, indent=4))
 
         logger.debug("tokenizing documents")
         self.doc_tf = {}
@@ -601,7 +601,7 @@ class DocStatsEmbedding(DocStats):
         query_vocab_specific = None # this is profile term weighting (on profiles)
         domain_vocab_specific = None # this is domain term weighting (on docs)
         onlyNamedEntities = False
-        alldomains = ["travel", "food", "book"]  # TODO this could be moved to benchmark, when rebased...
+        alldomains = "travel,food,book"  # TODO this could be moved to benchmark, when rebased...
 
         if entity_strategy not in [None, 'all', 'domain', 'specific_domainrel']:  # TODO add strategies
             raise ValueError(f"invalid entity usage strategy (or not implemented): {entity_strategy}")
