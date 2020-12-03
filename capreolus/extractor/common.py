@@ -8,11 +8,11 @@ import re
 from capreolus.utils.common import load_trec_topics
 from capreolus.registry import PACKAGE_PATH
 
-def load_all_domains_corpus():
+def load_all_domains_corpus(all_domains):
     domain_documents = {}
 
-    for domain in ['movie', 'travel_wikivoyage', 'food', 'book']:
-        doc_dir = f"/GW/PKB/work/data_personalization/TREC_format_quselection_C_final_profiles/documents/{domain}/"
+    for domain in all_domains:
+        doc_dir = open(join(PACKAGE_PATH, "..", "paths_env_vars", "YGWYC_experiments_data_path"), 'r').read().strip() + "documents" # TODO this can be changed to get the collection's doc path, after rebasing and stuff
 
         domain_documents[domain] = {}
 
@@ -102,7 +102,7 @@ def get_file_name(fid, benchmark_name, benchmark_querytype):
 ### made static:
 def get_all_users_profiles_term_frequency(profiletype, qids, tokenizer, docstat=False,
                                           entitycachepath=None, entitylinking=None):
-    benchmarkdir = "/GW/PKB/work/data_personalization/TREC_format_quselection_C_final_profiles"  # TODO change these when rebasing to use the benchmark as inherited dependency
+    benchmarkdir = open(join(PACKAGE_PATH, "..", "paths_env_vars", "YGWYC_experiments_data_path"), 'r').read().strip() + "topics"  # TODO change after rebasing
     userfullprofiles = get_all_user_profiles(join(benchmarkdir, f"alldomains_topics.{profiletype}.txt"))
 
     user_profile_tfs = {}
@@ -187,7 +187,7 @@ def get_domain_term_probabilities_tf(docids, index, tokenizer):
 
 
 def get_G_probabilities_all_corpus_tfs(all_domains, tokenizer):
-    all_docs = load_all_domains_corpus()
+    all_docs = load_all_domains_corpus(all_domains)
     corpus = ""
     for domain in all_domains:
         corpus += '\n'.join(all_docs[domain].values())
@@ -202,7 +202,7 @@ def get_G_probabilities_all_corpus_tfs(all_domains, tokenizer):
 
 def get_G_probabilities_amazon_tfs(all_domains, tokenizer):
     G_tfs_raw, G_len_raw = get_G_tfs_amazon_raw_from_file()
-    all_docs = load_all_domains_corpus()
+    all_docs = load_all_domains_corpus(all_domains)
     corpus = ""
     for domain in all_domains:
         corpus += '\n'.join(all_docs[domain].values())
@@ -236,7 +236,7 @@ def get_domain_term_probabilities_df(docids, index, tokenizer):
 
 
 def get_G_probabilities_all_corpus_dfs(all_domains, tokenizer):
-    all_docs = load_all_domains_corpus()
+    all_docs = load_all_domains_corpus(all_domains)
     tokenized_docs = {}
     all_vocab = set()
     for domain in all_domains:
@@ -259,7 +259,7 @@ def get_G_probabilities_all_corpus_dfs(all_domains, tokenizer):
 
 def get_G_probabilities_amazon_dfs(all_domains, tokenizer):
     G_dfs_raw, G_num_docs_raw = get_G_dfs_amazon_raw_from_file()
-    all_docs = load_all_domains_corpus()
+    all_docs = load_all_domains_corpus(all_domains)
 
     d_num_docs = 0
     dfs = {}

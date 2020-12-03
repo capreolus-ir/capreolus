@@ -1,5 +1,4 @@
 import json
-import logging
 import os
 import re
 from collections import defaultdict, Counter
@@ -8,13 +7,8 @@ from os.path import join, exists
 import numpy as np
 from pymagnitude import Magnitude, MagnitudeUtils
 
-from capreolus.extractor.common import get_file_name, get_amazon_plus_user_profile_term_probs_tf, \
-    get_G_tfs_amazon_raw_from_file, get_G_dfs_amazon_raw_from_file, load_all_domains_corpus, get_all_user_profiles, \
-    get_all_users_profiles_term_frequency, get_all_users_profile_term_probs_tf, \
-    get_amazon_plus_all_users_profile_term_probs_tf, get_domain_term_probabilities_tf, \
-    get_G_probabilities_all_corpus_tfs, get_G_probabilities_amazon_tfs, get_domain_term_probabilities_df, \
-    get_G_probabilities_all_corpus_dfs, get_G_probabilities_amazon_dfs, get_domain_specific_term_weights, \
-    get_profile_term_weight_topic, get_profile_term_weight_user
+from capreolus.extractor.common import get_profile_term_weight_user, get_profile_term_weight_topic, \
+    get_domain_specific_term_weights, get_file_name
 from capreolus.registry import ModuleBase, RegisterableModule, Dependency, CACHE_BASE_PATH
 from capreolus.utils.loginit import get_logger
 from capreolus.utils.common import padlist
