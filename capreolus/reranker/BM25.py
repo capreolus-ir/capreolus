@@ -46,7 +46,7 @@ class BM25Reranker(Reranker):
 
 
     def score_document_tf(self, querytf, qid, docid, avg_doc_len):
-        uid = qid.split("_")[1]
+        uid = qid.split("_")[-1]
         term_scores = {}
         scoresum = 0
         for term, tf in querytf.items():
