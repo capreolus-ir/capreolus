@@ -48,6 +48,7 @@ class BertPassage(Extractor):
             "The probability that a passage from the document will be used for training " "(the first passage is always used)",
         ),
     ]
+    config_keys_not_in_path = ["usecache"]
 
     def build(self):
         self.pad = self.tokenizer.bert_tokenizer.pad_token_id
