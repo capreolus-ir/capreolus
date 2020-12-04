@@ -74,7 +74,7 @@ class MSMarcoPassage(Benchmark):
 
         # fold
         folds = {k: list(v) for k, v in folds.items()}
-        folds = {"s1": {"train_qids": folds["train"], "predict": {"dev": folds["dev"], "test": folds["dev"]}}}
+        folds = {"s1": {"train_qids": folds["train"], "predict": {"dev": folds["dev"], "test": folds["test"]}}}
         json.dump(folds, open(self.fold_file, "w"))
 
 
