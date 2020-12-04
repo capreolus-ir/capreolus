@@ -98,7 +98,7 @@ class DomainRelatedness(EntityDomainRelatedness):
         return k, m
 
     def get_similarities_cache_path(self):
-        # logger.debug(self.entity_linking_cache_path / "similarities")
+        logger.debug(self.entity_linking_cache_path / "similarities")
         return self.entity_linking_cache_path / "similarities"
 
     def initialize(self, el_cache_path):
