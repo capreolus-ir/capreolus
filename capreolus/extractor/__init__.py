@@ -105,7 +105,7 @@ class EmbedText(Extractor):
 
     def _build_vocab(self, qids, docids, topics, querytype=None):
         tokenize = self["tokenizer"].tokenize
-        self.qid2toks = {qid: tokenize(topics[qid]) for qid in qids} # todo: I think here I should sort them based on what I want
+        self.qid2toks = {qid: tokenize(topics[qid].replace("]", "").replace("[", "")) for qid in qids}  # removing the entity mention tags
         if self.query_vocab_specific is not None:
             self.build_sorted_query_terms(qids, querytype)
         self.docid2toks = {docid: tokenize(self["index"].get_doc(docid)) for docid in docids}
@@ -422,9 +422,11 @@ class DocStats(Extractor):
         self.qid_termprob = {}
         for qid in qids:
             qtext = topics[qid]
+            qtext = qtext.replace("[", "")
+            qtext = qtext.replace("]", "")
+
             qdesc = []
             qentities = self.get_entities(qid)  # {"NE": [...], "C": [...]}
-
             # since I just wanted to use this as a debug step, I didn't read from it when it was available
             # if logger.level in [logging.DEBUG]:
             entoutf = join(self.get_selected_entities_cache_path(), get_file_name(qid, self["entitylinking"].get_benchmark_name(), self["entitylinking"].get_benchmark_querytype()))
