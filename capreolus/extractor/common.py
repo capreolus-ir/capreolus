@@ -321,6 +321,8 @@ def get_profile_term_weight_topic(qids, profiletype, query_term_weighting_strate
     elif query_term_weighting_strategy_corpus == 'amazon':
         baseprofiletype = "chatprofile" if profiletype.startswith("chatprofile") else "basicprofile"
         G_probs = get_amazon_plus_all_users_profile_term_probs_tf(baseprofiletype, qids, tokenizer, docstat, entitycachepath, entitylinking)
+    else:
+        raise ValueError(f"{query_term_weighting_strategy_corpus} is wrong!!! not amazon nor alltopics")
 
     term_weights = {}
     for term, p in s_probabilities.items():
