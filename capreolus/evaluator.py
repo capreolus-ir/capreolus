@@ -53,6 +53,10 @@ def mrr_10(qrels, runs):
 
 
 def _eval_runs(runs, qrels, metrics, relevance_level):
+    if len(qrels) == 0:
+        logger.warning(f"received empty qrels. Skip the evaluation")
+        return {m: -1 for m in metrics}
+
     if len(runs) != len(qrels):
         logger.warning(f"Size of runs and qrels mismatch: Found {len(runs)} in runs and {len(qrels)} in qrels.")
 
