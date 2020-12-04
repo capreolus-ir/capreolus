@@ -10,7 +10,7 @@ import numpy as np
 from tqdm import tqdm
 
 from capreolus.searcher import Searcher
-from capreolus import ConfigOption, evaluator
+from capreolus import ConfigOption
 from capreolus.trainer import Trainer
 from capreolus.utils.loginit import get_logger
 from capreolus.reranker.common import TFPairwiseHingeLoss, TFCategoricalCrossEntropyLoss, KerasPairModel, KerasTripletModel
@@ -93,7 +93,7 @@ class TensorflowTrainer(Trainer):
         if self.tpu and self.config["storage"] and not self.config["storage"].startswith("gs://"):
             raise ValueError("For TPU utilization, the storage config should start with 'gs://'")
 
-    def train(self, reranker, train_dataset, train_output_path, dev_data, dev_output_path, qrels, metric, relevance_level=1):
+    def train(self, reranker, train_dataset, train_output_path, dev_data, dev_output_path, metric, evaluate_fn):
         if self.tpu:
             train_output_path = "{0}/{1}/{2}".format(
                 self.config["storage"], "train_output", hashlib.md5(str(train_output_path).encode("utf-8")).hexdigest()
@@ -221,8 +221,7 @@ class TensorflowTrainer(Trainer):
                         for p in pred_batch:
                             dev_predictions.extend(p)
 
-                    trec_preds = self.get_preds_in_trec_format(dev_predictions, dev_data)
-                    metrics = evaluator.eval_runs(trec_preds, dict(qrels), evaluator.DEFAULT_METRICS, relevance_level)
+                    metrics = evaluate_fn(self.get_preds_in_trec_format(dev_predictions, dev_data))
                     logger.info("dev metrics: %s", " ".join([f"{metric}={v:0.3f}" for metric, v in sorted(metrics.items())]))
                     if metrics[metric] > best_metric:
                         best_metric = metrics[metric]

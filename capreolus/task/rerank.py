@@ -90,15 +90,18 @@ class RerankTask(Task):
             dev_run, self.benchmark.qrels, self.reranker.extractor, relevance_level=self.benchmark.relevance_level
         )
 
+        def local_evaluate_runs(runs):
+            dev_qrels = {qid: self.benchmark.qrels[qid] for qid in self.folds[fold]["predict"]["dev"]}
+            return evaluator.eval_runs(runs, dev_qrels, evaluator.DEFAULT_METRICS, self.benchmark.relevance_level)
+
         self.reranker.trainer.train(
-            self.reranker,
-            train_dataset,
-            train_output_path,
-            dev_dataset,
-            dev_output_path,
-            self.benchmark.qrels,
-            self.config["optimize"],
-            self.benchmark.relevance_level,
+            reranker=self.reranker,
+            train_dataset=train_dataset,
+            train_output_path=train_output_path,
+            dev_data=dev_dataset,
+            dev_output_path=dev_output_path,
+            metric=self.config["optimize"],
+            evaluate_fn=local_evaluate_runs,
         )
 
         self.reranker.trainer.load_best_model(self.reranker, train_output_path)
@@ -191,14 +194,16 @@ class RerankTask(Task):
             logger.error("could not find predictions; run the train command first")
             raise ValueError("could not find predictions; run the train command first")
 
+        dev_qrels = {qid: self.benchmark.qrels[qid] for qid in self.folds[fold]["predict"]["dev"]}
         fold_dev_metrics = evaluator.eval_runs(
-            reranker_runs[fold]["dev"], self.benchmark.qrels, evaluator.DEFAULT_METRICS, self.benchmark.relevance_level
+            reranker_runs[fold]["dev"], dev_qrels, evaluator.DEFAULT_METRICS, self.benchmark.relevance_level
         )
         pretty_fold_dev_metrics = " ".join([f"{metric}={v:0.3f}" for metric, v in sorted(fold_dev_metrics.items())])
         logger.info("rerank: fold=%s dev metrics: %s", fold, pretty_fold_dev_metrics)
 
+        test_qrels = {qid: self.benchmark.qrels[qid] for qid in self.folds[fold]["predict"]["test"]}
         fold_test_metrics = evaluator.eval_runs(
-            reranker_runs[fold]["test"], self.benchmark.qrels, evaluator.DEFAULT_METRICS, self.benchmark.relevance_level
+            reranker_runs[fold]["test"], test_qrels, evaluator.DEFAULT_METRICS, self.benchmark.relevance_level
         )
         pretty_fold_test_metrics = " ".join([f"{metric}={v:0.3f}" for metric, v in sorted(fold_test_metrics.items())])
         logger.info("rerank: fold=%s test metrics: %s", fold, pretty_fold_test_metrics)

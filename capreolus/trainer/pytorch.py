@@ -7,7 +7,7 @@ import torch
 from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
 
-from capreolus import ConfigOption, Searcher, constants, evaluator, get_logger
+from capreolus import ConfigOption, Searcher, constants, get_logger
 from capreolus.reranker.common import pair_hinge_loss, pair_softmax_loss
 
 from . import Trainer
@@ -165,7 +165,7 @@ class PytorchTrainer(Trainer):
             logger.info("attempted to load weights from %s but failed, starting at iteration 0", weights_fn)
             return 0
 
-    def train(self, reranker, train_dataset, train_output_path, dev_data, dev_output_path, qrels, metric, relevance_level=1):
+    def train(self, reranker, train_dataset, train_output_path, dev_data, dev_output_path, metric, evaluate_fn):
         """Train a model following the trainer's config (specifying batch size, number of iterations, etc).
 
         Args:
@@ -246,7 +246,7 @@ class PytorchTrainer(Trainer):
                 preds = self.predict(reranker, dev_data, pred_fn)
 
                 # log dev metrics
-                metrics = evaluator.eval_runs(preds, qrels, evaluator.DEFAULT_METRICS, relevance_level)
+                metrics = evaluate_fn(preds)
                 logger.info("dev metrics: %s", " ".join([f"{metric}={v:0.3f}" for metric, v in sorted(metrics.items())]))
                 summary_writer.add_scalar("ndcg_cut_20", metrics["ndcg_cut_20"], niter)
                 summary_writer.add_scalar("map", metrics["map"], niter)
