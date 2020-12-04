@@ -183,7 +183,7 @@ class EmbedText(Extractor):
                         self.qid2toks[qid].extend(list(map(str, np.repeat(t, v))))
 
         elif self.query_vocab_specific.startswith("unique_user") or self.query_vocab_specific.startswith("user"):
-            user_term_weights = get_profile_term_weight_user(qids, querytype, self.cfg['query_cut'], self.query_vocab_specific[self.query_vocab_specific.index("-"):], self["tokenizer"])
+            user_term_weights = get_profile_term_weight_user(qids, querytype, self.cfg['query_cut'], self.query_vocab_specific[self.query_vocab_specific.index("-")+1:], self["tokenizer"])
             if self.query_vocab_specific.startswith("unique_user"):
                 for qid in qids:
                     uid = qid.split("_")[-1]
@@ -201,7 +201,7 @@ class EmbedText(Extractor):
                     self.qid2toks[qid] = sorted_terms
 
         elif self.query_vocab_specific.startswith("unique_topic") or self.query_vocab_specific.startswith("topic"):
-            term_weights = get_profile_term_weight_topic(qids, querytype, self.cfg['query_cut'], self.query_vocab_specific[self.query_vocab_specific.index("-"):], self["tokenizer"])
+            term_weights = get_profile_term_weight_topic(qids, querytype, self.cfg['query_cut'], self.query_vocab_specific[self.query_vocab_specific.index("-")+1:], self["tokenizer"])
             sorted_weights = sorted(term_weights.items(), key=lambda item: item[1], reverse=True)
             if self.query_vocab_specific.startswith("unique_topic"):
                 for qid in qids:
