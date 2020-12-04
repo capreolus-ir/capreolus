@@ -19,9 +19,10 @@ logger = get_logger(__name__)
 
 from tensorflow.python.client import device_lib
 
+
 def get_available_gpus():
     local_device_protos = device_lib.list_local_devices()
-    return [x.name for x in local_device_protos if x.device_type == 'GPU']
+    return [x.name for x in local_device_protos if x.device_type == "GPU"]
 
 
 @Trainer.register
@@ -54,8 +55,13 @@ class TensorflowTrainer(Trainer):
         ConfigOption("decay", 0.0, "learning rate decay"),
         ConfigOption("decaystep", 3),
         ConfigOption("decaytype", None),
+        ConfigOption(
+            "earlystop",
+            True,
+            "If False, will save checkpoint each `validatefreq` steps, otherwise will only save the best performanced checkpoint",
+        ),
     ]
-    config_keys_not_in_path = ["fastforward", "boardname", "usecache", "tpuname", "tpuzone", "storage"]
+    config_keys_not_in_path = ["fastforward", "boardname", "usecache", "tpuname", "tpuzone", "storage", "earlystop"]
 
     def build(self):
         tf.random.set_seed(self.config["seed"])
@@ -199,6 +205,12 @@ class TensorflowTrainer(Trainer):
                 total_loss = 0
 
                 if epoch % self.config["validatefreq"] == 0:
+                    if not self.config["earlystop"]:
+                        # save the ckpt ahead so don't need to wait for the evaluation to finish to use the ckpt
+                        # (eval on large dataset like MS MARCO takes > 1 days)
+                        wrapped_model.save_weights("{0}/dev.best".format(train_output_path))
+                        logger.info(f"Saved the ckpt at {epoch} step to directory {train_output_path}")
+
                     dev_predictions = []
                     for x in tqdm(dev_dist_dataset, desc="validation"):
                         pred_batch = (
@@ -384,8 +396,7 @@ class TensorflowTrainer(Trainer):
         for sample in dataset:
             tf_features.extend(reranker.extractor.create_tf_dev_feature(sample))
             if len(tf_features) > 20000:
-                tf_record_filenames.append(
-                    self.write_tf_record_to_file(dir_name, tf_features, file_name=str(tf_file_id)))
+                tf_record_filenames.append(self.write_tf_record_to_file(dir_name, tf_features, file_name=str(tf_file_id)))
                 tf_features = []
                 tf_file_id += 1
 
@@ -491,4 +502,3 @@ class TensorflowTrainer(Trainer):
         wrapped_model.load_weights("{0}/dev.best".format(train_output_path))
 
         return wrapped_model.model
-
