@@ -73,6 +73,9 @@ def compute_metrics(qids_to_relevant_passageids, qids_to_ranked_candidate_passag
             target_pid = qids_to_relevant_passageids[qid]
             candidate_pid = qids_to_ranked_candidate_passages[qid]
             for i in range(0, MaxMRRRank):
+                if i >= len(candidate_pid):
+                    break
+
                 if candidate_pid[i] in target_pid:
                     MRR += 1 / (i + 1)
                     ranking.pop()
