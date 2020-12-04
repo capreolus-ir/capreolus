@@ -140,17 +140,16 @@ def search_best_run(runfile_dirs, benchmark, primary_metric, metrics=None, folds
     best_scores = {s: {primary_metric: 0, "path": None} for s in folds}
     for runfile in runfiles:
         runs = Searcher.load_trec_run(runfile)
-        for s, v in folds.items():
+        for fold_name in folds:
             score = _eval_runs(
                 runs,
                 benchmark.qrels,
                 [primary_metric],
-                set(v["predict"]["dev"]),
-                # (set(v["train_qids"]) | set(v["predict"]["dev"])),
+                set(benchmark.non_nn_dev[fold_name]),
                 benchmark.relevance_level,
             )[primary_metric]
-            if score > best_scores[s][primary_metric]:
-                best_scores[s] = {primary_metric: score, "path": runfile}
+            if score > best_scores[fold_name][primary_metric]:
+                best_scores[fold_name] = {primary_metric: score, "path": runfile}
 
     test_runs = {}
     for s, score_dict in best_scores.items():

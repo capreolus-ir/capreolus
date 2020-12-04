@@ -22,10 +22,12 @@ class MSMarcoPassage(Benchmark):
 
     query_type = "title"
     config_spec = []
+    use_train_as_dev = False
+
     data_dir = PACKAGE_PATH / "data" / "msmarcopsg"
-    qrel_file = data_dir / "qrels.msmarcodoc.txt"
-    topic_file = data_dir / "topics.msmarcodoc.txt"
-    fold_file = data_dir / "msmarcodoc.folds.json"
+    qrel_file = data_dir / "qrels.txt"
+    topic_file = data_dir / "topics.txt"
+    fold_file = data_dir / "folds.json"
 
     def build(self):
         self.download_if_missing()
@@ -90,7 +92,7 @@ class MSMarcoPassageKeywords(MSMarcoPassage):
         ),
     ]
 
-    topic_file = MSMarcoPassage.data_dir / "topics.msmarcodoc.keyword.txt"
+    topic_file = MSMarcoPassage.data_dir / "topics.keyword.txt"
 
     def download_if_missing(self):
         super().download_if_missing()
