@@ -62,8 +62,10 @@ class MSMarcoPassage(Benchmark):
                     folds[set_name].add(qid)
 
             if not cur_qrelfn:
-                logger.warning(f"{set_name} qrel is unfound. This is expected if it is eval set. "
-                               f"This is unexpected if it is train or dev set.")
+                logger.warning(
+                    f"{set_name} qrel is unfound. This is expected if it is eval set. "
+                    f"This is unexpected if it is train or dev set."
+                )
                 continue
 
             with open(gz_dir / cur_qrelfn[0], "r") as f:
@@ -76,6 +78,7 @@ class MSMarcoPassage(Benchmark):
         json.dump(folds, open(self.fold_file, "w"))
 
 
+@Benchmark.register
 class MSMarcoPassageKeywords(MSMarcoPassage):
     module_name = "msmarcopsg_keywords"
     dependencies = MSMarcoPassage.dependencies + [
@@ -83,7 +86,7 @@ class MSMarcoPassageKeywords(MSMarcoPassage):
             key="tokenizer",
             module="tokenizer",
             name="anserini",
-            default_config_overrides={"indexstops": False, "stemmer": "none"},  # don't keepStops, don't stem
+            default_config_overrides={"keepstops": False, "stemmer": "none"},  # don't keepStops, don't stem
         ),
     ]
 
