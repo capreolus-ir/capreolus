@@ -48,7 +48,7 @@ def get_all_user_profiles(queryfn):
     for quid in topics:
         uid = quid.split("_")[-1]
         if uid not in profiles:
-            profiles[uid] = topics[quid]
+            profiles[uid] = topics[quid].replace("[", "").replace("]", "")
 
     return profiles
 
