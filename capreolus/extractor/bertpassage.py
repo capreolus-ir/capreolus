@@ -223,14 +223,18 @@ class BertPassage(Extractor):
 
         return (pos_bert_input, pos_mask, pos_seg, neg_bert_input, neg_mask, neg_seg), label
 
-    def _get_passage(self, docid):
+    def _get_passages(self, docid):
+        doc = self.index.get_doc(docid)
         if not self.config["sentences"]:
-            return self._prepare_doc_passages(self.index.get_doc(docid))
+            return self._get_sliding_window_passages(doc)
+        else:
+            return self._get_sent_passages(doc)
 
+    def _get_sent_passages(self, doc):
         passages = []
         punkt = PunktTokenizer()
         numpassages = self.config["numpassages"]
-        for sentence in punkt.tokenize(self.index.get_doc(docid)):
+        for sentence in punkt.tokenize(doc):
             if len(passages) >= numpassages:
                 break
             passages.extend(self._chunk_sent(sentence, self.config["passagelen"]))
@@ -247,7 +251,7 @@ class BertPassage(Extractor):
         assert len(passages) == numpassages or len(numpassages) == 0
         return sorted(passages, key=len)
 
-    def _prepare_doc_passages(self, doc):
+    def _get_sliding_window_passages(self, doc):
         """
         Extract passages from the doc.
         If there are too many passages, keep the first and the last one and sample from the rest.
@@ -256,12 +260,11 @@ class BertPassage(Extractor):
         passages = []
         numpassages = self.config["numpassages"]
         doc = self.tokenizer.tokenize(doc)
-
         for i in range(0, len(doc), self.config["stride"]):
             if i >= len(doc):
                 assert len(passages) > 0, f"no passage can be built from empty document {doc}"
                 break
-            passages.append(doc[i : i + self.config["passagelen"]])
+            passages.append(doc[i: i + self.config["passagelen"]])
 
         n_actual_passages = len(passages)
         # If we have a more passages than required, keep the first and last, and sample from the rest
@@ -274,7 +277,7 @@ class BertPassage(Extractor):
             # Pad until we have the required number of passages
             passages.extend([[self.pad_tok] for _ in range(numpassages - n_actual_passages)])
 
-        assert len(passages) == self.config["numpassages"]
+        assert len(passages) == numpassages
         return passages
 
     # from https://github.com/castorini/birch/blob/2dd0401ebb388a1c96f8f3357a064164a5db3f0e/src/utils/doc_utils.py#L73
@@ -336,7 +339,7 @@ class BertPassage(Extractor):
         pos_bert_inputs, pos_bert_masks, pos_bert_segs = [], [], []
 
         # N.B: The passages in self.docid2passages are not bert tokenized
-        pos_passages = self._get_passage(posid)
+        pos_passages = self._get_passages(posid)
         for tokenized_passage in pos_passages:
             inp, mask, seg = self._prepare_bert_input(query_toks, tokenized_passage)
             pos_bert_inputs.append(inp)
@@ -361,7 +364,7 @@ class BertPassage(Extractor):
             return data
 
         neg_bert_inputs, neg_bert_masks, neg_bert_segs = [], [], []
-        neg_passages = self._get_passage(negid)
+        neg_passages = self._get_passages(negid)
 
         for tokenized_passage in neg_passages:
             inp, mask, seg = self._prepare_bert_input(query_toks, tokenized_passage)
