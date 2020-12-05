@@ -36,7 +36,6 @@ class DomainRelatedness(EntityDomainRelatedness):
     strategy_C = None
     domain_relatedness_threshold_NE = None
     domain_relatedness_threshold_C = None
-    domain = None
     entity_linking_cache_path = None
     domain_rep_NE = None
     domain_rep_C = None
@@ -98,7 +97,7 @@ class DomainRelatedness(EntityDomainRelatedness):
         return k, m
 
     def get_similarities_cache_path(self):
-        logger.debug(self.entity_linking_cache_path / "similarities")
+        #logger.debug(self.entity_linking_cache_path)
         return self.entity_linking_cache_path / "similarities"
 
     def initialize(self, el_cache_path):
