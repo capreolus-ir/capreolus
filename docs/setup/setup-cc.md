@@ -16,7 +16,7 @@ setup_dir="$HOME/setup_capr"  # don't remove this directory
 mkdir -p $setup_dir
 sh ./scripts/setup-cc.sh $setup_dir && cd ../..
 source $setup_dir/setup_capreolus_on_cc.bash  # this needs to be run each time a new shell is created
-python -m capreolus.run rank.print_config && echo "** Successfulled cofigured Capreolus! **"
+python -m capreolus.run rank.print_config  # to check if the set-up is correct 
 ```
 
 ## Pre-download Huggingface models 
