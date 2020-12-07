@@ -3,7 +3,7 @@
 ################################
 setup_dir=$1
 env_name=capreolus
-config_file="setup_capreolus_on_cc.bash"
+config_file="$setup_dir/setup_capreolus_on_cc.bash"
 
 source ~/.bashrc
 eval "$(conda shell.bash hook)"
@@ -59,7 +59,7 @@ rm -rf $model_dir/*
 hugginface_models=("bert-base-uncased" "bert-large-uncased" "Capreolus/bert-base-msmarco")
 for model in "${hugginface_models[@]}"
 do
-        sh download_model.sh $model
+        sh ./scripts/download_models.sh $model
         mv $model $model_dir
 done
 
@@ -73,4 +73,3 @@ pip install --no-deps -r ./scripts/cc-requirements-no-deps.txt
 pip install -r ./scripts/cc-requirements.txt
 pip install torch==1.7.0+cu110 torchvision==0.8.1+cu110 torchaudio===0.7.0 -f https://download.pytorch.org/whl/torch_stable.html
 # pip install --no-deps git+https://github.com/crystina-z/capreolus-1.git@feature/msmarco_psg
-python -m capreolus.run rank.print_config && echo "** Successfulled cofigured Capreolus! **"
