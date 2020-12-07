@@ -8,9 +8,12 @@ This instruction assume the users have anaconda or miniconda installed.
 ## Install Capreolus and its dependencies 
 To setup, clone the repo and run the following scripts under the top-level capreolus: 
 ```
+git clone https://github.com/capreolus-ir/capreolus 
+git branch feature/msmarco_psg 
+cd capreolus/docs/setup
+
 setup_dir="$HOME/setup_capr"  # don't remove this directory
 mkdir -p $setup_dir
-cd docs/setup
 sh ./scripts/setup-cc.sh $setup_dir && cd ../..
 source $setup_dir/setup_capreolus_on_cc.bash  # this needs to be run each time a new shell is created
 ```

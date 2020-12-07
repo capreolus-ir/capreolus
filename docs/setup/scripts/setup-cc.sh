@@ -49,19 +49,6 @@ fi
 
 
 ################################
-# Python package
-################################
-source $(pwd)/$config_file
-
-pip install --no-deps -r ./scripts/cc-requirements-no-deps.txt
-pip install -r ./scripts/cc-requirements.txt
-pip install torch==1.7.0+cu110 torchvision==0.8.1+cu110 torchaudio===0.7.0 -f https://download.pytorch.org/whl/torch_stable.html
-pip install --no-deps git+https://github.com/crystina-z/capreolus-1.git@feature/msmarco_psg
-python -c "import capreolus" || exit
-echo "===================================\nSuccessfully installed capreolus.\n==================================="
-
-
-################################
 # some 'pre-download' huggingface models
 # since graham and beluga has no internet access
 ################################
@@ -75,3 +62,15 @@ do
         sh download_model.sh $model
         mv $model $model_dir
 done
+
+
+################################
+# Python package
+################################
+source $(pwd)/$config_file
+
+pip install --no-deps -r ./scripts/cc-requirements-no-deps.txt
+pip install -r ./scripts/cc-requirements.txt
+pip install torch==1.7.0+cu110 torchvision==0.8.1+cu110 torchaudio===0.7.0 -f https://download.pytorch.org/whl/torch_stable.html
+# pip install --no-deps git+https://github.com/crystina-z/capreolus-1.git@feature/msmarco_psg
+python -m capreolus.run rank.print_config && echo "** Successfulled cofigured Capreolus! **"
