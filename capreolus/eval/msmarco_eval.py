@@ -31,7 +31,7 @@ def quality_checks_qids(qids_to_relevant_passageids, qids_to_ranked_candidate_pa
     Returns:
         bool,str: Boolean whether allowed, message to be shown in case of a problem
     """
-    message = ''
+    message = ""
     allowed = True
 
     # Create sets of the QIDs for the submitted and reference queries
@@ -41,12 +41,12 @@ def quality_checks_qids(qids_to_relevant_passageids, qids_to_ranked_candidate_pa
     # Check that we do not have multiple passages per query
     for qid in qids_to_ranked_candidate_passages:
         # Remove all zeros from the candidates
-        duplicate_pids = set(
-            [item for item, count in Counter(qids_to_ranked_candidate_passages[qid]).items() if count > 1])
+        duplicate_pids = set([item for item, count in Counter(qids_to_ranked_candidate_passages[qid]).items() if count > 1])
 
         if len(duplicate_pids - set([0])) > 0:
             message = "Cannot rank a passage multiple times for a single query. QID={qid}, PID={pid}".format(
-                qid=qid, pid=list(duplicate_pids)[0])
+                qid=qid, pid=list(duplicate_pids)[0]
+            )
             allowed = False
 
     return allowed, message
@@ -83,8 +83,8 @@ def compute_metrics(qids_to_relevant_passageids, qids_to_ranked_candidate_passag
         raise IOError("No matching QIDs found. Are you sure you are scoring the evaluation set?")
 
     MRR = MRR / len(qids_to_relevant_passageids)
-    all_scores['MRR @10'] = MRR
-    all_scores['QueriesRanked'] = len(qids_to_ranked_candidate_passages)
+    all_scores["MRR @10"] = MRR
+    all_scores["QueriesRanked"] = len(qids_to_ranked_candidate_passages)
     return all_scores
 
 
@@ -93,7 +93,8 @@ def compute_metrics_from_files(trec_qrels, trec_runs, perform_checks=True):
     qids_to_ranked_candidate_passages = runs_trec_to_msmarco(trec_runs)
     if perform_checks:
         allowed, message = quality_checks_qids(qids_to_relevant_passageids, qids_to_ranked_candidate_passages)
-        if message != '': print(message)
+        if message != "":
+            print(message)
 
     return compute_metrics(qids_to_relevant_passageids, qids_to_ranked_candidate_passages)
 
@@ -107,13 +108,11 @@ def main():
         path_to_reference = sys.argv[1]
         path_to_candidate = sys.argv[2]
         metrics = compute_metrics_from_files(path_to_reference, path_to_candidate)
-        print('#####################')
+        print("#####################")
         for metric in sorted(metrics):
-            print('{}: {}'.format(metric, metrics[metric]))
-        print('#####################')
+            print("{}: {}".format(metric, metrics[metric]))
+        print("#####################")
 
     else:
-        print('Usage: msmarco_eval_ranking.py <reference ranking> <candidate ranking>')
+        print("Usage: msmarco_eval_ranking.py <reference ranking> <candidate ranking>")
         exit()
-
-

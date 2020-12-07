@@ -9,6 +9,7 @@ from capreolus.task import Task
 from capreolus.utils.loginit import get_logger
 
 from time import time
+
 logger = get_logger(__name__)
 
 

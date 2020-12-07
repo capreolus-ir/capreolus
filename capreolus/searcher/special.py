@@ -18,11 +18,11 @@ class MsmarcoPsgSearcherMixin:
         runs = defaultdict(dict)
         with open(msmarco_top1k_fn, "r", encoding="utf-8") as f:
             for line in f:
-               if train:
+                if train:
                     qid, pos_pid, neg_pid = line.strip().split("\t")
                     runs[qid][pos_pid] = len(runs.get(pos_pid, []))
                     runs[qid][neg_pid] = len(runs.get(neg_pid, []))
-               else:
+                else:
                     qid, pid, _, _ = line.strip().split("\t")
                     runs[qid][pid] = len(runs.get(qid, []))
         return runs
@@ -42,9 +42,7 @@ class MsmarcoPsgSearcherMixin:
 @Searcher.register
 class MsmarcoPsg(Searcher, MsmarcoPsgSearcherMixin):
     module_name = "msmarcopsg"
-    dependencies = [
-        Dependency(key="benchmark", module="benchmark", name="msmarcopsg")
-    ]
+    dependencies = [Dependency(key="benchmark", module="benchmark", name="msmarcopsg")]
 
     def _query_from_file(self, topicsfn, output_path, cfg):
         """ only query results in dev and test set are saved """
@@ -64,7 +62,7 @@ class MsmarcoPsg(Searcher, MsmarcoPsgSearcherMixin):
         # dev and test
         dev_test_urls = [
             "https://msmarco.blob.core.windows.net/msmarcoranking/top1000.dev.tar.gz",
-            "https://msmarco.blob.core.windows.net/msmarcoranking/top1000.eval.tar.gz"
+            "https://msmarco.blob.core.windows.net/msmarcoranking/top1000.eval.tar.gz",
         ]
         runs = {}
         for url in dev_test_urls:
@@ -83,7 +81,7 @@ class MsmarcoPsgBm25(BM25, MsmarcoPsgSearcherMixin):
     module_name = "msmarcopsgbm25"
     dependencies = [
         Dependency(key="benchmark", module="benchmark", name="msmarcopsg"),
-        Dependency(key="index", module="index", name="anserini")
+        Dependency(key="index", module="index", name="anserini"),
     ]
 
     def _query_from_file(self, topicsfn, output_path, config):

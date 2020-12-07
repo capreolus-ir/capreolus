@@ -34,7 +34,7 @@ class MSMarcoMixin:
 
             if os.path.isdir(tmp_dir):  # and set(os.listdir(tmp_dir)) != expected_fns:
                 extract_dir = tmp_dir
-            elif (not os.path.isdir(tmp_dir)): # and tmp_dir != list(expected_fns)[0]:
+            elif not os.path.isdir(tmp_dir):  # and tmp_dir != list(expected_fns)[0]:
                 extract_dir = tmp_dir.parent
 
         else:
@@ -61,7 +61,16 @@ class MSMarcoPsg(Collection, MSMarcoMixin):
     def download_raw(self):
         url = "https://msmarco.blob.core.windows.net/msmarcoranking/collectionandqueries.tar.gz"
         tmp_dir = self.get_cache_path() / "tmp"
-        expected_fns = {"collection.tsv", "qrels.dev.small.tsv", "qrels.train.tsv", "queries.train.tsv", "queries.dev.small.tsv", "queries.dev.tsv", "queries.eval.small.tsv", "queries.eval.tsv"}
+        expected_fns = {
+            "collection.tsv",
+            "qrels.dev.small.tsv",
+            "qrels.train.tsv",
+            "queries.train.tsv",
+            "queries.dev.small.tsv",
+            "queries.dev.tsv",
+            "queries.eval.small.tsv",
+            "queries.eval.tsv",
+        }
         gz_dir = self.download_and_extract(url, tmp_dir, expected_fns=expected_fns)
         return gz_dir
 

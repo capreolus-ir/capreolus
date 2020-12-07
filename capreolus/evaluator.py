@@ -59,10 +59,12 @@ def _eval_runs(runs, qrels, metrics, relevance_level):
         return {m: -1 for m in metrics}
 
     if set(runs) != set(qrels):
-        logger.warning(f"Queries mismatch in qrels and runs: \n" +
-                       f"Number of queries in qrels: {len(qrels)}; \n" +
-                       f"Number of queries in runs: {len(runs)}; \n" +
-                       f"Number of overlap queries: {len(overlap_qids)}.")
+        logger.warning(
+            f"Queries mismatch in qrels and runs: \n"
+            + f"Number of queries in qrels: {len(qrels)}; \n"
+            + f"Number of queries in runs: {len(runs)}; \n"
+            + f"Number of overlap queries: {len(overlap_qids)}."
+        )
 
     assert isinstance(metrics, list)
     calc_judged = [int(metric.split("_")[1]) for metric in metrics if metric.startswith("judged_")]

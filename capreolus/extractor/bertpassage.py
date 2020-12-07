@@ -264,7 +264,7 @@ class BertPassage(Extractor):
             if i >= len(doc):
                 assert len(passages) > 0, f"no passage can be built from empty document {doc}"
                 break
-            passages.append(doc[i: i + self.config["passagelen"]])
+            passages.append(doc[i : i + self.config["passagelen"]])
 
         n_actual_passages = len(passages)
         # If we have a more passages than required, keep the first and last, and sample from the rest
