@@ -55,6 +55,7 @@ class TensorflowTrainer(Trainer):
         ConfigOption("decay", 0.0, "learning rate decay"),
         ConfigOption("decaystep", 3),
         ConfigOption("decaytype", None),
+        ConfigOption("endlr", 0, "Learning rate at the end of decay, used for linear decay"),
         ConfigOption(
             "earlystop",
             True,
@@ -191,15 +192,13 @@ class TensorflowTrainer(Trainer):
             num_batches += 1
             iter_bar.update(1)
 
+            # Do warmup and decay
+            new_lr = self.change_lr(global_steps=num_batches, lr=self.config["bertlr"])
+            K.set_value(optimizer_2.lr, K.get_value(new_lr))
+
             if num_batches % self.config["itersize"] == 0:
                 epoch += 1
-
-                # Do warmup and decay
-                new_lr = self.change_lr(epoch, self.config["bertlr"])
-                K.set_value(optimizer_2.lr, K.get_value(new_lr))
-
                 iter_bar.close()
-                iter_bar = tqdm(total=self.config["itersize"])
                 logger.info("train_loss for epoch {} is {}".format(epoch, train_loss))
                 train_loss = 0
                 total_loss = 0
@@ -227,6 +226,8 @@ class TensorflowTrainer(Trainer):
                         best_metric = metrics[metric]
                         logger.info("new best dev metric: %0.4f", best_metric)
                         wrapped_model.save_weights("{0}/dev.best".format(train_output_path))
+
+                iter_bar = tqdm(total=self.config["itersize"])
 
             if num_batches >= self.config["niters"] * self.config["itersize"]:
                 break
@@ -442,17 +443,19 @@ class TensorflowTrainer(Trainer):
 
         return dict(pred_dict)
 
-    def change_lr(self, epoch, lr):
+    def change_lr(self, global_steps, lr):
         """
         Apply warm up or decay depending on the current epoch
         """
         warmup_steps = self.config["warmupsteps"]
-        if warmup_steps and epoch <= warmup_steps:
-            return min(lr * ((epoch + 1) / warmup_steps), lr)
+        if warmup_steps and global_steps <= warmup_steps:
+            return min(lr * ((global_steps + 1) / warmup_steps), lr)
         elif self.config["decaytype"] == "exponential":
-            return lr * self.config["decay"] ** ((epoch - warmup_steps) / self.config["decaystep"])
+            return lr * self.config["decay"] ** ((global_steps - warmup_steps) / self.config["decaystep"])
         elif self.config["decaytype"] == "linear":
-            return lr * (1 / (1 + self.config["decay"] * epoch))
+            # return lr * (1 / (1 + self.config["decay"] * epoch))
+            end_lr = self.config["endlr"]
+            return end_lr + (lr - end_lr) * (1 - global_steps / self.config["decaystep"])
 
         return lr
 
