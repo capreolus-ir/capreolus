@@ -8,21 +8,31 @@ Once the environment is set, you can verify the installation with [these instruc
 
 ## Explore LR Scheduler Setting
 Below are the possible lr scheduler values (combination) you can pick up and run: <br/> 
-bertlr, 2e-5, lr, 0.001 
-warmupsteps", 0
-decay", 0.0, 
-decaystep", 3
-decaytype", None
+
+| No.         |   | bertlr | lr   | itersize | warmupsteps | decaystep | decaytype |
+|-------------|---|--------|------|----------|-------------|-----------|-----------|
+| 0 (default) |   | 1e-5   | 1e-3 |    40000 |           0 |         0 | None      |
+| 1           |   | 1e-5   | 1e-5 |    40000 |           0 |         0 | None      |
+| 2           |   | 1e-6   | 1e-6 |    40000 |           0 |         0 | None      |
+| 3           |   | 1e-5   | 1e-3 |    40000 |        4000 |         0 | None      |
+| 4           |   | 1e-5   | 1e-5 |    40000 |        4000 |         0 | None      |
+| 5           |   | 1e-6   | 1e-6 |    40000 |        4000 |         0 | None      |
+| 6           |   | 1e-5   | 1e-3 |    40000 |           0 |     40000 | linear    |
+| 7           |   | 1e-5   | 1e-5 |    40000 |           0 |     40000 | linear    |
+| 8           |   | 1e-6   | 1e-6 |    40000 |           0 |     40000 | linear    |
+| 9           |   | 1e-5   | 1e-3 |    40000 |        4000 |     40000 | linear    |
+| 10          |   | 1e-5   | 1e-5 |    40000 |        4000 |     40000 | linear    |
+| 11          |   | 1e-6   | 1e-6 |    40000 |        4000 |     40000 | linear    |
 
 ## Running MS MARCO 
-This requires GPU(s) with 48GB memory (e.g. 4 P100 or V100 nodes or a RTX 8000) or a TPU. 
+This requires GPU(s) with 48GB memory (e.g. 4 V100 or a RTX 8000) or a TPU. 
 1. Make sure you are in the top-level `capreolus` directory; 
-2. Train and evaluate on MS MARCO Passage using the following scripts, 
+2. Train on MS MARCO Passage using the following scripts, 
     while replacing the lr scheduler variables with the one you picked up <br/> 
     ```
     # say you chose to run "decay"=0.1
     decay=0.1
-    python -m capreolus.run rerank.traineval with \
+    python -m capreolus.run rerank.train with \
         file=docs/reproduction/config_msmarco.txt  \
         reranker.trainer.decay=$decay \
         fold=s1
@@ -35,20 +45,5 @@ This requires GPU(s) with 48GB memory (e.g. 4 P100 or V100 nodes or a RTX 8000) 
 With the configurations in `docs/reproduction/config_msmarco.txt` and all the others as default, 
 the MRR@10 on dev set should be around `0.339`. 
 
-| No.         |   | bertlr | lr   | itersize | warmupsteps | decaystep | decaytype |
-|-------------|---|--------|------|----------|-------------|-----------|-----------|
-| 0 (default) |   | 1e-5   | 1e-3 |    40000 |           0 |         0 | None      |
-| 1           |   | 1e-5   | 1e-5 |    40000 |           0 |         0 | None      |
-| 2           |   | 1e-6   | 1e-6 |    40000 |           0 |         0 | None      |
-|             |   |        |      |          |             |           |           |
-| 3           |   | 1e-5   | 1e-3 |    40000 |        4000 |         0 | None      |
-| 4           |   | 1e-5   | 1e-5 |    40000 |        4000 |         0 | None      |
-| 5           |   | 1e-6   | 1e-6 |    40000 |        4000 |         0 | None      |
-|             |   |        |      |          |             |           |           |
-| 6           |   | 1e-5   | 1e-3 |    40000 |           0 |     40000 | linear    |
-| 7           |   | 1e-5   | 1e-5 |    40000 |           0 |     40000 | linear    |
-| 8           |   | 1e-6   | 1e-6 |    40000 |           0 |     40000 | linear    |
-|             |   |        |      |          |             |           |           |
-| 9           |   | 1e-5   | 1e-3 |    40000 |        4000 |     40000 | linear    |
-| 10          |   | 1e-5   | 1e-5 |    40000 |        4000 |     40000 | linear    |
-| 11          |   | 1e-6   | 1e-6 |    40000 |        4000 |     40000 | linear    |
+## Replication Logs
++ Results (with hypperparameter-0) replicated by [@crystina-z](https://github.com/crystina-z) on 2020-12-06 (commit [`6c3759f`](https://github.com/crystina-z/capreolus-1/commit/6c3759fe620f18f8939670176a18c744752bc9240)) (Tesla V100 on Compute Canada)
