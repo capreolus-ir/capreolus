@@ -15,7 +15,7 @@ if [ "assessed_set" == "" ];then
   echo "assessed_set shoult be given: random20 top10"
   exit
 fi
-SIMULRUN= 10
+SIMULRUN=10
 
 declare -a domains=('book' 'food' 'travel')
 declare -a doccuttypes=("None" "most_frequent" "all_domains_tf" "all_domains_df" "amazon_tf" "amazon_df" )
