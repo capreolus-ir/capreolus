@@ -376,8 +376,8 @@ class DocStats(Extractor):
     def create(self, qids, docids, topics, qdocs=None, querytype=None):  # TODO make changes to not use benchmark querytype anymore
         logger.debug(f"cache path: {self.get_cache_path()}")
         # todo remove these, just for initial checks
-        logger.debug(qids)
-        logger.debug(docids)
+        logger.debug(f"len(qids)={len(qids)}")
+        logger.debug(f"len(docids)={len(docids)}")
         # logger.debug(topics)
         # Todo where can I check this: is here good?
         if "nostem" in self["backgroundindex"].cfg["indexcorpus"]:
