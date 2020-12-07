@@ -26,19 +26,23 @@ if [ "$STAGE" == "collection" ];then
   do
     echo "sbatch -p cpu20 -c 2 -a 1-850:850%1 --mem-per-cpu=32G -o ${logfolder}${method}_${domain}_${entitystrategy}_${pipeline}_${domainvocsp}.log --open-mode=append run_STATISTICALs_single_complete.sh  $domain $pipeline $entitystrategy $domainvocsp $method;"
     sbatch -p cpu20 -c 2 -a 1-850:850%1 --mem-per-cpu=32G -o ${logfolder}${method}_${domain}_${entitystrategy}_${pipeline}_${domainvocsp}.log --open-mode=append run_STATISTICALs_single_complete.sh  $domain $pipeline $entitystrategy $domainvocsp $method;
+    sleep 5
   done
   # download the word vector:
   domain=book
   method=LMDEmb
   echo "sbatch -p cpu20 -c 2 -a 1-850:850%1 --mem-per-cpu=64G -o ${logfolder}${method}_${domain}_${entitystrategy}_${pipeline}_${domainvocsp}.log --open-mode=append run_STATISTICALs_single_complete.sh  $domain $pipeline $entitystrategy $domainvocsp $method;"
   sbatch -p cpu20 -c 2 -a 1-850:850%1 --mem-per-cpu=64G -o ${logfolder}${method}_${domain}_${entitystrategy}_${pipeline}_${domainvocsp}.log --open-mode=append run_STATISTICALs_single_complete.sh  $domain $pipeline $entitystrategy $domainvocsp $method;
+  sleep 5
 
   # download w2v of the knrm
   step=train
   doccut=None
+  domain=alldomains
   assessed_set=random20
   echo "sbatch -p cpu20 -c 4 -a 1-1020:1020%1 --mem-per-cpu=64G -o ${logfolder}${step}_KNRM_${domain}_${entitystrategy}_${pipeline}_${doccut}_${assessed_set}.log --open-mode=append run_KNRM_single_complete.sh  $domain $pipeline $entitystrategy $doccut $assessed_set $step;"
   sbatch -p cpu20 -c 4 -a 1-1020:1020%1 --mem-per-cpu=64G -o ${logfolder}${step}_KNRM_${domain}_${entitystrategy}_${pipeline}_${doccut}_${assessed_set}.log --open-mode=append run_KNRM_single_complete.sh  $domain $pipeline $entitystrategy $doccut $assessed_set $step;
+  sleep 5
 fi
 
 if [ "$STAGE" == "entities" ];then
@@ -48,6 +52,7 @@ if [ "$STAGE" == "entities" ];then
   do
     echo "sbatch -p cpu20 -c 2 -a 1-850:50%${SIMULRUN} --mem-per-cpu=64G -o ${logfolder}${method}_${domain}_${entitystrategy}_${pipeline}_${domainvocsp}.log --open-mode=append run_STATISTICALs_single_complete.sh  $domain $pipeline $entitystrategy $domainvocsp $method;"
     sbatch -p cpu20 -c 2 -a 1-850:50%${SIMULRUN} --mem-per-cpu=64G -o ${logfolder}${method}_${domain}_${entitystrategy}_${pipeline}_${domainvocsp}.log --open-mode=append run_STATISTICALs_single_complete.sh  $domain $pipeline $entitystrategy $domainvocsp $method;
+    sleep 5
   done
 fi
 
@@ -59,6 +64,7 @@ if [ "$STAGE" == "similarities" ];then
   do
     echo "sbatch -p cpu20 -c 2 -a 1-850:50%${SIMULRUN} --mem-per-cpu=64G -o ${logfolder}${method}_${domain}_${entitystrategy}_${pipeline}_${domainvocsp}.log --open-mode=append run_STATISTICALs_single_complete.sh  $domain $pipeline $entitystrategy $domainvocsp $method;"
     sbatch -p cpu20 -c 2 -a 1-850:50%${SIMULRUN} --mem-per-cpu=64G -o ${logfolder}${method}_${domain}_${entitystrategy}_${pipeline}_${domainvocsp}.log --open-mode=append run_STATISTICALs_single_complete.sh  $domain $pipeline $entitystrategy $domainvocsp $method;
+    sleep 5
   done
 fi
 
