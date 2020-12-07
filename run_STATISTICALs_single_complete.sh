@@ -10,7 +10,8 @@ export CAPREOLUS_RESULTS=`cat paths_env_vars/capreolusresultpath` ;
 export CAPREOLUS_CACHE=`cat paths_env_vars/capreoluscachepath` ;
 export PYTHONPATH=`cat paths_env_vars/capreoluspythonpath` ;
 
-declare -a profiles=('query' 'basicprofile' 'chatprofile' 'basicprofile_general' 'basicprofile_food' 'basicprofile_travel' 'basicprofile_book' 'basicprofile_movie' 'basicprofile_food_general' 'basicprofile_travel_general' 'basicprofile_book_general' 'basicprofile_movie_general' 'chatprofile_general' 'chatprofile_food' 'chatprofile_travel' 'chatprofile_book' 'chatprofile_movie' 'chatprofile_food_general' 'chatprofile_travel_general' 'chatprofile_book_general' 'chatprofile_movie_general')
+# 17 profiles: idxs: 0-16
+declare -a profiles=('query' 'basicprofile' 'chatprofile' 'basicprofile_general' 'basicprofile_food' 'basicprofile_travel' 'basicprofile_book' 'basicprofile_food_general' 'basicprofile_travel_general' 'basicprofile_book_general' 'chatprofile_general' 'chatprofile_food' 'chatprofile_travel' 'chatprofile_book' 'chatprofile_food_general' 'chatprofile_travel_general' 'chatprofile_book_general')
 
 domain=$1
 pipeline=$2
@@ -33,12 +34,20 @@ if [ "$method" == "BM25cInf" ];then
   ranker="BM25 reranker.b=0.75 reranker.k1=1.5"
 fi
 
-qtidx=$(( (SLURM_ARRAY_TASK_ID-1)/50 ))
+# dividant is 10 (folds) * number if queryfilters/cuts
+dividant=$((10*5))
+qtidx=$(( (SLURM_ARRAY_TASK_ID-1)/dividant ))
 querytype=${profiles[$qtidx]}
-
-pvidx=$(( SLURM_ARRAY_TASK_ID - (qtidx * 50)  ))
-
+pvidx=$(( SLURM_ARRAY_TASK_ID - (qtidx * dividant)  ))
 FOLDNUM=$(( ((pvidx-1)%10)+1 ))
+
+# 17 is number of profiles
+if ((SLURM_ARRAY_TASK_ID < 1 || SLURM_ARRAY_TASK_ID > (dividant*17))); then
+  conda deactivate
+  echo "SLURM_ARRAY_TASK_ID is wrong: ${SLURM_ARRAY_TASK_ID}"
+  exit
+fi
+
 
 if ((pvidx >= 1 && pvidx <= 10)); then
   filterq=None
