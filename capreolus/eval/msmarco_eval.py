@@ -1,7 +1,5 @@
 """
 This module computes evaluation metrics for MSMARCO dataset on the ranking task.
-Command line:
-python msmarco_eval_ranking.py <path_to_reference_file> <path_to_candidate_file>
 
 Creation Date : 06/12/2018
 Last Modified : 1/21/2019
