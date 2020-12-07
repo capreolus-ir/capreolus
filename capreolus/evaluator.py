@@ -53,12 +53,16 @@ def mrr_10(qrels, runs):
 
 
 def _eval_runs(runs, qrels, metrics, relevance_level):
-    if len(qrels) == 0:
-        logger.warning(f"received empty qrels. Skip the evaluation")
+    overlap_qids = set(qrels) & set(runs)
+    if len(overlap_qids) == 0:
+        logger.warning(f"No overlapping qids between qrels and runs. Skip the evaluation")
         return {m: -1 for m in metrics}
 
-    if len(runs) != len(qrels):
-        logger.warning(f"Size of runs and qrels mismatch: Found {len(runs)} in runs and {len(qrels)} in qrels.")
+    if set(runs) != set(qrels):
+        logger.warning(f"Queries mismatch in qrels and runs: \n" +
+                       f"Number of queries in qrels: {len(qrels)}; \n" +
+                       f"Number of queries in runs: {len(runs)}; \n" +
+                       f"Number of overlap queries: {len(overlap_qids)}.")
 
     assert isinstance(metrics, list)
     calc_judged = [int(metric.split("_")[1]) for metric in metrics if metric.startswith("judged_")]
@@ -150,6 +154,9 @@ def search_best_run(runfile_dirs, benchmark, primary_metric, metrics=None, folds
             score = _eval_runs(runs, dev_qrels, [primary_metric], benchmark.relevance_level)[primary_metric]
             if score > best_scores[fold_name][primary_metric]:
                 best_scores[fold_name] = {primary_metric: score, "path": runfile}
+
+    for fold, scores in best_scores.items():
+        logger.info(f"Best dev score on fold {fold}: {primary_metric}={scores[primary_metric]}")
 
     test_runs = {}
     for s, score_dict in best_scores.items():
