@@ -13,8 +13,6 @@ conda activate $env_name
 # Java
 setup_path="$setup_dir/setup"
 download_path="$setup_path/download"
-echo "SETUP PATH: $setup_path"
-echo "DOWNLOAD PATH: download_path"
 
 mkdir -p $setup_path
 rm -rf $setup_path/*
