@@ -371,7 +371,7 @@ class TensorflowTrainer(Trainer):
         """
         cached_tf_record_dir = self.form_tf_record_cache_path(dataset)
         if self.config["usecache"] and tf.io.gfile.exists(cached_tf_record_dir):
-            filenames = sorted(tf.io.gfile.listdir(cached_tf_record_dir), key=int)
+            filenames = sorted(tf.io.gfile.listdir(cached_tf_record_dir), key=lambda x: int(x.replace(".tfrecord", "")))
             filenames = ["{0}/{1}".format(cached_tf_record_dir, name) for name in filenames]
 
             return self.load_tf_dev_records_from_file(reranker, filenames, self.config["batch"])
