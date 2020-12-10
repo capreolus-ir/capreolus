@@ -92,7 +92,7 @@ class RerankTask(Task):
         )
 
         def local_evaluate_runs(runs):
-            dev_qrels = {qid: self.benchmark.qrels[qid] for qid in self.folds[fold]["predict"]["dev"]}
+            dev_qrels = {qid: self.benchmark.qrels[qid] for qid in self.benchmark.folds[fold]["predict"]["dev"]}
             return evaluator.eval_runs(runs, dev_qrels, evaluator.DEFAULT_METRICS, self.benchmark.relevance_level)
 
         self.reranker.trainer.train(
@@ -195,14 +195,14 @@ class RerankTask(Task):
             logger.error("could not find predictions; run the train command first")
             raise ValueError("could not find predictions; run the train command first")
 
-        dev_qrels = {qid: self.benchmark.qrels[qid] for qid in self.folds[fold]["predict"]["dev"]}
+        dev_qrels = {qid: self.benchmark.qrels[qid] for qid in self.benchmark.folds[fold]["predict"]["dev"]}
         fold_dev_metrics = evaluator.eval_runs(
             reranker_runs[fold]["dev"], dev_qrels, evaluator.DEFAULT_METRICS, self.benchmark.relevance_level
         )
         pretty_fold_dev_metrics = " ".join([f"{metric}={v:0.3f}" for metric, v in sorted(fold_dev_metrics.items())])
         logger.info("rerank: fold=%s dev metrics: %s", fold, pretty_fold_dev_metrics)
 
-        test_qrels = {qid: self.benchmark.qrels[qid] for qid in self.folds[fold]["predict"]["test"]}
+        test_qrels = {qid: self.benchmark.qrels[qid] for qid in self.benchmark.folds[fold]["predict"]["test"]}
         fold_test_metrics = evaluator.eval_runs(
             reranker_runs[fold]["test"], test_qrels, evaluator.DEFAULT_METRICS, self.benchmark.relevance_level
         )
