@@ -402,10 +402,11 @@ class TensorflowTrainer(Trainer):
 
         # TPU's require drop_remainder = True. But we cannot drop things from validation dataset
         # As a workaroud, we pad the dataset with the last sample until it reaches the batch size.
-        element_to_copy = tf_features[-1]
-        for i in range(self.config["batch"]):
-            tf_features.append(copy(element_to_copy))
-        tf_record_filenames.append(self.write_tf_record_to_file(dir_name, tf_features, file_name=str(tf_file_id)))
+        if len(tf_features) > 0:
+            element_to_copy = tf_features[-1]
+            for i in range(self.config["batch"]):
+                tf_features.append(copy(element_to_copy))
+            tf_record_filenames.append(self.write_tf_record_to_file(dir_name, tf_features, file_name=str(tf_file_id)))
         return tf_record_filenames
 
     def write_tf_record_to_file(self, dir_name, tf_features, file_name=None):
