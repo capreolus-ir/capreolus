@@ -9,15 +9,14 @@ class Encoder(ModuleBase):
     """
 
     module_type = "encoder"
-    dependencies = [Dependency(key="tokenizer", module="tokenizer")]
 
-    def build(self):
+    def build_model(self):
         """
         Initialize the PyTorch model
         """
         raise NotImplementedError
 
-    def encode(document):
+    def encode(self, numericalized_doc_toks):
         """
         Accepts a document (or a list of documents) and returns the corresponding vectors
         """
@@ -27,4 +26,8 @@ class Encoder(ModuleBase):
         raise NotImplementedError
 
 
-        
+from profane import import_all_modules
+
+from .GloveAvg import GloveAvgEncoder
+
+import_all_modules(__file__, __package__)

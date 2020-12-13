@@ -135,7 +135,7 @@ class TrainTripletSampler(Sampler, TrainingSamplerMixin, torch.utils.data.Iterab
 class TrainPairSampler(Sampler, TrainingSamplerMixin, torch.utils.data.IterableDataset):
     """
     Samples training data pairs. Each sample is of the form (query, doc)
-    The number of generate positive and negative samples are the same.
+    The number of generated positive and negative samples are the same.
     """
 
     module_name = "pair"

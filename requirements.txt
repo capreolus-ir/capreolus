@@ -39,3 +39,4 @@ lz4
 xxhash
 annoy
 fasteners
+faiss-cpu
