@@ -15,7 +15,7 @@ reranker.extractor.tokenizer.pretrained=bert-base-uncased
 reranker.trainer.usecache=True
 reranker.trainer.niters=1
 reranker.trainer.batch=16
-reranker.trainer.itersize=30000
+reranker.trainer.itersize=40000
 reranker.trainer.earlystop=False
 
 reranker.trainer.loss=pairwise_hinge_loss
