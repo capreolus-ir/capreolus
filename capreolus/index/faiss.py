@@ -1,7 +1,6 @@
 import faiss
 import os
 import numpy as np
-from pyserini.index import IndexReader
 from capreolus import ConfigOption, constants, get_logger, Dependency
 
 from . import Index
