@@ -14,7 +14,7 @@ logger = get_logger(__name__)
 class FAISSIndex(Index):
     module_name = "faiss"
     
-    dependencies = [Dependency(key="encoder", module="encoder", name="gloveavg"), Dependency(key="index", module="index", name="anserini")] + Index.dependencies
+    dependencies = [Dependency(key="encoder", module="encoder", name="tinybert"), Dependency(key="index", module="index", name="anserini")] + Index.dependencies
 
     def _create_index(self):
         from jnius import autoclass
@@ -26,21 +26,26 @@ class FAISSIndex(Index):
         JFile = autoclass("java.io.File")
         JFSDirectory = autoclass("org.apache.lucene.store.FSDirectory")
         fsdir = JFSDirectory.open(JFile(anserini_index_path).toPath())
-        index_reader = autoclass("org.apache.lucene.index.DirectoryReader").open(fsdir)
+        anserini_index_reader = autoclass("org.apache.lucene.index.DirectoryReader").open(fsdir)
 
-        index = faiss.IndexFlatL2(64)
+        faiss_index = faiss.IndexFlatL2(64)
         vec  = np.zeros(64)
+        
+        self.encoder.build_model()
 
-        for i in range(0, index_reader.maxDoc()):
+        for i in range(0, anserini_index_reader.maxDoc()):
             # TODO: Add check for deleted rows
             # TODO: Batch the encoding?
-            # 1. Get the ith doc
-            # 2. Encode the ith doc
-            # 3. Add the ith doc to Index
-            pass
+            doc = anserini_index_reader.document(i)
+            print(dir(doc))
+            doc_contents = doc.content
+            doc_vector = self.encoder.encode(doc_contents)
+            faiss_index.add(doc_vector)
+            
 
+        logger.error("{} docs added to FAISS index".format(faiss_index.ntotal))
         os.makedirs(self.get_index_path(), exist_ok=True)
-        faiss.write_index(index, os.path.join(self.get_index_path(), "faiss.index"))
+        faiss.write_index(faiss_index, os.path.join(self.get_index_path(), "faiss.index"))
 
         # TODO: write the "done" file
 

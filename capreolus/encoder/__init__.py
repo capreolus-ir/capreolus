@@ -9,7 +9,6 @@ class Encoder(ModuleBase):
     """
 
     module_type = "encoder"
-
     def build_model(self):
         """
         Initialize the PyTorch model
@@ -28,6 +27,7 @@ class Encoder(ModuleBase):
 
 from profane import import_all_modules
 
-from .GloveAvg import GloveAvgEncoder
+from .TinyBERT import TinyBERTEncoder
+
 
 import_all_modules(__file__, __package__)
