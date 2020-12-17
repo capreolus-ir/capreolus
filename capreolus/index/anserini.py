@@ -83,6 +83,15 @@ class AnseriniIndex(Index):
         except Exception as e:
             raise
 
+    def convert_lucene_ids_to_doc_ids(self, lucene_ids):
+            return [self.convert_lucene_id_to_doc_id(lucene_id) for lucene_id in lucene_ids]
+
+    def convert_lucene_id_to_doc_id(self, lucene_id):
+        if not hasattr(self, "index_utils") or self.index_utils is None or not hasattr(self, "reader") or self.reader is None:
+            self.open()
+
+        return self.index_reader_utils.ConvertLuceneDocidToDocid(self.reader, lucene_id)
+
     def get_df(self, term):
         # returns 0 for missing terms
         if not hasattr(self, "reader") or self.reader is None:

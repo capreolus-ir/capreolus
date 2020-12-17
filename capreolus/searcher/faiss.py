@@ -1,4 +1,5 @@
 import torch
+import os
 import numpy as np
 from capreolus import ConfigOption, Dependency, constants
 from capreolus.utils.trec import load_trec_topics
@@ -22,23 +23,45 @@ class FAISSSearcher(Searcher):
 
     def _query_from_file(self, topicsfn, output_path, config):
         param_str = ""
-        topic_vectors = self.create_topic_vectors(topicsfn, output_path)
+        
+        # `qid_query` contains (qid, query) tuples in the order they were encoded
+        topic_vectors, qid_query = self.create_topic_vectors(topicsfn, output_path)
+
         logger.info("Topic vectors have shape {}".format(topic_vectors.shape))
         distances, results = self.index.search(topic_vectors, 100)
 
-        return self.write_results_in_trec_format(results, output_path)
+        return self.write_results_in_trec_format(results, distances, qid_query, output_path)
 
     def create_topic_vectors(self, topicsfn, output_path):
         topics = load_trec_topics(topicsfn)
         topic_vectors = []
         self.index.encoder.build_model()
 
+        qid_query = sorted([(qid, query) for qid, query in topics["title"].items()])
+
         with torch.no_grad():
-            for qid, query in topics["title"].items():
+            for qid, query in qid_query:
                 topic_vector = self.index.encoder.encode(query)
                 topic_vectors.append(topic_vector)
                 
-        return np.concatenate(topic_vectors, axis=0)
+        return np.concatenate(topic_vectors, axis=0), qid_query
 
-    def write_results_in_trec_format(self, results, output_path):
-        raise NotImplementedError
+    def write_results_in_trec_format(self, results, distances, qid_query, output_path):
+        trec_string = "{qid} 0 {doc_id} {rank} {score} faiss\n"
+        num_queries, num_neighbours = results.shape
+        assert num_queries == len(qid_query)
+
+        with open(os.path.join(output_path), "faiss.run") as f:
+            for i in range(num_queries):
+                lucene_doc_ids = results[i]
+                doc_ids = self.index.index.convert_lucene_ids_to_doc_ids(lucene_doc_ids)
+                qid = qid_query[i]
+
+                for j, doc_id in doc_ids:
+                    f.write(trec_string.format(qid=qid, doc_id=doc_id, rank=j, score=distances[i][j]))
+
+        return output_path
+                
+            
+
+
