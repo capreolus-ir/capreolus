@@ -41,9 +41,10 @@ class TinyBERTEncoder(Encoder):
         if not hasattr(self, "tokenizer") or not hasattr(self, "model"):
             raise Exception("You should call encoder.build_model() first")
 
-        numericalized_text = self.tokenizer.encode(text)
+        numericalized_text = torch.tensor(self.tokenizer.encode(text))
+        numericalized_text = numericalized_text.reshape(1, -1)
         logger.info("Original text is {}".format(text))
         logger.info("Numericalized text is {}".format(numericalized_text))
 
-        return self.model(numericalized_text)
+        return self.model(numericalized_text).numpy()
    
