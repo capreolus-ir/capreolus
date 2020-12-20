@@ -51,14 +51,15 @@ class FAISSSearcher(Searcher):
         num_queries, num_neighbours = results.shape
         assert num_queries == len(qid_query)
 
-        with open(os.path.join(output_path), "faiss.run") as f:
+        os.makedirs(output_path, exist_ok=True)
+        with open(os.path.join(output_path, "faiss.run"), "w") as f:
             for i in range(num_queries):
-                lucene_doc_ids = results[i]
+                lucene_doc_ids = results[i][results[i] > -1]
                 doc_ids = self.index.index.convert_lucene_ids_to_doc_ids(lucene_doc_ids)
-                qid = qid_query[i]
+                qid = qid_query[i][0]
 
-                for j, doc_id in doc_ids:
-                    f.write(trec_string.format(qid=qid, doc_id=doc_id, rank=j, score=distances[i][j]))
+                for j, doc_id in enumerate(doc_ids):
+                    f.write(trec_string.format(qid=qid, doc_id=doc_id, rank=j+1, score=distances[i][j]))
 
         return output_path
                 

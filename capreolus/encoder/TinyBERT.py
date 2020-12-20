@@ -12,7 +12,7 @@ class TinyBERTEncoder_class(torch.nn.Module):
     def __init__(self):
         super(TinyBERTEncoder_class, self).__init__()
         
-        self.bert = BertModel.from_pretrained("prajjwal1/bert-tiny")
+        self.bert = BertModel.from_pretrained("bert-base-uncased")
 
     def forward(self, numericalized_text):
         """
@@ -21,9 +21,11 @@ class TinyBERTEncoder_class(torch.nn.Module):
         last_hidden_state, pooler_output = self.bert(input_ids=numericalized_text)
         # last_hidden_state has the shape (batch_size, seq_len, hidden_size)
         # Average all the words in a text
-        hidden_avg = torch.mean(last_hidden_state, dim=1)
+        hidden_avg = last_hidden_state[:, 0, :]
+        assert hidden_avg.shape == (1, 768)
         
-        return hidden_avg
+        
+        return hidden_avg.reshape(-1, 768)
 
 
 @Encoder.register
@@ -32,8 +34,9 @@ class TinyBERTEncoder(Encoder):
 
     def build_model(self):
         if not hasattr(self, "model"):
-            self.model = TinyBERTEncoder_class()
             self.tokenizer = BertTokenizerFast.from_pretrained("bert-base-uncased")
+            self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+            self.model = TinyBERTEncoder_class().to(self.device)
         
         return self.model
 
@@ -41,10 +44,14 @@ class TinyBERTEncoder(Encoder):
         if not hasattr(self, "tokenizer") or not hasattr(self, "model"):
             raise Exception("You should call encoder.build_model() first")
 
-        numericalized_text = torch.tensor(self.tokenizer.encode(text))
-        numericalized_text = numericalized_text.reshape(1, -1)
-        logger.info("Original text is {}".format(text))
-        logger.info("Numericalized text is {}".format(numericalized_text))
+        tokenizer = self.tokenizer
 
-        return self.model(numericalized_text).numpy()
+        tokenized_text = tokenizer.tokenize(text)
+        tokenized_text = tokenized_text[:509]  # Make it fit the BERT input
+        tokenized_text = [tokenizer.cls_token] + tokenized_text + [tokenizer.sep_token]
+        numericalized_text = self.tokenizer.convert_tokens_to_ids(tokenized_text)
+        numericalized_text = torch.tensor(numericalized_text).to(self.device)
+        numericalized_text = numericalized_text.reshape(1, -1)
+
+        return self.model(numericalized_text).cpu().numpy()
    

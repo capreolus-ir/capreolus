@@ -1,4 +1,5 @@
 import faiss
+from tqdm import tqdm
 import torch
 import os
 import numpy as np
@@ -19,7 +20,7 @@ class FAISSIndex(Index):
     def _create_index(self):
         from jnius import autoclass
         anserini_index = self.index
-        anserini_index._create_index()
+        anserini_index.create_index()
         anserini_index_path = anserini_index.get_index_path().as_posix()
  
 
@@ -29,12 +30,12 @@ class FAISSIndex(Index):
         anserini_index_reader = autoclass("org.apache.lucene.index.DirectoryReader").open(fsdir)
 
         # TODO: Figure out a better way to set this class member
-        faiss_index = faiss.IndexFlatL2(128)
+        faiss_index = faiss.IndexFlatL2(768)
         
         self.encoder.build_model()
         logger.info("The encoder is built")
 
-        for i in range(0, anserini_index_reader.maxDoc()):
+        for i in tqdm(range(0, anserini_index_reader.maxDoc()), desc="Creating FAISS index"):
             # TODO: Add check for deleted rows
             # TODO: Batch the encoding?
             doc = anserini_index_reader.document(i)
@@ -42,7 +43,6 @@ class FAISSIndex(Index):
             with torch.no_grad():
                 doc_vector = self.encoder.encode(doc_contents)
     
-            logger.info(doc_vector.shape)
             faiss_index.add(doc_vector)
             
 

@@ -90,7 +90,7 @@ class AnseriniIndex(Index):
         if not hasattr(self, "index_utils") or self.index_utils is None or not hasattr(self, "reader") or self.reader is None:
             self.open()
 
-        return self.index_reader_utils.ConvertLuceneDocidToDocid(self.reader, lucene_id)
+        return self.index_reader_utils.convertLuceneDocidToDocid(self.reader, lucene_id)
 
     def get_df(self, term):
         # returns 0 for missing terms
