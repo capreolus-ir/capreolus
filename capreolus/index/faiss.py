@@ -4,6 +4,7 @@ import torch
 import os
 import numpy as np
 from capreolus import ConfigOption, constants, get_logger, Dependency
+from capreolus.sampler import CollectionSampler
 
 from . import Index
 
@@ -28,22 +29,31 @@ class FAISSIndex(Index):
         JFSDirectory = autoclass("org.apache.lucene.store.FSDirectory")
         fsdir = JFSDirectory.open(JFile(anserini_index_path).toPath())
         anserini_index_reader = autoclass("org.apache.lucene.index.DirectoryReader").open(fsdir)
+        
+        self.encoder.train_encoder()
 
         # TODO: Figure out a better way to set this class member
-        faiss_index = faiss.IndexFlatL2(768)
-        
-        self.encoder.build_model()
-        logger.info("The encoder is built")
+        faiss_index = faiss.IndexFlatL2(128)
 
-        for i in tqdm(range(0, anserini_index_reader.maxDoc()), desc="Creating FAISS index"):
-            # TODO: Add check for deleted rows
-            # TODO: Batch the encoding?
-            doc = anserini_index_reader.document(i)
-            doc_contents = doc.getValues("contents")[0]
+        # TODO: Add check for deleted rows in the index
+        collection_docids = [anserini_index.convert_lucene_id_to_doc_id(i) for i in range(0, anserini_index_reader.maxDoc())]
+        dataset = CollectionSampler()
+        dataset.prepare(collection_docids, None, self.encoder.extractor)
+        dataloader = torch.utils.data.DataLoader(
+            dataset, batch_size=1, pin_memory=True, num_workers=1
+        )
+        
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.encoder.model.to(device)
+        self.encoder.model.eval()
+        for bi, batch in tqdm(enumerate(dataloader), desc="FAISS index creation"):
+            batch = {k: v.to(device) if not isinstance(v, list) else v for k, v in batch.items()}
             with torch.no_grad():
-                doc_vector = self.encoder.encode(doc_contents)
-    
-            faiss_index.add(doc_vector)
+                doc_emb = self.encoder.encode(batch["posdoc"]).cpu().numpy()
+            assert doc_emb.shape == (1, 128)
+            # TODO: Batch the encoding?
+   
+            faiss_index.add(doc_emb)
             
 
         logger.error("{} docs added to FAISS index".format(faiss_index.ntotal))

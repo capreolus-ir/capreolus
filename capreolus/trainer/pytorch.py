@@ -8,7 +8,8 @@ import torch
 from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
 
-from capreolus import ConfigOption, Searcher, constants, evaluator, get_logger
+from capreolus import ConfigOption, constants, evaluator, get_logger
+from capreolus.searcher import Searcher
 from capreolus.reranker.common import pair_hinge_loss, pair_softmax_loss
 
 from . import Trainer

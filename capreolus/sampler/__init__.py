@@ -227,6 +227,41 @@ class PredSampler(Sampler, torch.utils.data.IterableDataset):
                 yield qid, docid
 
 
+@Sampler.register
+class CollectionSampler(Sampler, torch.utils.data.IterableDataset):
+    """
+    Goes throw every document in the collection. One use case - allows you to encode every document in the collection for ANN search. Does not make use of queries
+    """
+    module_name = "collection"
+    requires_random_seed = False
+
+    def prepare(self, docids, qrels, extractor, relevance_level=1, **kwargs):
+        assert qrels is None, "Do not pass qrels to the collection sampler. Pass None"
+        self.extractor = extractor
+        self.docids = docids
+
+    def get_hash(self):
+        sorted_rep = sorted(self.docids)
+        key_content = "{0}{1}".format(self.extractor.get_cache_path(), str(sorted_rep))
+        key = hashlib.md5(key_content.encode("utf-8")).hexdigest()
+
+        return "collection_{0}".format(key)
+
+    def generate_samples(self):
+        for docid in self.docids:
+            yield self.extractor.id2vec(None, docid)
+
+    def __iter__(self):
+        """
+        Returns: Tuples of the form (query_feature, posdoc_feature)
+        """
+
+        return iter(self.generate_samples())
+
+    def __len__(self):
+        return len(self.docids)
+
+
 from profane import import_all_modules
 
 import_all_modules(__file__, __package__)

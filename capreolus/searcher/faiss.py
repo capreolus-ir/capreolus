@@ -35,13 +35,18 @@ class FAISSSearcher(Searcher):
     def create_topic_vectors(self, topicsfn, output_path):
         topics = load_trec_topics(topicsfn)
         topic_vectors = []
-        self.index.encoder.build_model()
 
         qid_query = sorted([(qid, query) for qid, query in topics["title"].items()])
+        tokenizer = self.index.encoder.extractor.tokenizer
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
         with torch.no_grad():
             for qid, query in qid_query:
-                topic_vector = self.index.encoder.encode(query)
+                query_toks = tokenizer.tokenize(query)
+                numericalized_query = tokenizer.convert_tokens_to_ids(["[CLS]"] + query_toks + ["[SEP]"])
+                numericalized_query = torch.tensor(numericalized_query).to(device)
+                numericalized_query = numericalized_query.reshape(1, -1)
+                topic_vector = self.index.encoder.encode(numericalized_query).cpu().numpy()
                 topic_vectors.append(topic_vector)
                 
         return np.concatenate(topic_vectors, axis=0), qid_query
