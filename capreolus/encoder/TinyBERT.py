@@ -12,7 +12,7 @@ class TinyBERTEncoder_class(torch.nn.Module):
     def __init__(self):
         super(TinyBERTEncoder_class, self).__init__()
         
-        self.bert = BertModel.from_pretrained("prajjwal1/bert-tiny")
+        self.bert = BertModel.from_pretrained("bert-base-uncased")
 
     def forward(self, numericalized_text):
         """
@@ -22,10 +22,10 @@ class TinyBERTEncoder_class(torch.nn.Module):
         # last_hidden_state has the shape (batch_size, seq_len, hidden_size)
         # Average all the words in a text
         hidden_avg = last_hidden_state[:, 0, :]
-        assert hidden_avg.shape == (1, 128), "hidden avg shape is {}".format(hidden_avg.shape)
+        assert hidden_avg.shape == (1, 768), "hidden avg shape is {}".format(hidden_avg.shape)
         
         
-        return hidden_avg.reshape(-1, 128)
+        return hidden_avg.reshape(-1, 768)
 
 
 @Encoder.register
