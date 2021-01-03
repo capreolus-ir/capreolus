@@ -16,6 +16,10 @@ class Trainer(ModuleBase):
     module_type = "trainer"
     requires_random_seed = True
 
+    @property
+    def n_batch_per_iter(self):
+        return (self.config["itersize"] // self.config["batch"]) or 1
+
     def get_paths_for_early_stopping(self, train_output_path, dev_output_path):
         os.makedirs(dev_output_path, exist_ok=True)
         dev_best_weight_fn = train_output_path / "dev.best"
@@ -29,20 +33,21 @@ class Trainer(ModuleBase):
 
         return dev_best_weight_fn, weights_output_path, info_output_path, loss_fn
 
-    def change_lr(self, epoch, lr):
+    def change_lr(self, step, lr):
         """
         Apply warm up or decay depending on the current epoch
         """
-        return lr * self.lr_multiplier(epoch)
+        return lr * self.lr_multiplier(step)
 
-    def lr_multiplier(self, epoch):
-        warmup_steps = self.config["warmupiters"]
-        if warmup_steps and epoch <= warmup_steps:
-            return min((epoch + 1) / warmup_steps, 1)
+    def lr_multiplier(self, step):
+        decay_steps = self.config["decayiters"] * self.n_batch_per_iter
+        warmup_steps = self.config["warmupiters"] * self.n_batch_per_iter
+        if warmup_steps and step <= warmup_steps:
+            return min((step + 1) / warmup_steps, 1)
         elif self.config["decaytype"] == "exponential":
-            return self.config["decay"] ** ((epoch - warmup_steps) / self.config["decayiters"])
+            return self.config["decay"] ** ((step - warmup_steps) / decay_steps)
         elif self.config["decaytype"] == "linear":
-            return 1 / (1 + self.config["decay"] * epoch)
+            return 1 - step / decay_steps  # todo: support endlr
 
         return 1
 
