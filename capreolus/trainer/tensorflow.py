@@ -104,6 +104,13 @@ class TensorflowTrainer(Trainer):
                 per_example_loss = loss_object(labels, predictions)
                 return tf.nn.compute_average_loss(per_example_loss, global_batch_size=self.config["batch"])
 
+        def is_bert_variable(name):
+            if "bert" in name:
+                return True
+            if "electra" in name:
+                return True
+            return False
+
         def train_step(inputs):
             data, labels = inputs
 
@@ -113,12 +120,10 @@ class TensorflowTrainer(Trainer):
 
             gradients = tape.gradient(loss, wrapped_model.trainable_variables)
 
-            # TODO: Expose the layer names to lookout for as a ConfigOption?
-            # TODO: Crystina mentioned that hugging face models have 'bert' in all the layers (including classifiers). Handle this case
             bert_variables = [
                 (gradients[i], variable)
                 for i, variable in enumerate(wrapped_model.trainable_variables)
-                if "bert" in variable.name and "classifier" not in variable.name
+                if is_bert_variable(variable.name) and "classifier" not in variable.name
             ]
             classifier_vars = [
                 (gradients[i], variable)
@@ -128,7 +133,7 @@ class TensorflowTrainer(Trainer):
             other_vars = [
                 (gradients[i], variable)
                 for i, variable in enumerate(wrapped_model.trainable_variables)
-                if "bert" not in variable.name and "classifier" not in variable.name
+                if not is_bert_variable(variable.name) and "classifier" not in variable.name
             ]
 
             assert len(bert_variables) + len(classifier_vars) + len(other_vars) == len(wrapped_model.trainable_variables)
