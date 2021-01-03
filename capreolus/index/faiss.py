@@ -30,13 +30,14 @@ class FAISSIndex(Index):
         fsdir = JFSDirectory.open(JFile(anserini_index_path).toPath())
         anserini_index_reader = autoclass("org.apache.lucene.index.DirectoryReader").open(fsdir)
         
-        self.encoder.train_encoder()
+        self.encoder.build_model()
 
         # TODO: Figure out a better way to set this class member
         faiss_index = faiss.IndexFlatL2(128)
 
         # TODO: Add check for deleted rows in the index
         collection_docids = [anserini_index.convert_lucene_id_to_doc_id(i) for i in range(0, anserini_index_reader.maxDoc())]
+        self.encoder.extractor.preprocess([], collection_docids, [])
         dataset = CollectionSampler()
         dataset.prepare(collection_docids, None, self.encoder.extractor)
         dataloader = torch.utils.data.DataLoader(

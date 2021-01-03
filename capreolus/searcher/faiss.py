@@ -33,6 +33,7 @@ class FAISSSearcher(Searcher):
         return self.write_results_in_trec_format(results, distances, qid_query, output_path)
 
     def create_topic_vectors(self, topicsfn, output_path):
+        self.index.encoder.build_model()
         topics = load_trec_topics(topicsfn)
         topic_vectors = []
 

@@ -64,8 +64,6 @@ class BertText(Extractor):
         return hasattr(self, "docid2toks") and len(self.docid2toks)
 
     def preprocess(self, qids, docids, topics):
-        if self.exist():
-            return
 
         self.index.create_index()
         self.qid2toks = defaultdict(list)

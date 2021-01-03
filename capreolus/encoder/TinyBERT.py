@@ -32,7 +32,7 @@ class TinyBERTEncoder_class(torch.nn.Module):
 class TinyBERTEncoder(Encoder):
     module_name="tinybert"
 
-    def build_model(self):
+    def instantiate_model(self):
         if not hasattr(self, "model"):
             self.model = TinyBERTEncoder_class()
         

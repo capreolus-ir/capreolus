@@ -1,4 +1,5 @@
 import torch
+import os
 from tqdm import tqdm
 import time
 from capreolus import get_logger, ConfigOption
@@ -14,13 +15,13 @@ class PytorchANNTrainer(Trainer):
     module_name = "pytorchann"
     config_spec = [
         ConfigOption("batch", 1, "batch size"),
-        ConfigOption("niters", 1, "number of iterations to train for"),
-        ConfigOption("itersize", 32, "number of training instances in one iteration"),
+        ConfigOption("niters", 10, "number of iterations to train for"),
+        ConfigOption("itersize", 128, "number of training instances in one iteration"),
         ConfigOption("gradacc", 1, "number of batches to accumulate over before updating weights"),
         ConfigOption("lr", 0.001, "learning rate"),
         ConfigOption("softmaxloss", False, "True to use softmax loss (over pairs) or False to use hinge loss"),
         ConfigOption("fastforward", False),
-        ConfigOption("validatefreq", 1),
+        ConfigOption("validatefreq", 3),
         ConfigOption(
             "multithread",
             False,
@@ -65,11 +66,21 @@ class PytorchANNTrainer(Trainer):
         return torch.stack(iter_loss).mean()
 
 
-    def train(self, encoder, train_dataset, dev_dataset):
+    def train(self, encoder, train_dataset, dev_dataset, output_path):
+        self.optimizer = torch.optim.Adam(filter(lambda param: param.requires_grad, encoder.model.parameters()), lr=self.config["lr"])
+
+        if encoder.exists():
+            weights_fn = encoder.get_results_path() / "trained_weights"
+            encoder.load_weights(weights_fn, self.optimizer)
+            logger.info("Skipping training since weights were found")
+        else:
+            self._train(encoder, train_dataset, dev_dataset, output_path)
+
+    def _train(self, encoder, train_dataset, dev_dataset, output_path):
         validation_frequency = self.config["validatefreq"]
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         encoder.model.to(self.device)
-        self.optimizer = torch.optim.Adam(filter(lambda param: param.requires_grad, encoder.model.parameters()), lr=self.config["lr"])
+ 
         self.loss_function = pair_hinge_loss
         num_workers = 1 if self.config["multithread"] else 0
         train_dataloader = torch.utils.data.DataLoader(
@@ -89,6 +100,11 @@ class PytorchANNTrainer(Trainer):
                 val_loss = self.validate(encoder, dev_dataset)
                 logger.info("Validation loss is {}".format(val_loss.item()))
 
+        weights_fn = output_path / "trained_weights"
+        encoder.save_weights(weights_fn, self.optimizer)
+        with open(os.path.join(output_path, "done"), "w") as done_f:
+            done_f.write("done")
+
     def validate(self, encoder, dev_dataset):
         encoder.model.eval()
         num_workers = 1 if self.config["multithread"] else 0
@@ -99,6 +115,7 @@ class PytorchANNTrainer(Trainer):
         val_loss = []
         total = sum(len(docids) for docids in dev_dataset.qid_to_docids.values())
 
+        logger.info("There are {} docids in the validation set in total".format(total))
         with torch.autograd.no_grad():
             for bi, batch in tqdm(enumerate(dev_dataloader), desc="Validation set"):
                 if bi * self.config["batch"] > total:
