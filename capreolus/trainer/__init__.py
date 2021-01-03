@@ -16,15 +16,54 @@ class Trainer(ModuleBase):
     module_type = "trainer"
     requires_random_seed = True
 
+    @staticmethod
+    def load_loss_file(fn):
+        """Loads loss history from fn
+
+        Args:
+           fn (Path): path to a loss.txt file
+
+        Returns:
+            a list of losses ordered by iterations
+
+        """
+
+        loss = []
+        with fn.open(mode="rt") as f:
+            for lineidx, line in enumerate(f):
+                line = line.strip()
+                if not line:
+                    continue
+
+                iteridx, iterloss = line.rstrip().split()
+
+                if int(iteridx) != lineidx:
+                    raise IOError(f"malformed loss file {fn} ... did two processes write to it?")
+
+                loss.append(float(iterloss))
+
+        return loss
+
+    @staticmethod
+    def write_to_loss_file(fn, losses):
+        fn.write_text("\n".join(f"{idx} {loss}" for idx, loss in enumerate(losses)))
+
+    @staticmethod
+    def exhaust_used_train_data(train_data_generator, n_batch_to_exhaust):
+        for i, batch in enumerate(train_data_generator):
+            if (i + 1) == n_batch_to_exhaust:
+                break
+
     @property
     def n_batch_per_iter(self):
         return (self.config["itersize"] // self.config["batch"]) or 1
 
+
     def get_paths_for_early_stopping(self, train_output_path, dev_output_path):
-        os.makedirs(dev_output_path, exist_ok=True)
         dev_best_weight_fn = train_output_path / "dev.best"
         weights_output_path = train_output_path / "weights"
         info_output_path = train_output_path / "info"
+        os.makedirs(dev_output_path, exist_ok=True)
         os.makedirs(weights_output_path, exist_ok=True)
         os.makedirs(info_output_path, exist_ok=True)
 

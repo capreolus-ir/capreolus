@@ -38,6 +38,7 @@ class TensorflowTrainer(Trainer):
         ConfigOption("lr", 0.001, "learning rate"),
         ConfigOption("warmupiters", 0),
         ConfigOption("loss", "pairwise_hinge_loss", "must be one of tfr.losses.RankingLossKey"),
+        ConfigOption("fastforward", False),
         ConfigOption("validatefreq", 1),
         ConfigOption("boardname", "default"),
         ConfigOption("usecache", False),
@@ -85,7 +86,9 @@ class TensorflowTrainer(Trainer):
                 self.config["storage"], "train_output", hashlib.md5(str(train_output_path).encode("utf-8")).hexdigest()
             )
 
-        os.makedirs(dev_output_path, exist_ok=True)
+        dev_best_weight_fn, weights_output_path, info_output_path, loss_fn = self.get_paths_for_early_stopping(
+            train_output_path, dev_output_path
+        )
 
         train_records = self.get_tf_train_records(reranker, train_dataset)
         dev_records = self.get_tf_dev_records(reranker, dev_data)
@@ -162,40 +165,54 @@ class TensorflowTrainer(Trainer):
         def distributed_test_step(dataset_inputs):
             return self.strategy.run(test_step, args=(dataset_inputs,))
 
-        best_metric = -np.inf
-        epoch = 0
-        num_batches = 0
-        total_loss = 0
-        iter_bar = tqdm(total=self.n_batch_per_iter)
-
-        initial_lr = self.change_lr(step=0, lr=self.config["bertlr"])
-        K.set_value(optimizer_2.lr, K.get_value(initial_lr))
         train_records = train_records.shuffle(100000)
         train_dist_dataset = self.strategy.experimental_distribute_dataset(train_records)
 
-        # Goes through the dataset ONCE (i.e niters * itersize). However, the dataset may already contain multiple instances of the same sample,
-        # depending upon what Sampler was used. If you want multiple epochs, achieve it by tweaking the niters and
-        # itersize values.
+        initial_iter = self.fastforward_training(wrapped_model, weights_output_path, loss_fn) if self.config["fastforward"] else 0
+        cur_step = initial_iter * self.n_batch_per_iter
+        initial_lr = self.change_lr(step=cur_step, lr=self.config["bertlr"])
+        K.set_value(optimizer_2.lr, K.get_value(initial_lr))
+        train_loss = self.load_loss_file(loss_fn) if initial_iter > 0 else []
+        if 0 < initial_iter < self.config["niters"]:
+            self.exhaust_used_train_data(train_dist_dataset, n_batch_to_exhaust=initial_iter * self.n_batch_per_iter)
+            '''
+            for niter in range(initial_iter):
+                for bi, batch in enumerate(train_dist_dataset):
+                    if (bi + 1) % self.n_batch_per_iter == 0:
+                        break
+            '''
+
+        niter = initial_iter
+        total_loss = 0
+        best_metric = -np.inf
+        iter_bar = tqdm(total=self.n_batch_per_iter)
+        # Goes through the dataset ONCE (i.e niters * itersize).
+        # However, the dataset may already contain multiple instances of the same sample,
+        # depending upon what Sampler was used.
+        # If you want multiple epochs, achieve it by tweaking the niters and itersize values.
         for x in train_dist_dataset:
             total_loss += distributed_train_step(x)
-            train_loss = total_loss / num_batches
-            num_batches += 1
+            cur_step += 1
             iter_bar.update(1)
 
             # Do warmup and decay
-            new_lr = self.change_lr(step=num_batches, lr=self.config["bertlr"])
+            new_lr = self.change_lr(step=cur_step, lr=self.config["bertlr"])
             K.set_value(optimizer_2.lr, K.get_value(new_lr))
 
-            if num_batches % self.n_batch_per_iter == 0:
-                epoch += 1
+            if cur_step % self.n_batch_per_iter == 0:
+                niter += 1
 
                 iter_bar.close()
                 iter_bar = tqdm(total=self.n_batch_per_iter)
-                logger.info("train_loss for epoch {} is {}".format(epoch, train_loss))
-                train_loss = 0
+                train_loss.append(total_loss / cur_step)
+                logger.info("iter={} loss = {}".format(niter, train_loss[-1]))
+                self.write_to_loss_file(loss_fn, train_loss)
                 total_loss = 0
 
-                if epoch % self.config["validatefreq"] == 0:
+                if self.config["fastforward"]:
+                    wrapped_model.save_weights(f"{weights_output_path}/{niter}")
+
+                if niter % self.config["validatefreq"] == 0:
                     dev_predictions = []
                     for x in tqdm(dev_dist_dataset, desc="validation"):
                         pred_batch = (
@@ -212,9 +229,9 @@ class TensorflowTrainer(Trainer):
                     if metrics[metric] > best_metric:
                         best_metric = metrics[metric]
                         logger.info("new best dev metric: %0.4f", best_metric)
-                        wrapped_model.save_weights("{0}/dev.best".format(train_output_path))
+                        wrapped_model.save_weights(dev_best_weight_fn)
 
-            if num_batches >= self.config["niters"] * self.n_batch_per_iter:
+            if cur_step >= self.config["niters"] * self.n_batch_per_iter:
                 break
 
     def predict(self, reranker, pred_data, pred_fn):
@@ -457,9 +474,53 @@ class TensorflowTrainer(Trainer):
 
         return KerasTripletModel(model)
 
-    def fastforward_training(self, reranker, weights_path, loss_fn):
-        # TODO: Fix fast forwarding
-        return 0
+    def fastforward_training(self, model, weights_path, loss_fn):
+        """Skip to the last training iteration whose weights were saved.
+
+        If saved model and optimizer weights are available, this method will load those weights into model
+        and optimizer, and then return the next iteration to be run. For example, if weights are available for
+        iterations 0-10 (11 zero-indexed iterations), the weights from iteration index 10 will be loaded, and
+        this method will return 11.
+
+        If an error or inconsistency is encountered when checking for weights, this method returns 0.
+
+        This method checks several files to determine if weights "are available". First, loss_fn is read to
+        determine the last recorded iteration. (If a path is missing or loss_fn is malformed, 0 is returned.)
+        Second, the weights from the last recorded iteration in loss_fn are loaded into the model and optimizer.
+        If this is successful, the method returns `1 + last recorded iteration`. If not, it returns 0.
+        (We consider loss_fn because it is written at the end of every training iteration.)
+
+        Args:
+           model (Reranker): a PyTorch Reranker whose state should be loaded
+           weights_path (Path): directory containing model and optimizer weights
+           loss_fn (Path): file containing loss history
+
+        Returns:
+            int: the next training iteration after fastforwarding. If successful, this is > 0.
+                 If no weights are available or they cannot be loaded, 0 is returned.
+
+        """
+        def tf_ckpt_exist():
+            ckpt_dir, basename = os.path.dirname(weights_path), os.path.basename(weights_path)
+            return os.path.exists(ckpt_dir) and len([fn for fn in os.listdir(ckpt_dir) if fn.startswith(basename)])
+
+        if not (tf_ckpt_exist() and loss_fn.exists()):
+            return 0
+
+        try:
+            loss = self.load_loss_file(loss_fn)
+        except IOError:
+            return 0
+
+        last_loss_iteration = len(loss) - 1
+        weights_fn = weights_path / f"{last_loss_iteration}"
+
+        try:
+            model.load_weights(weights_fn, self.optimizer)
+            return last_loss_iteration + 1
+        except:  # lgtm [py/catch-base-exception]
+            logger.info("attempted to load weights from %s but failed, starting at iteration 0", weights_fn)
+            return 0
 
     def load_best_model(self, reranker, train_output_path):
         # TODO: Do the train_output_path modification at one place?

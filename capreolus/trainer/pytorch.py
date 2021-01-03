@@ -112,33 +112,6 @@ class PytorchTrainer(Trainer):
 
         return torch.stack(iter_loss).mean()
 
-    def load_loss_file(self, fn):
-        """Loads loss history from fn
-
-        Args:
-           fn (Path): path to a loss.txt file
-
-        Returns:
-            a list of losses ordered by iterations
-
-        """
-
-        loss = []
-        with fn.open(mode="rt") as f:
-            for lineidx, line in enumerate(f):
-                line = line.strip()
-                if not line:
-                    continue
-
-                iteridx, iterloss = line.rstrip().split()
-
-                if int(iteridx) != lineidx:
-                    raise IOError(f"malformed loss file {fn} ... did two processes write to it?")
-
-                loss.append(float(iterloss))
-
-        return loss
-
     def fastforward_training(self, reranker, weights_path, loss_fn):
         """Skip to the last training iteration whose weights were saved.
 
@@ -238,11 +211,13 @@ class PytorchTrainer(Trainer):
             # are we done training? if not, fastforward through prior batches
             if initial_iter < self.config["niters"]:
                 logger.debug("fastforwarding train_dataloader to iteration %s", initial_iter)
-                batches_per_epoch = self.config["itersize"] // self.config["batch"]
+                self.exhaust_used_train_data(train_dataloader, n_batch_to_exhaust=initial_iter * self.n_batch_per_iter)
+                '''
                 for niter in range(initial_iter):
                     for bi, batch in enumerate(train_dataloader):
-                        if (bi + 1) % batches_per_epoch == 0:
+                        if (bi + 1) % self.n_batch_per_iter == 0:
                             break
+                '''
 
         dev_best_metric = -np.inf
         validation_frequency = self.config["validatefreq"]
@@ -280,7 +255,8 @@ class PytorchTrainer(Trainer):
                     reranker.save_weights(dev_best_weight_fn, self.optimizer)
 
             # write train_loss to file
-            loss_fn.write_text("\n".join(f"{idx} {loss}" for idx, loss in enumerate(train_loss)))
+            # loss_fn.write_text("\n".join(f"{idx} {loss}" for idx, loss in enumerate(train_loss)))
+            self.write_to_loss_file(loss_fn, train_loss)
 
             summary_writer.add_scalar("training_loss", iter_loss_tensor.item(), niter)
             reranker.add_summary(summary_writer, niter)
