@@ -36,7 +36,7 @@ class TensorflowTrainer(Trainer):
         ConfigOption("itersize", 512, "number of training instances in one iteration"),
         ConfigOption("bertlr", 2e-5, "learning rate for bert parameters"),
         ConfigOption("lr", 0.001, "learning rate"),
-        ConfigOption("warmupsteps", 0),
+        ConfigOption("warmupiters", 0),
         ConfigOption("loss", "pairwise_hinge_loss", "must be one of tfr.losses.RankingLossKey"),
         ConfigOption("validatefreq", 1),
         ConfigOption("boardname", "default"),
@@ -46,7 +46,7 @@ class TensorflowTrainer(Trainer):
         ConfigOption("storage", None),
         ConfigOption("eager", False),
         ConfigOption("decay", 0.0, "learning rate decay"),
-        ConfigOption("decaystep", 3),
+        ConfigOption("decayiters", 3),
         ConfigOption("decaytype", None),
     ]
     config_keys_not_in_path = ["fastforward", "boardname", "usecache", "tpuname", "tpuzone", "storage"]

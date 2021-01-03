@@ -36,11 +36,11 @@ class Trainer(ModuleBase):
         return lr * self.lr_multiplier(epoch)
 
     def lr_multiplier(self, epoch):
-        warmup_steps = self.config["warmupsteps"]
+        warmup_steps = self.config["warmupiters"]
         if warmup_steps and epoch <= warmup_steps:
             return min((epoch + 1) / warmup_steps, 1)
         elif self.config["decaytype"] == "exponential":
-            return self.config["decay"] ** ((epoch - warmup_steps) / self.config["decaystep"])
+            return self.config["decay"] ** ((epoch - warmup_steps) / self.config["decayiters"])
         elif self.config["decaytype"] == "linear":
             return 1 / (1 + self.config["decay"] * epoch)
 

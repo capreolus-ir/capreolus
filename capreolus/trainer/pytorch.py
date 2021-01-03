@@ -35,9 +35,9 @@ class PytorchTrainer(Trainer):
             "True to load data in a separate thread; faster but causes PyTorch deadlock in some environments",
         ),
         ConfigOption("boardname", "default"),
-        ConfigOption("warmupsteps", 0),
+        ConfigOption("warmupiters", 0),
         ConfigOption("decay", 0.0, "learning rate decay"),
-        ConfigOption("decaystep", 3),
+        ConfigOption("decayiters", 3),
         ConfigOption("decaytype", None),
         ConfigOption("amp", None, "Automatic mixed precision mode; one of: None, train, pred, both"),
     ]
