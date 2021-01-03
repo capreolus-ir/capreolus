@@ -161,14 +161,14 @@ class TensorflowTrainer(Trainer):
         epoch = 0
         num_batches = 0
         total_loss = 0
-        iter_bar = tqdm(total=self.config["itersize"])
+        iter_bar = tqdm(total=self.n_batch_per_iter)
 
         initial_lr = self.change_lr(step=0, lr=self.config["bertlr"])
         K.set_value(optimizer_2.lr, K.get_value(initial_lr))
         train_records = train_records.shuffle(100000)
         train_dist_dataset = self.strategy.experimental_distribute_dataset(train_records)
 
-        # Goes through the dataset ONCE (i.e niters * itersize * batch samples). However, the dataset may already contain multiple instances of the same sample,
+        # Goes through the dataset ONCE (i.e niters * itersize). However, the dataset may already contain multiple instances of the same sample,
         # depending upon what Sampler was used. If you want multiple epochs, achieve it by tweaking the niters and
         # itersize values.
         for x in train_dist_dataset:
@@ -181,11 +181,11 @@ class TensorflowTrainer(Trainer):
             new_lr = self.change_lr(step=num_batches, lr=self.config["bertlr"])
             K.set_value(optimizer_2.lr, K.get_value(new_lr))
 
-            if num_batches % self.config["itersize"] == 0:
+            if num_batches % self.n_batch_per_iter == 0:
                 epoch += 1
 
                 iter_bar.close()
-                iter_bar = tqdm(total=self.config["itersize"])
+                iter_bar = tqdm(total=self.n_batch_per_iter)
                 logger.info("train_loss for epoch {} is {}".format(epoch, train_loss))
                 train_loss = 0
                 total_loss = 0
@@ -209,7 +209,7 @@ class TensorflowTrainer(Trainer):
                         logger.info("new best dev metric: %0.4f", best_metric)
                         wrapped_model.save_weights("{0}/dev.best".format(train_output_path))
 
-            if num_batches >= self.config["niters"] * self.config["itersize"]:
+            if num_batches >= self.config["niters"] * self.n_batch_per_iter:
                 break
 
     def predict(self, reranker, pred_data, pred_fn):
@@ -248,7 +248,7 @@ class TensorflowTrainer(Trainer):
         Get the path to the directory where tf records are written to.
         If using TPUs, this will be a gcs path.
         """
-        total_samples = self.config["niters"] * self.config["itersize"] * self.config["batch"]
+        total_samples = self.config["niters"] * self.config["itersize"]
         if self.tpu:
             return "{0}/capreolus_tfrecords/{1}_{2}".format(self.config["storage"], dataset.get_hash(), total_samples)
         else:
@@ -289,16 +289,15 @@ class TensorflowTrainer(Trainer):
         1. Returns tf records from cache (disk) if applicable
         2. Else, converts the dataset into tf records, writes them to disk, and returns them
         """
-        required_samples = self.config["niters"] * self.config["itersize"] * self.config["batch"]
+        required_samples = self.config["niters"] * self.config["itersize"]
         cached_tf_record_dir = self.find_cached_tf_records(dataset, required_samples)
 
         if self.config["usecache"] and cached_tf_record_dir is not None:
             filenames = tf.io.gfile.listdir(cached_tf_record_dir)
             filenames = ["{0}/{1}".format(cached_tf_record_dir.rstrip("/"), name) for name in filenames]
-            return self.load_tf_train_records_from_file(reranker, filenames, self.config["batch"])
         else:
-            tf_record_filenames = self.convert_to_tf_train_record(reranker, dataset)
-            return self.load_tf_train_records_from_file(reranker, tf_record_filenames, self.config["batch"])
+            filenames = self.convert_to_tf_train_record(reranker, dataset)
+        return self.load_tf_train_records_from_file(reranker, filenames, self.config["batch"])
 
     def load_tf_train_records_from_file(self, reranker, filenames, batch_size):
         raw_dataset = tf.data.TFRecordDataset(filenames)
@@ -312,7 +311,7 @@ class TensorflowTrainer(Trainer):
         """
         Tensorflow works better if the input data is fed in as tfrecords
         Takes in a dataset,  iterates through it, and creates multiple tf records from it.
-        Creates exactly niters * itersize * batch_size samples.
+        Creates exactly niters * itersize samples.
         The exact structure of the tfrecords is defined by reranker.extractor. For example, see BertPassage.get_tf_train_feature()
         params:
         reranker - A capreolus.reranker.Reranker instance
@@ -322,7 +321,7 @@ class TensorflowTrainer(Trainer):
 
         tf_features = []
         tf_record_filenames = []
-        required_sample_count = self.config["niters"] * self.config["itersize"] * self.config["batch"]
+        required_sample_count = self.config["niters"] * self.config["itersize"]
         sample_count = 0
 
         iter_bar = tqdm(total=required_sample_count)
@@ -353,12 +352,9 @@ class TensorflowTrainer(Trainer):
         if self.config["usecache"] and tf.io.gfile.exists(cached_tf_record_dir):
             filenames = tf.io.gfile.listdir(cached_tf_record_dir)
             filenames = ["{0}/{1}".format(cached_tf_record_dir, name) for name in filenames]
-
-            return self.load_tf_dev_records_from_file(reranker, filenames, self.config["batch"])
         else:
-            tf_record_filenames = self.convert_to_tf_dev_record(reranker, dataset)
-            # TODO use actual batch size here. see issue #52
-            return self.load_tf_dev_records_from_file(reranker, tf_record_filenames, self.config["batch"])
+            filenames = self.convert_to_tf_dev_record(reranker, dataset)
+        return self.load_tf_dev_records_from_file(reranker, filenames, self.config["batch"])
 
     def load_tf_dev_records_from_file(self, reranker, filenames, batch_size):
         raw_dataset = tf.data.TFRecordDataset(filenames)
