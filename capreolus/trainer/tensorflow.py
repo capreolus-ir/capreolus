@@ -178,6 +178,7 @@ class TensorflowTrainer(Trainer):
 
         niter = initial_iter
         total_loss = 0
+        trec_preds = {}
         best_metric = -np.inf
         iter_bar = tqdm(total=self.n_batch_per_iter)
         # Goes through the dataset ONCE (i.e niters * itersize).
@@ -223,10 +224,14 @@ class TensorflowTrainer(Trainer):
                     if metrics[metric] > best_metric:
                         best_metric = metrics[metric]
                         logger.info("new best dev metric: %0.4f", best_metric)
+
                         wrapped_model.save_weights(dev_best_weight_fn)
+                        Searcher.write_trec_run(trec_preds, outfn=(dev_output_path / "best").as_posix())
 
             if cur_step >= self.config["niters"] * self.n_batch_per_iter:
                 break
+
+        return trec_preds
 
     def predict(self, reranker, pred_data, pred_fn):
         pred_records = self.get_tf_dev_records(reranker, pred_data)
