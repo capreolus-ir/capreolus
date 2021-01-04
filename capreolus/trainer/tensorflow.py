@@ -175,12 +175,6 @@ class TensorflowTrainer(Trainer):
         train_loss = self.load_loss_file(loss_fn) if initial_iter > 0 else []
         if 0 < initial_iter < self.config["niters"]:
             self.exhaust_used_train_data(train_dist_dataset, n_batch_to_exhaust=initial_iter * self.n_batch_per_iter)
-            '''
-            for niter in range(initial_iter):
-                for bi, batch in enumerate(train_dist_dataset):
-                    if (bi + 1) % self.n_batch_per_iter == 0:
-                        break
-            '''
 
         niter = initial_iter
         total_loss = 0
@@ -500,11 +494,7 @@ class TensorflowTrainer(Trainer):
                  If no weights are available or they cannot be loaded, 0 is returned.
 
         """
-        def tf_ckpt_exist():
-            ckpt_dir, basename = os.path.dirname(weights_path), os.path.basename(weights_path)
-            return os.path.exists(ckpt_dir) and len([fn for fn in os.listdir(ckpt_dir) if fn.startswith(basename)])
-
-        if not (tf_ckpt_exist() and loss_fn.exists()):
+        if not (weights_path.exists() and loss_fn.exists()):
             return 0
 
         try:
@@ -516,7 +506,7 @@ class TensorflowTrainer(Trainer):
         weights_fn = weights_path / f"{last_loss_iteration}"
 
         try:
-            model.load_weights(weights_fn, self.optimizer)
+            model.load_weights(weights_fn)
             return last_loss_iteration + 1
         except:  # lgtm [py/catch-base-exception]
             logger.info("attempted to load weights from %s but failed, starting at iteration 0", weights_fn)
