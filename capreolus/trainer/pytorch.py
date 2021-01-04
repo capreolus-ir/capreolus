@@ -22,6 +22,7 @@ class PytorchTrainer(Trainer):
     module_name = "pytorch"
     config_spec = [
         ConfigOption("batch", 32, "batch size"),
+        ConfigOption("evalbatch", 32, "batch size at inference time"),
         ConfigOption("niters", 20, "number of iterations to train for"),
         ConfigOption("itersize", 512, "number of training instances in one iteration"),
         ConfigOption("gradacc", 1, "number of batches to accumulate over before updating weights"),
@@ -46,6 +47,9 @@ class PytorchTrainer(Trainer):
     def build(self):
         # sanity checks
         if self.config["batch"] < 1:
+            raise ValueError("batch must be >= 1")
+
+        if self.config["evalbatch"] < 1:
             raise ValueError("batch must be >= 1")
 
         if self.config["niters"] <= 0:
@@ -299,14 +303,15 @@ class PytorchTrainer(Trainer):
         model.eval()
 
         preds = {}
+        evalbatch = self.config["evalbatch"]
         num_workers = 1 if self.config["multithread"] else 0
         pred_dataloader = torch.utils.data.DataLoader(
-            pred_data, batch_size=self.config["batch"], pin_memory=True, num_workers=num_workers
+            pred_data, batch_size=evalbatch, pin_memory=True, num_workers=num_workers
         )
         with torch.autograd.no_grad():
-            for batch in tqdm(pred_dataloader, desc="Predicting", total=len(pred_data) // self.config["batch"]):
-                if len(batch["qid"]) != self.config["batch"]:
-                    batch = self.fill_incomplete_batch(batch)
+            for batch in tqdm(pred_dataloader, desc="Predicting", total=len(pred_data) // evalbatch):
+                if len(batch["qid"]) != evalbatch:
+                    batch = self.fill_incomplete_batch(batch, batch_size=evalbatch)
 
                 batch = {k: v.to(self.device) if not isinstance(v, list) else v for k, v in batch.items()}
                 with self.amp_pred_autocast():
@@ -321,7 +326,7 @@ class PytorchTrainer(Trainer):
 
         return preds
 
-    def fill_incomplete_batch(self, batch):
+    def fill_incomplete_batch(self, batch, batch_size=None):
         """
         If a batch is incomplete (i.e shorter than the desired batch size), this method fills in the batch with some data.
         How the data is chosen:
@@ -329,8 +334,10 @@ class PytorchTrainer(Trainer):
         If the values are tensors/numpy arrays, use repeat() along the batch dimension
         """
         # logger.debug("filling in an incomplete batch")
-        repeat_times = math.ceil(self.config["batch"] / len(batch["qid"]))
-        diff = self.config["batch"] - len(batch["qid"])
+        if not batch_size:
+            batch_size = self.config["batch"]
+        repeat_times = math.ceil(batch_size / len(batch["qid"]))
+        diff = batch_size - len(batch["qid"])
 
         def pad(v):
             if isinstance(v, np.ndarray) or torch.is_tensor(v):
@@ -338,7 +345,7 @@ class PytorchTrainer(Trainer):
             else:
                 _v = v + [v[0]] * diff
 
-            return _v[: self.config["batch"]]
+            return _v[: batch_size]
 
         batch = {k: pad(v) for k, v in batch.items()}
         return batch

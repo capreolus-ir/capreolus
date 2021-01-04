@@ -32,6 +32,7 @@ class TensorflowTrainer(Trainer):
     module_name = "tensorflow"
     config_spec = [
         ConfigOption("batch", 32, "batch size"),
+        ConfigOption("evalbatch", 32, "batch size at inference time"),
         ConfigOption("niters", 20, "number of iterations to train for"),
         ConfigOption("itersize", 512, "number of training instances in one iteration"),
         ConfigOption("bertlr", 2e-5, "learning rate for bert parameters"),
@@ -375,7 +376,7 @@ class TensorflowTrainer(Trainer):
             filenames = ["{0}/{1}".format(cached_tf_record_dir, name) for name in filenames]
         else:
             filenames = self.convert_to_tf_dev_record(reranker, dataset)
-        return self.load_tf_dev_records_from_file(reranker, filenames, self.config["batch"])
+        return self.load_tf_dev_records_from_file(reranker, filenames, self.config["evalbatch"])
 
     def load_tf_dev_records_from_file(self, reranker, filenames, batch_size):
         raw_dataset = tf.data.TFRecordDataset(filenames)
@@ -386,6 +387,7 @@ class TensorflowTrainer(Trainer):
         return tf_records_dataset
 
     def convert_to_tf_dev_record(self, reranker, dataset):
+        evalbatch = self.config["evalbatch"]
         dir_name = self.form_tf_record_cache_path(dataset)
         tf_features = []
         tf_record_filenames = []
@@ -398,8 +400,8 @@ class TensorflowTrainer(Trainer):
 
         # TPU's require drop_remainder = True. But we cannot drop things from validation dataset
         # As a workaroud, we pad the dataset with the last sample until it reaches the batch size.
-        if len(tf_features) % self.config["batch"]:
-            num_elements_to_add = self.config["batch"] - (len(tf_features) % self.config["batch"])
+        if len(tf_features) % evalbatch:
+            num_elements_to_add = evalbatch - (len(tf_features) % evalbatch)
             logger.debug("Number of elements to add in the last batch: {}".format(num_elements_to_add))
             element_to_copy = tf_features[-1]
             for i in range(num_elements_to_add):
