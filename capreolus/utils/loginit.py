@@ -85,4 +85,15 @@ def get_logger(name=None):
         name = "capreolus"
     if not name.startswith("capreolus"):
         name = "capreolus." + name
-    return logging.getLogger(name)
+
+    named_logger = logging.getLogger(name)
+    if name == "capreolus.faiss":
+        named_logger.handlers = []
+        faiss_log_file = logging.FileHandler("faiss.log")
+        named_logger.addHandler(faiss_log_file)
+        named_logger.setLevel(logging.DEBUG)
+        named_logger.propagate = False
+
+    return named_logger
+
+

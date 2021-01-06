@@ -1,13 +1,15 @@
 import torch
+import numpy as np
 import os
 from tqdm import tqdm
 import time
-from capreolus import get_logger, ConfigOption
+from capreolus import get_logger, ConfigOption, evaluator
 from capreolus.reranker.common import pair_hinge_loss, pair_softmax_loss
 
 from . import Trainer
 
 logger = get_logger(__name__)  # pylint: disable=invalid-name
+faiss_logger = get_logger("faiss")
 
 
 @Trainer.register
@@ -15,8 +17,8 @@ class PytorchANNTrainer(Trainer):
     module_name = "pytorchann"
     config_spec = [
         ConfigOption("batch", 1, "batch size"),
-        ConfigOption("niters", 10, "number of iterations to train for"),
-        ConfigOption("itersize", 128, "number of training instances in one iteration"),
+        ConfigOption("niters", 6, "number of iterations to train for"),
+        ConfigOption("itersize", 1024, "number of training instances in one iteration"),
         ConfigOption("gradacc", 1, "number of batches to accumulate over before updating weights"),
         ConfigOption("lr", 0.001, "learning rate"),
         ConfigOption("softmaxloss", False, "True to use softmax loss (over pairs) or False to use hinge loss"),
@@ -66,17 +68,17 @@ class PytorchANNTrainer(Trainer):
         return torch.stack(iter_loss).mean()
 
 
-    def train(self, encoder, train_dataset, dev_dataset, output_path):
+    def train(self, encoder, train_dataset, dev_dataset, output_path, qrels, metric="map", relevance_level=1):
         self.optimizer = torch.optim.Adam(filter(lambda param: param.requires_grad, encoder.model.parameters()), lr=self.config["lr"])
 
         if encoder.exists():
             weights_fn = encoder.get_results_path() / "trained_weights"
             encoder.load_weights(weights_fn, self.optimizer)
-            logger.info("Skipping training since weights were found")
+            faiss_logger.warn("Skipping training since weights were found")
         else:
-            self._train(encoder, train_dataset, dev_dataset, output_path)
+            self._train(encoder, train_dataset, dev_dataset, output_path, qrels, metric, relevance_level)
 
-    def _train(self, encoder, train_dataset, dev_dataset, output_path):
+    def _train(self, encoder, train_dataset, dev_dataset, output_path, qrels, metric, relevance_level):
         validation_frequency = self.config["validatefreq"]
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         encoder.model.to(self.device)
@@ -95,10 +97,13 @@ class PytorchANNTrainer(Trainer):
             logger.info("A single iteration takes {}".format(time.time() - iter_start_time))
             train_loss.append(iter_loss_tensor.item())
             logger.info("iter = %d loss = %f", niter, train_loss[-1])
+            faiss_logger.info("iter = %d loss = %f", niter, train_loss[-1])
 
             if (niter + 1) % validation_frequency == 0:
-                val_loss = self.validate(encoder, dev_dataset)
-                logger.info("Validation loss is {}".format(val_loss.item()))
+                val_preds = self.validate(encoder, dev_dataset)
+                metrics = evaluator.eval_runs(val_preds, qrels, evaluator.DEFAULT_METRICS, relevance_level)
+                logger.info("dev metrics: %s", " ".join([f"{metric}={v:0.3f}" for metric, v in sorted(metrics.items())]))
+                faiss_logger.info("dev metrics: %s", " ".join([f"{metric}={v:0.3f}" for metric, v in sorted(metrics.items())]))
 
         weights_fn = output_path / "trained_weights"
         encoder.save_weights(weights_fn, self.optimizer)
@@ -112,20 +117,17 @@ class PytorchANNTrainer(Trainer):
             dev_dataset, batch_size=self.config["batch"], pin_memory=True, num_workers=num_workers
         )
 
-        val_loss = []
-        total = sum(len(docids) for docids in dev_dataset.qid_to_docids.values())
-
-        logger.info("There are {} docids in the validation set in total".format(total))
+        preds = {}
         with torch.autograd.no_grad():
             for bi, batch in tqdm(enumerate(dev_dataloader), desc="Validation set"):
-                if bi * self.config["batch"] > total:
-                    break
                 batch = {k: v.to(self.device) if not isinstance(v, list) else v for k, v in batch.items()}
-                cosine_scores = encoder.score(batch)
-                loss = self.loss_function(cosine_scores)
-                val_loss.append(loss)
+                scores = encoder.test(batch)
+                scores = scores.view(-1).cpu().numpy()
 
-        return torch.stack(val_loss).mean()
+                for qid, docid, score in zip(batch["qid"], batch["posdocid"], scores):
+                    preds.setdefault(qid, {})[docid] = score.astype(np.float16).item()
+
+        return preds
                 
 
 

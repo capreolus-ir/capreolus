@@ -13,6 +13,7 @@ from capreolus.utils.exceptions import MissingDocError
 from . import Extractor
 
 logger = get_logger(__name__)
+faiss_logger = get_logger("faiss")
 
 
 @Extractor.register
@@ -82,6 +83,8 @@ class BertText(Extractor):
         posdoc_toks = ["[CLS]"] + posdoc_toks + ["[SEP]"]
         posdoc = tokenizer.convert_tokens_to_ids(posdoc_toks)
 
+        # faiss_logger.debug("Posdocid: {}, doctoks: {}".format(posid, posdoc_toks))
+        # faiss_logger.debug("Numericalized posdoc: {}".format(posdoc))
         data = {
             "posdocid": posid,
             "posdoc": np.array(posdoc, dtype=np.long),
@@ -93,6 +96,8 @@ class BertText(Extractor):
             query = tokenizer.convert_tokens_to_ids(query_toks)
             data["qid"] = qid
             data["query"] = np.array(query, dtype=np.long)
+            # faiss_logger.debug("qid: {}, query toks: {}".format(qid, query_toks))
+            # faiss_logger.debug("Numericalized query: {}".format(query))
 
         if negid:
             negdoc_toks = self.docid2toks[negid][:510]
@@ -101,6 +106,8 @@ class BertText(Extractor):
 
             data["negdocid"] = negid
             data["negdoc"] = np.array(negdoc, dtype=np.long)
+            # faiss_logger.debug("neg docid: {}, doctoks: {}".format(negid, negdoc_toks))
+            # faiss_logger.debug("Numericalized_doc: {}".format(negdoc))
 
         return data
 

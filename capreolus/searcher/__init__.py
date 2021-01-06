@@ -7,6 +7,8 @@ from capreolus.utils.trec import topic_to_trectxt
 from capreolus.utils.common import OrderedDefaultDict
 
 logger = get_logger(__name__)  # pylint: disable=invalid-name
+faiss_logger = get_logger("faiss")
+
 MAX_THREADS = constants["MAX_THREADS"]
 
 
@@ -55,7 +57,10 @@ class Searcher(ModuleBase):
         raise NotImplementedError()
 
     def query_from_file(self, topicsfn, output_path):
-        return self._query_from_file(topicsfn, output_path, self.config)
+        output_path = self._query_from_file(topicsfn, output_path, self.config)
+        faiss_logger.info("Anserini search results are written to {}".format(output_path))
+        
+        return output_path
 
     def query(self, query, **kwargs):
         """

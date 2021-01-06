@@ -4,7 +4,7 @@ import pickle
 import os
 from collections import defaultdict
 from capreolus import Dependency, ModuleBase, get_logger, constants
-from capreolus.sampler import TrainTripletSampler
+from capreolus.sampler import TrainTripletSampler, PredSampler
 
 logger = get_logger(__name__)
 
@@ -91,12 +91,13 @@ class Encoder(ModuleBase):
     def train_encoder(self):
         train_dataset = TrainTripletSampler()
         fake_train_run = self.create_fake_train_run()
+        # TODO: Create a dev run, not a train run
         fake_dev_run = self.create_fake_dev_run()
 
         train_docids = [docid for docid_list in fake_train_run.values() for docid in docid_list]
         dev_docids = [docid for docid_list in fake_dev_run.values() for docid in docid_list]
-        docids = train_docids + dev_docids
-        qids = list(fake_train_run.keys()) + list(fake_dev_run.keys())
+        docids = set(train_docids + dev_docids)
+        qids = set(list(fake_train_run.keys()) + list(fake_dev_run.keys()))
 
         self.extractor.preprocess(
             qids=qids, docids=docids, topics=self.benchmark.topics[self.benchmark.query_type]
@@ -104,12 +105,12 @@ class Encoder(ModuleBase):
 
         train_dataset.prepare(fake_train_run, self.benchmark.qrels, self.extractor, relevance_level=self.benchmark.relevance_level)
 
-        dev_dataset = TrainTripletSampler()
+        dev_dataset = PredSampler()
         dev_dataset.prepare(fake_dev_run, self.benchmark.qrels, self.extractor, relevance_level=self.benchmark.relevance_level)
 
         self.instantiate_model()
         output_path = self.get_results_path()
-        self.trainer.train(self, train_dataset, dev_dataset, output_path)
+        self.trainer.train(self, train_dataset, dev_dataset, output_path, self.benchmark.qrels)
 
     def build_model(self):
         self.train_encoder()
@@ -135,6 +136,15 @@ class Encoder(ModuleBase):
         negdoc_emb = self.model(negdoc)
 
         return [F.cosine_similarity(query_emb, posdoc_emb), F.cosine_similarity(query_emb, negdoc_emb)]
+
+    def test(self, d):
+        query = d["query"]
+        doc = d["posdoc"]
+
+        query_emb = self.model(query)
+        doc_emb = self.model(doc)
+        
+        return F.cosine_similarity(query_emb, doc_emb)
             
 
 from profane import import_all_modules

@@ -9,6 +9,7 @@ from . import Searcher
 
 
 logger = get_logger(__name__)
+faiss_logger = get_logger("faiss")
 
 
 @Searcher.register
@@ -19,7 +20,7 @@ class FAISSSearcher(Searcher):
 
     module_name = "faiss"
 
-    dependencies = [Dependency(key="index", module="index", name="faiss")]
+    dependencies = [Dependency(key="index", module="index", name="faiss"), Dependency(key="benchmark", module="benchmark")]
 
     def _query_from_file(self, topicsfn, output_path, config):
         param_str = ""
@@ -27,7 +28,6 @@ class FAISSSearcher(Searcher):
         # `qid_query` contains (qid, query) tuples in the order they were encoded
         topic_vectors, qid_query = self.create_topic_vectors(topicsfn, output_path)
 
-        logger.info("Topic vectors have shape {}".format(topic_vectors.shape))
         distances, results = self.index.search(topic_vectors, 100)
 
         return self.write_results_in_trec_format(results, distances, qid_query, output_path)
@@ -37,13 +37,13 @@ class FAISSSearcher(Searcher):
         topics = load_trec_topics(topicsfn)
         topic_vectors = []
 
-        qid_query = sorted([(qid, query) for qid, query in topics["title"].items()])
+        qid_query = sorted([(qid, query) for qid, query in topics["title"].items() if qid in self.benchmark.folds["s1"]["train_qids"]])
         tokenizer = self.index.encoder.extractor.tokenizer
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
         with torch.no_grad():
             for qid, query in qid_query:
-                query_toks = tokenizer.tokenize(query)
+                query_toks = tokenizer.tokenize(query)[:510]
                 numericalized_query = tokenizer.convert_tokens_to_ids(["[CLS]"] + query_toks + ["[SEP]"])
                 numericalized_query = torch.tensor(numericalized_query).to(device)
                 numericalized_query = numericalized_query.reshape(1, -1)
@@ -67,6 +67,7 @@ class FAISSSearcher(Searcher):
                 for j, doc_id in enumerate(doc_ids):
                     f.write(trec_string.format(qid=qid, doc_id=doc_id, rank=j+1, score=distances[i][j]))
 
+        faiss_logger.debug("The search results in TREC format are at: {}".format(output_path))
         return output_path
                 
             
