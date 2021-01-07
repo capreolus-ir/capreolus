@@ -7,6 +7,7 @@ from capreolus.searcher import Searcher
 from capreolus.utils.loginit import get_logger
 
 logger = get_logger(__name__)
+faiss_logger = get_logger("faiss")
 
 DEFAULT_METRICS = [
     "P_1",
@@ -51,6 +52,7 @@ def _eval_runs(runs, qrels, metrics, dev_qids, relevance_level):
         metrics.remove(f"judged_{n}")
 
     dev_qrels = {qid: labels for qid, labels in qrels.items() if qid in dev_qids}
+    faiss_logger.info("There are {} dev_qrels".format(len(dev_qrels)))
     evaluator = pytrec_eval.RelevanceEvaluator(dev_qrels, metrics, relevance_level=int(relevance_level))
     scores = [[metrics_dict.get(m, -1) for m in metrics] for metrics_dict in evaluator.evaluate(runs).values()]
     scores = np.array(scores).mean(axis=0).tolist()
@@ -126,10 +128,19 @@ def search_best_run(runfile_dirs, benchmark, primary_metric, metrics=None, folds
         if (f != "done" and not os.path.isdir(os.path.join(runfile_dir, f)))
     ]
 
+    for runfile_dir in runfile_dirs:
+        for f in os.listdir(runfile_dir):
+            if (f != "done" and not os.path.isdir(os.path.join(runfile_dir, f))):
+                faiss_logger.info("Detected runfile {}".format(f))
+    
+
     best_scores = {s: {primary_metric: 0, "path": None} for s in folds}
+    faiss_logger.info("Primary metric is {}".format(primary_metric))
     for runfile in runfiles:
         runs = Searcher.load_trec_run(runfile)
+        faiss_logger.info("Loaded runfile is {}".format(runfile))
         for s, v in folds.items():
+            faiss_logger.info("Attempting to score fold {}. Runs have length: {}, 301 has length {}, 304 has length: {}".format(s, len(runs), len(runs["301"]), len(runs["304"])))
             score = _eval_runs(
                 runs,
                 benchmark.qrels,
@@ -137,7 +148,8 @@ def search_best_run(runfile_dirs, benchmark, primary_metric, metrics=None, folds
                 (set(v["train_qids"]) | set(v["predict"]["dev"])),
                 benchmark.relevance_level,
             )[primary_metric]
-            if score > best_scores[s][primary_metric]:
+            faiss_logger.info("Score is {}".format(score))
+            if score >= best_scores[s][primary_metric]:
                 best_scores[s] = {primary_metric: score, "path": runfile}
 
     test_runs = {}

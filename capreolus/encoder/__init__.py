@@ -88,32 +88,23 @@ class Encoder(ModuleBase):
 
         return dev_run
                 
-    def train_encoder(self):
+    def train_encoder(self, train_run, dev_run, docids, qids):
         train_dataset = TrainTripletSampler()
-        fake_train_run = self.create_fake_train_run()
-        # TODO: Create a dev run, not a train run
-        fake_dev_run = self.create_fake_dev_run()
-
-        train_docids = [docid for docid_list in fake_train_run.values() for docid in docid_list]
-        dev_docids = [docid for docid_list in fake_dev_run.values() for docid in docid_list]
-        docids = set(train_docids + dev_docids)
-        qids = set(list(fake_train_run.keys()) + list(fake_dev_run.keys()))
-
         self.extractor.preprocess(
             qids=qids, docids=docids, topics=self.benchmark.topics[self.benchmark.query_type]
         )
 
-        train_dataset.prepare(fake_train_run, self.benchmark.qrels, self.extractor, relevance_level=self.benchmark.relevance_level)
+        train_dataset.prepare(train_run, self.benchmark.qrels, self.extractor, relevance_level=self.benchmark.relevance_level)
 
         dev_dataset = PredSampler()
-        dev_dataset.prepare(fake_dev_run, self.benchmark.qrels, self.extractor, relevance_level=self.benchmark.relevance_level)
+        dev_dataset.prepare(dev_run, self.benchmark.qrels, self.extractor, relevance_level=self.benchmark.relevance_level)
 
         self.instantiate_model()
         output_path = self.get_results_path()
         self.trainer.train(self, train_dataset, dev_dataset, output_path, self.benchmark.qrels)
 
-    def build_model(self):
-        self.train_encoder()
+    def build_model(self, train_run, dev_run, docids, qids):
+        self.train_encoder(train_run, dev_run, docids, qids)
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.model.to(device)
         

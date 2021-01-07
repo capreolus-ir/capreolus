@@ -1,4 +1,5 @@
 import torch
+import pickle
 import numpy as np
 import os
 from tqdm import tqdm
@@ -23,7 +24,7 @@ class PytorchANNTrainer(Trainer):
         ConfigOption("lr", 0.001, "learning rate"),
         ConfigOption("softmaxloss", False, "True to use softmax loss (over pairs) or False to use hinge loss"),
         ConfigOption("fastforward", False),
-        ConfigOption("validatefreq", 3),
+        ConfigOption("validatefreq", 6),
         ConfigOption(
             "multithread",
             False,
@@ -104,6 +105,7 @@ class PytorchANNTrainer(Trainer):
                 metrics = evaluator.eval_runs(val_preds, qrels, evaluator.DEFAULT_METRICS, relevance_level)
                 logger.info("dev metrics: %s", " ".join([f"{metric}={v:0.3f}" for metric, v in sorted(metrics.items())]))
                 faiss_logger.info("dev metrics: %s", " ".join([f"{metric}={v:0.3f}" for metric, v in sorted(metrics.items())]))
+                pickle.dump(val_preds, open("val_run.dump", "wb"), protocol=-1)
 
         weights_fn = output_path / "trained_weights"
         encoder.save_weights(weights_fn, self.optimizer)
@@ -118,14 +120,20 @@ class PytorchANNTrainer(Trainer):
         )
 
         preds = {}
+        val_output = open("val_output.log", "w")
+
         with torch.autograd.no_grad():
             for bi, batch in tqdm(enumerate(dev_dataloader), desc="Validation set"):
+                qid = batch["qid"][0]
+                doc_id = batch["posdocid"][0]
                 batch = {k: v.to(self.device) if not isinstance(v, list) else v for k, v in batch.items()}
                 scores = encoder.test(batch)
                 scores = scores.view(-1).cpu().numpy()
-
+                val_output.write("qid\t{}\tdocid\t{}\tscore\t{}\n".format(qid, doc_id, scores.astype(np.float16).item()))
                 for qid, docid, score in zip(batch["qid"], batch["posdocid"], scores):
                     preds.setdefault(qid, {})[docid] = score.astype(np.float16).item()
+
+        val_output.close()
 
         return preds
                 

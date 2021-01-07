@@ -58,7 +58,6 @@ class Searcher(ModuleBase):
 
     def query_from_file(self, topicsfn, output_path):
         output_path = self._query_from_file(topicsfn, output_path, self.config)
-        faiss_logger.info("Anserini search results are written to {}".format(output_path))
         
         return output_path
 

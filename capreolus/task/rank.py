@@ -4,6 +4,7 @@ from capreolus.utils.loginit import get_logger
 from capreolus.utils.trec import load_qrels
 
 logger = get_logger(__name__)  # pylint: disable=invalid-name
+faiss_logger = get_logger("faiss")
 
 
 @Task.register
@@ -50,7 +51,8 @@ class RankTask(Task):
 
     def evaluate(self):
         metrics = self.config["metrics"] if list(self.config["metrics"]) != ["default"] else evaluator.DEFAULT_METRICS
-
+        faiss_logger.info("Evaluator looks for stuff in {}".format(self.get_results_path()))
+        
         best_results = evaluator.search_best_run(
             self.get_results_path(), self.benchmark, primary_metric=self.config["optimize"], metrics=metrics
         )
