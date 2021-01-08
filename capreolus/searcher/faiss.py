@@ -23,37 +23,56 @@ class FAISSSearcher(Searcher):
 
     dependencies = [Dependency(key="index", module="index", name="faiss"), Dependency(key="benchmark", module="benchmark")]
 
-    def _query_from_file(self, topicsfn, output_path, config):
-        param_str = ""
+    def query_from_file(self, topicsfn, output_path, fold=None):
+        output_path = self._query_from_file(topicsfn, output_path, fold=fold)
         
+        return output_path
+
+
+    def _query_from_file(self, topicsfn, output_path, fold=None):
+        assert fold is not None
+
         # `qid_query` contains (qid, query) tuples in the order they were encoded
-        topic_vectors, qid_query = self.create_topic_vectors(topicsfn, output_path)
 
-        return self.index.manual_search(topic_vectors, 100, qid_query, output_path)
-        # distances, results = self.index.search(topic_vectors, 100)
-        # distances = distances.astype(np.float16)
+        # A manual search is done over the docs in dev_run - this way for each qid, we only score the docids that BM25 retrieved for it
+        topic_vectors, qid_query = self.create_topic_vectors_for_fold(topicsfn, output_path, fold)
+        self.index.manual_search(topic_vectors, 100, qid_query, output_path, fold)
+        distances, results = self.index.faiss_search(topic_vectors, 100)
+        distances = distances.astype(np.float16)
 
-        # return self.write_results_in_trec_format(results, distances, qid_query, output_path)
+        self.write_results_in_trec_format(results, distances, qid_query, output_path)
 
-    def create_topic_vectors(self, topicsfn, output_path):
+        return output_path
+
+    def build_encoder(self, fold):
+        """
+        TODO: Deprecate this method. We should not rely on BM25 search results to load the pre-trained encoder.
+        Solution: Do not use BM25 run to form the TrainTripletSampler while training the encoder
+        """
+
         rank_results = self.index.evaluate_bm25_search()
-        best_search_run_path = rank_results["path"]["s1"]
+        best_search_run_path = rank_results["path"][fold]
         best_search_run = Searcher.load_trec_run(best_search_run_path)
-        train_run = {qid: docs for qid, docs in best_search_run.items() if qid in self.benchmark.folds["s1"]["train_qids"]}
-        dev_run = {qid: docs for qid, docs in best_search_run.items() if qid in self.benchmark.folds["s1"]["predict"]["dev"]}
-        qids = best_search_run.keys()
+        train_run = {qid: docs for qid, docs in best_search_run.items() if qid in self.benchmark.folds[fold]["train_qids"]}
+        dev_run = {qid: docs for qid, docs in best_search_run.items() if qid in self.benchmark.folds[fold]["predict"]["dev"]}
+        encoder_qids = best_search_run.keys()
         docids = set(docid for querydocs in best_search_run.values() for docid in querydocs)
 
+        self.index.encoder.build_model(train_run, dev_run, docids, encoder_qids)
 
-        self.index.encoder.build_model(train_run, dev_run, docids, qids)
+    def create_topic_vectors_for_fold(self, topicsfn, output_path, fold):
+        """
+        Creates a tensor of shape (num_queries, emb_size). Uses all the topics available in the dataset. Filtering based on folds is done later
+        """
+        self.build_encoder(fold)
         topics = load_trec_topics(topicsfn)
-        topic_vectors = []
-
-        # qid_query = sorted([(qid, query) for qid, query in topics["title"].items() if qid in self.benchmark.folds["s1"]["predict"]["dev"]])
-        qid_query = sorted([(qid, topics["title"][qid]) for qid in list(dev_run.keys())])
+        # TODO: Use the test qids in the below line
+        qids = sorted([qid for qid in self.benchmark.folds[fold]["predict"]["dev"]])
+        qid_query = sorted([(qid, topics["title"][qid]) for qid in qids])
         tokenizer = self.index.encoder.extractor.tokenizer
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
+        topic_vectors = []
         with torch.no_grad():
             for qid, query in qid_query:
                 query_toks = tokenizer.tokenize(query)[:510]
@@ -65,25 +84,14 @@ class FAISSSearcher(Searcher):
                 
         return np.concatenate(topic_vectors, axis=0), qid_query
         
-        # doc_304 = self.index.index.get_doc("FBIS3-20164")[:30]
-        # doc_toks = tokenizer.tokenize(doc_304)[:510]
-        # numericalized_doc = tokenizer.convert_tokens_to_ids(["[CLS]"] + doc_toks + ["[SEP]"])
-        # numericalized_doc = torch.tensor(numericalized_doc).to(device)
-        # numericalized_doc = numericalized_doc.reshape(1, -1)
-        # with torch.no_grad():
-            # encoded_doc = self.index.encoder.encode(numericalized_doc).cpu().numpy()
-        # faiss_logger.info("The doc 304 text is: {}".format(doc_304[:200]))
-
-        # return encoded_doc, [("304", "If you see this....")]
     
     def write_results_in_trec_format(self, results, distances, qid_query, output_path):
-        faiss_id_to_doc_id = pickle.load(open("faiss_order.dump", "rb"))
+        faiss_id_to_doc_id = pickle.load(open("faiss_id_to_doc_id.dump", "rb"))
         trec_string = "{qid} 0 {doc_id} {rank} {score} faiss\n"
         num_queries, num_neighbours = results.shape
         assert num_queries == len(qid_query)
 
         os.makedirs(output_path, exist_ok=True)
-        ver_f = open("verif.log", "w")
         with open(os.path.join(output_path, "faiss.run"), "w") as f:
             for i in range(num_queries):
                 faiss_ids = results[i][results[i] > -1]
@@ -91,14 +99,8 @@ class FAISSSearcher(Searcher):
 
                 for j, faiss_id in enumerate(faiss_ids):
                     doc_id = faiss_id_to_doc_id[faiss_id]
-                    if qid == "304":
-                        in_qrels = doc_id in self.benchmark.qrels["304"]
-                        # faiss_logger.info("Rank {} is {} and is in qrels: {}".format(j, doc_id, in_qrels))
-
-                    ver_f.write("faiss {} is doc {}\n".format(faiss_id, doc_id))
                     f.write(trec_string.format(qid=qid, doc_id=doc_id, rank=j+1, score=distances[i][j]))
 
-        ver_f.close()
         # faiss_logger.debug("The search results in TREC format are at: {}".format(output_path))
 
         return output_path

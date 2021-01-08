@@ -29,11 +29,8 @@ class Encoder(ModuleBase):
 
         return constants["RESULTS_BASE_PATH"] / self.get_module_path()
     
-    def exists(self):
-        weight_path = self.get_results_path()
-        done_f = os.path.join(weight_path, "done")
-
-        return os.path.isfile(done_f)
+    def exists(self, weights_fn):
+        return os.path.isfile(weights_fn)
 
     def save_weights(self, weights_fn, optimizer):
         if not os.path.exists(os.path.dirname(weights_fn)):

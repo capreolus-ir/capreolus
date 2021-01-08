@@ -18,13 +18,13 @@ class PytorchANNTrainer(Trainer):
     module_name = "pytorchann"
     config_spec = [
         ConfigOption("batch", 1, "batch size"),
-        ConfigOption("niters", 6, "number of iterations to train for"),
-        ConfigOption("itersize", 1024, "number of training instances in one iteration"),
+        ConfigOption("niters", 30, "number of iterations to train for"),
+        ConfigOption("itersize", 2048, "number of training instances in one iteration"),
         ConfigOption("gradacc", 1, "number of batches to accumulate over before updating weights"),
         ConfigOption("lr", 0.001, "learning rate"),
         ConfigOption("softmaxloss", False, "True to use softmax loss (over pairs) or False to use hinge loss"),
         ConfigOption("fastforward", False),
-        ConfigOption("validatefreq", 6),
+        ConfigOption("validatefreq", 5),
         ConfigOption(
             "multithread",
             False,
@@ -71,9 +71,9 @@ class PytorchANNTrainer(Trainer):
 
     def train(self, encoder, train_dataset, dev_dataset, output_path, qrels, metric="map", relevance_level=1):
         self.optimizer = torch.optim.Adam(filter(lambda param: param.requires_grad, encoder.model.parameters()), lr=self.config["lr"])
+        weights_fn = encoder.get_results_path() / "weights_{}".format(train_dataset.get_hash())
 
-        if encoder.exists():
-            weights_fn = encoder.get_results_path() / "trained_weights"
+        if encoder.exists(weights_fn):
             encoder.load_weights(weights_fn, self.optimizer)
             faiss_logger.warn("Skipping training since weights were found")
         else:
@@ -105,12 +105,10 @@ class PytorchANNTrainer(Trainer):
                 metrics = evaluator.eval_runs(val_preds, qrels, evaluator.DEFAULT_METRICS, relevance_level)
                 logger.info("dev metrics: %s", " ".join([f"{metric}={v:0.3f}" for metric, v in sorted(metrics.items())]))
                 faiss_logger.info("dev metrics: %s", " ".join([f"{metric}={v:0.3f}" for metric, v in sorted(metrics.items())]))
-                pickle.dump(val_preds, open("val_run.dump", "wb"), protocol=-1)
+                # pickle.dump(val_preds, open("val_run.dump", "wb"), protocol=-1)
 
-        weights_fn = output_path / "trained_weights"
+        weights_fn = output_path / "weights_{}".format(train_dataset.get_hash())
         encoder.save_weights(weights_fn, self.optimizer)
-        with open(os.path.join(output_path, "done"), "w") as done_f:
-            done_f.write("done")
 
     def validate(self, encoder, dev_dataset):
         encoder.model.eval()

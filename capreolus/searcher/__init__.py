@@ -56,7 +56,7 @@ class Searcher(ModuleBase):
     def _query_from_file(self, topicsfn, output_path, cfg):
         raise NotImplementedError()
 
-    def query_from_file(self, topicsfn, output_path):
+    def query_from_file(self, topicsfn, output_path, fold=None):
         output_path = self._query_from_file(topicsfn, output_path, self.config)
         
         return output_path

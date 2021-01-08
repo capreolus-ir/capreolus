@@ -12,7 +12,7 @@ class RankTask(Task):
     module_name = "rank"
     requires_random_seed = False
     config_spec = [
-        ConfigOption("folds", "s1,s2,s3,s4,s5", "folds to run"),
+        ConfigOption("fold", None, "fold to run"),
         ConfigOption("filter", False),
         ConfigOption("optimize", "map", "metric to maximize on the dev set"),
         ConfigOption("metrics", "default", "metrics reported for evaluation", value_type="strlist"),
@@ -38,14 +38,16 @@ class RankTask(Task):
         output_dir = self.get_results_path()
 
         if hasattr(self.searcher, "index"):
-            self.searcher.index.create_index()
+            # All anserini indexes ignore the "fold" parameter. This is required for FAISS though, since we have to train an encoder
+            self.searcher.index.create_index(fold=self.config["fold"])
 
         if self.config["filter"]:
             qrels = load_qrels(self.benchmark.qrel_ignore)
             docs_to_remove = {q: list(d.keys()) for q, d in qrels.items()}
-            search_results_folder = self.searcher.query_from_file(topics_fn, output_dir, docs_to_remove)
+            # TODO: This will break for most searchers - only certain anserini searchers support `docs_to_remove` feature
+            search_results_folder = self.searcher.query_from_file(topics_fn, output_dir, docs_to_remove, folds=self.config["fold"])
         else:
-            search_results_folder = self.searcher.query_from_file(topics_fn, output_dir)
+            search_results_folder = self.searcher.query_from_file(topics_fn, output_dir, fold=self.config["fold"])
 
         logger.info("searcher results written to: %s", search_results_folder)
         return search_results_folder
@@ -55,7 +57,7 @@ class RankTask(Task):
         faiss_logger.info("Evaluator looks for stuff in {}".format(self.get_results_path()))
         
         best_results = evaluator.search_best_run(
-            self.get_results_path(), self.benchmark, primary_metric=self.config["optimize"], metrics=metrics, folds=self.config["folds"]
+            self.get_results_path(), self.benchmark, primary_metric=self.config["optimize"], metrics=metrics, folds=self.config["fold"]
         )
 
         for fold, path in best_results["path"].items():

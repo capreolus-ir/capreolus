@@ -254,7 +254,7 @@ class BM25PostProcess(BM25, PostprocessMixin):
         ConfigOption("dedup", False),
     ]
 
-    def query_from_file(self, topicsfn, output_path, docs_to_remove=None):
+    def query_from_file(self, topicsfn, output_path, docs_to_remove=None, fold=None):
         output_path = super().query_from_file(topicsfn, output_path)  # will call _query_from_file() from BM25
 
         if docs_to_remove:

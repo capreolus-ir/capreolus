@@ -23,7 +23,7 @@ class Index(ModuleBase):
         donefn = self.get_index_path() / "done"
         return donefn.exists()
 
-    def create_index(self):
+    def create_index(self, *args, **kwargs):
         if self.exists():
             return
 
