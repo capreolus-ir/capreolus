@@ -40,7 +40,7 @@ class FAISSIndex(Index):
 
         search_results_folder = self.searcher.query_from_file(topics_fn, output_dir)
 
-        faiss_logger.info("BM25 search results written to: %s", search_results_folder)
+        # faiss_logger.info("BM25 search results written to: %s", search_results_folder)
 
         return search_results_folder
 
@@ -54,7 +54,7 @@ class FAISSIndex(Index):
         for fold, path in best_results["path"].items():
             logger.info("rank: fold=%s best run: %s", fold, path)
 
-        faiss_logger.info("rank: cross-validated results when optimizing for '%s':", "map")
+        # faiss_logger.info("rank: cross-validated results when optimizing for '%s':", "map")
         for metric, score in sorted(best_results["score"].items()):
             logger.info("%25s: %0.4f", metric, score)
 
@@ -105,7 +105,7 @@ class FAISSIndex(Index):
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.encoder.model.to(device)
         self.encoder.model.eval()
-        faiss_logger.info("Is index trained: {}".format(faiss_index.is_trained))
+        # faiss_logger.info("Is index trained: {}".format(faiss_index.is_trained))
         # self.doc_embs = []
         # TODO: reverse the order and do the checks while inserting so that we have only one doc per id
         # TODO: Try giving a document as the query for the sanity check.
@@ -134,21 +134,21 @@ class FAISSIndex(Index):
             for doc_id, faiss_id in doc_id_to_faiss_id.items():
                 f.write("faiss {} is doc {}\n".format(faiss_id, doc_id))
 
-        faiss_logger.debug("{} docs added to FAISS index".format(faiss_index.ntotal))
+        # faiss_logger.debug("{} docs added to FAISS index".format(faiss_index.ntotal))
         os.makedirs(self.get_index_path(), exist_ok=True)
         faiss.write_index(faiss_index, os.path.join(self.get_index_path(), "faiss.index"))
 
         # TODO: write the "done" file
 
     def search(self, topic_vectors, k):
-        faiss_logger.debug("topic_vectors shape is {}".format(topic_vectors.shape))
+        # faiss_logger.debug("topic_vectors shape is {}".format(topic_vectors.shape))
         # for docid, doc_emb in self.doc_embs:
             # score = F.cosine_similarity(torch.from_numpy(topic_vectors), torch.from_numpy(doc_emb))
             # faiss_logger.debug("Docid: {}, score: {}".format(docid, score))
 
         search_start = time.time()
         faiss_index = faiss.read_index(os.path.join(self.get_index_path(), "faiss.index"))
-        faiss_logger.debug("FAISS index search took {}".format(time.time() - search_start))
+        # faiss_logger.debug("FAISS index search took {}".format(time.time() - search_start))
 
         return faiss_index.search(topic_vectors, k)
     
@@ -180,7 +180,7 @@ class FAISSIndex(Index):
                 faiss_id = doc_id_to_faiss_id[doc_id]
                 doc_emb = faiss_index.reconstruct(faiss_id).reshape(128)
                 score = F.cosine_similarity(torch.from_numpy(query_emb), torch.from_numpy(doc_emb), dim=0)
-                score = score.numpy().astype(np.float16)
+                score = score.numpy().astype(np.float16).item()
                 results[qid].append((score, doc_id))
                 man_f.write("qid\t{}\tdocid\t{}\tscore\t{}\n".format(qid, doc_id, score))
 
@@ -191,15 +191,13 @@ class FAISSIndex(Index):
             for i, (score, doc_id) in enumerate(sorted(score_doc_id, reverse=True)):
                 if i >= 1000:
                     break
-                run.setdefault(qid, {})[doc_id] = score.astype(np.float16).item()
+                run.setdefault(qid, {})[doc_id] = score
                 out_f.write(trec_string.format(qid=qid, doc_id=doc_id, rank=i+1, score=score))
         
         out_f.close()
         pickle.dump(run, open("manual_run.dump", "wb"), protocol=-1)
         metrics = evaluator.eval_runs(run, self.benchmark.qrels, evaluator.DEFAULT_METRICS, self.benchmark.relevance_level)
         faiss_logger.info("manual metrics: %s", " ".join([f"{metric}={v:0.3f}" for metric, v in sorted(metrics.items())]))
-
-
         faiss_logger.info("Manual search took {}".format(time.time() - search_start))
 
         return output_path

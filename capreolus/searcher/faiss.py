@@ -93,13 +93,13 @@ class FAISSSearcher(Searcher):
                     doc_id = faiss_id_to_doc_id[faiss_id]
                     if qid == "304":
                         in_qrels = doc_id in self.benchmark.qrels["304"]
-                        faiss_logger.info("Rank {} is {} and is in qrels: {}".format(j, doc_id, in_qrels))
+                        # faiss_logger.info("Rank {} is {} and is in qrels: {}".format(j, doc_id, in_qrels))
 
                     ver_f.write("faiss {} is doc {}\n".format(faiss_id, doc_id))
                     f.write(trec_string.format(qid=qid, doc_id=doc_id, rank=j+1, score=distances[i][j]))
 
         ver_f.close()
-        faiss_logger.debug("The search results in TREC format are at: {}".format(output_path))
+        # faiss_logger.debug("The search results in TREC format are at: {}".format(output_path))
 
         return output_path
                 
