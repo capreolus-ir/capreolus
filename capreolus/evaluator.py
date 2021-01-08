@@ -120,7 +120,7 @@ def search_best_run(runfile_dirs, benchmark, primary_metric, metrics=None, folds
     if primary_metric not in metrics:
         metrics = [primary_metric] + metrics
 
-    folds = {s: benchmark.folds[s] for s in [folds]} if folds else benchmark.folds
+    folds = {s: benchmark.folds[s] for s in folds.split(",")} if folds else benchmark.folds
     runfiles = [
         os.path.join(runfile_dir, f)
         for runfile_dir in runfile_dirs
@@ -137,8 +137,6 @@ def search_best_run(runfile_dirs, benchmark, primary_metric, metrics=None, folds
         for s, v in folds.items():
             # faiss_logger.info("Attempting to score fold {}. Runs have length: {}, 301 has length {}, 304 has length: {}".format(s, len(runs), len(runs["301"]), len(runs["304"])))
             # TODO: Remove this check
-            if s != "s1":
-                break
             score = _eval_runs(
                 runs,
                 benchmark.qrels,
@@ -153,9 +151,7 @@ def search_best_run(runfile_dirs, benchmark, primary_metric, metrics=None, folds
 
     test_runs = {}
     for s, score_dict in best_scores.items():
-        if s != "s1":
-            break
-        # TODO: Revert this back to folds[s]["predict"]["dev"]
+        # TODO: Revert this back to folds[s]["predict"]["test"]
         test_qids = folds[s]["predict"]["dev"]
         logger.info("Score dict is {}".format(score_dict))
         # any empty (no results) queries need to be added so they contribute zeros to the average
@@ -164,6 +160,7 @@ def search_best_run(runfile_dirs, benchmark, primary_metric, metrics=None, folds
 
     scores = eval_runs(test_runs, benchmark.qrels, metrics, benchmark.relevance_level)
     return {"score": scores, "path": {s: v["path"] for s, v in best_scores.items()}}
+
 
 
 def interpolate_runs(run1, run2, qids, alpha):

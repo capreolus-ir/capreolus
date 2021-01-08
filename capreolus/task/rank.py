@@ -12,6 +12,7 @@ class RankTask(Task):
     module_name = "rank"
     requires_random_seed = False
     config_spec = [
+        ConfigOption("folds", "s1,s2,s3,s4,s5", "folds to run"),
         ConfigOption("filter", False),
         ConfigOption("optimize", "map", "metric to maximize on the dev set"),
         ConfigOption("metrics", "default", "metrics reported for evaluation", value_type="strlist"),
@@ -54,7 +55,7 @@ class RankTask(Task):
         faiss_logger.info("Evaluator looks for stuff in {}".format(self.get_results_path()))
         
         best_results = evaluator.search_best_run(
-            self.get_results_path(), self.benchmark, primary_metric=self.config["optimize"], metrics=metrics
+            self.get_results_path(), self.benchmark, primary_metric=self.config["optimize"], metrics=metrics, folds=self.config["folds"]
         )
 
         for fold, path in best_results["path"].items():
