@@ -84,10 +84,9 @@ class PytorchTrainer(Trainer):
 
         iter_loss = []
         batches_since_update = 0
-        batches_per_epoch = (self.config["itersize"] // self.config["batch"]) or 1
         batches_per_step = self.config["gradacc"]
 
-        for bi, batch in tqdm(enumerate(train_dataloader), desc="Training iteration", total=batches_per_epoch):
+        for bi, batch in tqdm(enumerate(train_dataloader), desc="Training iteration", total=self.n_batch_per_iter):
             batch = {k: v.to(self.device) if not isinstance(v, list) else v for k, v in batch.items()}
 
             with self.amp_train_autocast():
@@ -109,7 +108,7 @@ class PytorchTrainer(Trainer):
                     self.optimizer.step()
                 self.optimizer.zero_grad()
 
-            if (bi + 1) % batches_per_epoch == 0:
+            if (bi + 1) % self.n_batch_per_iter == 0:
                 # REF-TODO: save scheduler state along with optimizer
                 self.lr_scheduler.step()
                 break
@@ -216,15 +215,8 @@ class PytorchTrainer(Trainer):
             if initial_iter < self.config["niters"]:
                 logger.debug("fastforwarding train_dataloader to iteration %s", initial_iter)
                 self.exhaust_used_train_data(train_dataloader, n_batch_to_exhaust=initial_iter * self.n_batch_per_iter)
-                '''
-                for niter in range(initial_iter):
-                    for bi, batch in enumerate(train_dataloader):
-                        if (bi + 1) % self.n_batch_per_iter == 0:
-                            break
-                '''
 
         dev_best_metric = -np.inf
-        validation_frequency = self.config["validatefreq"]
         train_start_time = time.time()
         for niter in range(initial_iter, self.config["niters"]):
             niter = niter + 1  # index from 1
@@ -242,7 +234,7 @@ class PytorchTrainer(Trainer):
                 reranker.save_weights(weights_fn, self.optimizer)
 
             # predict performance on dev set
-            if niter % validation_frequency == 0:
+            if niter % self.config["validatefreq"] == 0:
                 pred_fn = dev_output_path / f"{niter}.run"
                 preds = self.predict(reranker, dev_data, pred_fn)
 
