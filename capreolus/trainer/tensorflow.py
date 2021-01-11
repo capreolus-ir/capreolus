@@ -87,7 +87,7 @@ class TensorflowTrainer(Trainer):
                 self.config["storage"], "train_output", hashlib.md5(str(train_output_path).encode("utf-8")).hexdigest()
             )
 
-        dev_best_weight_fn, weights_output_path, info_output_path, loss_fn = self.get_paths_for_early_stopping(
+        dev_best_weight_fn, weights_output_path, info_output_path, loss_fn, metric_fn = self.get_paths_for_early_stopping(
             train_output_path, dev_output_path
         )
 
@@ -169,7 +169,13 @@ class TensorflowTrainer(Trainer):
         train_records = train_records.shuffle(100000)
         train_dist_dataset = self.strategy.experimental_distribute_dataset(train_records)
 
-        initial_iter = self.fastforward_training(wrapped_model, weights_output_path, loss_fn) if self.config["fastforward"] else 0
+        initial_iter, metrics = (
+            self.fastforward_training(wrapped_model, weights_output_path, loss_fn, metric_fn)
+            if self.config["fastforward"]
+            else (0, {})
+        )
+        dev_best_metric = metrics.get(metric, -np.inf)
+
         cur_step = initial_iter * self.n_batch_per_iter
         initial_lr = self.change_lr(step=cur_step, lr=self.config["bertlr"])
         K.set_value(optimizer_2.lr, K.get_value(initial_lr))
@@ -180,7 +186,6 @@ class TensorflowTrainer(Trainer):
         niter = initial_iter
         total_loss = 0
         trec_preds = {}
-        best_metric = -np.inf
         iter_bar = tqdm(desc="Training iteration", total=self.n_batch_per_iter)
         # Goes through the dataset ONCE (i.e niters * itersize).
         # However, the dataset may already contain multiple instances of the same sample,
@@ -222,10 +227,11 @@ class TensorflowTrainer(Trainer):
                     trec_preds = self.get_preds_in_trec_format(dev_predictions, dev_data)
                     metrics = evaluator.eval_runs(trec_preds, dict(qrels), evaluator.DEFAULT_METRICS, relevance_level)
                     logger.info("dev metrics: %s", " ".join([f"{metric}={v:0.3f}" for metric, v in sorted(metrics.items())]))
-                    if metrics[metric] > best_metric:
-                        best_metric = metrics[metric]
-                        logger.info("new best dev metric: %0.4f", best_metric)
+                    if metrics[metric] > dev_best_metric:
+                        dev_best_metric = metrics[metric]
+                        logger.info("new best dev metric: %0.4f", dev_best_metric)
 
+                        self.write_to_metric_file(metric_fn, metrics)
                         wrapped_model.save_weights(dev_best_weight_fn)
                         Searcher.write_trec_run(trec_preds, outfn=(dev_output_path / "best").as_posix())
 
@@ -475,7 +481,7 @@ class TensorflowTrainer(Trainer):
 
         return KerasTripletModel(model)
 
-    def fastforward_training(self, model, weights_path, loss_fn):
+    def fastforward_training(self, model, weights_path, loss_fn, best_metric_fn):
         """Skip to the last training iteration whose weights were saved.
 
         If saved model and optimizer weights are available, this method will load those weights into model
@@ -501,23 +507,25 @@ class TensorflowTrainer(Trainer):
                  If no weights are available or they cannot be loaded, 0 is returned.
 
         """
+        default_return_values = (0, {})
         if not (weights_path.exists() and loss_fn.exists()):
-            return 0
+            return default_return_values
 
         try:
             loss = self.load_loss_file(loss_fn)
+            metrics = self.load_metric(best_metric_fn)
         except IOError:
-            return 0
+            return default_return_values
 
         last_loss_iteration = len(loss) - 1
         weights_fn = weights_path / f"{last_loss_iteration}"
 
         try:
             model.load_weights(weights_fn)
-            return last_loss_iteration + 1
+            return last_loss_iteration + 1, metrics
         except:  # lgtm [py/catch-base-exception]
             logger.info("attempted to load weights from %s but failed, starting at iteration 0", weights_fn)
-            return 0
+            return default_return_values
 
     def load_best_model(self, reranker, train_output_path):
         # TODO: Do the train_output_path modification at one place?

@@ -115,7 +115,7 @@ class PytorchTrainer(Trainer):
 
         return torch.stack(iter_loss).mean()
 
-    def fastforward_training(self, reranker, weights_path, loss_fn):
+    def fastforward_training(self, reranker, weights_path, loss_fn, best_metric_fn):
         """Skip to the last training iteration whose weights were saved.
 
         If saved model and optimizer weights are available, this method will load those weights into model
@@ -141,24 +141,25 @@ class PytorchTrainer(Trainer):
                  If no weights are available or they cannot be loaded, 0 is returned.
 
         """
-
+        default_return_values = (0, {})
         if not (weights_path.exists() and loss_fn.exists()):
-            return 0
+            return default_return_values
 
         try:
             loss = self.load_loss_file(loss_fn)
+            metrics = self.load_metric(best_metric_fn)
         except IOError:
-            return 0
+            return default_return_values
 
         last_loss_iteration = len(loss) - 1
         weights_fn = weights_path / f"{last_loss_iteration}.p"
 
         try:
             reranker.load_weights(weights_fn, self.optimizer)
-            return last_loss_iteration + 1
+            return last_loss_iteration + 1, metrics
         except:  # lgtm [py/catch-base-exception]
             logger.info("attempted to load weights from %s but failed, starting at iteration 0", weights_fn)
-            return 0
+            return default_return_values
 
     def train(self, reranker, train_dataset, train_output_path, dev_data, dev_output_path, qrels, metric, relevance_level=1):
         """Train a model following the trainer's config (specifying batch size, number of iterations, etc).
@@ -193,7 +194,7 @@ class PytorchTrainer(Trainer):
         else:
             self.loss = pair_hinge_loss
 
-        dev_best_weight_fn, weights_output_path, info_output_path, loss_fn = self.get_paths_for_early_stopping(
+        dev_best_weight_fn, weights_output_path, info_output_path, loss_fn, metric_fn = self.get_paths_for_early_stopping(
             train_output_path, dev_output_path
         )
 
@@ -203,8 +204,14 @@ class PytorchTrainer(Trainer):
         )
 
         # if we're fastforwarding, set first iteration and load last saved weights
-        initial_iter = self.fastforward_training(reranker, weights_output_path, loss_fn) if self.config["fastforward"] else 0
+        initial_iter, metrics = (
+            self.fastforward_training(reranker, weights_output_path, loss_fn, metric_fn)
+            if self.config["fastforward"]
+            else (0, {})
+        )
+        dev_best_metric = metrics.get(metric, -np.inf)
         logger.info("starting training from iteration %s/%s", initial_iter + 1, self.config["niters"])
+        logger.info(f"Best metric loaded: {metric}={dev_best_metric}")
 
         train_loss = []
         # are we resuming training? fastforward loss and data if so
@@ -216,7 +223,6 @@ class PytorchTrainer(Trainer):
                 logger.debug("fastforwarding train_dataloader to iteration %s", initial_iter)
                 self.exhaust_used_train_data(train_dataloader, n_batch_to_exhaust=initial_iter * self.n_batch_per_iter)
 
-        dev_best_metric = -np.inf
         train_start_time = time.time()
         for niter in range(initial_iter, self.config["niters"]):
             niter = niter + 1  # index from 1
@@ -249,6 +255,7 @@ class PytorchTrainer(Trainer):
                     dev_best_metric = metrics[metric]
                     logger.info("new best dev metric: %0.4f", dev_best_metric)
                     reranker.save_weights(dev_best_weight_fn, self.optimizer)
+                    self.write_to_metric_file(metric_fn, metrics)
 
             # write train_loss to file
             # loss_fn.write_text("\n".join(f"{idx} {loss}" for idx, loss in enumerate(train_loss)))
@@ -297,9 +304,7 @@ class PytorchTrainer(Trainer):
         preds = {}
         evalbatch = self.config["evalbatch"]
         num_workers = 1 if self.config["multithread"] else 0
-        pred_dataloader = torch.utils.data.DataLoader(
-            pred_data, batch_size=evalbatch, pin_memory=True, num_workers=num_workers
-        )
+        pred_dataloader = torch.utils.data.DataLoader(pred_data, batch_size=evalbatch, pin_memory=True, num_workers=num_workers)
         with torch.autograd.no_grad():
             for batch in tqdm(pred_dataloader, desc="Predicting", total=len(pred_data) // evalbatch):
                 if len(batch["qid"]) != evalbatch:
@@ -337,7 +342,7 @@ class PytorchTrainer(Trainer):
             else:
                 _v = v + [v[0]] * diff
 
-            return _v[: batch_size]
+            return _v[:batch_size]
 
         batch = {k: pad(v) for k, v in batch.items()}
         return batch

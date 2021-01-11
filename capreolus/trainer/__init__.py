@@ -1,5 +1,7 @@
 import os
+import json
 
+import numpy as np
 from capreolus import ModuleBase, get_logger
 
 logger = get_logger(__name__)  # pylint: disable=invalid-name
@@ -45,8 +47,22 @@ class Trainer(ModuleBase):
         return loss
 
     @staticmethod
+    def load_metric(fn):
+        with fn.open(mode="rt") as f:
+            return json.load(f)
+
+    @staticmethod
+    def load_best_metric(fn, metric):
+        return Trainer.load_metric(fn).get(metric, -np.inf)
+
+    @staticmethod
     def write_to_loss_file(fn, losses):
         fn.write_text("\n".join(f"{idx} {loss}" for idx, loss in enumerate(losses)))
+
+    @staticmethod
+    def write_to_metric_file(fn, metrics):
+        assert isinstance(metrics, dict)
+        json.dump(metrics, open(fn, "wt"))
 
     @staticmethod
     def exhaust_used_train_data(train_data_generator, n_batch_to_exhaust):
@@ -58,8 +74,8 @@ class Trainer(ModuleBase):
     def n_batch_per_iter(self):
         return (self.config["itersize"] // self.config["batch"]) or 1
 
-
-    def get_paths_for_early_stopping(self, train_output_path, dev_output_path):
+    @staticmethod
+    def get_paths_for_early_stopping(train_output_path, dev_output_path):
         dev_best_weight_fn = train_output_path / "dev.best"
         weights_output_path = train_output_path / "weights"
         info_output_path = train_output_path / "info"
@@ -68,9 +84,9 @@ class Trainer(ModuleBase):
         os.makedirs(info_output_path, exist_ok=True)
 
         loss_fn = info_output_path / "loss.txt"
-        # metrics_fn = dev_output_path / "metrics.json"
+        metrics_fn = dev_output_path / "metrics.json"
 
-        return dev_best_weight_fn, weights_output_path, info_output_path, loss_fn
+        return dev_best_weight_fn, weights_output_path, info_output_path, loss_fn, metrics_fn
 
     def change_lr(self, step, lr):
         """
