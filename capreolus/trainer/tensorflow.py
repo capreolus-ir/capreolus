@@ -181,7 +181,7 @@ class TensorflowTrainer(Trainer):
         total_loss = 0
         trec_preds = {}
         best_metric = -np.inf
-        iter_bar = tqdm(total=self.n_batch_per_iter)
+        iter_bar = tqdm(desc="Training iteration", total=self.n_batch_per_iter)
         # Goes through the dataset ONCE (i.e niters * itersize).
         # However, the dataset may already contain multiple instances of the same sample,
         # depending upon what Sampler was used.
