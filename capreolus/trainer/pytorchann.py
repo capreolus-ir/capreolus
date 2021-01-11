@@ -17,14 +17,14 @@ faiss_logger = get_logger("faiss")
 class PytorchANNTrainer(Trainer):
     module_name = "pytorchann"
     config_spec = [
-        ConfigOption("batch", 1, "batch size"),
-        ConfigOption("niters", 30, "number of iterations to train for"),
+        ConfigOption("batch", 8, "batch size"),
+        ConfigOption("niters", 2, "number of iterations to train for"),
         ConfigOption("itersize", 2048, "number of training instances in one iteration"),
         ConfigOption("gradacc", 1, "number of batches to accumulate over before updating weights"),
         ConfigOption("lr", 0.001, "learning rate"),
         ConfigOption("softmaxloss", False, "True to use softmax loss (over pairs) or False to use hinge loss"),
         ConfigOption("fastforward", False),
-        ConfigOption("validatefreq", 5),
+        ConfigOption("validatefreq", 2),
         ConfigOption(
             "multithread",
             False,
@@ -118,20 +118,12 @@ class PytorchANNTrainer(Trainer):
         )
 
         preds = {}
-        val_output = open("val_output.log", "w")
-
         with torch.autograd.no_grad():
             for bi, batch in tqdm(enumerate(dev_dataloader), desc="Validation set"):
-                qid = batch["qid"][0]
-                doc_id = batch["posdocid"][0]
                 batch = {k: v.to(self.device) if not isinstance(v, list) else v for k, v in batch.items()}
-                scores = encoder.test(batch)
-                scores = scores.view(-1).cpu().numpy()
-                val_output.write("qid\t{}\tdocid\t{}\tscore\t{}\n".format(qid, doc_id, scores.astype(np.float16).item()))
+                scores = encoder.test(batch).cpu().numpy()
                 for qid, docid, score in zip(batch["qid"], batch["posdocid"], scores):
                     preds.setdefault(qid, {})[docid] = score.astype(np.float16).item()
-
-        val_output.close()
 
         return preds
                 

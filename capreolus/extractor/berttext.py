@@ -1,4 +1,5 @@
 import os
+import torch
 import pickle
 from collections import defaultdict
 
@@ -32,7 +33,7 @@ class BertText(Extractor):
     config_spec = [ConfigOption("maxqlen", 4), ConfigOption("maxdoclen", 800), ConfigOption("usecache", False)]
 
     pad = 0
-    pad_tok = "<pad>"
+    pad_tok = "[PAD]"
 
     def load_state(self, qids, docids):
         with open(self.get_state_cache_file_path(qids, docids), "rb") as f:
@@ -82,20 +83,24 @@ class BertText(Extractor):
         posdoc_toks = self.docid2toks[posid][:510]
         posdoc_toks = ["[CLS]"] + posdoc_toks + ["[SEP]"]
         posdoc = tokenizer.convert_tokens_to_ids(posdoc_toks)
+        posdoc = padlist(posdoc, 512, 0)
 
         # faiss_logger.debug("Posdocid: {}, doctoks: {}".format(posid, posdoc_toks))
         # faiss_logger.debug("Numericalized posdoc: {}".format(posdoc))
         data = {
             "posdocid": posid,
             "posdoc": np.array(posdoc, dtype=np.long),
+            "posdoc_mask": self.get_mask(posdoc)
         }
 
         if qid:
             query_toks = self.qid2toks[qid][:510]
             query_toks = ["[CLS]"] + query_toks + ["[SEP]"]
             query = tokenizer.convert_tokens_to_ids(query_toks)
+            query = padlist(query, 512, 0)
             data["qid"] = qid
             data["query"] = np.array(query, dtype=np.long)
+            data["query_mask"] = self.get_mask(query)
             # faiss_logger.debug("qid: {}, query toks: {}".format(qid, query_toks))
             # faiss_logger.debug("Numericalized query: {}".format(query))
 
@@ -103,11 +108,18 @@ class BertText(Extractor):
             negdoc_toks = self.docid2toks[negid][:510]
             negdoc_toks = ["[CLS]"] + negdoc_toks + ["[SEP]"]
             negdoc = tokenizer.convert_tokens_to_ids(negdoc_toks)
+            negdoc = padlist(negdoc, 512, 0)
 
             data["negdocid"] = negid
             data["negdoc"] = np.array(negdoc, dtype=np.long)
+            data["negdoc_mask"] = self.get_mask(negdoc)
             # faiss_logger.debug("neg docid: {}, doctoks: {}".format(negid, negdoc_toks))
             # faiss_logger.debug("Numericalized_doc: {}".format(negdoc))
 
         return data
 
+    def get_mask(self, numericalized_text):
+        """
+        Returns a mask where it is 1 for actual toks and 0 for pad toks
+        """
+        return torch.tensor([1 if t !=0 else 0 for t in numericalized_text], dtype=torch.long)

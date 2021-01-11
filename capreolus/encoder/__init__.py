@@ -116,21 +116,26 @@ class Encoder(ModuleBase):
 
     def score(self, d):
         query = d["query"]
+        query_mask = d["query_mask"]
         posdoc = d["posdoc"]
+        posdoc_mask = d["posdoc_mask"]
         negdoc = d["negdoc"]
+        negdoc_mask = d["negdoc_mask"]
         
-        query_emb = self.model(query)
-        posdoc_emb = self.model(posdoc)
-        negdoc_emb = self.model(negdoc)
+        query_emb = self.model(query, query_mask)
+        posdoc_emb = self.model(posdoc, posdoc_mask)
+        negdoc_emb = self.model(negdoc, negdoc_mask)
 
         return [F.cosine_similarity(query_emb, posdoc_emb), F.cosine_similarity(query_emb, negdoc_emb)]
 
     def test(self, d):
         query = d["query"]
+        query_mask = d["query_mask"]
         doc = d["posdoc"]
+        doc_mask = d["posdoc_mask"]
 
-        query_emb = self.model(query)
-        doc_emb = self.model(doc)
+        query_emb = self.model(query, query_mask)
+        doc_emb = self.model(doc, doc_mask)
         
         return F.cosine_similarity(query_emb, doc_emb)
             

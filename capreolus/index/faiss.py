@@ -187,10 +187,10 @@ class FAISSIndex(Index):
         for i, (qid, query) in enumerate(qid_query):
             assert qid in self.benchmark.folds[fold]["predict"]["dev"]
 
-            query_emb = topic_vectors[i].reshape(128)
+            query_emb = topic_vectors[i].reshape(768)
             for doc_id in dev_run[qid].keys():
                 faiss_id = doc_id_to_faiss_id[doc_id]
-                doc_emb = faiss_index.reconstruct(faiss_id).reshape(128)
+                doc_emb = faiss_index.reconstruct(faiss_id).reshape(768)
                 score = F.cosine_similarity(torch.from_numpy(query_emb), torch.from_numpy(doc_emb), dim=0)
                 score = score.numpy().astype(np.float16).item()
                 results[qid].append((score, doc_id))
