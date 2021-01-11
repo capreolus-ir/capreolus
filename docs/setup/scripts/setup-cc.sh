@@ -7,7 +7,7 @@ config_file="$setup_dir/setup_capreolus_on_cc.bash"
 
 source ~/.bashrc
 eval "$(conda shell.bash hook)"
-conda create --name $env_name python=3.7
+conda create --name $env_name python=3.7 numpy nomkl scipy scikit-learn numexpr
 conda activate $env_name
 
 # Java
@@ -65,7 +65,7 @@ done
 ################################
 # Python package
 ################################
-source $(pwd)/$config_file
+source $config_file
 
 pip install --no-deps -r ./scripts/cc-requirements-no-deps.txt
 pip install -r ./scripts/cc-requirements.txt
