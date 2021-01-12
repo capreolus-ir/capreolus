@@ -175,6 +175,9 @@ class TensorflowTrainer(Trainer):
             else (0, {})
         )
         dev_best_metric = metrics.get(metric, -np.inf)
+        logger.info("starting training from iteration %s/%s", initial_iter + 1, self.config["niters"])
+        logger.info(f"Best metric loaded: {metric}={dev_best_metric}")
+
 
         cur_step = initial_iter * self.n_batch_per_iter
         initial_lr = self.change_lr(step=cur_step, lr=self.config["bertlr"])
