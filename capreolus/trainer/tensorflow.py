@@ -10,12 +10,19 @@ import numpy as np
 from tqdm import tqdm
 
 from capreolus.searcher import Searcher
-from capreolus import ConfigOption, evaluator
+from capreolus import ConfigOption
 from capreolus.trainer import Trainer
 from capreolus.utils.loginit import get_logger
 from capreolus.reranker.common import TFPairwiseHingeLoss, TFCategoricalCrossEntropyLoss, KerasPairModel, KerasTripletModel
 
 logger = get_logger(__name__)
+
+from tensorflow.python.client import device_lib
+
+
+def get_available_gpus():
+    local_device_protos = device_lib.list_local_devices()
+    return [x.name for x in local_device_protos if x.device_type == "GPU"]
 
 
 @Trainer.register
@@ -32,6 +39,7 @@ class TensorflowTrainer(Trainer):
     module_name = "tensorflow"
     config_spec = [
         ConfigOption("batch", 32, "batch size"),
+        ConfigOption("evalbatch", 256, "batch size on evaluation"),
         ConfigOption("niters", 20, "number of iterations to train for"),
         ConfigOption("itersize", 512, "number of training instances in one iteration"),
         ConfigOption("bertlr", 2e-5, "learning rate for bert parameters"),
@@ -48,8 +56,14 @@ class TensorflowTrainer(Trainer):
         ConfigOption("decay", 0.0, "learning rate decay"),
         ConfigOption("decaystep", 3),
         ConfigOption("decaytype", None),
+        ConfigOption("endlr", 0, "Learning rate at the end of decay, used for linear decay"),
+        ConfigOption(
+            "earlystop",
+            True,
+            "If False, will save checkpoint each `validatefreq` steps, otherwise will only save the best performanced checkpoint",
+        ),
     ]
-    config_keys_not_in_path = ["fastforward", "boardname", "usecache", "tpuname", "tpuzone", "storage"]
+    config_keys_not_in_path = ["fastforward", "boardname", "usecache", "tpuname", "tpuzone", "storage", "earlystop"]
 
     def build(self):
         tf.random.set_seed(self.config["seed"])
@@ -67,6 +81,8 @@ class TensorflowTrainer(Trainer):
             tf.config.experimental_connect_to_cluster(self.tpu)
             tf.tpu.experimental.initialize_tpu_system(self.tpu)
             self.strategy = tf.distribute.experimental.TPUStrategy(self.tpu)
+        elif len(get_available_gpus()) > 1:
+            self.strategy = tf.distribute.MirroredStrategy()
         else:  # default strategy that works on CPU and single GPU
             self.strategy = tf.distribute.get_strategy()
 
@@ -79,7 +95,7 @@ class TensorflowTrainer(Trainer):
         if self.tpu and self.config["storage"] and not self.config["storage"].startswith("gs://"):
             raise ValueError("For TPU utilization, the storage config should start with 'gs://'")
 
-    def train(self, reranker, train_dataset, train_output_path, dev_data, dev_output_path, qrels, metric, relevance_level=1):
+    def train(self, reranker, train_dataset, train_output_path, dev_data, dev_output_path, metric, evaluate_fn):
         if self.tpu:
             train_output_path = "{0}/{1}/{2}".format(
                 self.config["storage"], "train_output", hashlib.md5(str(train_output_path).encode("utf-8")).hexdigest()
@@ -177,20 +193,24 @@ class TensorflowTrainer(Trainer):
             num_batches += 1
             iter_bar.update(1)
 
+            # Do warmup and decay
+            new_lr = self.change_lr(global_steps=num_batches, lr=self.config["bertlr"])
+            K.set_value(optimizer_2.lr, K.get_value(new_lr))
+
             if num_batches % self.config["itersize"] == 0:
                 epoch += 1
-
-                # Do warmup and decay
-                new_lr = self.change_lr(epoch, self.config["bertlr"])
-                K.set_value(optimizer_2.lr, K.get_value(new_lr))
-
                 iter_bar.close()
-                iter_bar = tqdm(total=self.config["itersize"])
                 logger.info("train_loss for epoch {} is {}".format(epoch, train_loss))
                 train_loss = 0
                 total_loss = 0
 
                 if epoch % self.config["validatefreq"] == 0:
+                    if not self.config["earlystop"]:
+                        # save the ckpt ahead so don't need to wait for the evaluation to finish to use the ckpt
+                        # (eval on large dataset like MS MARCO takes > 1 days)
+                        wrapped_model.save_weights("{0}/dev.best".format(train_output_path))
+                        logger.info(f"Saved the ckpt at {epoch} step to directory {train_output_path}")
+
                     dev_predictions = []
                     for x in tqdm(dev_dist_dataset, desc="validation"):
                         pred_batch = (
@@ -201,13 +221,14 @@ class TensorflowTrainer(Trainer):
                         for p in pred_batch:
                             dev_predictions.extend(p)
 
-                    trec_preds = self.get_preds_in_trec_format(dev_predictions, dev_data)
-                    metrics = evaluator.eval_runs(trec_preds, dict(qrels), evaluator.DEFAULT_METRICS, relevance_level)
+                    metrics = evaluate_fn(self.get_preds_in_trec_format(dev_predictions, dev_data))
                     logger.info("dev metrics: %s", " ".join([f"{metric}={v:0.3f}" for metric, v in sorted(metrics.items())]))
                     if metrics[metric] > best_metric:
                         best_metric = metrics[metric]
                         logger.info("new best dev metric: %0.4f", best_metric)
                         wrapped_model.save_weights("{0}/dev.best".format(train_output_path))
+
+                iter_bar = tqdm(total=self.config["itersize"])
 
             if num_batches >= self.config["niters"] * self.config["itersize"]:
                 break
@@ -232,7 +253,7 @@ class TensorflowTrainer(Trainer):
             return self.strategy.run(test_step, args=(dataset_inputs,))
 
         predictions = []
-        for x in pred_dist_dataset:
+        for x in tqdm(pred_dist_dataset, desc="validation"):
             pred_batch = distributed_test_step(x).values if self.strategy.num_replicas_in_sync > 1 else [distributed_test_step(x)]
             for p in pred_batch:
                 predictions.extend(p)
@@ -351,21 +372,20 @@ class TensorflowTrainer(Trainer):
         """
         cached_tf_record_dir = self.form_tf_record_cache_path(dataset)
         if self.config["usecache"] and tf.io.gfile.exists(cached_tf_record_dir):
-            filenames = tf.io.gfile.listdir(cached_tf_record_dir)
+            filenames = sorted(tf.io.gfile.listdir(cached_tf_record_dir), key=lambda x: int(x.replace(".tfrecord", "")))
             filenames = ["{0}/{1}".format(cached_tf_record_dir, name) for name in filenames]
 
-            return self.load_tf_dev_records_from_file(reranker, filenames, self.config["batch"])
+            return self.load_tf_dev_records_from_file(reranker, filenames, self.config["evalbatch"])
         else:
             tf_record_filenames = self.convert_to_tf_dev_record(reranker, dataset)
             # TODO use actual batch size here. see issue #52
-            return self.load_tf_dev_records_from_file(reranker, tf_record_filenames, self.config["batch"])
+            return self.load_tf_dev_records_from_file(reranker, tf_record_filenames, self.config["evalbatch"])
 
     def load_tf_dev_records_from_file(self, reranker, filenames, batch_size):
         raw_dataset = tf.data.TFRecordDataset(filenames)
         tf_records_dataset = raw_dataset.batch(batch_size, drop_remainder=True).map(
             reranker.extractor.parse_tf_dev_example, num_parallel_calls=tf.data.experimental.AUTOTUNE
         )
-
         return tf_records_dataset
 
     def convert_to_tf_dev_record(self, reranker, dataset):
@@ -373,34 +393,31 @@ class TensorflowTrainer(Trainer):
         tf_features = []
         tf_record_filenames = []
 
+        tf_file_id = 0
         for sample in dataset:
             tf_features.extend(reranker.extractor.create_tf_dev_feature(sample))
             if len(tf_features) > 20000:
-                tf_record_filenames.append(self.write_tf_record_to_file(dir_name, tf_features))
+                tf_record_filenames.append(self.write_tf_record_to_file(dir_name, tf_features, file_name=str(tf_file_id)))
                 tf_features = []
+                tf_file_id += 1
 
         # TPU's require drop_remainder = True. But we cannot drop things from validation dataset
         # As a workaroud, we pad the dataset with the last sample until it reaches the batch size.
-        if len(tf_features) % self.config["batch"]:
-            num_elements_to_add = self.config["batch"] - (len(tf_features) % self.config["batch"])
-            logger.debug("Number of elements to add in the last batch: {}".format(num_elements_to_add))
+        if len(tf_features) > 0:
             element_to_copy = tf_features[-1]
-            for i in range(num_elements_to_add):
+            for i in range(self.config["evalbatch"]):
                 tf_features.append(copy(element_to_copy))
-
-        if len(tf_features):
-            tf_record_filenames.append(self.write_tf_record_to_file(dir_name, tf_features))
-
+            tf_record_filenames.append(self.write_tf_record_to_file(dir_name, tf_features, file_name=str(tf_file_id)))
         return tf_record_filenames
 
-    def write_tf_record_to_file(self, dir_name, tf_features):
+    def write_tf_record_to_file(self, dir_name, tf_features, file_name=None):
         """
         Actually write the tf record to file. The destination can also be a gcs bucket.
         TODO: Use generators to optimize memory usage
         """
-        filename = "{0}/{1}.tfrecord".format(dir_name, str(uuid.uuid4()))
+        file_name = str(uuid.uuid4()) if not file_name else file_name
+        filename = "{0}/{1}.tfrecord".format(dir_name, file_name)
         examples = [tf.train.Example(features=tf.train.Features(feature=feature)) for feature in tf_features]
-
         if not os.path.isdir(dir_name):
             os.makedirs(dir_name, exist_ok=True)
 
@@ -427,6 +444,22 @@ class TensorflowTrainer(Trainer):
             pred_dict[qid][docid] = predictions[i].numpy().astype(np.float16).item()
 
         return dict(pred_dict)
+
+    def change_lr(self, global_steps, lr):
+        """
+        Apply warm up or decay depending on the current epoch
+        """
+        warmup_steps = self.config["warmupsteps"]
+        if warmup_steps and global_steps <= warmup_steps:
+            return min(lr * ((global_steps + 1) / warmup_steps), lr)
+        elif self.config["decaytype"] == "exponential":
+            return lr * self.config["decay"] ** ((global_steps - warmup_steps) / self.config["decaystep"])
+        elif self.config["decaytype"] == "linear":
+            # return lr * (1 / (1 + self.config["decay"] * epoch))
+            end_lr = self.config["endlr"]
+            return end_lr + (lr - end_lr) * (1 - global_steps / self.config["decaystep"])
+
+        return lr
 
     def get_loss(self, loss_name):
         try:

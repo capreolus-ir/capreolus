@@ -8,6 +8,8 @@ from capreolus.searcher import Searcher
 from capreolus.task import Task
 from capreolus.utils.loginit import get_logger
 
+from time import time
+
 logger = get_logger(__name__)
 
 
@@ -38,10 +40,17 @@ class RerankTask(Task):
     def train(self):
         fold = self.config["fold"]
 
+        t1 = time()
         self.rank.search()
+        logger.info(f"Time to rank.search: {time() - t1}")
+        t1 = time()
+
         rank_results = self.rank.evaluate()
+        logger.info(f"Time to rank.evaluate: {time() - t1}")
+        t1 = time()
         best_search_run_path = rank_results["path"][fold]
         best_search_run = Searcher.load_trec_run(best_search_run_path)
+        logger.info(f"Time to load best search run: {time() - t1}")
 
         return self.rerank_run(best_search_run, self.get_results_path())
 
@@ -82,15 +91,18 @@ class RerankTask(Task):
             dev_run, self.benchmark.qrels, self.reranker.extractor, relevance_level=self.benchmark.relevance_level
         )
 
+        def local_evaluate_runs(runs):
+            dev_qrels = {qid: self.benchmark.qrels.get(qid, {}) for qid in self.benchmark.folds[fold]["predict"]["dev"]}
+            return evaluator.eval_runs(runs, dev_qrels, evaluator.DEFAULT_METRICS, self.benchmark.relevance_level)
+
         self.reranker.trainer.train(
-            self.reranker,
-            train_dataset,
-            train_output_path,
-            dev_dataset,
-            dev_output_path,
-            self.benchmark.qrels,
-            self.config["optimize"],
-            self.benchmark.relevance_level,
+            reranker=self.reranker,
+            train_dataset=train_dataset,
+            train_output_path=train_output_path,
+            dev_data=dev_dataset,
+            dev_output_path=dev_output_path,
+            metric=self.config["optimize"],
+            evaluate_fn=local_evaluate_runs,
         )
 
         self.reranker.trainer.load_best_model(self.reranker, train_output_path)
@@ -183,14 +195,16 @@ class RerankTask(Task):
             logger.error("could not find predictions; run the train command first")
             raise ValueError("could not find predictions; run the train command first")
 
+        dev_qrels = {qid: self.benchmark.qrels.get(qid, {}) for qid in self.benchmark.folds[fold]["predict"]["dev"]}
         fold_dev_metrics = evaluator.eval_runs(
-            reranker_runs[fold]["dev"], self.benchmark.qrels, evaluator.DEFAULT_METRICS, self.benchmark.relevance_level
+            reranker_runs[fold]["dev"], dev_qrels, evaluator.DEFAULT_METRICS, self.benchmark.relevance_level
         )
         pretty_fold_dev_metrics = " ".join([f"{metric}={v:0.3f}" for metric, v in sorted(fold_dev_metrics.items())])
         logger.info("rerank: fold=%s dev metrics: %s", fold, pretty_fold_dev_metrics)
 
+        test_qrels = {qid: self.benchmark.qrels.get(qid, {}) for qid in self.benchmark.folds[fold]["predict"]["test"]}
         fold_test_metrics = evaluator.eval_runs(
-            reranker_runs[fold]["test"], self.benchmark.qrels, evaluator.DEFAULT_METRICS, self.benchmark.relevance_level
+            reranker_runs[fold]["test"], test_qrels, evaluator.DEFAULT_METRICS, self.benchmark.relevance_level
         )
         pretty_fold_test_metrics = " ".join([f"{metric}={v:0.3f}" for metric, v in sorted(fold_test_metrics.items())])
         logger.info("rerank: fold=%s test metrics: %s", fold, pretty_fold_test_metrics)

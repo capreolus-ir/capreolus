@@ -42,9 +42,9 @@ class Searcher(ModuleBase):
         return run
 
     @staticmethod
-    def write_trec_run(preds, outfn):
+    def write_trec_run(preds, outfn, mode="wt"):
         count = 0
-        with open(outfn, "wt") as outf:
+        with open(outfn, mode) as outf:
             qids = sorted(preds.keys(), key=lambda k: int(k))
             for qid in qids:
                 rank = 1

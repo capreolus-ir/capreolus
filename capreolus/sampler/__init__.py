@@ -28,7 +28,7 @@ class Sampler(ModuleBase):
         self.qid_to_docids = {qid: docids for qid, docids in qid_to_docids.items() if qid in qrels}
         if len(self.qid_to_docids) != len(qid_to_docids):
             logger.warning(
-                "skipping qids that were missing from the qrels: {}".format(qid_to_docids.keys() - self.qid_to_docids.keys())
+                f"skipping qids that were missing from the qrels: {len(qid_to_docids.keys() - self.qid_to_docids.keys())} in total."
             )
 
         self.qid_to_reldocs = {

@@ -1,4 +1,3 @@
-import contextlib
 import math
 import os
 import time
@@ -8,8 +7,7 @@ import torch
 from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
 
-from capreolus import ConfigOption, constants, evaluator, get_logger
-from capreolus.searcher import Searcher
+from capreolus import ConfigOption, Searcher, constants, get_logger
 from capreolus.reranker.common import pair_hinge_loss, pair_softmax_loss
 
 from . import Trainer
@@ -36,13 +34,8 @@ class PytorchTrainer(Trainer):
             "True to load data in a separate thread; faster but causes PyTorch deadlock in some environments",
         ),
         ConfigOption("boardname", "default"),
-        ConfigOption("warmupsteps", 0),
-        ConfigOption("decay", 0.0, "learning rate decay"),
-        ConfigOption("decaystep", 3),
-        ConfigOption("decaytype", None),
-        ConfigOption("amp", None, "Automatic mixed precision mode; one of: None, train, pred, both"),
     ]
-    config_keys_not_in_path = ["boardname"]
+    config_keys_not_in_path = ["fastforward", "boardname"]
 
     def build(self):
         # sanity checks
@@ -60,9 +53,6 @@ class PytorchTrainer(Trainer):
 
         if self.config["lr"] <= 0:
             raise ValueError("lr must be > 0")
-
-        if self.config["amp"] not in (None, "train", "pred", "both"):
-            raise ValueError("amp must be one of: None, train, pred, both")
 
         torch.manual_seed(self.config["seed"])
         torch.cuda.manual_seed_all(self.config["seed"])
@@ -84,31 +74,21 @@ class PytorchTrainer(Trainer):
         batches_per_epoch = (self.config["itersize"] // self.config["batch"]) or 1
         batches_per_step = self.config["gradacc"]
 
-        for bi, batch in tqdm(enumerate(train_dataloader), desc="Training iteration", total=batches_per_epoch):
+        for bi, batch in tqdm(enumerate(train_dataloader), desc="Iter progression", total=batches_per_epoch):
+            # TODO make sure _prepare_batch_with_strings equivalent is happening inside the sampler
             batch = {k: v.to(self.device) if not isinstance(v, list) else v for k, v in batch.items()}
-
-            with self.amp_train_autocast():
-                doc_scores = reranker.score(batch)
-                loss = self.loss(doc_scores)
-
+            doc_scores = reranker.score(batch)
+            loss = self.loss(doc_scores)
             iter_loss.append(loss)
-            loss = self.scaler.scale(loss) if self.scaler else loss
             loss.backward()
 
             batches_since_update += 1
             if batches_since_update == batches_per_step:
                 batches_since_update = 0
-                # REF-TODO: save scaler state
-                if self.scaler:
-                    self.scaler.step(self.optimizer)
-                    self.scaler.update()
-                else:
-                    self.optimizer.step()
+                self.optimizer.step()
                 self.optimizer.zero_grad()
 
             if (bi + 1) % batches_per_epoch == 0:
-                # REF-TODO: save scheduler state along with optimizer
-                self.lr_scheduler.step()
                 break
 
         return torch.stack(iter_loss).mean()
@@ -185,7 +165,7 @@ class PytorchTrainer(Trainer):
             logger.info("attempted to load weights from %s but failed, starting at iteration 0", weights_fn)
             return 0
 
-    def train(self, reranker, train_dataset, train_output_path, dev_data, dev_output_path, qrels, metric, relevance_level=1):
+    def train(self, reranker, train_dataset, train_output_path, dev_data, dev_output_path, metric, evaluate_fn):
         """Train a model following the trainer's config (specifying batch size, number of iterations, etc).
 
         Args:
@@ -203,16 +183,6 @@ class PytorchTrainer(Trainer):
         model = reranker.model.to(self.device)
         self.optimizer = torch.optim.Adam(filter(lambda param: param.requires_grad, model.parameters()), lr=self.config["lr"])
 
-        if self.config["amp"] in ("both", "train"):
-            self.amp_train_autocast = torch.cuda.amp.autocast
-            self.scaler = torch.cuda.amp.GradScaler()
-        else:
-            self.amp_train_autocast = contextlib.nullcontext
-            self.scaler = None
-
-        # REF-TODO how to handle interactions between fastforward and schedule?
-        self.lr_scheduler = torch.optim.lr_scheduler.LambdaLR(self.optimizer, self.lr_multiplier)
-
         if self.config["softmaxloss"]:
             self.loss = pair_softmax_loss
         else:
@@ -222,21 +192,30 @@ class PytorchTrainer(Trainer):
             train_output_path, dev_output_path
         )
 
+        initial_iter = self.fastforward_training(reranker, weights_output_path, loss_fn) if self.config["fastforward"] else 0
+        logger.info("starting training from iteration %s/%s", initial_iter, self.config["niters"])
+
         num_workers = 1 if self.config["multithread"] else 0
         train_dataloader = torch.utils.data.DataLoader(
             train_dataset, batch_size=self.config["batch"], pin_memory=True, num_workers=num_workers
         )
-
-        # if we're fastforwarding, set first iteration and load last saved weights
-        initial_iter = self.fastforward_training(reranker, weights_output_path, loss_fn) if self.config["fastforward"] else 0
-        logger.info("starting training from iteration %s/%s", initial_iter + 1, self.config["niters"])
+        # dataiter = iter(train_dataloader)
+        # sample_input = dataiter.next()
+        # summary_writer.add_graph(
+        #     reranker.model,
+        #     [
+        #         sample_input["query"].to(self.device),
+        #         sample_input["posdoc"].to(self.device),
+        #         sample_input["negdoc"].to(self.device),
+        #     ],
+        # )
 
         train_loss = []
-        # are we resuming training? fastforward loss and data if so
+        # are we resuming training?
         if initial_iter > 0:
             train_loss = self.load_loss_file(loss_fn)
 
-            # are we done training? if not, fastforward through prior batches
+            # are we done training?
             if initial_iter < self.config["niters"]:
                 logger.debug("fastforwarding train_dataloader to iteration %s", initial_iter)
                 batches_per_epoch = self.config["itersize"] // self.config["batch"]
@@ -249,7 +228,6 @@ class PytorchTrainer(Trainer):
         validation_frequency = self.config["validatefreq"]
         train_start_time = time.time()
         for niter in range(initial_iter, self.config["niters"]):
-            niter = niter + 1  # index from 1
             model.train()
 
             iter_start_time = time.time()
@@ -258,18 +236,17 @@ class PytorchTrainer(Trainer):
             train_loss.append(iter_loss_tensor.item())
             logger.info("iter = %d loss = %f", niter, train_loss[-1])
 
-            # save model weights only when fastforward enabled
-            if self.config["fastforward"]:
-                weights_fn = weights_output_path / f"{niter}.p"
-                reranker.save_weights(weights_fn, self.optimizer)
-
+            # write model weights to file
+            weights_fn = weights_output_path / f"{niter}.p"
+            reranker.save_weights(weights_fn, self.optimizer)
             # predict performance on dev set
+
             if niter % validation_frequency == 0:
                 pred_fn = dev_output_path / f"{niter}.run"
                 preds = self.predict(reranker, dev_data, pred_fn)
 
                 # log dev metrics
-                metrics = evaluator.eval_runs(preds, qrels, evaluator.DEFAULT_METRICS, relevance_level)
+                metrics = evaluate_fn(preds)
                 logger.info("dev metrics: %s", " ".join([f"{metric}={v:0.3f}" for metric, v in sorted(metrics.items())]))
                 summary_writer.add_scalar("ndcg_cut_20", metrics["ndcg_cut_20"], niter)
                 summary_writer.add_scalar("map", metrics["map"], niter)
@@ -313,11 +290,6 @@ class PytorchTrainer(Trainer):
 
         """
 
-        if self.config["amp"] in ("both", "pred"):
-            self.amp_pred_autocast = torch.cuda.amp.autocast
-        else:
-            self.amp_pred_autocast = contextlib.nullcontext
-
         self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
         # save to pred_fn
         model = reranker.model.to(self.device)
@@ -334,8 +306,7 @@ class PytorchTrainer(Trainer):
                     batch = self.fill_incomplete_batch(batch)
 
                 batch = {k: v.to(self.device) if not isinstance(v, list) else v for k, v in batch.items()}
-                with self.amp_pred_autocast():
-                    scores = reranker.test(batch)
+                scores = reranker.test(batch)
                 scores = scores.view(-1).cpu().numpy()
                 for qid, docid, score in zip(batch["qid"], batch["posdocid"], scores):
                     # Need to use float16 because pytrec_eval's c function call crashes with higher precision floats
