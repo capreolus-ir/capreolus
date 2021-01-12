@@ -13,7 +13,7 @@ class TinyBERTEncoder_class(torch.nn.Module):
     def __init__(self):
         super(TinyBERTEncoder_class, self).__init__()
         
-        self.bert = BertModel.from_pretrained("bert-base-uncased")
+        self.bert = BertModel.from_pretrained("prajjwal1/bert-tiny")
         self.hidden_size = self.bert.config.hidden_size
 
     def forward(self, numericalized_text, mask=None):
@@ -23,7 +23,7 @@ class TinyBERTEncoder_class(torch.nn.Module):
         last_hidden_state, pooler_output = self.bert(input_ids=numericalized_text, attention_mask=mask)
         # last_hidden_state has the shape (batch_size, seq_len, hidden_size)
         # Average all the words in a text
-        hidden_avg = last_hidden_state[:, 0, :]
+        hidden_avg = torch.mean(last_hidden_state, 1)
         # assert hidden_avg.shape == (1, self.hidden_size), "hidden avg shape is {}".format(hidden_avg.shape)
         
         

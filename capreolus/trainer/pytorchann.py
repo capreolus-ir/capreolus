@@ -91,6 +91,7 @@ class PytorchANNTrainer(Trainer):
         )
         
         train_loss = []
+        best_metric = -np.inf
         for niter in range(self.config["niters"]):
             encoder.model.train()
             iter_start_time = time.time()
@@ -106,9 +107,12 @@ class PytorchANNTrainer(Trainer):
                 logger.info("dev metrics: %s", " ".join([f"{metric}={v:0.3f}" for metric, v in sorted(metrics.items())]))
                 faiss_logger.info("dev metrics: %s", " ".join([f"{metric}={v:0.3f}" for metric, v in sorted(metrics.items())]))
                 # pickle.dump(val_preds, open("val_run.dump", "wb"), protocol=-1)
+                if metrics["ndcg_cut_20"] > best_metric:
+                    logger.debug("Best val set so far! Saving checkpoint")
+                    best_metric = metrics["ndcg_cut_20"]
+                    weights_fn = output_path / "weights_{}".format(train_dataset.get_hash())
+                    encoder.save_weights(weights_fn, self.optimizer)
 
-        weights_fn = output_path / "weights_{}".format(train_dataset.get_hash())
-        encoder.save_weights(weights_fn, self.optimizer)
 
     def validate(self, encoder, dev_dataset):
         encoder.model.eval()
