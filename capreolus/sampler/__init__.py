@@ -281,6 +281,8 @@ class ResidualTripletSampler(Sampler, TrainingSamplerMixin, torch.utils.data.Ite
         qid_to_negdocs = defaultdict(list)
 
         for qid, doc_id_to_score in trec_run.items():
+            if qid not in qrels:
+                continue
             for doc_id, score in doc_id_to_score.items():
                 if doc_id in qrels[qid] and qrels[qid][doc_id] >= relevance_level:
                     qid_to_reldocs[qid].append(doc_id)
