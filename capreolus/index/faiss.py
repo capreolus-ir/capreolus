@@ -22,7 +22,7 @@ faiss_logger = get_logger("faiss")
 class FAISSIndex(Index):
     module_name = "faiss"
     
-    dependencies = [Dependency(key="encoder", module="encoder", name="tinybert"), Dependency(key="index", module="index", name="anserini"), Dependency(key="benchmark", module="benchmark"), Dependency(key="searcher", module="searcher", name="BM25")] + Index.dependencies
+    dependencies = [Dependency(key="encoder", module="encoder", name="sentencebert"), Dependency(key="index", module="index", name="anserini"), Dependency(key="benchmark", module="benchmark"), Dependency(key="searcher", module="searcher", name="BM25")] + Index.dependencies
     config_spec = [ConfigOption("isclear", False, "Whether the searcher is used with CLEAR.")]
 
     def create_index(self, fold=None):

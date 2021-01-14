@@ -264,7 +264,7 @@ class CollectionSampler(Sampler, torch.utils.data.IterableDataset):
 
 
 @Sampler.register
-class ResidualTripletSampler(Sampler, torch.utils.data.IterableDataset):
+class ResidualTripletSampler(Sampler, TrainingSamplerMixin, torch.utils.data.IterableDataset):
     """
     Used for CLEAR. Samples negative documents from the ones retrieved by BM25
     This is the same as TrainTripletSampler, but with residuals.
