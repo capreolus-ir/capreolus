@@ -274,7 +274,7 @@ class ResidualTripletSampler(Sampler, TrainingSamplerMixin, torch.utils.data.Ite
     def prepare(self, trec_run, qrels, extractor, relevance_level=1, **kwargs):
         self.trec_run = trec_run
         self.extractor = extractor
-        self.qids = sorted(list(qrels.keys()))
+        self.qids = sorted([qid for qid in trec_run.keys() if qid in qrels])
 
         qid_to_reldocs = defaultdict(list)
         # We call these "noise docs" since we have no relevance labels for them.
@@ -301,7 +301,7 @@ class ResidualTripletSampler(Sampler, TrainingSamplerMixin, torch.utils.data.Ite
     def generate_samples(self):
         lambda_train = 0.1
         epsilon = 1
-        all_qids = sorted(list(self.qids))
+        all_qids = self.qids
         if len(all_qids) == 0:
             raise RuntimeError("TrainDataset has no valid qids")
 
