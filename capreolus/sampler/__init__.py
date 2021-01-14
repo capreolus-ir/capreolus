@@ -270,7 +270,6 @@ class ResidualTripletSampler(Sampler, TrainingSamplerMixin, torch.utils.data.Ite
     This is the same as TrainTripletSampler, but with residuals.
     """
     module_name = "residualtriplet"
-    requires_random_seed = False
 
     def prepare(self, trec_run, qrels, extractor, relevance_level=1, **kwargs):
         self.trec_run = trec_run
