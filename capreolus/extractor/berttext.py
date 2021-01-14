@@ -115,7 +115,7 @@ class BertText(Extractor):
             data["negdoc"] = np.array(negdoc, dtype=np.long)
             data["negdoc_mask"] = self.get_mask(negdoc)
             # faiss_logger.debug("neg docid: {}, doctoks: {}".format(negid, negdoc_toks))
-            faiss_logger.debug("Numericalized_doc: {}".format(negdoc))
+            # faiss_logger.debug("Numericalized_doc: {}".format(negdoc))
 
         return data
 
