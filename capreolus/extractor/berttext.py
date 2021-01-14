@@ -39,14 +39,13 @@ class BertText(Extractor):
         with open(self.get_state_cache_file_path(qids, docids), "rb") as f:
             state_dict = pickle.load(f)
             self.qid2toks = state_dict["qid2toks"]
-            self.docid2toks = state_dict["docid2toks"]
             self.clsidx = state_dict["clsidx"]
             self.sepidx = state_dict["sepidx"]
 
     def cache_state(self, qids, docids):
         os.makedirs(self.get_cache_path(), exist_ok=True)
         with open(self.get_state_cache_file_path(qids, docids), "wb") as f:
-            state_dict = {"qid2toks": self.qid2toks, "docid2toks": self.docid2toks, "clsidx": self.clsidx, "sepidx": self.sepidx}
+            state_dict = {"qid2toks": self.qid2toks, "clsidx": self.clsidx, "sepidx": self.sepidx}
             pickle.dump(state_dict, f, protocol=-1)
 
     def _build_vocab(self, qids, docids, topics):
@@ -57,30 +56,32 @@ class BertText(Extractor):
             logger.info("Building bertext vocabulary")
             tokenize = self.tokenizer.tokenize
             self.qid2toks = {qid: tokenize(topics[qid]) for qid in tqdm(qids, desc="querytoks")}
-            self.docid2toks = {docid: tokenize(self.index.get_doc(docid)) for docid in tqdm(docids, desc="doctoks")}
             self.clsidx, self.sepidx = self.tokenizer.convert_tokens_to_ids(["CLS", "SEP"])
 
             self.cache_state(qids, docids)
 
     def exist(self):
-        return hasattr(self, "docid2toks") and len(self.docid2toks)
+        return hasattr(self, "qid2toks") and len(self.qid2toks)
 
     def preprocess(self, qids, docids, topics):
 
         self.index.create_index()
         self.qid2toks = defaultdict(list)
-        self.docid2toks = defaultdict(list)
         self.clsidx = None
         self.sepidx = None
 
         self._build_vocab(qids, docids, topics)
 
+    def get_tokenized_doc(self, doc_id):
+        doc = self.index.get_doc(doc_id)
+
+        return self.tokenizer.tokenize(doc)
+
     def id2vec(self, qid, posid, negid=None, label=None):
         assert posid is not None
         tokenizer = self.tokenizer
-        data = {}
 
-        posdoc_toks = self.docid2toks[posid][:510]
+        posdoc_toks = self.get_tokenized_doc(posid)[:510]
         posdoc_toks = ["[CLS]"] + posdoc_toks + ["[SEP]"]
         posdoc = tokenizer.convert_tokens_to_ids(posdoc_toks)
         posdoc = padlist(posdoc, 512, 0)
@@ -105,7 +106,7 @@ class BertText(Extractor):
             # faiss_logger.debug("Numericalized query: {}".format(query))
 
         if negid:
-            negdoc_toks = self.docid2toks[negid][:510]
+            negdoc_toks = self.get_tokenized_doc(negid)[:510]
             negdoc_toks = ["[CLS]"] + negdoc_toks + ["[SEP]"]
             negdoc = tokenizer.convert_tokens_to_ids(negdoc_toks)
             negdoc = padlist(negdoc, 512, 0)
@@ -114,7 +115,7 @@ class BertText(Extractor):
             data["negdoc"] = np.array(negdoc, dtype=np.long)
             data["negdoc_mask"] = self.get_mask(negdoc)
             # faiss_logger.debug("neg docid: {}, doctoks: {}".format(negid, negdoc_toks))
-            # faiss_logger.debug("Numericalized_doc: {}".format(negdoc))
+            faiss_logger.debug("Numericalized_doc: {}".format(negdoc))
 
         return data
 
