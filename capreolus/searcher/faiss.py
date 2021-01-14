@@ -100,7 +100,6 @@ class FAISSSearcher(Searcher):
                     doc_id = faiss_id_to_doc_id[faiss_id]
                     f.write(trec_string.format(qid=qid, doc_id=doc_id, rank=j+1, score=distances[i][j]))
 
-        # faiss_logger.debug("The search results in TREC format are at: {}".format(output_path))
+        faiss_logger.debug("The search results in TREC format are at: {}".format(output_path))
 
         return output_path
-                

@@ -13,7 +13,7 @@ class SentenceBERTEncoder_Class(torch.nn.Module):
     def __init__(self):
         super(SentenceBERTEncoder_Class, self).__init__()
         
-        self.bert = BertModel.from_pretrained("prajjwal1/bert-tiny")
+        self.bert = BertModel.from_pretrained("bert-base-uncased")
         self.hidden_size = self.bert.config.hidden_size
 
     def forward(self, numericalized_text, mask=None):

@@ -174,8 +174,6 @@ class FAISSIndex(Index):
                 doc_id = faiss_id_to_doc_id[faiss_id]
                 distances[i][j] = lambda_test * dev_run[qid].get(doc_id, 0) + distances[i, j]
 
-        # faiss_logger.debug("The search results in TREC format are at: {}".format(output_path))
-
         return distances
 
     def faiss_search(self, topic_vectors, k, qid_query, fold):
@@ -183,11 +181,11 @@ class FAISSIndex(Index):
 
         distances, results = faiss_index.search(topic_vectors, k)
         if self.config["isclear"]:
+            faiss_logger.info("Reweighting FAISS scores for CLEAR")
             distances = self.reweight_using_bm25_scores(distances, results, qid_query, fold)
 
         return distances, results
 
-    
     def manual_search(self, topic_vectors, k, qid_query, output_path, fold):
         """
         Manual search is different from the normal FAISS search.
@@ -217,10 +215,10 @@ class FAISSIndex(Index):
         for i, (qid, query) in enumerate(qid_query):
             assert qid in self.benchmark.folds[fold]["predict"]["dev"]
 
-            query_emb = topic_vectors[i].reshape(128)
+            query_emb = topic_vectors[i].reshape(self.encoder.model.hidden_size)
             for doc_id in dev_run[qid].keys():
                 faiss_id = doc_id_to_faiss_id[doc_id]
-                doc_emb = faiss_index.reconstruct(faiss_id).reshape(128)
+                doc_emb = faiss_index.reconstruct(faiss_id).reshape(self.encoder.model.hidden_size)
                 score = F.cosine_similarity(torch.from_numpy(query_emb), torch.from_numpy(doc_emb), dim=0)
                 score = score.numpy().astype(np.float16).item()
                 results[qid].append((score, doc_id))
