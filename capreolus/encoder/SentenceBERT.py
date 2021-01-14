@@ -9,9 +9,9 @@ from capreolus.encoder import Encoder
 logger = get_logger(__name__)
 
 
-class TinyBERTEncoder_class(torch.nn.Module):
+class SentenceBERTEncoder_Class(torch.nn.Module):
     def __init__(self):
-        super(TinyBERTEncoder_class, self).__init__()
+        super(SentenceBERTEncoder_Class, self).__init__()
         
         self.bert = BertModel.from_pretrained("prajjwal1/bert-tiny")
         self.hidden_size = self.bert.config.hidden_size
@@ -31,12 +31,12 @@ class TinyBERTEncoder_class(torch.nn.Module):
 
 
 @Encoder.register
-class TinyBERTEncoder(Encoder):
-    module_name="tinybert"
+class SentenceBERTEncoder(Encoder):
+    module_name="sentencebert"
 
     def instantiate_model(self):
         if not hasattr(self, "model"):
-            self.model = TinyBERTEncoder_class()
+            self.model = SentenceBERTEncoder_Class()
             self.hidden_size = self.model.hidden_size
         
         return self.model

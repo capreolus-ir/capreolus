@@ -68,7 +68,6 @@ class PytorchANNTrainer(Trainer):
 
         return torch.stack(iter_loss).mean()
 
-
     def train(self, encoder, train_dataset, dev_dataset, output_path, qrels, metric="map", relevance_level=1):
         self.optimizer = torch.optim.Adam(filter(lambda param: param.requires_grad, encoder.model.parameters()), lr=self.config["lr"])
         weights_fn = encoder.get_results_path() / "weights_{}".format(train_dataset.get_hash())

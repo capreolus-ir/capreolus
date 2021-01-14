@@ -23,6 +23,7 @@ class FAISSIndex(Index):
     module_name = "faiss"
     
     dependencies = [Dependency(key="encoder", module="encoder", name="tinybert"), Dependency(key="index", module="index", name="anserini"), Dependency(key="benchmark", module="benchmark"), Dependency(key="searcher", module="searcher", name="BM25")] + Index.dependencies
+    config_spec = [ConfigOption("isclear", False, "Whether the searcher is used with CLEAR.")]
 
     def create_index(self, fold=None):
         assert fold is not None
@@ -73,8 +74,7 @@ class FAISSIndex(Index):
         return best_results
 
     def train_encoder(self, fold):
-        # TODO: The BM25 search run is used to generate training data for the encoder. Remove this
-
+        # TODO: The BM25 search run is used to generate training data for the encoder. Remove this maybe?
         self.do_bm25_search()
         rank_results = self.evaluate_bm25_search()
         best_search_run_path = rank_results["path"][fold]
@@ -153,10 +153,40 @@ class FAISSIndex(Index):
 
         # TODO: write the "done" file
 
-    def faiss_search(self, topic_vectors, k):
+    def reweight_using_bm25_scores(self, distances, results, qid_query, fold, lambda_test=0.5):
+        """
+        Takes the cosine similarity scores that FAISS produces and re-weights them as specified in the CLEAR paper
+        """
+        rank_results = self.evaluate_bm25_search()
+        best_search_run_path = rank_results["path"][fold]
+        best_search_run = Searcher.load_trec_run(best_search_run_path)
+        # TODO: Look at the test set instead of dev
+        dev_run = {qid: docs for qid, docs in best_search_run.items() if
+                   qid in self.benchmark.folds[fold]["predict"]["dev"]}
+        faiss_id_to_doc_id = pickle.load(open("faiss_id_to_doc_id.dump", "rb"))
+        num_queries, num_neighbours = results.shape
+
+        for i in range(num_queries):
+            qid = qid_query[i][0]
+            for j, faiss_id in enumerate(results[i]):
+                if faiss_id == -1:
+                    continue
+                doc_id = faiss_id_to_doc_id[faiss_id]
+                distances[i][j] = lambda_test * dev_run[qid].get(doc_id, 0) + distances[i, j]
+
+        # faiss_logger.debug("The search results in TREC format are at: {}".format(output_path))
+
+        return distances
+
+    def faiss_search(self, topic_vectors, k, qid_query, fold):
         faiss_index = faiss.read_index(os.path.join(self.get_index_path(), "faiss.index"))
 
-        return faiss_index.search(topic_vectors, k)
+        distances, results = faiss_index.search(topic_vectors, k)
+        if self.config["isclear"]:
+            distances = self.reweight_using_bm25_scores(distances, results, qid_query, fold)
+
+        return distances, results
+
     
     def manual_search(self, topic_vectors, k, qid_query, output_path, fold):
         """

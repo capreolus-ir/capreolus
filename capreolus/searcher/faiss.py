@@ -37,7 +37,7 @@ class FAISSSearcher(Searcher):
         # A manual search is done over the docs in dev_run - this way for each qid, we only score the docids that BM25 retrieved for it
         topic_vectors, qid_query = self.create_topic_vectors_for_fold(topicsfn, output_path, fold)
         self.index.manual_search(topic_vectors, 100, qid_query, output_path, fold)
-        distances, results = self.index.faiss_search(topic_vectors, 100)
+        distances, results = self.index.faiss_search(topic_vectors, 100, qid_query, fold)
         distances = distances.astype(np.float16)
 
         self.write_results_in_trec_format(results, distances, qid_query, output_path)
@@ -84,7 +84,6 @@ class FAISSSearcher(Searcher):
                 
         return np.concatenate(topic_vectors, axis=0), qid_query
         
-    
     def write_results_in_trec_format(self, results, distances, qid_query, output_path):
         faiss_id_to_doc_id = pickle.load(open("faiss_id_to_doc_id.dump", "rb"))
         trec_string = "{qid} 0 {doc_id} {rank} {score} faiss\n"

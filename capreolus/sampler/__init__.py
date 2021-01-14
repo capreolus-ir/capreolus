@@ -1,4 +1,5 @@
 import hashlib
+from collections import defaultdict
 
 import numpy as np
 import torch.utils.data
@@ -260,6 +261,70 @@ class CollectionSampler(Sampler, torch.utils.data.IterableDataset):
 
     def __len__(self):
         return len(self.docids)
+
+
+@Sampler.register
+class ResidualTripletSampler(Sampler, torch.utils.data.IterableDataset):
+    """
+    Used for CLEAR. Samples negative documents from the ones retrieved by BM25
+    This is the same as TrainTripletSampler, but with residuals.
+    """
+    module_name = "residualtriplet"
+    requires_random_seed = False
+
+    def prepare(self, trec_run, qrels, extractor, relevance_level=1, **kwargs):
+        self.trec_run = trec_run
+        self.extractor = extractor
+        self.qids = sorted(list(qrels.keys()))
+
+        qid_to_reldocs = defaultdict(list)
+        # We call these "noise docs" since we have no relevance labels for them.
+        qid_to_negdocs = defaultdict(list)
+
+        for qid, doc_id_to_score in trec_run.items():
+            for doc_id, score in doc_id_to_score.items():
+                if doc_id in qrels[qid] and qrels[qid][doc_id] >= relevance_level:
+                    qid_to_reldocs[qid].append(doc_id)
+                else:
+                    qid_to_negdocs[qid].append(doc_id)
+
+        self.qid_to_reldocs = qid_to_reldocs
+        self.qid_to_negdocs = qid_to_negdocs
+
+    def get_hash(self):
+        key_content = "{0}{1}".format(self.extractor.get_cache_path(), str(self.trec_run))
+        key = hashlib.md5(key_content.encode("utf-8")).hexdigest()
+
+        return "residual_{0}".format(key)
+
+    def generate_samples(self):
+        lambda_train = 0.1
+        epsilon = 1
+        all_qids = sorted(list(self.qids))
+        if len(all_qids) == 0:
+            raise RuntimeError("TrainDataset has no valid qids")
+
+        while True:
+            self.rng.shuffle(all_qids)
+
+            for qid in all_qids:
+                posdocid = self.rng.choice(self.qid_to_reldocs[qid])
+                negdocid = self.rng.choice(self.qid_to_negdocs[qid])
+
+                try:
+                    # Convention for label - [1, 0] indicates that doc belongs to class 1 (i.e relevant
+                    # ^ This is used with categorical cross entropy loss
+                    data = self.extractor.id2vec(qid, posdocid, negdocid, label=[1, 0])
+
+                    # This is equation 4 in the CLEAR paper
+                    data["residual"] = epsilon + lambda_train * (self.trec_run[qid][posdocid] - self.trec_run[qid][negdocid])
+
+                    yield data
+                except MissingDocError:
+                    # at training time we warn but ignore on missing docs
+                    logger.warning(
+                        "skipping training pair with missing features: qid=%s posid=%s negid=%s", qid, posdocid, negdocid
+                    )
 
 
 from profane import import_all_modules

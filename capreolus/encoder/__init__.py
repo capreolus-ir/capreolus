@@ -86,7 +86,7 @@ class Encoder(ModuleBase):
         return dev_run
                 
     def train_encoder(self, train_run, dev_run, docids, qids):
-        train_dataset = TrainTripletSampler()
+        train_dataset = self.sampler
         self.extractor.preprocess(
             qids=qids, docids=docids, topics=self.benchmark.topics[self.benchmark.query_type]
         )
@@ -142,7 +142,8 @@ class Encoder(ModuleBase):
 
 from profane import import_all_modules
 
-from .TinyBERT import TinyBERTEncoder
+from .SentenceBERT import SentenceBERTEncoder
+from .CLEAR import CLEAREncoder
 
 
 import_all_modules(__file__, __package__)
