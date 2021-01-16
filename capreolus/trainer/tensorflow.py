@@ -14,6 +14,8 @@ from capreolus import ConfigOption, evaluator
 from capreolus.trainer import Trainer
 from capreolus.utils.loginit import get_logger
 from capreolus.reranker.common import TFPairwiseHingeLoss, TFCategoricalCrossEntropyLoss, KerasPairModel, KerasTripletModel
+from tensorflow.keras.mixed_precision import experimental as mixed_precision
+
 
 logger = get_logger(__name__)
 
@@ -72,6 +74,9 @@ class TensorflowTrainer(Trainer):
         else:  # default strategy that works on CPU and single GPU
             self.strategy = tf.distribute.get_strategy()
 
+        policy = mixed_precision.Policy("mixed_float16")
+        mixed_precision.set_policy(policy)
+
         # Defining some props that we will later initialize
         self.validate()
 
@@ -102,7 +107,9 @@ class TensorflowTrainer(Trainer):
             wrapped_model = self.get_wrapped_model(reranker.model)
             loss_object = self.get_loss(self.config["loss"])
             optimizer_1 = tf.keras.optimizers.Adam(learning_rate=self.config["lr"])
-            optimizer_2 = tf.keras.optimizers.Adam(learning_rate=self.config["bertlr"])
+            optimizer_2 = mixed_precision.LossScaleOptimizer(
+                tf.keras.optimizers.Adam(learning_rate=self.config["bertlr"]), loss_scale="dynamic"
+            )
 
             def compute_loss(labels, predictions):
                 per_example_loss = loss_object(labels, predictions)
@@ -120,9 +127,9 @@ class TensorflowTrainer(Trainer):
 
             with tf.GradientTape() as tape:
                 train_predictions = wrapped_model(data, training=True)
-                loss = compute_loss(labels, train_predictions)
+                loss = optimizer_2.get_scaled_loss(compute_loss(labels, train_predictions))
 
-            gradients = tape.gradient(loss, wrapped_model.trainable_variables)
+            gradients = optimizer_2.get_unscaled_gradients(tape.gradient(loss, wrapped_model.trainable_variables))
 
             bert_variables = [
                 (gradients[i], variable)
@@ -177,7 +184,6 @@ class TensorflowTrainer(Trainer):
         dev_best_metric = metrics.get(metric, -np.inf)
         logger.info("starting training from iteration %s/%s", initial_iter + 1, self.config["niters"])
         logger.info(f"Best metric loaded: {metric}={dev_best_metric}")
-
 
         cur_step = initial_iter * self.n_batch_per_iter
         initial_lr = self.change_lr(step=cur_step, lr=self.config["bertlr"])
@@ -543,3 +549,4 @@ class TensorflowTrainer(Trainer):
         wrapped_model.load_weights("{0}/dev.best".format(train_output_path))
 
         return wrapped_model.model
+

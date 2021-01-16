@@ -14,6 +14,7 @@ class KerasPairModel(tf.keras.Model):
 
     def call(self, x, **kwargs):
         score = self.model.score(x, **kwargs)
+        score = tf.cast(score, tf.float32)
         return score
 
     def predict_step(self, data):
@@ -27,9 +28,10 @@ class KerasTripletModel(tf.keras.Model):
 
     def call(self, x, **kwargs):
         pos_score, neg_score = self.model.score_pair(x, **kwargs)
-        stacked_score = tf.stack([pos_score, neg_score], axis=1)
+        score = stacked_score = tf.stack([pos_score, neg_score], axis=1)
+        score = tf.cast(score, tf.float32)
 
-        return stacked_score
+        return score 
 
     def predict_step(self, data):
         return self.model.predict_step(data)
@@ -210,8 +212,10 @@ class RbfKernelTF(Layer):
         self.sigma = tf.Variable(initial_sigma, trainable=requires_grad, name="sigmas", dtype=tf.float32)
 
     def call(self, data, *kwargs):
+        data = tf.cast(data, tf.float32)
         adj = data - self.mu
-        return tf.exp(-0.5 * adj * adj / self.sigma / self.sigma)
+        score = tf.exp(-0.5 * adj * adj / self.sigma / self.sigma)
+        return score
 
 
 def create_emb_layer(weights, non_trainable=True):
