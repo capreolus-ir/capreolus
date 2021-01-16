@@ -142,7 +142,7 @@ tensorflow-model-optimization==0.5.0
 tensorflow-ranking==0.3.2
 tensorflow-serving-api
 termcolor==1.1.0
-tf-models-official
+tf-models-official==2.3.0
 tf-slim==1.1.0
 thinc==7.3.1
 threadpoolctl==2.1.0
