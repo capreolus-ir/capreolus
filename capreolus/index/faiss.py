@@ -114,7 +114,7 @@ class FAISSIndex(Index):
             collection_docids, None, self.encoder.extractor, relevance_level=self.benchmark.relevance_level
         )
         dataloader = torch.utils.data.DataLoader(
-            dataset, batch_size=1, pin_memory=True, num_workers=1
+            dataset, batch_size=1, pin_memory=True, num_workers=0
         )
         
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
