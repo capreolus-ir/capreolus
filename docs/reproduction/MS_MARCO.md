@@ -13,16 +13,12 @@ Below are the possible lr scheduler values (combination) you can pick up and run
 |-------------|---|--------|------|----------|-------------|-----------|-----------|
 | 0 (default) |   | 1e-5   | 1e-3 |    40000 |           0 |         0 | None      |
 | 1           |   | 1e-5   | 1e-5 |    40000 |           0 |         0 | None      |
-| 2           |   | 1e-6   | 1e-6 |    40000 |           0 |         0 | None      |
-| 3           |   | 1e-5   | 1e-3 |    40000 |        4000 |         0 | None      |
-| 4           |   | 1e-5   | 1e-5 |    40000 |        4000 |         0 | None      |
-| 5           |   | 1e-6   | 1e-6 |    40000 |        4000 |         0 | None      |
-| 6           |   | 1e-5   | 1e-3 |    40000 |           0 |     40000 | linear    |
-| 7           |   | 1e-5   | 1e-5 |    40000 |           0 |     40000 | linear    |
-| 8           |   | 1e-6   | 1e-6 |    40000 |           0 |     40000 | linear    |
-| 9           |   | 1e-5   | 1e-3 |    40000 |        4000 |     40000 | linear    |
-| 10          |   | 1e-5   | 1e-5 |    40000 |        4000 |     40000 | linear    |
-| 11          |   | 1e-6   | 1e-6 |    40000 |        4000 |     40000 | linear    |
+| 2           |   | 1e-5   | 1e-3 |    40000 |        4000 |         0 | None      |
+| 3           |   | 1e-5   | 1e-5 |    40000 |        4000 |         0 | None      |
+| 4           |   | 1e-5   | 1e-3 |    40000 |           0 |     40000 | linear    |
+| 5           |   | 1e-5   | 1e-5 |    40000 |           0 |     40000 | linear    |
+| 6           |   | 1e-5   | 1e-3 |    40000 |        4000 |     40000 | linear    |
+| 7           |   | 1e-5   | 1e-5 |    40000 |        4000 |     40000 | linear    |
 
 ## Running MS MARCO 
 This requires GPU(s) with 48GB memory (e.g. 4 V100 or a RTX 8000) or a TPU. 
@@ -37,13 +33,15 @@ This requires GPU(s) with 48GB memory (e.g. 4 V100 or a RTX 8000) or a TPU.
         reranker.trainer.decay=$decay \
         fold=s1
     ```
-3. The command will take over 2 days on *4 V100s* for BERT-base, and even longer on *8 V100s* for BERT-large. 
+3.  Without data preparation, it will take 4~6 hours to train and 8～10 hours to inference on *4 V100s* for BERT-base, 
+    and longer on for BERT-large. 
     Per-fold metrics on dev set are displayed after completion, where `MRR@10` is the one to use for this task.
-    (for CC users, BERT-large can only be run on `graham` `cedar`, as `beluga` does not have 8-GPU node.)
+    (for CC users, BERT-large can only be run with batch size 16 on `graham` `cedar`, 
+    as each node on `beluga` has 16GB memory at maximum) 
 
 ## Expected Scores
 With the configurations in `docs/reproduction/config_msmarco.txt` and all the others as default, 
-the MRR@10 on dev set should be around `0.339`. 
+the MRR@10 on dev set should be around `0.355`. 
 
 ## Replication Logs
 + Results (with hypperparameter-0) replicated by [@crystina-z](https://github.com/crystina-z) on 2020-12-06 (commit [`6c3759f`](https://github.com/crystina-z/capreolus-1/commit/6c3759fe620f18f8939670176a18c744752bc9240)) (Tesla V100 on Compute Canada)
