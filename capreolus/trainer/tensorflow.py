@@ -235,7 +235,7 @@ class TensorflowTrainer(Trainer):
 
                 iter_bar.close()
                 iter_bar = tqdm(total=self.n_batch_per_iter)
-                train_loss.append(total_loss / cur_step)
+                train_loss.append(total_loss / self.n_batch_per_iter)
                 logger.info("iter={} loss = {}".format(niter, train_loss[-1]))
                 self.write_to_loss_file(loss_fn, train_loss)
                 total_loss = 0
