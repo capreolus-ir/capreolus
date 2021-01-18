@@ -22,7 +22,7 @@ class PytorchTrainer(Trainer):
     module_name = "pytorch"
     config_spec = [
         ConfigOption("batch", 32, "batch size"),
-        ConfigOption("evalbatch", 32, "batch size at inference time"),
+        ConfigOption("evalbatch", 0, "batch size at inference time (or 0 to use training batch size)"),
         ConfigOption("niters", 20, "number of iterations to train for"),
         ConfigOption("itersize", 512, "number of training instances in one iteration"),
         ConfigOption("gradacc", 1, "number of batches to accumulate over before updating weights"),
@@ -49,8 +49,8 @@ class PytorchTrainer(Trainer):
         if self.config["batch"] < 1:
             raise ValueError("batch must be >= 1")
 
-        if self.config["evalbatch"] < 1:
-            raise ValueError("batch must be >= 1")
+        if self.config["evalbatch"] < 0:
+            raise ValueError("evalbatch must be 0 (to use the training batch size) or  >= 1")
 
         if self.config["niters"] <= 0:
             raise ValueError("niters must be > 0")
@@ -302,7 +302,7 @@ class PytorchTrainer(Trainer):
         model.eval()
 
         preds = {}
-        evalbatch = self.config["evalbatch"]
+        evalbatch = self.config["evalbatch"] if self.config["evalbatch"] > 0 else self.config["batch"]
         num_workers = 1 if self.config["multithread"] else 0
         pred_dataloader = torch.utils.data.DataLoader(pred_data, batch_size=evalbatch, pin_memory=True, num_workers=num_workers)
         with torch.autograd.no_grad():
