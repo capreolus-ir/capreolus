@@ -1,3 +1,4 @@
+import numpy as np
 import tensorflow as tf
 
 from capreolus import ConfigOption, Dependency
@@ -16,7 +17,7 @@ class TFKNRM_Class(tf.keras.layers.Layer):
             len(self.extractor.stoi), self.extractor.embeddings.shape[1], weights=[self.extractor.embeddings], trainable=False
         )
         self.kernels = RbfKernelBankTF(mus, sigmas, dim=1, requires_grad=config["gradkernels"])
-        self.combine = tf.keras.layers.Dense(1, input_shape=(self.kernels.count(),))
+        self.combine = tf.keras.layers.Dense(1, input_shape=(self.kernels.count(),), dtype=tf.float32)
 
     def get_score(self, doc_tok, query_tok, query_idf):
         query = self.embedding(query_tok)
@@ -27,11 +28,18 @@ class TFKNRM_Class(tf.keras.layers.Layer):
 
         k = self.kernels(simmat)
         doc_k = tf.reduce_sum(k, axis=3)  # sum over document
+
         reshaped_simmat = tf.broadcast_to(
             tf.reshape(simmat, (batch_size, 1, qlen, doclen)), (batch_size, self.kernels.count(), qlen, doclen)
         )
+
         mask = tf.reduce_sum(reshaped_simmat, axis=3) != 0.0
-        log_k = tf.where(mask, tf.math.log(doc_k + 1e-6), tf.cast(mask, tf.float32))
+        log_k = tf.where(
+            mask, 
+            tf.math.log(tf.clip_by_value(doc_k, clip_value_min=1e-8, clip_value_max=np.Inf)),
+            tf.cast(mask, doc_k.dtype)
+        )
+
         query_k = tf.reduce_sum(log_k, axis=2)
         scores = self.combine(query_k)
 
