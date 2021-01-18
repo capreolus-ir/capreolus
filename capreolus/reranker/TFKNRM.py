@@ -26,7 +26,6 @@ class TFKNRM_Class(tf.keras.layers.Layer):
 
         simmat = similarity_matrix_tf(query, doc, query_tok, doc_tok, self.extractor.pad)
 
-        simmat = tf.cast(simmat, tf.float32)  
         k = self.kernels(simmat)
         doc_k = tf.reduce_sum(k, axis=3)  # sum over document
 
@@ -37,10 +36,9 @@ class TFKNRM_Class(tf.keras.layers.Layer):
         mask = tf.reduce_sum(reshaped_simmat, axis=3) != 0.0
         log_k = tf.where(
             mask, 
-            tf.math.log(tf.clip_by_value(doc_k, clip_value_min=1e-6, clip_value_max=np.Inf)), 
+            tf.math.log(tf.clip_by_value(doc_k, clip_value_min=1e-8, clip_value_max=np.Inf)),
             tf.cast(mask, doc_k.dtype)
         )
-        log_k = tf.cast(log_k, tf.float16) 
 
         query_k = tf.reduce_sum(log_k, axis=2)
         scores = self.combine(query_k)
