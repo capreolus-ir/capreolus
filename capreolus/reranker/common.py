@@ -28,7 +28,7 @@ class KerasTripletModel(tf.keras.Model):
 
     def call(self, x, **kwargs):
         pos_score, neg_score = self.model.score_pair(x, **kwargs)
-        score = stacked_score = tf.stack([pos_score, neg_score], axis=1)
+        score = tf.stack([pos_score, neg_score], axis=1)
         score = tf.cast(score, tf.float32)
 
         return score 
