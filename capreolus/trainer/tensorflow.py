@@ -408,7 +408,7 @@ class TensorflowTrainer(Trainer):
         """
         cached_tf_record_dir = self.form_tf_record_cache_path(dataset)
         if self.config["usecache"] and tf.io.gfile.exists(cached_tf_record_dir):
-            filenames = tf.io.gfile.listdir(cached_tf_record_dir)
+            filenames = sorted(tf.io.gfile.listdir(cached_tf_record_dir), key=lambda x: int(x.replace(".tfrecord", "")))
             filenames = ["{0}/{1}".format(cached_tf_record_dir, name) for name in filenames]
         else:
             filenames = self.convert_to_tf_dev_record(reranker, dataset)
@@ -427,11 +427,13 @@ class TensorflowTrainer(Trainer):
         tf_features = []
         tf_record_filenames = []
 
+        tf_file_id = 0
         for sample in dataset:
             tf_features.extend(reranker.extractor.create_tf_dev_feature(sample))
             if len(tf_features) > 20000:
-                tf_record_filenames.append(self.write_tf_record_to_file(dir_name, tf_features))
+                tf_record_filenames.append(self.write_tf_record_to_file(dir_name, tf_features, file_name=str(tf_file_id)))
                 tf_features = []
+                tf_file_id += 1
 
         # TPU's require drop_remainder = True. But we cannot drop things from validation dataset
         # As a workaroud, we pad the dataset with the last sample until it reaches the batch size.
@@ -439,22 +441,19 @@ class TensorflowTrainer(Trainer):
             num_elements_to_add = evalbatch - (len(tf_features) % evalbatch)
             logger.debug("Number of elements to add in the last batch: {}".format(num_elements_to_add))
             element_to_copy = tf_features[-1]
-            for i in range(num_elements_to_add):
+            for i in range(self.config["evalbatch"]):
                 tf_features.append(copy(element_to_copy))
-
-        if len(tf_features):
-            tf_record_filenames.append(self.write_tf_record_to_file(dir_name, tf_features))
-
+            tf_record_filenames.append(self.write_tf_record_to_file(dir_name, tf_features, file_name=str(tf_file_id)))
         return tf_record_filenames
 
-    def write_tf_record_to_file(self, dir_name, tf_features):
+    def write_tf_record_to_file(self, dir_name, tf_features, file_name=None):
         """
         Actually write the tf record to file. The destination can also be a gcs bucket.
         TODO: Use generators to optimize memory usage
         """
-        filename = "{0}/{1}.tfrecord".format(dir_name, str(uuid.uuid4()))
+        file_name = str(uuid.uuid4()) if not file_name else file_name
+        filename = "{0}/{1}.tfrecord".format(dir_name, file_name)
         examples = [tf.train.Example(features=tf.train.Features(feature=feature)) for feature in tf_features]
-
         if not os.path.isdir(dir_name):
             os.makedirs(dir_name, exist_ok=True)
 
