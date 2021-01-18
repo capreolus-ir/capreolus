@@ -3,10 +3,12 @@ import os
 import uuid
 from collections import defaultdict
 from copy import copy
+from pathlib import Path
+
 import tensorflow as tf
-from tensorflow.python.keras import backend as K
 import tensorflow_ranking as tfr
 import numpy as np
+from tensorflow.python.keras import backend as K
 from tqdm import tqdm
 
 from capreolus.searcher import Searcher
@@ -18,6 +20,13 @@ from tensorflow.keras.mixed_precision import experimental as mixed_precision
 
 
 logger = get_logger(__name__)
+
+from tensorflow.python.client import device_lib
+
+
+def get_available_gpus():
+    local_device_protos = device_lib.list_local_devices()
+    return [x.name for x in local_device_protos if x.device_type == "GPU"]
 
 
 @Trainer.register
@@ -52,6 +61,7 @@ class TensorflowTrainer(Trainer):
         ConfigOption("decay", 0.0, "learning rate decay"),
         ConfigOption("decayiters", 3),
         ConfigOption("decaytype", None),
+        ConfigOption("amp", False, "use automatic mixed precision"),
     ]
     config_keys_not_in_path = ["fastforward", "boardname", "usecache", "tpuname", "tpuzone", "storage"]
 
@@ -71,11 +81,15 @@ class TensorflowTrainer(Trainer):
             tf.config.experimental_connect_to_cluster(self.tpu)
             tf.tpu.experimental.initialize_tpu_system(self.tpu)
             self.strategy = tf.distribute.experimental.TPUStrategy(self.tpu)
+        elif len(get_available_gpus()) > 1:
+            self.strategy = tf.distribute.MirroredStrategy()
         else:  # default strategy that works on CPU and single GPU
             self.strategy = tf.distribute.get_strategy()
 
-        policy = mixed_precision.Policy("mixed_float16")
-        mixed_precision.set_policy(policy)
+        self.amp = self.config["amp"]
+        if self.amp:
+            policy = mixed_precision.Policy("mixed_bfloat16" if self.tpu else "mixed_float16")
+            mixed_precision.set_policy(policy)
 
         # Defining some props that we will later initialize
         self.validate()
@@ -88,9 +102,10 @@ class TensorflowTrainer(Trainer):
 
     def train(self, reranker, train_dataset, train_output_path, dev_data, dev_output_path, qrels, metric, relevance_level=1):
         if self.tpu:
-            train_output_path = "{0}/{1}/{2}".format(
+            # WARNING: not sure if pathlib is compatible with gs://
+            train_output_path = Path("{0}/{1}/{2}".format(
                 self.config["storage"], "train_output", hashlib.md5(str(train_output_path).encode("utf-8")).hexdigest()
-            )
+            ))
 
         dev_best_weight_fn, weights_output_path, info_output_path, loss_fn, metric_fn = self.get_paths_for_early_stopping(
             train_output_path, dev_output_path
@@ -107,9 +122,11 @@ class TensorflowTrainer(Trainer):
             wrapped_model = self.get_wrapped_model(reranker.model)
             loss_object = self.get_loss(self.config["loss"])
             optimizer_1 = tf.keras.optimizers.Adam(learning_rate=self.config["lr"])
-            optimizer_2 = mixed_precision.LossScaleOptimizer(
-                tf.keras.optimizers.Adam(learning_rate=self.config["bertlr"]), loss_scale="dynamic"
-            )
+            optimizer_2 = tf.keras.optimizers.Adam(learning_rate=self.config["bertlr"])
+
+            # "You should remove the use of the LossScaleOptimizer when TPUs are used."
+            if self.amp and not self.tpu:
+                optimizer_2 = mixed_precision.LossScaleOptimizer(optimizer_2, loss_scale="dynamic")
 
             def compute_loss(labels, predictions):
                 per_example_loss = loss_object(labels, predictions)
@@ -127,9 +144,13 @@ class TensorflowTrainer(Trainer):
 
             with tf.GradientTape() as tape:
                 train_predictions = wrapped_model(data, training=True)
-                loss = optimizer_2.get_scaled_loss(compute_loss(labels, train_predictions))
+                loss = compute_loss(labels, train_predictions)
+                if self.amp and not self.tpu:
+                    loss = optimizer_2.get_scaled_loss(loss)
 
-            gradients = optimizer_2.get_unscaled_gradients(tape.gradient(loss, wrapped_model.trainable_variables))
+            gradients = tape.gradient(loss, wrapped_model.trainable_variables)
+            if self.amp and not self.tpu:
+                optimizer_2.get_unscaled_gradients(gradients)
 
             bert_variables = [
                 (gradients[i], variable)
@@ -269,7 +290,7 @@ class TensorflowTrainer(Trainer):
             return self.strategy.run(test_step, args=(dataset_inputs,))
 
         predictions = []
-        for x in pred_dist_dataset:
+        for x in tqdm(pred_dist_dataset, desc="validation"):
             pred_batch = distributed_test_step(x).values if self.strategy.num_replicas_in_sync > 1 else [distributed_test_step(x)]
             for p in pred_batch:
                 predictions.extend(p)
@@ -398,7 +419,6 @@ class TensorflowTrainer(Trainer):
         tf_records_dataset = raw_dataset.batch(batch_size, drop_remainder=True).map(
             reranker.extractor.parse_tf_dev_example, num_parallel_calls=tf.data.experimental.AUTOTUNE
         )
-
         return tf_records_dataset
 
     def convert_to_tf_dev_record(self, reranker, dataset):
