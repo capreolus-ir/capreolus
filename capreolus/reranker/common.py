@@ -31,7 +31,7 @@ class KerasTripletModel(tf.keras.Model):
         score = tf.stack([pos_score, neg_score], axis=1)
         score = tf.cast(score, tf.float32)
 
-        return score 
+        return score
 
     def predict_step(self, data):
         return self.model.predict_step(data)

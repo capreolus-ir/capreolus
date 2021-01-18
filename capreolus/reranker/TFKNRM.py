@@ -35,9 +35,7 @@ class TFKNRM_Class(tf.keras.layers.Layer):
 
         mask = tf.reduce_sum(reshaped_simmat, axis=3) != 0.0
         log_k = tf.where(
-            mask, 
-            tf.math.log(tf.clip_by_value(doc_k, clip_value_min=1e-8, clip_value_max=np.Inf)),
-            tf.cast(mask, doc_k.dtype)
+            mask, tf.math.log(tf.clip_by_value(doc_k, clip_value_min=1e-8, clip_value_max=np.Inf)), tf.cast(mask, doc_k.dtype)
         )
 
         query_k = tf.reduce_sum(log_k, axis=2)

@@ -103,9 +103,11 @@ class TensorflowTrainer(Trainer):
     def train(self, reranker, train_dataset, train_output_path, dev_data, dev_output_path, qrels, metric, relevance_level=1):
         if self.tpu:
             # WARNING: not sure if pathlib is compatible with gs://
-            train_output_path = Path("{0}/{1}/{2}".format(
-                self.config["storage"], "train_output", hashlib.md5(str(train_output_path).encode("utf-8")).hexdigest()
-            ))
+            train_output_path = Path(
+                "{0}/{1}/{2}".format(
+                    self.config["storage"], "train_output", hashlib.md5(str(train_output_path).encode("utf-8")).hexdigest()
+                )
+            )
 
         dev_best_weight_fn, weights_output_path, info_output_path, loss_fn, metric_fn = self.get_paths_for_early_stopping(
             train_output_path, dev_output_path
@@ -568,4 +570,3 @@ class TensorflowTrainer(Trainer):
         wrapped_model.load_weights("{0}/dev.best".format(train_output_path))
 
         return wrapped_model.model
-

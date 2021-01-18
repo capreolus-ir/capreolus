@@ -103,8 +103,8 @@ class Trainer(ModuleBase):
             return self.config["decay"] ** ((step - warmup_steps) / decay_steps)
         elif self.config["decaytype"] == "linear":
             epoch = step / self.n_batch_per_iter
-            return 1 / (1 + self.config["decay"] * epoch) # todo: support endlr
-        
+            return 1 / (1 + self.config["decay"] * epoch)  # todo: support endlr
+
         return 1
 
 
