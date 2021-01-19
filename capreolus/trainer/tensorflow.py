@@ -43,7 +43,7 @@ class TensorflowTrainer(Trainer):
     module_name = "tensorflow"
     config_spec = [
         ConfigOption("batch", 32, "batch size"),
-        ConfigOption("evalbatch", 32, "batch size at inference time"),
+        ConfigOption("evalbatch", 0, "batch size at inference time (or 0 to use training batch size)"),
         ConfigOption("niters", 20, "number of iterations to train for"),
         ConfigOption("itersize", 512, "number of training instances in one iteration"),
         ConfigOption("bertlr", 2e-5, "learning rate for bert parameters"),
@@ -67,6 +67,8 @@ class TensorflowTrainer(Trainer):
 
     def build(self):
         tf.random.set_seed(self.config["seed"])
+
+        self.evalbatch = self.config["evalbatch"] if self.config["evalbatch"] > 0 else self.config["batch"]
 
         # Use TPU if available, otherwise resort to GPU/CPU
         try:
@@ -414,7 +416,7 @@ class TensorflowTrainer(Trainer):
             filenames = ["{0}/{1}".format(cached_tf_record_dir, name) for name in filenames]
         else:
             filenames = self.convert_to_tf_dev_record(reranker, dataset)
-        return self.load_tf_dev_records_from_file(reranker, filenames, self.config["evalbatch"])
+        return self.load_tf_dev_records_from_file(reranker, filenames, self.evalbatch)
 
     def load_tf_dev_records_from_file(self, reranker, filenames, batch_size):
         raw_dataset = tf.data.TFRecordDataset(filenames)
@@ -424,7 +426,7 @@ class TensorflowTrainer(Trainer):
         return tf_records_dataset
 
     def convert_to_tf_dev_record(self, reranker, dataset):
-        evalbatch = self.config["evalbatch"]
+        evalbatch = self.evalbatch
         dir_name = self.form_tf_record_cache_path(dataset)
         tf_features = []
         tf_record_filenames = []
@@ -443,9 +445,12 @@ class TensorflowTrainer(Trainer):
             num_elements_to_add = evalbatch - (len(tf_features) % evalbatch)
             logger.debug("Number of elements to add in the last batch: {}".format(num_elements_to_add))
             element_to_copy = tf_features[-1]
-            for i in range(self.config["evalbatch"]):
+            for i in range(evalbatch):
                 tf_features.append(copy(element_to_copy))
             tf_record_filenames.append(self.write_tf_record_to_file(dir_name, tf_features, file_name=str(tf_file_id)))
+        elif len(tf_features):
+            tf_record_filenames.append(self.write_tf_record_to_file(dir_name, tf_features, file_name=str(tf_file_id)))
+
         return tf_record_filenames
 
     def write_tf_record_to_file(self, dir_name, tf_features, file_name=None):
