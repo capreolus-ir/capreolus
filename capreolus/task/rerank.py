@@ -44,7 +44,7 @@ class RerankTask(Task):
         self.rank.search()
         logger.info(f"Time to rank.search: {time() - t1}")
         t1 = time()
-
+        logger.error("Trying to evaluate")
         rank_results = self.rank.evaluate()
         logger.info(f"Time to rank.evaluate: {time() - t1}")
         t1 = time()
@@ -55,6 +55,7 @@ class RerankTask(Task):
         return self.rerank_run(best_search_run, self.get_results_path())
 
     def rerank_run(self, best_search_run, train_output_path, include_train=False):
+        logger.error("starting rerank run")
         if not isinstance(train_output_path, Path):
             train_output_path = Path(train_output_path)
 
@@ -64,9 +65,11 @@ class RerankTask(Task):
         logger.debug("results path: %s", train_output_path)
 
         docids = set(docid for querydocs in best_search_run.values() for docid in querydocs)
+        logger.error("Starting the extractor")
         self.reranker.extractor.preprocess(
             qids=best_search_run.keys(), docids=docids, topics=self.benchmark.topics[self.benchmark.query_type]
         )
+        logger.error("building the model")
         self.reranker.build_model()
         self.reranker.searcher_scores = best_search_run
 

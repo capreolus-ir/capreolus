@@ -31,6 +31,7 @@ class Searcher(ModuleBase):
     @staticmethod
     def load_trec_run(fn):
         # Docids in the run file appear according to decreasing score, hence it makes sense to preserve this order
+        logger.error("Loading TREC run: {}".format(fn))
         run = OrderedDefaultDict()
 
         with open(fn, "rt") as f:

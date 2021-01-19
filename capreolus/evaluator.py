@@ -1,4 +1,5 @@
 import os
+from tqdm import tqdm
 
 import numpy as np
 import pytrec_eval
@@ -6,6 +7,7 @@ import pytrec_eval
 from capreolus.searcher import Searcher
 from capreolus.utils.loginit import get_logger
 from capreolus.eval.msmarco_eval import compute_metrics_from_files
+from capreolus.utils.common import OrderedDefaultDict
 
 logger = get_logger(__name__)
 
@@ -53,6 +55,7 @@ def mrr_10(qrels, runs):
 
 
 def _eval_runs(runs, qrels, metrics, relevance_level):
+    logger.error("Reached _eval_runs")
     overlap_qids = set(qrels) & set(runs)
     if len(overlap_qids) == 0:
         logger.warning(f"No overlapping qids between qrels and runs. Skip the evaluation")
@@ -82,6 +85,7 @@ def _eval_runs(runs, qrels, metrics, relevance_level):
     if MRR_10 in metrics:
         scores[MRR_10] = mrr_10(qrels, runs)
 
+    logger.error("done with _eval_runs")
     return scores
 
 
@@ -155,7 +159,7 @@ def search_best_run(runfile_dirs, benchmark, primary_metric, metrics=None, folds
             dev_qrels = {qid: benchmark.qrels[qid] for qid in benchmark.non_nn_dev[fold_name] if qid in benchmark.qrels}
             score = _eval_runs(runs, dev_qrels, [primary_metric], benchmark.relevance_level)[primary_metric]
             if score > best_scores[fold_name][primary_metric]:
-                best_scores[fold_name] = {primary_metric: score, "path": runfile}
+                best_scores[fold_name] = {primary_metric: score, "path": runfile, "runs": runs}
 
     for fold, scores in best_scores.items():
         logger.info(f"Best dev score on fold {fold}: {primary_metric}={scores[primary_metric]}")
@@ -164,12 +168,33 @@ def search_best_run(runfile_dirs, benchmark, primary_metric, metrics=None, folds
     for s, score_dict in best_scores.items():
         test_qids = folds[s]["predict"]["dev"]
         # any empty (no results) queries need to be added so they contribute zeros to the average
-        test_runs.update({qid: {} for qid in test_qids})
-        test_runs.update({qid: v for qid, v in Searcher.load_trec_run(score_dict["path"]).items() if qid in test_qids})
+        test_runs = {qid: docids_to_score for qid, docids_to_score in select_qids_from_run_file(score_dict["path"], test_qids).items()}
+        logger.error("Filtering for test qids")
+        test_runs = {qid: docids_to_score for qid, docids_to_score in score_dict["runs"].items() if qid in test_qids}
 
+    logger.error("About to evaluate the dev set for BM25")
     scores = eval_runs(test_runs, benchmark.qrels, metrics, benchmark.relevance_level)
+    logger.error("evaluated the dev set for BM25")
     return {"score": scores, "path": {s: v["path"] for s, v in best_scores.items()}}
 
+
+def select_qids_from_run_file(run_file, qid_list):
+    """
+    The same as Searcher.load_trec_run, but takes a list of qids as an input.
+    This is more memory efficient than loading the entire trec run to memory and _then_ filtering based on qids
+    """
+    logger.error("Ok this is hit")
+    run = OrderedDefaultDict()
+
+    with open(run_file, "rt") as f:
+        for line in tqdm(f, desc="reading the run"):
+            line = line.strip()
+            if len(line) > 0:
+                qid, _, docid, rank, score, desc = line.split(" ")
+                if qid in qid_list:
+                    run[qid][docid] = float(score)
+
+    return run
 
 def interpolate_runs(run1, run2, qids, alpha):
     out = {}

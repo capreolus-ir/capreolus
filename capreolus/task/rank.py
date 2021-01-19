@@ -59,6 +59,7 @@ class RankTask(Task):
         best_results = evaluator.search_best_run(
             self.get_results_path(), self.benchmark, primary_metric=self.config["optimize"], metrics=metrics, folds=self.config["fold"]
         )
+        logger.error("Done searching for best results")
 
         for fold, path in best_results["path"].items():
             logger.info("rank: fold=%s best run: %s", fold, path)
