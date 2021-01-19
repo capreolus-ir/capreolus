@@ -29,6 +29,20 @@ class MSMarcoPassage(Benchmark):
     topic_file = data_dir / "topics.txt"
     fold_file = data_dir / "folds.json"
 
+    @property
+    def topics(self):
+        if not hasattr(self, "_topics"):
+            self._topics = {"title": {}, "desc": {}, "narr": {}}
+
+            with open(self.topic_file, "r") as f:
+                for line in f:
+                    qid, query = line.split("\t")
+                    self._topics["title"][qid] = query
+                    self._topics["desc"][qid] = query
+                    self._topics["narr"][qid] = query
+
+        return self._topics
+
     def build(self):
         self.download_if_missing()
 
@@ -54,15 +68,11 @@ class MSMarcoPassage(Benchmark):
         topic_f, qrel_f = open(self.topic_file, "w"), open(self.qrel_file, "w")
         folds = {"train": set(), "dev": set(), "eval": set()}
 
-        for set_name in folds:
-            cur_queriesfn = [fn for fn in queries_fn if f".{set_name}." in fn]
-            cur_qrelfn = [fn for fn in qrels_fn if f".{set_name}." in fn]
-            with open(gz_dir / cur_queriesfn[0], "r") as f:
-                for line in f:
-                    qid, query = line.strip().split("\t")
-                    topic_f.write(topic_to_trectxt(qid, query))
-                    folds[set_name].add(qid)
+        # Copy over the qrels
+        qids_in_qrels = set()
 
+        for set_name in folds:
+            cur_qrelfn = [fn for fn in qrels_fn if f".{set_name}." in fn]
             if not cur_qrelfn:
                 logger.warning(
                     f"{set_name} qrel is unfound. This is expected if it is eval set. "
@@ -72,9 +82,22 @@ class MSMarcoPassage(Benchmark):
 
             with open(gz_dir / cur_qrelfn[0], "r") as f:
                 for line in f:
+                    qid, _, docid, label = line.split("\t")
                     qrel_f.write(line)
+                    qids_in_qrels.add(qid)
 
-        # fold
+        # Biw copy over the topics and form folds
+        for set_name in folds:
+            cur_queriesfn = [fn for fn in queries_fn if f".{set_name}." in fn]
+            with open(gz_dir / cur_queriesfn[0], "r") as f:
+                for line in f:
+                    qid, query = line.strip().split("\t")
+                    # Performance hack. No point in dealing with queries for which we have no relevance judgements
+                    if qid not in qids_in_qrels:
+                        continue
+                    topic_f.write(line)
+                    folds[set_name].add(qid)
+
         folds = {k: list(v) for k, v in folds.items()}
         folds = {"s1": {"train_qids": folds["train"], "predict": {"dev": folds["dev"], "test": folds["eval"]}}}
         json.dump(folds, open(self.fold_file, "w"))
