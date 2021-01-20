@@ -309,7 +309,7 @@ class ResidualTripletSampler(Sampler, TrainingSamplerMixin, torch.utils.data.Ite
             self.rng.shuffle(all_qids)
 
             for qid in all_qids:
-                if qid not in self.qid_to_docids:
+                if qid not in self.qid_to_reldocs:
                     raise ValueError("qid: {} does not have reldocs. Why sample it?".format(qid))
 
                 posdocid = self.rng.choice(self.qid_to_reldocs[qid])
