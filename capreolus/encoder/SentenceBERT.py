@@ -36,7 +36,7 @@ class SentenceBERTEncoder(Encoder):
 
     def instantiate_model(self):
         if not hasattr(self, "model"):
-            self.model = SentenceBERTEncoder_Class()
+            self.model = torch.nn.DataParallel(SentenceBERTEncoder_Class())
             self.hidden_size = self.model.hidden_size
         
         return self.model

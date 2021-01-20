@@ -1,4 +1,5 @@
 import torch.nn.functional as F
+from torch.nn import DataParallel
 from capreolus import Dependency
 from capreolus.encoder import Encoder
 from capreolus.encoder.SentenceBERT import SentenceBERTEncoder_Class
@@ -16,7 +17,7 @@ class CLEAREncoder(Encoder):
 
     def instantiate_model(self):
         if not hasattr(self, "model"):
-            self.model = SentenceBERTEncoder_Class()
+            self.model = DataParallel(SentenceBERTEncoder_Class())
             self.hidden_size = self.model.hidden_size
 
         return self.model
