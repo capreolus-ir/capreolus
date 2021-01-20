@@ -18,7 +18,7 @@ class CLEAREncoder(Encoder):
     def instantiate_model(self):
         if not hasattr(self, "model"):
             self.model = DataParallel(SentenceBERTEncoder_Class())
-            self.hidden_size = self.model.hidden_size
+            self.hidden_size = self.model.module.hidden_size
 
         return self.model
 
