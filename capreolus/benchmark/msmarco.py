@@ -29,19 +29,19 @@ class MSMarcoPassage(Benchmark):
     topic_file = data_dir / "topics.txt"
     fold_file = data_dir / "folds.json"
 
-    @property
-    def topics(self):
-        if not hasattr(self, "_topics"):
-            self._topics = {"title": {}, "desc": {}, "narr": {}}
-
-            with open(self.topic_file, "r") as f:
-                for line in f:
-                    qid, query = line.split("\t")
-                    self._topics["title"][qid] = query
-                    self._topics["desc"][qid] = query
-                    self._topics["narr"][qid] = query
-
-        return self._topics
+    # @property
+    # def topics(self):
+    #     if not hasattr(self, "_topics"):
+    #         self._topics = {"title": {}, "desc": {}, "narr": {}}
+    #
+    #         with open(self.topic_file, "r") as f:
+    #             for line in f:
+    #                 qid, query = line.split("\t")
+    #                 self._topics["title"][qid] = query
+    #                 self._topics["desc"][qid] = query
+    #                 self._topics["narr"][qid] = query
+    #
+    #     return self._topics
 
     def build(self):
         self.download_if_missing()
@@ -95,7 +95,7 @@ class MSMarcoPassage(Benchmark):
                     # Performance hack. No point in dealing with queries for which we have no relevance judgements
                     if qid not in qids_in_qrels:
                         continue
-                    topic_f.write(line)
+                    topic_f.write(topic_to_trectxt(qid, query))
                     folds[set_name].add(qid)
 
         folds = {k: list(v) for k, v in folds.items()}

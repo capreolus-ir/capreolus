@@ -113,8 +113,10 @@ class FAISSIndex(Index):
         dataset.prepare(
             collection_docids, None, self.encoder.extractor, relevance_level=self.benchmark.relevance_level
         )
+
+        BATCH_SIZE = 8
         dataloader = torch.utils.data.DataLoader(
-            dataset, batch_size=1, pin_memory=True, num_workers=0
+            dataset, batch_size=BATCH_SIZE, pin_memory=True, num_workers=0
         )
         
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -123,21 +125,22 @@ class FAISSIndex(Index):
 
         doc_id_to_faiss_id = {}
         for bi, batch in tqdm(enumerate(dataloader), desc="FAISS index creation"):
-            # TODO: Make this support batching
-            doc_id = batch["posdocid"][0]
-            if doc_id in doc_id_to_faiss_id:
-                continue
-            
-            doc_id_to_faiss_id[doc_id] = bi
             batch = {k: v.to(device) if not isinstance(v, list) else v for k, v in batch.items()}
+            doc_ids = batch["posdocid"]
+            faiss_ids_for_batch = []
+
+            for i, doc_id in doc_ids:
+                generated_faiss_id = bi * BATCH_SIZE + i
+                doc_id_to_faiss_id[doc_id] = generated_faiss_id
+                faiss_ids_for_batch.append(generated_faiss_id)
+
             with torch.no_grad():
                 doc_emb = self.encoder.encode(batch["posdoc"]).cpu().numpy()
             # self.doc_embs.append((batch["posdocid"], doc_emb))
-            assert doc_emb.shape == (1, self.encoder.hidden_size)
-            # TODO: Batch the encoding?
-   
-            faiss_id = np.array([[bi]], dtype=np.long).reshape((1,))
-            faiss_index.add_with_ids(doc_emb, faiss_id)
+            assert doc_emb.shape == (BATCH_SIZE, self.encoder.hidden_size)
+
+            faiss_ids_for_batch = np.array(faiss_ids_for_batch, dtype=np.long).reshape(BATCH_SIZE, 1)
+            faiss_index.add_with_ids(doc_emb, faiss_ids_for_batch)
 
         pickle.dump(doc_id_to_faiss_id, open("doc_id_to_faiss_id.dump", "wb"), protocol=-1)
         faiss_id_to_doc_id = {faiss_id: doc_id for doc_id, faiss_id in doc_id_to_faiss_id.items()}

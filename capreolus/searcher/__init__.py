@@ -1,7 +1,7 @@
 import os
 from collections import defaultdict, OrderedDict
 
-from capreolus import ModuleBase, constants
+from capreolus import ModuleBase, constants, ConfigOption
 from capreolus.utils.loginit import get_logger
 from capreolus.utils.trec import topic_to_trectxt
 from capreolus.utils.common import OrderedDefaultDict
@@ -27,6 +27,8 @@ class Searcher(ModuleBase):
     """
 
     module_type = "searcher"
+
+    config_spec = [ConfigOption("hits", 100, "number of results to return")]
 
     @staticmethod
     def load_trec_run(fn):
