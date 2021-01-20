@@ -129,7 +129,7 @@ class FAISSIndex(Index):
             doc_ids = batch["posdocid"]
             faiss_ids_for_batch = []
 
-            for i, doc_id in doc_ids:
+            for i, doc_id in enumerate(doc_ids):
                 generated_faiss_id = bi * BATCH_SIZE + i
                 doc_id_to_faiss_id[doc_id] = generated_faiss_id
                 faiss_ids_for_batch.append(generated_faiss_id)
