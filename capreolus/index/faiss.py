@@ -58,6 +58,9 @@ class FAISSIndex(Index):
         return search_results_folder
 
     def evaluate_bm25_search(self):
+        if hasattr(self, "best_bm25_results"):
+            return self.best_bm25_results
+
         metrics = evaluator.DEFAULT_METRICS
 
         best_results = evaluator.search_best_run(
@@ -71,6 +74,8 @@ class FAISSIndex(Index):
         for metric, score in sorted(best_results["score"].items()):
             logger.info("%25s: %0.4f", metric, score)
 
+        self.best_bm25_results = best_results
+        
         return best_results
 
     def train_encoder(self, fold):
