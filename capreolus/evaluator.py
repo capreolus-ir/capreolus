@@ -7,7 +7,6 @@ import pytrec_eval
 from capreolus.searcher import Searcher
 from capreolus.utils.loginit import get_logger
 from capreolus.eval.msmarco_eval import compute_metrics_from_files
-from capreolus.utils.common import OrderedDefaultDict
 
 logger = get_logger(__name__)
 
@@ -175,25 +174,6 @@ def search_best_run(runfile_dirs, benchmark, primary_metric, metrics=None, folds
     scores = eval_runs(test_runs, dev_qrels, metrics, benchmark.relevance_level)
     logger.error("evaluated the dev set for BM25")
     return {"score": scores, "path": {s: v["path"] for s, v in best_scores.items()}}
-
-
-def select_qids_from_run_file(run_file, qid_list):
-    """
-    The same as Searcher.load_trec_run, but takes a list of qids as an input.
-    This is more memory efficient than loading the entire trec run to memory and _then_ filtering based on qids
-    """
-    logger.error("Ok this is hit")
-    run = OrderedDefaultDict()
-
-    with open(run_file, "rt") as f:
-        for line in tqdm(f, desc="reading the run"):
-            line = line.strip()
-            if len(line) > 0:
-                qid, _, docid, rank, score, desc = line.split(" ")
-                if qid in qid_list:
-                    run[qid][docid] = float(score)
-
-    return run
 
 
 def interpolate_runs(run1, run2, qids, alpha):

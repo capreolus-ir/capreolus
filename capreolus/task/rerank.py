@@ -76,7 +76,7 @@ class RerankTask(Task):
         train_run = {qid: docs for qid, docs in best_search_run.items() if qid in self.benchmark.folds[fold]["train_qids"]}
         # For each qid, select the top 100 (defined by config["threshold") docs to be used in validation
         dev_run = defaultdict(dict)
-        # This is possible because best_search_run is an OrderedDict
+        # This is possible because in python 3.6+, dictionaries preserve insertion order
         for qid, docs in best_search_run.items():
             if qid in self.benchmark.folds[fold]["predict"]["dev"]:
                 for idx, (docid, score) in enumerate(docs.items()):
@@ -113,7 +113,7 @@ class RerankTask(Task):
         dev_preds = self.reranker.trainer.predict(self.reranker, dev_dataset, dev_output_path)
 
         test_run = defaultdict(dict)
-        # This is possible because best_search_run is an OrderedDict
+        # This is possible because in python 3.6+, dictionaries preserve insertion order
         for qid, docs in best_search_run.items():
             if qid in self.benchmark.folds[fold]["predict"]["test"]:
                 for idx, (docid, score) in enumerate(docs.items()):
@@ -158,7 +158,7 @@ class RerankTask(Task):
         self.reranker.trainer.load_best_model(self.reranker, train_output_path)
 
         test_run = defaultdict(dict)
-        # This is possible because best_search_run is an OrderedDict
+        # This is possible because since python 3.6+, dictionaries preserve insertion order
         for qid, docs in best_search_run.items():
             if qid in self.benchmark.folds[fold]["predict"]["test"]:
                 for idx, (docid, score) in enumerate(docs.items()):

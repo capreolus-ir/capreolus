@@ -590,9 +590,3 @@ def get_udel_query_expander():
 
     return expand_query
 
-
-class OrderedDefaultDict(OrderedDict):
-    def __missing__(self, key):
-        self[key] = value = OrderedDefaultDict()
-
-        return value
