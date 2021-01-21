@@ -139,7 +139,7 @@ class FAISSIndex(Index):
             # self.doc_embs.append((batch["posdocid"], doc_emb))
             assert doc_emb.shape == (BATCH_SIZE, self.encoder.hidden_size)
 
-            faiss_ids_for_batch = np.array(faiss_ids_for_batch, dtype=np.long).reshape(BATCH_SIZE, 1)
+            faiss_ids_for_batch = np.array(faiss_ids_for_batch, dtype=np.long).reshape(BATCH_SIZE, )
             faiss_index.add_with_ids(doc_emb, faiss_ids_for_batch)
 
         pickle.dump(doc_id_to_faiss_id, open("doc_id_to_faiss_id.dump", "wb"), protocol=-1)
