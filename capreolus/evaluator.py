@@ -168,12 +168,11 @@ def search_best_run(runfile_dirs, benchmark, primary_metric, metrics=None, folds
     for s, score_dict in best_scores.items():
         test_qids = folds[s]["predict"]["dev"]
         # any empty (no results) queries need to be added so they contribute zeros to the average
-        test_runs = {qid: docids_to_score for qid, docids_to_score in select_qids_from_run_file(score_dict["path"], test_qids).items()}
         logger.error("Filtering for test qids")
         test_runs = {qid: docids_to_score for qid, docids_to_score in score_dict["runs"].items() if qid in test_qids}
 
     logger.error("About to evaluate the dev set for BM25")
-    scores = eval_runs(test_runs, benchmark.qrels, metrics, benchmark.relevance_level)
+    scores = eval_runs(test_runs, dev_qrels, metrics, benchmark.relevance_level)
     logger.error("evaluated the dev set for BM25")
     return {"score": scores, "path": {s: v["path"] for s, v in best_scores.items()}}
 
@@ -195,6 +194,7 @@ def select_qids_from_run_file(run_file, qid_list):
                     run[qid][docid] = float(score)
 
     return run
+
 
 def interpolate_runs(run1, run2, qids, alpha):
     out = {}
