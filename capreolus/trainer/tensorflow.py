@@ -571,4 +571,3 @@ class TensorflowTrainer(Trainer):
         wrapped_model.load_weights("{0}/dev.best".format(train_output_path))
 
         return wrapped_model.model
-
