@@ -27,7 +27,7 @@ class TFParade_Class(tf.keras.layers.Layer):
         self.transformer_layer_2 = TFBertLayer(self.bert.config)
         self.num_passages = extractor.config["numpassages"]
         self.maxseqlen = extractor.config["maxseqlen"]
-        self.linear = tf.keras.layers.Dense(1, input_shape=(self.bert.config.hidden_size,))
+        self.linear = tf.keras.layers.Dense(1, input_shape=(self.bert.config.hidden_size,), dtype=tf.float32)
 
         if config["aggregation"] == "maxp":
             self.aggregation = self.aggregate_using_maxp
