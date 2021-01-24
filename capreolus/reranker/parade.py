@@ -60,7 +60,7 @@ class TFParade_Class(tf.keras.layers.Layer):
         tiled_initial_cls = tf.tile(self.initial_cls_embedding, multiples=[batch_size, 1])
         merged_cls = tf.concat((tf.expand_dims(tiled_initial_cls, axis=1), expanded_cls), axis=1)
 
-        merged_cls += self.full_position_embeddings
+        merged_cls += tf.cast(self.full_position_embeddings, dtype=cls.dtype)
 
         (transformer_out_1,) = self.transformer_layer_1(merged_cls, None, None, None)
         (transformer_out_2,) = self.transformer_layer_2(transformer_out_1, None, None, None)
