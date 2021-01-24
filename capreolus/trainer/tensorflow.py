@@ -56,7 +56,7 @@ class TensorflowTrainer(Trainer):
         ConfigOption("decay", 0.0, "learning rate decay"),
         ConfigOption("decaystep", 3),
         ConfigOption("decaytype", None),
-        ConfigOption("endlr", 0, "Learning rate at the end of decay, used for linear decay"),
+        ConfigOption("endlr", 0.0, "Learning rate at the end of decay, used for linear decay"),
         ConfigOption(
             "earlystop",
             True,
