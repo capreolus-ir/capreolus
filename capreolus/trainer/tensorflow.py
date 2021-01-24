@@ -432,8 +432,11 @@ class TensorflowTrainer(Trainer):
         tf_record_filenames = []
 
         tf_file_id = 0
+        element_to_copy = None
         for sample in dataset:
             tf_features.extend(reranker.extractor.create_tf_dev_feature(sample))
+            if element_to_copy is None:
+                element_to_copy = tf_features[0]
             if len(tf_features) > 20000:
                 tf_record_filenames.append(self.write_tf_record_to_file(dir_name, tf_features, file_name=str(tf_file_id)))
                 tf_features = []
@@ -441,16 +444,9 @@ class TensorflowTrainer(Trainer):
 
         # TPU's require drop_remainder = True. But we cannot drop things from validation dataset
         # As a workaroud, we pad the dataset with the last sample until it reaches the batch size.
-        if len(tf_features) % evalbatch:
-            num_elements_to_add = evalbatch - (len(tf_features) % evalbatch)
-            logger.debug("Number of elements to add in the last batch: {}".format(num_elements_to_add))
-            element_to_copy = tf_features[-1]
-            for i in range(evalbatch):
-                tf_features.append(copy(element_to_copy))
-            tf_record_filenames.append(self.write_tf_record_to_file(dir_name, tf_features, file_name=str(tf_file_id)))
-        elif len(tf_features):
-            tf_record_filenames.append(self.write_tf_record_to_file(dir_name, tf_features, file_name=str(tf_file_id)))
-
+        for i in range(evalbatch):
+            tf_features.append(copy(element_to_copy))
+        tf_record_filenames.append(self.write_tf_record_to_file(dir_name, tf_features, file_name=str(tf_file_id)))
         return tf_record_filenames
 
     def write_tf_record_to_file(self, dir_name, tf_features, file_name=None):
@@ -575,3 +571,4 @@ class TensorflowTrainer(Trainer):
         wrapped_model.load_weights("{0}/dev.best".format(train_output_path))
 
         return wrapped_model.model
+
