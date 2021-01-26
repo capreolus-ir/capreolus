@@ -1,3 +1,5 @@
+import math
+
 import torch
 from torch import nn
 from transformers import BertModel, ElectraModel, AutoModel
@@ -18,6 +20,10 @@ class CEDRKNRM_Class(nn.Module):
         if config["pretrained"] == "electra-base-msmarco":
             self.bert = ElectraModel.from_pretrained(
                 "Capreolus/electra-base-msmarco", hidden_dropout_prob=config["hidden_dropout_prob"], output_hidden_states=True
+            )
+        elif config["pretrained"] == "electra-base":
+            self.bert = ElectraModel.from_pretrained(
+                "google/electra-base-discriminator", hidden_dropout_prob=config["hidden_dropout_prob"], output_hidden_states=True
             )
         elif config["pretrained"] == "bert-base-msmarco":
             self.bert = BertModel.from_pretrained(
@@ -40,11 +46,31 @@ class CEDRKNRM_Class(nn.Module):
         logger.debug("mus: %s", mus)
         self.kernels = RbfKernelBank(mus, sigmas, dim=1, requires_grad=self.config["gradkernels"])
 
-        combine_size = self.kernels.count() * len(self.config["simmat_layers"]) + self.hidden_size
+        if -1 in self.config["simmat_layers"]:
+            assert len(self.config["simmat_layers"]) == 1
+            assert self.config["cls"] is not None
+            self._compute_simmat = False
+            combine_size = 0
+        else:
+            self._compute_simmat = True
+            combine_size = self.kernels.count() * len(self.config["simmat_layers"])
+
+        assert self.config["cls"] in ("avg", "max", None)
+        if self.config["cls"]:
+            combine_size += self.hidden_size
+
+        # use weight init from PyTorch 0.4
         if config["combine_hidden"] == 0:
             combine_steps = [nn.Linear(combine_size, 1)]
+            stdv = 1.0 / math.sqrt(combine_steps[0].weight.size(1))
+            combine_steps[0].weight.data.uniform_(-stdv, stdv)
         else:
-            combine_steps = [nn.Linear(combine_size, config["combine_hidden"]), nn.ReLU(), nn.Linear(config["combine_hidden"], 1)]
+            combine_steps = [nn.Linear(combine_size, config["combine_hidden"]), nn.Linear(config["combine_hidden"], 1)]
+            stdv = 1.0 / math.sqrt(combine_steps[0].weight.size(1))
+            combine_steps[0].weight.data.uniform_(-stdv, stdv)
+            stdv = 1.0 / math.sqrt(combine_steps[-1].weight.size(1))
+            combine_steps[-1].weight.data.uniform_(-stdv, stdv)
+
         self.combine = nn.Sequential(*combine_steps)
 
         self.num_passages = extractor.config["numpassages"]
@@ -110,9 +136,11 @@ class CEDRKNRM_Class(nn.Module):
         # KNRM on similarity matrix
         prepooled_doc = self.kernels(doc_simmat)
         prepooled_doc = prepooled_doc * doc_mask.view(batch_size, 1, 1, -1) * query_mask.view(batch_size, 1, -1, 1)
+
         # sum over document
         knrm_features = prepooled_doc.sum(dim=3)
         knrm_features = torch.log(torch.clamp(knrm_features, min=1e-10)) * 0.01
+
         # sum over query
         knrm_features = knrm_features.sum(dim=2)
 
@@ -129,15 +157,28 @@ class CEDRKNRM_Class(nn.Module):
 
         # average CLS embeddings to create the CLS feature
         cls = bert_output[:, 0, :]
-        cls_features = cls.view(batch_size, self.num_passages, self.hidden_size).mean(dim=1)
+
+        if self.config["cls"] == "max":
+            cls_features = cls.view(batch_size, self.num_passages, self.hidden_size).max(dim=1)[0]
+        elif self.config["cls"] == "avg":
+            cls_features = cls.view(batch_size, self.num_passages, self.hidden_size).mean(dim=1)
 
         # create KNRM features for each output layer
-        layer_knrm_features = [
-            self.knrm(all_layer_output[LIDX], bert_mask, bert_segments, batch_size) for LIDX in self.config["simmat_layers"]
-        ]
+        if self._compute_simmat:
+            layer_knrm_features = [
+                self.knrm(all_layer_output[LIDX], bert_mask, bert_segments, batch_size) for LIDX in self.config["simmat_layers"]
+            ]
 
         # concat CLS+KNRM features and pass to linear layer
-        all_features = torch.cat([cls_features] + layer_knrm_features, dim=1)
+        if self.config["cls"] and self._compute_simmat:
+            all_features = torch.cat([cls_features] + layer_knrm_features, dim=1)
+        elif self._compute_simmat:
+            all_features = torch.cat(layer_knrm_features, dim=1)
+        elif self.config["cls"]:
+            all_features = cls_features
+        else:
+            raise ValueError("invalid config: %s" % self.config)
+
         score = self.combine(all_features)
         return score
 
@@ -152,15 +193,17 @@ class CEDRKNRM(Reranker):
     ]
     config_spec = [
         ConfigOption(
-            "pretrained", "bert-base-uncased", "Pretrained model: bert-base-uncased, bert-base-msmarco, or electra-base-msmarco"
+            "pretrained",
+            "electra-base",
+            "Pretrained model: bert-base-uncased, bert-base-msmarco, electra-base, or electra-base-msmarco",
         ),
         ConfigOption("mus", [-0.9, -0.7, -0.5, -0.3, -0.1, 0.1, 0.3, 0.5, 0.7, 0.9], "mus", value_type="floatlist"),
         ConfigOption("sigma", 0.1, "sigma"),
         ConfigOption("gradkernels", True, "tune mus and sigmas"),
         ConfigOption("hidden_dropout_prob", 0.1, "The dropout probability of BERT-like model's hidden layers."),
-        ConfigOption("simmat_layers", [12], "Layer outputs to include in similarity matrix", value_type="intlist"),
-        ConfigOption("combine_hidden", 0, "Hidden size to use with combination FC layer (0 to disable)"),
-        # ConfigOption("clsonly", False, "Use only the CLS without KNRM features"),
+        ConfigOption("simmat_layers", "0..12,1", "Layer outputs to include in similarity matrix", value_type="intlist"),
+        ConfigOption("combine_hidden", 1024, "Hidden size to use with combination FC layer (0 to disable)"),
+        ConfigOption("cls", "avg", "Handling of CLS token: avg, max, or None"),
     ]
 
     def build_model(self):
