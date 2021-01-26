@@ -39,8 +39,6 @@ class CEDRKNRM_Class(nn.Module):
             )
 
         self.hidden_size = self.bert.config.hidden_size
-        # mus = [-0.9, -0.7, -0.5, -0.3, -0.1, 0.1, 0.3, 0.5, 0.7, 0.9, 1.0]
-        # sigmas = [0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.001]
         mus = list(self.config["mus"]) + [1.0]
         sigmas = [self.config["sigma"] for _ in self.config["mus"]] + [0.01]
         logger.debug("mus: %s", mus)
@@ -94,11 +92,6 @@ class CEDRKNRM_Class(nn.Module):
         result = result * bmask.reshape(BAT, 1, B)
         return result
 
-    # import collections
-
-    # dist = collections.Counter()
-    # updates = 0
-
     def masked_simmats(self, embeddings, bert_mask, bert_segments):
         # segment 0 contains '[CLS] query [SEP]' and segment 1 contains 'document [SEP]'
         query_mask = bert_mask * torch.where(bert_segments == 0, self.one, self.zero)
@@ -111,13 +104,6 @@ class CEDRKNRM_Class(nn.Module):
 
         # (maxqlen, maxdoclen)
         simmat = self._cos_simmat(padded_query, padded_doc, query_mask, doc_mask)
-        # self.dist.update(round(val.item(), 2) for val in simmat.flatten())
-        # self.updates += 1
-        # if self.updates % 100 == 0:
-        #     import pickle
-
-        #     pickle.dump(self.dist, open("simdist.p", "wb"))
-        #     print("saved")
         return simmat, doc_mask, query_mask
 
     def knrm(self, bert_output, bert_mask, bert_segments, batch_size):
