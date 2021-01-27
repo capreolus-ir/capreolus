@@ -95,14 +95,14 @@ class Trainer(ModuleBase):
         return lr * self.lr_multiplier(step)
 
     def lr_multiplier(self, step):
-        decay_steps = self.config["decayiters"] * self.n_batch_per_iter
         warmup_steps = self.config["warmupiters"] * self.n_batch_per_iter
         if warmup_steps and step <= warmup_steps:
             return min((step + 1) / warmup_steps, 1)
         elif self.config["decaytype"] == "exponential":
+            decay_steps = self.config["decayiters"] * self.n_batch_per_iter
             return self.config["decay"] ** ((step - warmup_steps) / decay_steps)
         elif self.config["decaytype"] == "linear":
-            epoch = step / self.n_batch_per_iter
+            epoch = (step - warmup_steps) / self.n_batch_per_iter
             return 1 / (1 + self.config["decay"] * epoch)  # todo: support endlr
 
         return 1
