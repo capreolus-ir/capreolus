@@ -56,15 +56,21 @@ class TFCEDRKNRM_Class(tf.keras.layers.Layer):
         if config["combine_hidden"] == 0:
             stdv = 1.0 / math.sqrt(combine_size)
             weight_init = tf.keras.initializers.RandomUniform(minval=-stdv, maxval=stdv)
-            combine_steps = [tf.keras.layers.Dense(1, input_shape=(combine_size,), kernel_initializer=weight_init)]
+            combine_steps = [
+                tf.keras.layers.Dense(1, input_shape=(combine_size,), kernel_initializer=weight_init, dtype=tf.float32)
+            ]
         else:
             stdv1 = 1.0 / math.sqrt(combine_size)
             weight_init1 = tf.keras.initializers.RandomUniform(minval=-stdv1, maxval=stdv1)
             stdv2 = 1.0 / math.sqrt(config["combine_hidden"])
             weight_init2 = tf.keras.initializers.RandomUniform(minval=-stdv2, maxval=stdv2)
             combine_steps = [
-                tf.keras.layers.Dense(config["combine_hidden"], input_shape=(combine_size,), kernel_initializer=weight_init1),
-                tf.keras.layers.Dense(1, input_shape=(config["combine_hidden"],), kernel_initializer=weight_init2),
+                tf.keras.layers.Dense(
+                    config["combine_hidden"], input_shape=(combine_size,), kernel_initializer=weight_init1, dtype=tf.float32
+                ),
+                tf.keras.layers.Dense(
+                    1, input_shape=(config["combine_hidden"],), kernel_initializer=weight_init2, dtype=tf.float32
+                ),
             ]
 
         self.combine = tf.keras.Sequential(combine_steps)
@@ -99,6 +105,7 @@ class TFCEDRKNRM_Class(tf.keras.layers.Layer):
         passage_simmats, passage_doc_mask, passage_query_mask = self.masked_simmats(
             bert_output[:, 1:], bert_mask[:, 1:], bert_segments[:, 1:]
         )
+
         passage_simmats = tf.reshape(passage_simmats, [batch_size, self.num_passages, self.maxqlen, self.maxdoclen])
         passage_doc_mask = tf.reshape(passage_doc_mask, [batch_size, self.num_passages, 1, -1])
 
@@ -115,8 +122,7 @@ class TFCEDRKNRM_Class(tf.keras.layers.Layer):
 
         # sum over document
         knrm_features = tf.reduce_sum(prepooled_doc, axis=3)
-        knrm_features = tf.math.log(tf.maximum(knrm_features, 1e-10)) * 0.01
-
+        knrm_features = tf.math.log(tf.maximum(knrm_features, 1e-6)) * 0.01
         # sum over query
         knrm_features = tf.reduce_sum(knrm_features, axis=2)
 
@@ -206,5 +212,6 @@ class TFCEDRKNRM(Reranker):
 
     def build_model(self):
         if not hasattr(self, "model"):
-            self.model = TFCEDRKNRM_Class(self.extractor, self.config)
+            with self.trainer.strategy.scope():
+                self.model = TFCEDRKNRM_Class(self.extractor, self.config)
         return self.model
