@@ -22,6 +22,7 @@ class PytorchTrainer(Trainer):
     module_name = "pytorch"
     config_spec = [
         ConfigOption("batch", 32, "batch size"),
+        ConfigOption("evalbatch", 0, "batch size at inference time (or 0 to use training batch size)"),
         ConfigOption("niters", 20, "number of iterations to train for"),
         ConfigOption("itersize", 512, "number of training instances in one iteration"),
         ConfigOption("gradacc", 1, "number of batches to accumulate over before updating weights"),
@@ -35,9 +36,9 @@ class PytorchTrainer(Trainer):
             "True to load data in a separate thread; faster but causes PyTorch deadlock in some environments",
         ),
         ConfigOption("boardname", "default"),
-        ConfigOption("warmupsteps", 0),
+        ConfigOption("warmupiters", 0),
         ConfigOption("decay", 0.0, "learning rate decay"),
-        ConfigOption("decaystep", 3),
+        ConfigOption("decayiters", 3),
         ConfigOption("decaytype", None),
         ConfigOption("amp", None, "Automatic mixed precision mode; one of: None, train, pred, both"),
     ]
@@ -47,6 +48,9 @@ class PytorchTrainer(Trainer):
         # sanity checks
         if self.config["batch"] < 1:
             raise ValueError("batch must be >= 1")
+
+        if self.config["evalbatch"] < 0:
+            raise ValueError("evalbatch must be 0 (to use the training batch size) or  >= 1")
 
         if self.config["niters"] <= 0:
             raise ValueError("niters must be > 0")
@@ -80,10 +84,9 @@ class PytorchTrainer(Trainer):
 
         iter_loss = []
         batches_since_update = 0
-        batches_per_epoch = (self.config["itersize"] // self.config["batch"]) or 1
         batches_per_step = self.config["gradacc"]
 
-        for bi, batch in tqdm(enumerate(train_dataloader), desc="Training iteration", total=batches_per_epoch):
+        for bi, batch in tqdm(enumerate(train_dataloader), desc="Training iteration", total=self.n_batch_per_iter):
             batch = {k: v.to(self.device) if not isinstance(v, list) else v for k, v in batch.items()}
 
             with self.amp_train_autocast():
@@ -105,41 +108,14 @@ class PytorchTrainer(Trainer):
                     self.optimizer.step()
                 self.optimizer.zero_grad()
 
-            if (bi + 1) % batches_per_epoch == 0:
+            if (bi + 1) % self.n_batch_per_iter == 0:
                 # REF-TODO: save scheduler state along with optimizer
                 self.lr_scheduler.step()
                 break
 
         return torch.stack(iter_loss).mean()
 
-    def load_loss_file(self, fn):
-        """Loads loss history from fn
-
-        Args:
-           fn (Path): path to a loss.txt file
-
-        Returns:
-            a list of losses ordered by iterations
-
-        """
-
-        loss = []
-        with fn.open(mode="rt") as f:
-            for lineidx, line in enumerate(f):
-                line = line.strip()
-                if not line:
-                    continue
-
-                iteridx, iterloss = line.rstrip().split()
-
-                if int(iteridx) != lineidx:
-                    raise IOError(f"malformed loss file {fn} ... did two processes write to it?")
-
-                loss.append(float(iterloss))
-
-        return loss
-
-    def fastforward_training(self, reranker, weights_path, loss_fn):
+    def fastforward_training(self, reranker, weights_path, loss_fn, best_metric_fn):
         """Skip to the last training iteration whose weights were saved.
 
         If saved model and optimizer weights are available, this method will load those weights into model
@@ -165,24 +141,25 @@ class PytorchTrainer(Trainer):
                  If no weights are available or they cannot be loaded, 0 is returned.
 
         """
-
+        default_return_values = (0, {})
         if not (weights_path.exists() and loss_fn.exists()):
-            return 0
+            return default_return_values
 
         try:
             loss = self.load_loss_file(loss_fn)
+            metrics = self.load_metric(best_metric_fn)
         except IOError:
-            return 0
+            return default_return_values
 
         last_loss_iteration = len(loss) - 1
         weights_fn = weights_path / f"{last_loss_iteration}.p"
 
         try:
             reranker.load_weights(weights_fn, self.optimizer)
-            return last_loss_iteration + 1
+            return last_loss_iteration + 1, metrics
         except:  # lgtm [py/catch-base-exception]
             logger.info("attempted to load weights from %s but failed, starting at iteration 0", weights_fn)
-            return 0
+            return default_return_values
 
     def train(self, reranker, train_dataset, train_output_path, dev_data, dev_output_path, qrels, metric, relevance_level=1):
         """Train a model following the trainer's config (specifying batch size, number of iterations, etc).
@@ -217,7 +194,7 @@ class PytorchTrainer(Trainer):
         else:
             self.loss = pair_hinge_loss
 
-        dev_best_weight_fn, weights_output_path, info_output_path, loss_fn = self.get_paths_for_early_stopping(
+        dev_best_weight_fn, weights_output_path, info_output_path, loss_fn, metric_fn = self.get_paths_for_early_stopping(
             train_output_path, dev_output_path
         )
 
@@ -227,8 +204,14 @@ class PytorchTrainer(Trainer):
         )
 
         # if we're fastforwarding, set first iteration and load last saved weights
-        initial_iter = self.fastforward_training(reranker, weights_output_path, loss_fn) if self.config["fastforward"] else 0
+        initial_iter, metrics = (
+            self.fastforward_training(reranker, weights_output_path, loss_fn, metric_fn)
+            if self.config["fastforward"]
+            else (0, {})
+        )
+        dev_best_metric = metrics.get(metric, -np.inf)
         logger.info("starting training from iteration %s/%s", initial_iter + 1, self.config["niters"])
+        logger.info(f"Best metric loaded: {metric}={dev_best_metric}")
 
         train_loss = []
         # are we resuming training? fastforward loss and data if so
@@ -238,14 +221,8 @@ class PytorchTrainer(Trainer):
             # are we done training? if not, fastforward through prior batches
             if initial_iter < self.config["niters"]:
                 logger.debug("fastforwarding train_dataloader to iteration %s", initial_iter)
-                batches_per_epoch = self.config["itersize"] // self.config["batch"]
-                for niter in range(initial_iter):
-                    for bi, batch in enumerate(train_dataloader):
-                        if (bi + 1) % batches_per_epoch == 0:
-                            break
+                self.exhaust_used_train_data(train_dataloader, n_batch_to_exhaust=initial_iter * self.n_batch_per_iter)
 
-        dev_best_metric = -np.inf
-        validation_frequency = self.config["validatefreq"]
         train_start_time = time.time()
         for niter in range(initial_iter, self.config["niters"]):
             niter = niter + 1  # index from 1
@@ -263,7 +240,7 @@ class PytorchTrainer(Trainer):
                 reranker.save_weights(weights_fn, self.optimizer)
 
             # predict performance on dev set
-            if niter % validation_frequency == 0:
+            if niter % self.config["validatefreq"] == 0:
                 pred_fn = dev_output_path / f"{niter}.run"
                 preds = self.predict(reranker, dev_data, pred_fn)
 
@@ -278,9 +255,11 @@ class PytorchTrainer(Trainer):
                     dev_best_metric = metrics[metric]
                     logger.info("new best dev metric: %0.4f", dev_best_metric)
                     reranker.save_weights(dev_best_weight_fn, self.optimizer)
+                    self.write_to_metric_file(metric_fn, metrics)
 
             # write train_loss to file
-            loss_fn.write_text("\n".join(f"{idx} {loss}" for idx, loss in enumerate(train_loss)))
+            # loss_fn.write_text("\n".join(f"{idx} {loss}" for idx, loss in enumerate(train_loss)))
+            self.write_to_loss_file(loss_fn, train_loss)
 
             summary_writer.add_scalar("training_loss", iter_loss_tensor.item(), niter)
             reranker.add_summary(summary_writer, niter)
@@ -323,14 +302,13 @@ class PytorchTrainer(Trainer):
         model.eval()
 
         preds = {}
+        evalbatch = self.config["evalbatch"] if self.config["evalbatch"] > 0 else self.config["batch"]
         num_workers = 1 if self.config["multithread"] else 0
-        pred_dataloader = torch.utils.data.DataLoader(
-            pred_data, batch_size=self.config["batch"], pin_memory=True, num_workers=num_workers
-        )
+        pred_dataloader = torch.utils.data.DataLoader(pred_data, batch_size=evalbatch, pin_memory=True, num_workers=num_workers)
         with torch.autograd.no_grad():
-            for batch in tqdm(pred_dataloader, desc="Predicting", total=len(pred_data) // self.config["batch"]):
-                if len(batch["qid"]) != self.config["batch"]:
-                    batch = self.fill_incomplete_batch(batch)
+            for batch in tqdm(pred_dataloader, desc="Predicting", total=len(pred_data) // evalbatch):
+                if len(batch["qid"]) != evalbatch:
+                    batch = self.fill_incomplete_batch(batch, batch_size=evalbatch)
 
                 batch = {k: v.to(self.device) if not isinstance(v, list) else v for k, v in batch.items()}
                 with self.amp_pred_autocast():
@@ -345,7 +323,7 @@ class PytorchTrainer(Trainer):
 
         return preds
 
-    def fill_incomplete_batch(self, batch):
+    def fill_incomplete_batch(self, batch, batch_size=None):
         """
         If a batch is incomplete (i.e shorter than the desired batch size), this method fills in the batch with some data.
         How the data is chosen:
@@ -353,8 +331,10 @@ class PytorchTrainer(Trainer):
         If the values are tensors/numpy arrays, use repeat() along the batch dimension
         """
         # logger.debug("filling in an incomplete batch")
-        repeat_times = math.ceil(self.config["batch"] / len(batch["qid"]))
-        diff = self.config["batch"] - len(batch["qid"])
+        if not batch_size:
+            batch_size = self.config["batch"]
+        repeat_times = math.ceil(batch_size / len(batch["qid"]))
+        diff = batch_size - len(batch["qid"])
 
         def pad(v):
             if isinstance(v, np.ndarray) or torch.is_tensor(v):
@@ -362,7 +342,7 @@ class PytorchTrainer(Trainer):
             else:
                 _v = v + [v[0]] * diff
 
-            return _v[: self.config["batch"]]
+            return _v[:batch_size]
 
         batch = {k: pad(v) for k, v in batch.items()}
         return batch
