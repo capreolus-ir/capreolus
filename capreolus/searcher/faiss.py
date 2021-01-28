@@ -28,16 +28,18 @@ class FAISSSearcher(Searcher):
         
         return output_path
 
-
     def _query_from_file(self, topicsfn, output_path, fold=None):
         assert fold is not None
 
         # `qid_query` contains (qid, query) tuples in the order they were encoded
 
         # A manual search is done over the docs in dev_run - this way for each qid, we only score the docids that BM25 retrieved for it
-        topic_vectors, qid_query = self.create_topic_vectors_for_fold(topicsfn, output_path, fold)
-        self.index.manual_search(topic_vectors, 100, qid_query, output_path, fold)
+        topic_vectors, qid_query = self.create_topic_vectors(topicsfn, fold)
+        self.index.manual_search_dev_set(topic_vectors, qid_query, fold)
+        self.index.manual_search_test_set(topic_vectors, qid_query, fold)
         distances, results = self.index.faiss_search(topic_vectors, 100, qid_query, fold)
+        self.calc_faiss_search_metrics_dev_set(distances, qid_query, fold)
+        self.calc_faiss_search_metrics_test_set(distances, qid_query, fold)
         distances = distances.astype(np.float16)
 
         self.write_results_in_trec_format(results, distances, qid_query, output_path)
@@ -60,22 +62,15 @@ class FAISSSearcher(Searcher):
 
         self.index.encoder.build_model(train_run, dev_run, docids, encoder_qids)
 
-    def create_topic_vectors_for_fold(self, topicsfn, output_path, fold):
+    def create_topic_vectors(self, topicsfn, fold):
         """
         Creates a tensor of shape (num_queries, emb_size). Uses all the topics available in the dataset. Filtering based on folds is done later
         """
         self.build_encoder(fold)
         topics = load_trec_topics(topicsfn)
         # TODO: Use the test qids in the below line
-        qids = []
-        # for qid in sorted([qid for qid in self.benchmark.folds[fold]["predict"]["test"]]):
-        #    qids.append(qid)
 
-        for qid in sorted([qid for qid in self.benchmark.folds[fold]["predict"]["dev"]]):
-            qids.append(qid)
-
-        qids = set(qids)
-        qid_query = sorted([(qid, topics["title"][qid]) for qid in list(qids)])
+        qid_query = sorted([(qid, query) for qid, query in topics["title"]])
         tokenizer = self.index.encoder.extractor.tokenizer
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -92,11 +87,11 @@ class FAISSSearcher(Searcher):
         return np.concatenate(topic_vectors, axis=0), qid_query
         
     def write_results_in_trec_format(self, results, distances, qid_query, output_path):
-        faiss_id_to_doc_id = pickle.load(open("faiss_id_to_doc_id.dump", "rb"))
+        faiss_id_to_doc_id_fn = os.path.join(self.index.get_cache_path(), "faiss_id_to_doc_id.dump")
+        faiss_id_to_doc_id = pickle.load(open(faiss_id_to_doc_id_fn, "rb"))
         trec_string = "{qid} 0 {doc_id} {rank} {score} faiss\n"
         num_queries, num_neighbours = results.shape
         assert num_queries == len(qid_query)
-        run = {}
 
         os.makedirs(output_path, exist_ok=True)
         with open(os.path.join(output_path, "faiss.run"), "w") as f:
@@ -105,13 +100,38 @@ class FAISSSearcher(Searcher):
                 qid = qid_query[i][0]
                 for j, faiss_id in enumerate(faiss_ids):
                     doc_id = faiss_id_to_doc_id[faiss_id]
-                    run[qid] = {}
-                    run[qid][doc_id] = float(distances[i][j])
                     f.write(trec_string.format(qid=qid, doc_id=doc_id, rank=j+1, score=distances[i][j]))
 
+        return output_path
+
+    def calc_faiss_search_metrics_for_dev_set(self, distances, results, qid_query, fold):
+        valid_qids = [qid for qid in self.benchmark.folds[fold]["predict"]["dev"]]
+        metrics = self.calc_faiss_search_metrics(distances, results, qid_query, valid_qids)
+        faiss_logger.info("FAISS dev set metrics: %s", " ".join([f"{metric}={v:0.3f}" for metric, v in sorted(metrics.items())]))
+
+    def calc_faiss_search_metrics_for_test_set(self, distances, results, qid_query, fold):
+        valid_qids = [qid for qid in self.benchmark.folds[fold]["predict"]["test"]]
+        metrics = self.calc_faiss_search_metrics(distances, results, qid_query, valid_qids)
+        faiss_logger.info("FAISS test set metrics: %s",
+                          " ".join([f"{metric}={v:0.3f}" for metric, v in sorted(metrics.items())]))
+
+    def calc_faiss_search_metrics(self, distances, results, qid_query, valid_qids):
+        faiss_id_to_doc_id_fn = os.path.join(self.index.get_cache_path(), "faiss_id_to_doc_id.dump")
+        faiss_id_to_doc_id = pickle.load(open(faiss_id_to_doc_id_fn, "rb"))
+        num_queries, num_neighbours = results.shape
+        run = {}
+
+        for i in range(num_queries):
+            qid = qid_query[i][0]
+            if qid not in valid_qids:
+                continue
+
+            faiss_ids = results[i][results[i] > -1]
+            for j, faiss_id in enumerate(faiss_ids):
+                doc_id = faiss_id_to_doc_id[faiss_id]
+                run[qid] = {}
+                run[qid][doc_id] = distances[i][j].item()
 
         metrics = evaluator.eval_runs(run, self.benchmark.qrels, evaluator.DEFAULT_METRICS, self.benchmark.relevance_level)
-        faiss_logger.info("FAISS metrics: %s", " ".join([f"{metric}={v:0.3f}" for metric, v in sorted(metrics.items())]))
-        # faiss_logger.debug("The search results in TREC format are at: {}".format(output_path))
 
-        return output_path
+        return metrics
