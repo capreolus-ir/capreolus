@@ -38,8 +38,8 @@ class FAISSSearcher(Searcher):
         self.index.manual_search_dev_set(topic_vectors, qid_query, fold)
         self.index.manual_search_test_set(topic_vectors, qid_query, fold)
         distances, results = self.index.faiss_search(topic_vectors, 100, qid_query, fold)
-        self.calc_faiss_search_metrics_for_dev_set(distances, qid_query, fold)
-        self.calc_faiss_search_metrics_for_test_set(distances, qid_query, fold)
+        self.calc_faiss_search_metrics_for_dev_set(distances, results, qid_query, fold)
+        self.calc_faiss_search_metrics_for_test_set(distances, results, qid_query, fold)
         distances = distances.astype(np.float16)
 
         self.write_results_in_trec_format(results, distances, qid_query, output_path)
