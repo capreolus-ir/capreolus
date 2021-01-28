@@ -129,8 +129,7 @@ class FAISSSearcher(Searcher):
             faiss_ids = results[i][results[i] > -1]
             for j, faiss_id in enumerate(faiss_ids):
                 doc_id = faiss_id_to_doc_id[faiss_id]
-                run[qid] = {}
-                run[qid][doc_id] = distances[i][j].item()
+                run.setdefault(qid, {})[doc_id] = distances[i][j].item()
 
         metrics = evaluator.eval_runs(run, self.benchmark.qrels, evaluator.DEFAULT_METRICS, self.benchmark.relevance_level)
 
