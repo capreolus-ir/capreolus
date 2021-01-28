@@ -5,7 +5,7 @@ from transformers import TFAutoModel
 
 from capreolus import ConfigOption, Dependency, get_logger
 from capreolus.reranker import Reranker
-from capreolus.reranker.common import NewRbfKernelBankTF, similarity_matrix_tf
+from capreolus.reranker.common import NewRbfKernelBankTF, new_similarity_matrix_tf
 
 logger = get_logger(__name__)
 
@@ -97,7 +97,7 @@ class TFCEDRKNRM_Class(tf.keras.layers.Layer):
         padded_doc = doc_mask * embeddings
 
         # (maxqlen, maxdoclen)
-        simmat = similarity_matrix_tf(padded_query, padded_doc, query_mask, doc_mask, 0)
+        simmat = new_similarity_matrix_tf(padded_query, padded_doc, query_mask, doc_mask, 0)
         return simmat, doc_mask, query_mask
 
     def knrm(self, bert_output, bert_mask, bert_segments, batch_size):
