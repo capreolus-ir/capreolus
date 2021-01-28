@@ -36,7 +36,6 @@ class FAISSIndex(Index):
         with open(donefn, "wt") as donef:
             print("done", file=donef)
 
-
     def get_results_path(self):
         """Return an absolute path that can be used for storing results.
         The path is a function of the module's config and the configs of its dependencies.
@@ -147,15 +146,13 @@ class FAISSIndex(Index):
             faiss_ids_for_batch = np.array(faiss_ids_for_batch, dtype=np.long).reshape(-1, )
             faiss_index.add_with_ids(doc_emb, faiss_ids_for_batch)
 
-        pickle.dump(doc_id_to_faiss_id, open("doc_id_to_faiss_id.dump", "wb"), protocol=-1)
+        doc_id_to_faiss_id_fn = os.path.join(self.get_cache_path(), "doc_id_to_faiss_id.dump")
+        pickle.dump(doc_id_to_faiss_id, open(doc_id_to_faiss_id_fn, "wb"), protocol=-1)
+
+        faiss_id_to_doc_id_fn = os.path.join(self.get_cache_path(), "faiss_id_to_doc_id.dump")
         faiss_id_to_doc_id = {faiss_id: doc_id for doc_id, faiss_id in doc_id_to_faiss_id.items()}
-        pickle.dump(faiss_id_to_doc_id, open("faiss_id_to_doc_id.dump", "wb"), protocol=-1)
+        pickle.dump(faiss_id_to_doc_id, open(faiss_id_to_doc_id_fn, "wb"), protocol=-1)
 
-        # with open("order.log", "w") as f:
-            # for doc_id, faiss_id in doc_id_to_faiss_id.items():
-                # f.write("faiss {} is doc {}\n".format(faiss_id, doc_id))
-
-        # faiss_logger.debug("{} docs added to FAISS index".format(faiss_index.ntotal))
         os.makedirs(self.get_index_path(), exist_ok=True)
         faiss.write_index(faiss_index, os.path.join(self.get_index_path(), "faiss.index"))
 
@@ -165,29 +162,20 @@ class FAISSIndex(Index):
         """
         Takes the cosine similarity scores that FAISS produces and re-weights them as specified in the CLEAR paper
         """
+        faiss_id_to_doc_id_fn = os.path.join(self.get_cache_path(), "faiss_id_to_doc_id.dump")
         rank_results = self.evaluate_bm25_search()
         best_search_run_path = rank_results["path"][fold]
-        best_search_run = Searcher.load_trec_run(best_search_run_path)
-        # TODO: Look at the test set instead of dev
-        #dev_run = {qid: docs for qid, docs in best_search_run.items() if
-        #           qid in self.benchmark.folds[fold]["predict"]["test"] or qid in self.benchmark.folds[fold]["predict"]["dev"]}
-        dev_run = {qid: docs for qid, docs in best_search_run.items() if qid in self.benchmark.folds[fold]["predict"]["dev"]}
-        faiss_id_to_doc_id = pickle.load(open("faiss_id_to_doc_id.dump", "rb"))
+        bm25_run = Searcher.load_trec_run(best_search_run_path)
+        faiss_id_to_doc_id = pickle.load(open(faiss_id_to_doc_id_fn, "rb"))
         num_queries, num_neighbours = results.shape
 
-        miss_count = 0
         for i in range(num_queries):
             qid = qid_query[i][0]
             for j, faiss_id in enumerate(results[i]):
                 if faiss_id == -1:
                     continue
                 doc_id = faiss_id_to_doc_id[faiss_id]
-                if qid in dev_run:
-                    distances[i][j] = lambda_test * dev_run[qid].get(doc_id, 0) + distances[i, j]
-                else:
-                    miss_count += 1
-
-        logger.error("{} out of {} qids were missing during reweighting".format(miss_count, len(qid_query)))
+                distances[i][j] = lambda_test * bm25_run[qid].get(doc_id, 0) + distances[i, j]
 
         return distances
 
@@ -197,72 +185,74 @@ class FAISSIndex(Index):
         distances, results = faiss_index.search(topic_vectors, k)
         if self.config["isclear"]:
             faiss_logger.info("Reweighting FAISS scores for CLEAR")
-            distances = self.reweight_using_bm25_scores(distances, results, qid_query, fold)
+            distances = self.reweight_using_bm25_scores(distances, results, qid_query)
 
         return distances, results
 
-    def manual_search(self, topic_vectors, k, qid_query, output_path, fold):
+    def manual_search_dev_set(self, topic_vectors, qid_query, fold):
+        # Get the dev_run BM25 results for this fold.
+        rank_results = self.evaluate_bm25_search()
+        best_search_run_path = rank_results["path"][fold]
+        best_search_run = Searcher.load_trec_run(best_search_run_path)
+
+        bm25_dev_run = {qid: docs_to_score for qid, docs_to_score in best_search_run.items() if
+                    qid in self.benchmark.folds[fold]["predict"]["dev"]}
+
+        metrics = self.manual_search(topic_vectors, qid_query, bm25_dev_run)
+
+        faiss_logger.info("Dev Fold %s manual metrics: %s", fold,
+                          " ".join([f"{metric}={v:0.3f}" for metric, v in sorted(metrics.items())]))
+
+    def manual_search_test_set(self, topic_vectors, qid_query, fold):
+        # Get the dev_run BM25 results for this fold.
+        rank_results = self.evaluate_bm25_search()
+        best_search_run_path = rank_results["path"][fold]
+        best_search_run = Searcher.load_trec_run(best_search_run_path)
+
+        bm25_dev_run = {qid: docs_to_score for qid, docs_to_score in best_search_run.items() if
+                    qid in self.benchmark.folds[fold]["predict"]["test"]}
+
+        metrics = self.manual_search(topic_vectors, qid_query, bm25_dev_run)
+
+        faiss_logger.info("Test Fold %s manual metrics: %s", fold,
+                          " ".join([f"{metric}={v:0.3f}" for metric, v in sorted(metrics.items())]))
+
+    def manual_search(self, topic_vectors, qid_query, bm25_run):
         """
         Manual search is different from the normal FAISS search.
         For a given qid, we manually calculate cosine scores for only those documents retrieved by BM25 for this qid.
         This helps in debugging - the scores should be the same as the final validation scored obtained while training the encoder
         A "real" FAISS search would calculate the cosine score by comparing a qid with _every_ other document in the index - not just the docs retrieved for the query by BM25
         """
-
-        # Get the dev_run BM25 results for this fold. 
-        rank_results = self.evaluate_bm25_search()
-        best_search_run_path = rank_results["path"][fold]
-        best_search_run = Searcher.load_trec_run(best_search_run_path)
-        dev_run = {qid: docs for qid, docs in best_search_run.items() if qid in self.benchmark.folds[fold]["predict"]["dev"]}
-
         # Load some dicts that will allow us to map faiss index ids to docids
         faiss_index = faiss.read_index(os.path.join(self.get_index_path(), "faiss.index"))
-        faiss_id_to_doc_id = pickle.load(open("faiss_id_to_doc_id.dump", "rb"))
-        doc_id_to_faiss_id = pickle.load(open("doc_id_to_faiss_id.dump", "rb"))
-        faiss_ids = sorted(list(faiss_id_to_doc_id.keys()))
-
-        # man_f = open("manual_output.log", "w")
+        doc_id_to_faiss_id_fn = os.path.join(self.get_cache_path(), "doc_id_to_faiss_id.dump")
+        doc_id_to_faiss_id = pickle.load(open(doc_id_to_faiss_id_fn, "rb"))
 
         results = defaultdict(list)
         run = {}
         faiss_logger.debug("Starting manual search")
-        faiss_logger.debug("qid_query is {}".format(qid_query))
 
-        missing_count = 0
         for i, (qid, query) in tqdm(enumerate(qid_query), desc="Manual search"):
-            assert qid in self.benchmark.folds[fold]["predict"]["test"] or qid in self.benchmark.folds[fold]["predict"]["dev"]
-            if qid not in dev_run:
-                missing_count += 1
+            if qid not in bm25_run:
                 continue
 
             query_emb = topic_vectors[i].reshape(768)
-
-            for doc_id in dev_run[qid].keys():
+            for doc_id in bm25_run[qid].keys():
                 faiss_id = doc_id_to_faiss_id[doc_id]
                 doc_emb = faiss_index.reconstruct(faiss_id).reshape(768)
                 score = F.cosine_similarity(torch.from_numpy(query_emb), torch.from_numpy(doc_emb), dim=0)
                 score = score.numpy().astype(np.float16).item()
                 results[qid].append((score, doc_id))
-                # man_f.write("qid\t{}\tdocid\t{}\tscore\t{}\n".format(qid, doc_id, score))
 
-                
-        # man_f.close()
-        # trec_string = "{qid} 0 {doc_id} {rank} {score} faiss\n"
-        # os.makedirs(output_path, exist_ok=True)
-        # out_f = open(os.path.join(output_path, "faiss.run"), "w")
         for qid in results:
             score_doc_id = results[qid]
             for i, (score, doc_id) in enumerate(sorted(score_doc_id, reverse=True)):
                 run.setdefault(qid, {})[doc_id] = score
-                # out_f.write(trec_string.format(qid=qid, doc_id=doc_id, rank=i+1, score=score))
-        
-        # out_f.close()
-        # pickle.dump(run, open("manual_run.dump", "wb"), protocol=-1)
-        metrics = evaluator.eval_runs(run, self.benchmark.qrels, evaluator.DEFAULT_METRICS, self.benchmark.relevance_level)
-        faiss_logger.info("Fold %s manual metrics: %s", fold, " ".join([f"{metric}={v:0.3f}" for metric, v in sorted(metrics.items())]))
-        faiss_logger.info("{} out of {} qids were missing".format(missing_count, len(qid_query)))
 
-        return output_path
+        metrics = evaluator.eval_runs(run, self.benchmark.qrels, evaluator.DEFAULT_METRICS, self.benchmark.relevance_level)
+
+        return metrics
 
     def get_docs(self, doc_ids):
         return [self.index.get_doc(doc_id) for doc_id in doc_ids]
