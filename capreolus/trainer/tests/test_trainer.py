@@ -74,7 +74,7 @@ def test_tf_find_cached_tf_records(monkeypatch, dummy_index):
     monkeypatch.setattr(SlowEmbedText, "_load_pretrained_embeddings", fake_magnitude_embedding)
 
     reranker = TFKNRM(
-        {"gradkernels": True, "finetune": False, "trainer": {"niters": 1, "itersize": 4, "batch": 2}},
+        {"gradkernels": True, "finetune": False, "trainer": {"niters": 1, "itersize": 8, "batch": 2}},
         provide={"index": dummy_index},
     )
     extractor = reranker.extractor
@@ -93,7 +93,7 @@ def test_tf_find_cached_tf_records(monkeypatch, dummy_index):
     assert reranker.trainer.find_cached_tf_records(train_dataset, 24) is None
 
     reranker = TFKNRM(
-        {"gradkernels": True, "finetune": False, "trainer": {"niters": 1, "itersize": 4, "batch": 6}},
+        {"gradkernels": True, "finetune": False, "trainer": {"niters": 1, "itersize": 24, "batch": 6}},
         provide={"index": dummy_index},
     )
     reranker.extractor.preprocess(["301"], ["LA010189-0001", "LA010189-0002"], benchmark.topics[benchmark.query_type])

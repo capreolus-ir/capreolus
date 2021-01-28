@@ -82,7 +82,7 @@ class RerankTask(Task):
             dev_run, self.benchmark.qrels, self.reranker.extractor, relevance_level=self.benchmark.relevance_level
         )
 
-        self.reranker.trainer.train(
+        dev_preds = self.reranker.trainer.train(
             self.reranker,
             train_dataset,
             train_output_path,
@@ -95,7 +95,8 @@ class RerankTask(Task):
 
         self.reranker.trainer.load_best_model(self.reranker, train_output_path)
         dev_output_path = train_output_path / "pred" / "dev" / "best"
-        dev_preds = self.reranker.trainer.predict(self.reranker, dev_dataset, dev_output_path)
+        if not dev_output_path.exists():
+            dev_preds = self.reranker.trainer.predict(self.reranker, dev_dataset, dev_output_path)
 
         test_run = defaultdict(dict)
         # This is possible because best_search_run is an OrderedDict
