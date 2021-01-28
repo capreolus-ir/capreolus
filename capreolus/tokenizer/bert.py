@@ -1,8 +1,10 @@
 from transformers import AutoTokenizer
 
-from capreolus import ConfigOption
+from capreolus import ConfigOption, get_logger
 
 from . import Tokenizer
+
+logger = get_logger(__name__)
 
 
 @Tokenizer.register
@@ -13,6 +15,17 @@ class BertTokenizer(Tokenizer):
     def build(self):
         self.bert_tokenizer = AutoTokenizer.from_pretrained(self.config["pretrained"], use_fast=True)
         # see supported tokenizers here: https://huggingface.co/transformers/model_doc/auto.html#transformers.AutoTokenizer
+
+        # make sure we have cls_token and sep_token
+        kwargs = {}
+        if not self.bert_tokenizer.cls_token:
+            kwargs["cls_token"] = "[CLS]"
+        if not self.bert_tokenizer.sep_token:
+            kwargs["sep_token"] = "[SEP]"
+
+        if len(kwargs) > 0:
+            logger.debug("adding missing tokens to vocab: %s", kwargs)
+            self.bert_tokenizer = AutoTokenizer.from_pretrained(self.config["pretrained"], use_fast=True, **kwargs)
 
     def convert_tokens_to_ids(self, tokens):
         return self.bert_tokenizer.convert_tokens_to_ids(tokens)
