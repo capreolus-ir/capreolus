@@ -107,23 +107,6 @@ class Trainer(ModuleBase):
 
         return 1
 
-    def change_lr(self, epoch, lr):
-        """
-        Apply warm up or decay depending on the current epoch
-        """
-        return lr * self.lr_multiplier(epoch)
-
-    def lr_multiplier(self, epoch):
-        warmup_steps = self.config["warmupsteps"]
-        if warmup_steps and epoch <= warmup_steps:
-            return min((epoch + 1) / warmup_steps, 1)
-        elif self.config["decaytype"] == "exponential":
-            return self.config["decay"] ** ((epoch - warmup_steps) / self.config["decaystep"])
-        elif self.config["decaytype"] == "linear":
-            return 1 / (1 + self.config["decay"] * epoch)
-
-        return 1
-
 
 from profane import import_all_modules
 
