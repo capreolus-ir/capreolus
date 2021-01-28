@@ -142,7 +142,7 @@ class TFCEDRKNRM_Class(tf.keras.layers.Layer):
         if self.config["pretrained"].startswith("bert-"):
             outputs = (outputs[0], outputs[2])
         bert_output, all_layer_output = outputs
-        
+
         #  embeddings to create the CLS feature
         cls = bert_output[:, 0, :]
         if self.config["cls"] == "max":
