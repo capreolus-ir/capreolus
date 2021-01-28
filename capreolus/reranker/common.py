@@ -62,7 +62,25 @@ def pair_hinge_loss(pos_neg_scores, *args, **kwargs):
     return _hinge_loss(pos_neg_scores[0], pos_neg_scores[1], label)
 
 
+def new_similarity_matrix_tf(query_embed, doc_embed, query_tok, doc_tok, padding):
+    batch, qlen, dims = query_embed.shape
+    doclen = doc_embed.shape[1]
+
+    # TODO apply mask for use in stuff other than KNRM
+    query_embed = tf.reshape(tf.nn.l2_normalize(query_embed, axis=-1), [batch, qlen, 1, dims])
+    # query_padding = tf.reshape(tf.cast(query_tok != padding, query_embed.dtype), [batch, qlen, 1, 1])
+    # query_embed = query_embed * query_padding
+
+    doc_embed = tf.reshape(tf.nn.l2_normalize(doc_embed, axis=-1), [batch, 1, doclen, dims])
+    # doc_padding = tf.reshape(tf.cast(doc_tok != padding, doc_embed.dtype), [batch, 1, doclen, 1])
+    # doc_embed = doc_embed * doc_padding
+
+    simmat = tf.reduce_sum(query_embed * doc_embed, axis=-1, keepdims=True)
+    return simmat
+
+
 def similarity_matrix_tf(query_embed, doc_embed, query_tok, doc_tok, padding):
+    """ Original TF similarity matrix. May have issues with mixed precision. Use new_similarity_matrix_tf instead """
     batch_size, qlen, doclen = tf.shape(query_embed)[0], tf.shape(query_embed)[1], tf.shape(doc_embed)[1]
     q_denom = tf.broadcast_to(tf.reshape(tf.norm(query_embed, axis=2), (batch_size, qlen, 1)), (batch_size, qlen, doclen)) + 1e-9
     doc_denom = (
@@ -79,8 +97,6 @@ def similarity_matrix_tf(query_embed, doc_embed, query_tok, doc_tok, padding):
     nul = tf.zeros_like(sim)
     sim = tf.where(tf.broadcast_to(tf.reshape(query_tok, (batch_size, qlen, 1)), (batch_size, qlen, doclen)) == padding, nul, sim)
     sim = tf.where(tf.broadcast_to(tf.reshape(doc_tok, (batch_size, 1, doclen)), (batch_size, qlen, doclen)) == padding, nul, sim)
-
-    # TODO: Add support for handling list inputs (eg: for CEDR). See the pytorch implementation of simmat
     return sim
 
 
@@ -228,3 +244,27 @@ def create_emb_layer(weights, non_trainable=True):
         layer.weight.requires_grad = True
 
     return layer
+
+
+class NewRbfKernelBankTF(Layer):
+    def __init__(self, mus, sigmas, dim=1, requires_grad=True, **kwargs):
+        super().__init__(**kwargs)
+        self.size = len(mus)
+        self.mus = tf.Variable(mus, trainable=requires_grad, name="mus", dtype=tf.float32)
+        self.mus = tf.reshape(self.mus, [1, 1, 1, -1])
+        self.sigmas = tf.Variable(sigmas, trainable=requires_grad, name="sigmas", dtype=tf.float32)
+        assert dim == 1
+        self.permute = [0, 3, 1, 2]
+
+    def count(self):
+        return self.size
+
+    def call(self, data, **kwargs):
+        # assert len(data.shape) == 3, data.shape
+        dtype = data.dtype
+        data = tf.cast(data, tf.float32)
+        data = tf.expand_dims(data, -1)
+        adj = data - self.mus
+        out = tf.exp(-0.5 * adj * adj / self.sigmas / self.sigmas)
+        out = tf.cast(out, dtype)
+        return tf.transpose(out, perm=self.permute)
