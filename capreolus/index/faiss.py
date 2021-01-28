@@ -146,6 +146,7 @@ class FAISSIndex(Index):
             faiss_ids_for_batch = np.array(faiss_ids_for_batch, dtype=np.long).reshape(-1, )
             faiss_index.add_with_ids(doc_emb, faiss_ids_for_batch)
 
+        os.makedirs(self.get_cache_path(), exist_ok=True)
         doc_id_to_faiss_id_fn = os.path.join(self.get_cache_path(), "doc_id_to_faiss_id.dump")
         pickle.dump(doc_id_to_faiss_id, open(doc_id_to_faiss_id_fn, "wb"), protocol=-1)
 
