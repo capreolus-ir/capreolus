@@ -31,6 +31,14 @@ The following models are good candidates for running on TPUs:
 ```
 
 ```eval_rst
+.. autoapiclass:: capreolus.reranker.TFCEDRKNRM.TFCEDRKNRM
+   :noindex:
+   
+   .. autoapiattribute:: module_name
+      :noindex:
+```
+
+```eval_rst
 .. autoapiclass:: capreolus.reranker.parade.TFParade
    :noindex:
    

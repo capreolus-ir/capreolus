@@ -193,6 +193,15 @@ class TFCEDRKNRM_Class(tf.keras.layers.Layer):
 
 @Reranker.register
 class TFCEDRKNRM(Reranker):
+    """
+    TensorFlow implementation of CEDR-KNRM.
+    Equivalant to BERT-KNRM when cls=None.
+
+    CEDR: Contextualized Embeddings for Document Ranking
+    Sean MacAvaney, Andrew Yates, Arman Cohan, and Nazli Goharian. SIGIR 2019.
+    https://arxiv.org/pdf/1904.07094
+    """
+
     module_name = "TFCEDRKNRM"
 
     dependencies = [
