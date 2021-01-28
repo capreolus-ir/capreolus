@@ -32,9 +32,9 @@ class PTParade_Class(nn.Module):
 
         if config["aggregation"] == "max":
             raise NotImplementedError()
-        if config["aggregation"] == "avg":
+        elif config["aggregation"] == "avg":
             raise NotImplementedError()
-        if config["aggregation"] == "attn":
+        elif config["aggregation"] == "attn":
             raise NotImplementedError()
         elif config["aggregation"] == "transformer":
             self.aggregation = self.aggregate_using_transformer

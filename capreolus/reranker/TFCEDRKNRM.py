@@ -5,7 +5,7 @@ from transformers import TFAutoModel
 
 from capreolus import ConfigOption, Dependency, get_logger
 from capreolus.reranker import Reranker
-from capreolus.reranker.common import RbfKernelBankTF, similarity_matrix_tf
+from capreolus.reranker.common import NewRbfKernelBankTF, similarity_matrix_tf
 
 logger = get_logger(__name__)
 
@@ -37,7 +37,7 @@ class TFCEDRKNRM_Class(tf.keras.layers.Layer):
         mus = list(self.config["mus"]) + [1.0]
         sigmas = [self.config["sigma"] for _ in self.config["mus"]] + [0.01]
         logger.debug("mus: %s", mus)
-        self.kernels = RbfKernelBankTF(mus, sigmas, dim=1, requires_grad=self.config["gradkernels"])
+        self.kernels = NewRbfKernelBankTF(mus, sigmas, dim=1, requires_grad=self.config["gradkernels"])
 
         if -1 in self.config["simmat_layers"]:
             assert len(self.config["simmat_layers"]) == 1
@@ -137,8 +137,12 @@ class TFCEDRKNRM_Class(tf.keras.layers.Layer):
         doc_seg = tf.reshape(doc_seg, [batch_size * self.num_passages, self.maxseqlen])
 
         # get BERT embeddings (including CLS) for each passage
-        bert_output, all_layer_output = self.bert(doc_input, attention_mask=doc_mask, token_type_ids=doc_seg)
-
+        # TODO switch to hgf's ModelOutput after bumping tranformers version
+        outputs = self.bert(doc_input, attention_mask=doc_mask, token_type_ids=doc_seg)
+        if self.config["pretrained"].startswith("bert-"):
+            outputs = (outputs[0], outputs[2])
+        bert_output, all_layer_output = outputs
+        
         #  embeddings to create the CLS feature
         cls = bert_output[:, 0, :]
         if self.config["cls"] == "max":

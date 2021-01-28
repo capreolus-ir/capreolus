@@ -228,3 +228,27 @@ def create_emb_layer(weights, non_trainable=True):
         layer.weight.requires_grad = True
 
     return layer
+
+
+class NewRbfKernelBankTF(Layer):
+    def __init__(self, mus, sigmas, dim=1, requires_grad=True, **kwargs):
+        super().__init__(**kwargs)
+        self.size = len(mus)
+        self.mus = tf.Variable(mus, trainable=requires_grad, name="mus", dtype=tf.float32)
+        self.mus = tf.reshape(self.mus, [1, 1, 1, -1])
+        self.sigmas = tf.Variable(sigmas, trainable=requires_grad, name="sigmas", dtype=tf.float32)
+        assert dim == 1
+        self.permute = [0, 3, 1, 2]
+
+    def count(self):
+        return self.size
+
+    def call(self, data, **kwargs):
+        # assert len(data.shape) == 3, data.shape
+        dtype = data.dtype
+        data = tf.cast(data, tf.float32)
+        data = tf.expand_dims(data, -1)
+        adj = data - self.mus
+        out = tf.exp(-0.5 * adj * adj / self.sigmas / self.sigmas)
+        out = tf.cast(out, dtype)
+        return tf.transpose(out, perm=self.permute)
