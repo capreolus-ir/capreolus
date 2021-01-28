@@ -67,7 +67,13 @@ class FAISSSearcher(Searcher):
         self.build_encoder(fold)
         topics = load_trec_topics(topicsfn)
         # TODO: Use the test qids in the below line
-        qids = sorted([qid for qid in self.benchmark.folds[fold]["predict"]["dev"]])
+        qids = []
+        # for qid in sorted([qid for qid in self.benchmark.folds[fold]["predict"]["test"]]):
+        #    qids.append(qid)
+
+        for qid in sorted([qid for qid in self.benchmark.folds[fold]["predict"]["dev"]]):
+            qids.append(qid)
+
         qid_query = sorted([(qid, topics["title"][qid]) for qid in qids])
         tokenizer = self.index.encoder.extractor.tokenizer
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")

@@ -166,13 +166,14 @@ def search_best_run(runfile_dirs, benchmark, primary_metric, metrics=None, folds
     test_runs = {}
     for s, score_dict in best_scores.items():
         test_qids = folds[s]["predict"]["dev"]
-        # any empty (no results) queries need to be added so they contribute zeros to the average
-        logger.error("Filtering for test qids")
-        test_runs = {qid: docids_to_score for qid, docids_to_score in score_dict["runs"].items() if qid in test_qids}
 
-    logger.error("About to evaluate the dev set for BM25")
-    scores = eval_runs(test_runs, dev_qrels, metrics, benchmark.relevance_level)
-    logger.error("evaluated the dev set for BM25")
+        # any empty (no results) queries need to be added so they contribute zeros to the average
+        # test_runs = {qid: docids_to_score for qid, docids_to_score in score_dict["runs"].items() if qid in test_qids}
+        test_runs.update({qid: docids_to_score for qid, docids_to_score in Searcher.load_trec_run(score_dict["path"]).items() if qid in test_qids})
+
+    scores = eval_runs(test_runs, benchmark.qrels, metrics, benchmark.relevance_level)
+    logger.info("calculated test_run scores for folds: {}".format(best_scores.keys()))
+
     return {"score": scores, "path": {s: v["path"] for s, v in best_scores.items()}}
 
 

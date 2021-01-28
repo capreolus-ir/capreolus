@@ -119,7 +119,7 @@ class FAISSIndex(Index):
             collection_docids, None, self.encoder.extractor, relevance_level=self.benchmark.relevance_level
         )
 
-        BATCH_SIZE = 8
+        BATCH_SIZE = 64
         dataloader = torch.utils.data.DataLoader(
             dataset, batch_size=BATCH_SIZE, pin_memory=True, num_workers=0
         )
@@ -142,9 +142,9 @@ class FAISSIndex(Index):
             with torch.no_grad():
                 doc_emb = self.encoder.encode(batch["posdoc"]).cpu().numpy()
             # self.doc_embs.append((batch["posdocid"], doc_emb))
-            assert doc_emb.shape == (BATCH_SIZE, self.encoder.hidden_size)
+            # assert doc_emb.shape == (BATCH_SIZE, self.encoder.hidden_size)
 
-            faiss_ids_for_batch = np.array(faiss_ids_for_batch, dtype=np.long).reshape(BATCH_SIZE, )
+            faiss_ids_for_batch = np.array(faiss_ids_for_batch, dtype=np.long).reshape(-1, )
             faiss_index.add_with_ids(doc_emb, faiss_ids_for_batch)
 
         pickle.dump(doc_id_to_faiss_id, open("doc_id_to_faiss_id.dump", "wb"), protocol=-1)
@@ -169,18 +169,25 @@ class FAISSIndex(Index):
         best_search_run_path = rank_results["path"][fold]
         best_search_run = Searcher.load_trec_run(best_search_run_path)
         # TODO: Look at the test set instead of dev
-        dev_run = {qid: docs for qid, docs in best_search_run.items() if
-                   qid in self.benchmark.folds[fold]["predict"]["dev"]}
+        #dev_run = {qid: docs for qid, docs in best_search_run.items() if
+        #           qid in self.benchmark.folds[fold]["predict"]["test"] or qid in self.benchmark.folds[fold]["predict"]["dev"]}
+        dev_run = {qid: docs for qid, docs in best_search_run.items() if qid in self.benchmark.folds[fold]["predict"]["dev"]}
         faiss_id_to_doc_id = pickle.load(open("faiss_id_to_doc_id.dump", "rb"))
         num_queries, num_neighbours = results.shape
 
+        miss_count = 0
         for i in range(num_queries):
             qid = qid_query[i][0]
             for j, faiss_id in enumerate(results[i]):
                 if faiss_id == -1:
                     continue
                 doc_id = faiss_id_to_doc_id[faiss_id]
-                distances[i][j] = lambda_test * dev_run[qid].get(doc_id, 0) + distances[i, j]
+                if qid in dev_run:
+                    distances[i][j] = lambda_test * dev_run[qid].get(doc_id, 0) + distances[i, j]
+                else:
+                    miss_count += 1
+
+        logger.error("{} out of {} qids were missing during reweighting".format(miss_count, len(qid_query)))
 
         return distances
 
@@ -220,13 +227,18 @@ class FAISSIndex(Index):
         run = {}
         faiss_logger.debug("Starting manual search")
 
-        for i, (qid, query) in enumerate(qid_query):
-            assert qid in self.benchmark.folds[fold]["predict"]["dev"]
+        missing_count = 0
+        for i, (qid, query) in tqdm(enumerate(qid_query), desc="Manual search"):
+            assert qid in self.benchmark.folds[fold]["predict"]["test"] or qid in self.benchmark.folds[fold]["predict"]["dev"]
+            if qid not in dev_run:
+                missing_count += 1
+                continue
 
-            query_emb = topic_vectors[i].reshape(self.encoder.model.hidden_size)
+            query_emb = topic_vectors[i].reshape(768)
+
             for doc_id in dev_run[qid].keys():
                 faiss_id = doc_id_to_faiss_id[doc_id]
-                doc_emb = faiss_index.reconstruct(faiss_id).reshape(self.encoder.model.hidden_size)
+                doc_emb = faiss_index.reconstruct(faiss_id).reshape(768)
                 score = F.cosine_similarity(torch.from_numpy(query_emb), torch.from_numpy(doc_emb), dim=0)
                 score = score.numpy().astype(np.float16).item()
                 results[qid].append((score, doc_id))
@@ -247,6 +259,7 @@ class FAISSIndex(Index):
         # pickle.dump(run, open("manual_run.dump", "wb"), protocol=-1)
         metrics = evaluator.eval_runs(run, self.benchmark.qrels, evaluator.DEFAULT_METRICS, self.benchmark.relevance_level)
         faiss_logger.info("Fold %s manual metrics: %s", fold, " ".join([f"{metric}={v:0.3f}" for metric, v in sorted(metrics.items())]))
+        faiss_logger.info("{} out of {} qids were missing".format(missing_count, len(qid_query)))
 
         return output_path
 
