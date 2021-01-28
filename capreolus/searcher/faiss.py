@@ -70,7 +70,7 @@ class FAISSSearcher(Searcher):
         topics = load_trec_topics(topicsfn)
         # TODO: Use the test qids in the below line
 
-        qid_query = sorted([(qid, query) for qid, query in topics["title"]])
+        qid_query = sorted([(qid, query) for qid, query in topics["title"].items()])
         tokenizer = self.index.encoder.extractor.tokenizer
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
