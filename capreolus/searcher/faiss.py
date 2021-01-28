@@ -2,7 +2,7 @@ import torch
 import pickle
 import os
 import numpy as np
-from capreolus import ConfigOption, Dependency, constants
+from capreolus import ConfigOption, Dependency, constants, evaluator
 from capreolus.utils.trec import load_trec_topics
 from capreolus import get_logger
 
@@ -74,7 +74,8 @@ class FAISSSearcher(Searcher):
         for qid in sorted([qid for qid in self.benchmark.folds[fold]["predict"]["dev"]]):
             qids.append(qid)
 
-        qid_query = sorted([(qid, topics["title"][qid]) for qid in qids])
+        qids = set(qids)
+        qid_query = sorted([(qid, topics["title"][qid]) for qid in list(qids)])
         tokenizer = self.index.encoder.extractor.tokenizer
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -95,17 +96,22 @@ class FAISSSearcher(Searcher):
         trec_string = "{qid} 0 {doc_id} {rank} {score} faiss\n"
         num_queries, num_neighbours = results.shape
         assert num_queries == len(qid_query)
+        run = {}
 
         os.makedirs(output_path, exist_ok=True)
         with open(os.path.join(output_path, "faiss.run"), "w") as f:
             for i in range(num_queries):
                 faiss_ids = results[i][results[i] > -1]
                 qid = qid_query[i][0]
-
                 for j, faiss_id in enumerate(faiss_ids):
                     doc_id = faiss_id_to_doc_id[faiss_id]
+                    run[qid] = {}
+                    run[qid][doc_id] = float(distances[i][j])
                     f.write(trec_string.format(qid=qid, doc_id=doc_id, rank=j+1, score=distances[i][j]))
 
-        faiss_logger.debug("The search results in TREC format are at: {}".format(output_path))
+
+        metrics = evaluator.eval_runs(run, self.benchmark.qrels, evaluator.DEFAULT_METRICS, self.benchmark.relevance_level)
+        faiss_logger.info("FAISS metrics: %s", " ".join([f"{metric}={v:0.3f}" for metric, v in sorted(metrics.items())]))
+        # faiss_logger.debug("The search results in TREC format are at: {}".format(output_path))
 
         return output_path

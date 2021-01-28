@@ -89,7 +89,7 @@ def get_logger(name=None):
     named_logger = logging.getLogger(name)
     if name == "capreolus.faiss":
         named_logger.handlers = []
-        faiss_log_file = logging.FileHandler("faiss.log")
+        faiss_log_file = logging.FileHandler(os.environ.get("CAPREOLUS_FAISS_LOG", "faiss.log"))
         named_logger.addHandler(faiss_log_file)
         named_logger.setLevel(logging.DEBUG)
         named_logger.propagate = False

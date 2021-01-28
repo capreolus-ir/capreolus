@@ -226,6 +226,7 @@ class FAISSIndex(Index):
         results = defaultdict(list)
         run = {}
         faiss_logger.debug("Starting manual search")
+        faiss_logger.debug("qid_query is {}".format(qid_query))
 
         missing_count = 0
         for i, (qid, query) in tqdm(enumerate(qid_query), desc="Manual search"):
