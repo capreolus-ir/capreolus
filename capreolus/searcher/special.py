@@ -20,11 +20,11 @@ class MsmarcoPsgSearcherMixin:
             for line in f:
                 if train:
                     qid, pos_pid, neg_pid = line.strip().split("\t")
-                    runs[qid][pos_pid] = len(runs.get(qid, {}).get(pos_pid, {}))
-                    runs[qid][neg_pid] = len(runs.get(qid, {}).get(neg_pid, []))
+                    runs[qid][pos_pid] = len(runs.get(qid, {}))
+                    runs[qid][neg_pid] = len(runs.get(qid, {}))
                 else:
                     qid, pid, _, _ = line.strip().split("\t")
-                    runs[qid][pid] = len(runs.get(qid).get(qid, {}))
+                    runs[qid][pid] = len(runs.get(qid))
         return runs
 
     @staticmethod
