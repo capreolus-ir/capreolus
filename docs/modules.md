@@ -200,6 +200,14 @@ For a complete list of modules, run the command `capreolus modules` or see the <
 .. note:: Rerankers are implemented in PyTorch or TensorFlow. Rerankers with TensorFlow implementations can run on both GPUs and TPUs.
 ```
 
+### CEDR-KNRM
+```eval_rst
+.. autoapiclass:: capreolus.reranker.CEDRKNRM.CEDRKNRM
+   :noindex:
+
+   .. autoapiattribute:: module_name
+      :noindex:
+```
 
 ### CDSSM
 ```eval_rst
@@ -326,6 +334,16 @@ For a complete list of modules, run the command `capreolus modules` or see the <
    .. autoapiattribute:: module_name
       :noindex:
 ```
+
+### TensorFlow CEDR-KNRM
+```eval_rst
+.. autoapiclass:: capreolus.reranker.TFCEDRKNRM.TFCEDRKNRM
+   :noindex:
+
+   .. autoapiattribute:: module_name
+      :noindex:
+```
+
 
 ### TensorFlow PARADE
 ```eval_rst

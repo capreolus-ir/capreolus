@@ -171,6 +171,15 @@ class CEDRKNRM_Class(nn.Module):
 
 @Reranker.register
 class CEDRKNRM(Reranker):
+    """
+    PyTorch implementation of CEDR-KNRM.
+    Equivalant to BERT-KNRM when cls=None.
+
+    CEDR: Contextualized Embeddings for Document Ranking
+    Sean MacAvaney, Andrew Yates, Arman Cohan, and Nazli Goharian. SIGIR 2019.
+    https://arxiv.org/pdf/1904.07094
+    """
+
     module_name = "CEDRKNRM"
 
     dependencies = [
