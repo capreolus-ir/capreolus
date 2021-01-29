@@ -5,7 +5,7 @@ optimize=ndcg_cut_20
 benchmark.name=robust04.yang19
 rank.searcher.name=bm25staticrob04yang19
 
-reranker.name=CEDRKNRM
+reranker.name=TFCEDRKNRM
 reranker.pretrained=electra-base-msmarco
 reranker.gradkernels=True
 reranker.simmat_layers=0..12,1
@@ -23,13 +23,13 @@ reranker.trainer.niters=36
 reranker.trainer.itersize=4096
 
 reranker.trainer.decay=0.1
-reranker.trainer.decaystep=10
+reranker.trainer.decayiters=10
 reranker.trainer.decaytype=linear
-reranker.trainer.warmupsteps=8
-reranker.trainer.softmaxloss=False
+reranker.trainer.warmupiters=8
 reranker.trainer.lr=2e-5
 
 reranker.trainer.validatefreq=1
-reranker.trainer.batch=8
-reranker.trainer.amp=both
-reranker.trainer.multithread=False
+reranker.trainer.batch=2
+reranker.trainer.evalbatch=128
+reranker.trainer.amp=True
+reranker.trainer.usecache=True
