@@ -2,7 +2,7 @@ import os
 import json
 
 import numpy as np
-from capreolus import ModuleBase, get_logger
+from capreolus import Dependency, ModuleBase, get_logger
 
 logger = get_logger(__name__)  # pylint: disable=invalid-name
 
@@ -16,6 +16,12 @@ class Trainer(ModuleBase):
     """
 
     module_type = "trainer"
+    dependencies = [
+        Dependency(
+            key="benchmark", module="benchmark", name="robust04.yang19", provide_this=True, provide_children=["collection"]
+        ),
+    ]
+
     requires_random_seed = True
 
     @staticmethod

@@ -21,6 +21,9 @@ class SlowEmbedText(Extractor):
     requires_random_seed = True
     dependencies = [
         Dependency(
+            key="benchmark", module="benchmark", name="robust04.yang19", provide_this=True, provide_children=["collection"]
+        ),
+        Dependency(
             key="index", module="index", name="anserini", default_config_overrides={"indexstops": True, "stemmer": "none"}
         ),
         Dependency(key="tokenizer", module="tokenizer", name="anserini"),
