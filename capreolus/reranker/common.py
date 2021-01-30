@@ -142,6 +142,8 @@ class SimilarityMatrix(torch.nn.Module):
         return simmat
 
 
+# TODO replace this with newer ONIR version?
+# https://github.com/Georgetown-IR-Lab/OpenNIR/blob/ca14dfa5e7cfef3fbbb35efbb4e7df0f1fbde590/onir/modules/interaction_matrix.py#L27
 class StackedSimilarityMatrix(torch.nn.Module):
     # based on SimmatModule from https://github.com/Georgetown-IR-Lab/cedr/blob/master/modeling_util.py
     # which is copyright (c) 2019 Georgetown Information Retrieval Lab, MIT license
