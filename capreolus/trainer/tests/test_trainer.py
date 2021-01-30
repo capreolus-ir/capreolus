@@ -48,7 +48,8 @@ def test_tf_get_tf_dataset(monkeypatch):
             "tpuname": None,
             "tpuzone": None,
             "storage": None,
-        }
+        },
+        benchmark,
     )
 
     tf_record_filenames = trainer.convert_to_tf_train_record(reranker, train_dataset)
@@ -95,7 +96,7 @@ def test_tf_find_cached_tf_records(monkeypatch, dummy_index):
 
     reranker = TFKNRM(
         {"gradkernels": True, "finetune": False, "trainer": {"niters": 1, "itersize": 24, "batch": 6}},
-        provide={"index": dummy_index},
+        provide={"index": dummy_index, "benchmark": benchmark},
     )
     reranker.extractor.preprocess(["301"], ["LA010189-0001", "LA010189-0002"], benchmark.topics[benchmark.query_type])
     train_dataset.prepare(train_run, benchmark.qrels, extractor)
