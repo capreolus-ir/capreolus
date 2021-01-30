@@ -186,7 +186,7 @@ class PytorchTrainer(Trainer):
             self.amp_train_autocast = contextlib.nullcontext
             self.scaler = None
 
-        # REF-TODO how to handle interactions between fastforward and schedule?
+        # REF-TODO how to handle interactions between fastforward and schedule? --> just save its state
         self.lr_scheduler = torch.optim.lr_scheduler.LambdaLR(self.optimizer, self.lr_multiplier)
 
         if self.config["softmaxloss"]:
