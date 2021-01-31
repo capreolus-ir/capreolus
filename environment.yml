@@ -48,3 +48,4 @@ dependencies:
     - xxhash
     - annoy
     - fasteners
+    - smart_open
