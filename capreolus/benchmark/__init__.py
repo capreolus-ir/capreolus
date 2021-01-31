@@ -1,6 +1,8 @@
 import json
+import os
 
 from capreolus import ModuleBase
+from capreolus.utils.caching import cached_file, TargetFileExists
 from capreolus.utils.trec import load_qrels, load_trec_topics
 
 
@@ -40,6 +42,42 @@ class Benchmark(ModuleBase):
         if not hasattr(self, "_folds"):
             self._folds = json.load(open(self.fold_file, "rt"), parse_int=str)
         return self._folds
+
+    def get_topics_file(self, query_sets=None):
+        """Returns path to a topics file in TSV format containing queries from query_sets.
+        query_sets may contain any combination of 'train', 'dev', and 'test'.
+        All are returned if query_sets is None."""
+
+        if query_sets:
+            query_sets = set(query_sets)
+            invalid = query_sets - {"train", "test", "dev"}
+            if invalid:
+                raise ValueError(f"query_sets contains invalid fold names: {invalid}")
+            query_sets = "_".join(sorted(query_sets))
+
+            valid_qids = set()
+            if "train" in query_sets:
+                valid_qids.update(self.folds["train_qids"])
+            if "dev" in query_sets:
+                valid_qids.update(self.folds["predict"]["dev"])
+            if "test" in query_sets:
+                valid_qids.update(self.folds["predict"]["test"])
+        else:
+            query_sets = "all"
+            valid_qids = None
+
+        fn = self.get_cache_path() / f"topics-{query_sets}.tsv"
+
+        try:
+            with cached_file(fn) as tmp_fn:
+                with open(tmp_fn, "wt") as outf:
+                    for qid, query in self.topics[self.query_type].items():
+                        if query_sets == "all" or qid in valid_qids:
+                            print(f"{qid}\t{query}", file=outf)
+        except TargetFileExists as e:
+            pass
+
+        return fn
 
 
 from profane import import_all_modules
