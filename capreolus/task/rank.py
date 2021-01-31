@@ -86,7 +86,11 @@ class RankTask(Task):
             fold = task.benchmark.config["fold"]
             all_evals[fold] = task.evaluate()
             fold_results = TrecRun(all_evals[fold]["test_path"])
-            all_results = all_results.union_qids(fold_results)
+
+            # union_qids complains when fold_results contains the same qids, so we skip calling it to handle
+            # static run files, which have the same fold_results for every fold.
+            if fold_results != all_results:
+                all_results = all_results.union_qids(fold_results)
 
         metrics = self.config["metrics"] if list(self.config["metrics"]) != ["default"] else evaluator.DEFAULT_METRICS
         all_evals["score"] = all_results.evaluate(self.benchmark.qrels, metrics, self.benchmark.relevance_level)

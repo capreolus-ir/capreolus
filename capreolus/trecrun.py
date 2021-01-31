@@ -180,7 +180,12 @@ class TrecRun:
     def __len__(self):
         return sum(len(x) for x in self.results.values())
 
-    def write_trec_run(self, outfn):
+    def __eq__(self, other):
+        if isinstance(other, TrecRun):
+            return self.results == other.results
+        return NotImplemented
+
+    def write_trec_run(self, outfn, tag="capreolus"):
         preds = self.results
         count = 0
         with open(outfn, "wt") as outf:
@@ -188,11 +193,11 @@ class TrecRun:
             for qid in qids:
                 rank = 1
                 for docid, score in sorted(preds[qid].items(), key=lambda x: x[1], reverse=True):
-                    print(f"{qid} Q0 {docid} {rank} {score} capreolus", file=outf)
+                    print(f"{qid} Q0 {docid} {rank} {score} {tag}", file=outf)
                     rank += 1
                     count += 1
 
-    def remove_documents(self, qrels):
+    def remove_unjudged_documents(self, qrels):
         results = {
             qid: {docid: score for docid, score in self.results[qid].items() if docid in qrels[qid]} for qid in self.results
         }
