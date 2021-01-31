@@ -27,6 +27,7 @@ class CodeSearchNetCorpus(Benchmark):
 
     module_name = "codesearchnet_corpus"
     dependencies = [Dependency(key="collection", module="collection", name="codesearchnet")]
+    config_spec = [ConfigOption("fold", "s1", "fold to run")]
     url = "https://s3.amazonaws.com/code-search-net/CodeSearchNet/v2"
     query_type = "title"
 
@@ -187,7 +188,10 @@ class CodeSearchNetChallenge(Benchmark):
 
     module_name = "codesearchnet_challenge"
     dependencies = [Dependency(key="collection", module="collection", name="codesearchnet")]
-    config_spec = [ConfigOption("lang", "ruby", "CSN language dataset to use")]
+    config_spec = [
+        ConfigOption("lang", "ruby", "CSN language dataset to use"),
+        ConfigOption("fold", "s1", "fold to run"),
+    ]
 
     url = "https://raw.githubusercontent.com/github/CodeSearchNet/master/resources/queries.csv"
     query_type = "title"

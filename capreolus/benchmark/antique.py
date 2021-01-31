@@ -1,4 +1,4 @@
-from capreolus import Dependency, constants
+from capreolus import ConfigOption, Dependency, constants
 from capreolus.utils.loginit import get_logger
 
 from . import Benchmark
@@ -16,6 +16,7 @@ class ANTIQUE(Benchmark):
 
     module_name = "antique"
     dependencies = [Dependency(key="collection", module="collection", name="antique")]
+    config_spec = [ConfigOption("fold", "s1", "fold to run")]
     qrel_file = PACKAGE_PATH / "data" / "qrels.antique.txt"
     topic_file = PACKAGE_PATH / "data" / "topics.antique.txt"
     fold_file = PACKAGE_PATH / "data" / "antique.json"

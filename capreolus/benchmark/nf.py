@@ -21,13 +21,18 @@ class NF(Benchmark):
     module_name = "nf"
     dependencies = [Dependency(key="collection", module="collection", name="nf")]
     config_spec = [
-        ConfigOption(key="labelrange", default_value="0-2", description="range of dataset qrels, options: 0-2, 1-3"),
+        ConfigOption(
+            key="labelrange",
+            default_value="0-2",
+            description="range of dataset qrels, options: 0-2, 1-3",
+        ),
         ConfigOption(
             key="fields",
             default_value="all_titles",
             description="query fields included in topic file, "
             "options: 'all_fields', 'all_titles', 'nontopics', 'vid_title', 'vid_desc'",
         ),
+        ConfigOption("fold", "s1", "fold to run"),
     ]
 
     fold_file = PACKAGE_PATH / "data" / "nf.json"

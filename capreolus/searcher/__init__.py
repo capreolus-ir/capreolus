@@ -58,31 +58,7 @@ class Searcher(ModuleBase):
         return self._query_from_file(topicsfn, output_path, self.config)
 
     def query(self, query, **kwargs):
-        """
-        search document based on given query, using parameters in config as default
-        """
-        config = {k: kwargs.get(k, self.config[k]) for k in self.config}
-
-        cache_dir = self.get_cache_path()
-        cache_dir.mkdir(exist_ok=True)
-        topic_fn, runfile_dir = cache_dir / "topic.txt", cache_dir / "runfiles"
-
-        fake_qid = "1"
-        with open(topic_fn, "w", encoding="utf-8") as f:
-            f.write(topic_to_trectxt(fake_qid, query))
-
-        self._query_from_file(topic_fn, runfile_dir, config)
-
-        runfile_fns = [f for f in os.listdir(runfile_dir) if f != "done"]
-        config2runs = {}
-        for runfile in runfile_fns:
-            runfile_fn = runfile_dir / runfile
-            runs = self.load_trec_run(runfile_fn)
-            config2runs[runfile.replace("searcher_", "")] = OrderedDict(runs[fake_qid])
-            os.remove(runfile_fn)  # remove it in case the file accumulate
-        os.remove(runfile_dir / "done")
-
-        return config2runs["searcher"] if len(config2runs) == 1 else config2runs
+        raise NotImplementedError()
 
 
 from profane import import_all_modules

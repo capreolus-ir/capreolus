@@ -28,7 +28,11 @@ class COVID(Benchmark):
     lastest_round = 5
     query_type = "title"
 
-    config_spec = [ConfigOption("udelqexpand", False), ConfigOption("useprevqrels", True)]
+    config_spec = [
+        ConfigOption("udelqexpand", False),
+        ConfigOption("useprevqrels", True),
+        ConfigOption("fold", "s1", "fold to run"),
+    ]
 
     def build(self):
         if self.collection.config["round"] == self.lastest_round and not self.config["useprevqrels"]:
@@ -188,7 +192,10 @@ class CovidQA(Benchmark):
 
     datadir = PACKAGE_PATH / "data" / "covidqa"
 
-    config_spec = [ConfigOption("version", "0.1+0.2")]
+    config_spec = [
+        ConfigOption("version", "0.1+0.2"),
+        ConfigOption("fold", "s1", "fold to run"),
+    ]
 
     def build(self):
         os.makedirs(self.datadir, exist_ok=True)

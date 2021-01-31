@@ -14,38 +14,43 @@ searchers = set(module_registry.get_module_names("searcher")) - skip_searchers
 
 
 @pytest.mark.parametrize("searcher_name", searchers)
-def test_searcher_runnable(tmpdir_as_cache, tmpdir, dummy_index, searcher_name):
-    topics_fn = DummyBenchmark.topic_file
-    searcher = Searcher.create(searcher_name, provide={"index": dummy_index})
-    output_dir = searcher.query_from_file(topics_fn, os.path.join(searcher.get_cache_path(), DummyBenchmark.module_name))
+def test_searcher_fit_runnable(tmpdir_as_cache, tmpdir, dummy_index, searcher_name):
+    benchmark = DummyBenchmark()
+    searcher = Searcher.create(searcher_name, provide=[benchmark, dummy_index])
+    output_dir = searcher.fit()
     assert os.path.exists(os.path.join(output_dir, "done"))
 
 
 @pytest.mark.parametrize("searcher_name", searchers)
 def test_searcher_query(tmpdir_as_cache, tmpdir, dummy_index, searcher_name):
-    topics_fn = DummyBenchmark.topic_file
-    query = list(load_trec_topics(topics_fn)["title"].values())[0]
+    benchmark = DummyBenchmark()
     nhits = 1
-    searcher = Searcher.create(searcher_name, config={"hits": nhits}, provide={"index": dummy_index})
-    results = searcher.query(query)
+    searcher = Searcher.create(searcher_name, config={"hits": nhits}, provide=[benchmark, dummy_index])
+
+    # SPL currently broken
     if searcher_name == "SPL":
-        # if searcher_name != "BM25":
         return
 
-    print(results.values())
-    if isinstance(list(results.values())[0], dict):
-        assert all(len(d) == nhits for d in results.values())
-    else:
-        assert len(results) == nhits
+    # test manual querying
+    query = list(benchmark.topics[benchmark.query_type].values())[0]
+    results = searcher.query(query)
+    for runtag in results:
+        assert len(results[runtag]["1"]) == nhits
+
+    # empty query
+    with pytest.raises(RuntimeError):
+        searcher.query("")
+
+    # querying from benchmark
+    output_dir = searcher.query_from_benchmark()
+    assert os.path.exists(os.path.join(output_dir, "done"))
 
 
-def test_searcher_bm25(tmpdir_as_cache, tmpdir, dummy_index):
-    searcher = BM25(provide={"index": dummy_index})
-    topics_fn = DummyBenchmark.topic_file
+def test_searcher_bm25_scores(tmpdir_as_cache, tmpdir, dummy_index):
+    benchmark = DummyBenchmark()
+    searcher = BM25(provide=[benchmark, dummy_index])
 
-    output_dir = searcher.query_from_file(topics_fn, os.path.join(searcher.get_cache_path(), DummyBenchmark.module_name))
-
-    assert output_dir == os.path.join(searcher.get_cache_path(), DummyBenchmark.module_name)
+    output_dir = searcher.fit()
 
     with open(os.path.join(output_dir, "searcher"), "r") as fp:
         file_contents = fp.readlines()
@@ -54,13 +59,12 @@ def test_searcher_bm25(tmpdir_as_cache, tmpdir, dummy_index):
 
 
 def test_searcher_bm25_grid(tmpdir_as_cache, tmpdir, dummy_index):
-    searcher = BM25Grid(provide={"index": dummy_index})
+    benchmark = DummyBenchmark()
+    searcher = BM25Grid(provide=[benchmark, dummy_index])
     bs = np.around(np.arange(0.1, 1 + 0.1, 0.1), 1)
     k1s = np.around(np.arange(0.1, 1 + 0.1, 0.1), 1)
-    topics_fn = DummyBenchmark.topic_file
 
-    output_dir = searcher.query_from_file(topics_fn, os.path.join(searcher.get_cache_path(), DummyBenchmark.module_name))
-    assert output_dir == os.path.join(searcher.get_cache_path(), DummyBenchmark.module_name)
+    output_dir = searcher.fit()
 
     for k1 in k1s:
         for b in bs:
