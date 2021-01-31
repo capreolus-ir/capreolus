@@ -66,14 +66,13 @@ def new_similarity_matrix_tf(query_embed, doc_embed, query_tok, doc_tok, padding
     batch, qlen, dims = query_embed.shape
     doclen = doc_embed.shape[1]
 
-    # TODO apply mask for use in stuff other than KNRM
     query_embed = tf.reshape(tf.nn.l2_normalize(query_embed, axis=-1), [batch, qlen, 1, dims])
-    # query_padding = tf.reshape(tf.cast(query_tok != padding, query_embed.dtype), [batch, qlen, 1, 1])
-    # query_embed = query_embed * query_padding
+    query_padding = tf.reshape(tf.cast(query_tok != padding, query_embed.dtype), [batch, qlen, 1, 1])
+    query_embed = query_embed * query_padding
 
     doc_embed = tf.reshape(tf.nn.l2_normalize(doc_embed, axis=-1), [batch, 1, doclen, dims])
-    # doc_padding = tf.reshape(tf.cast(doc_tok != padding, doc_embed.dtype), [batch, 1, doclen, 1])
-    # doc_embed = doc_embed * doc_padding
+    doc_padding = tf.reshape(tf.cast(doc_tok != padding, doc_embed.dtype), [batch, 1, doclen, 1])
+    doc_embed = doc_embed * doc_padding
 
     simmat = tf.reduce_sum(query_embed * doc_embed, axis=-1, keepdims=True)
     return simmat
