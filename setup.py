@@ -78,6 +78,7 @@ setuptools.setup(
         "beautifulsoup4",
         "lxml",
         "scispacy",
+        "smart_open",
         "spacy",
         "pandas",
     ],
