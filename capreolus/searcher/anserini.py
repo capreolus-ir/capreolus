@@ -25,11 +25,6 @@ class AnseriniSearcherMixIn:
         if not os.path.exists(topicsfn):
             raise IOError(f"could not find topics file: {topicsfn}")
 
-        # for covid:
-        field2querytype = {"query": "title", "question": "description", "narrative": "narrative"}
-        for k, v in field2querytype.items():
-            topicfield = topicfield.replace(k, v)
-
         donefn = os.path.join(output_base_path, "done")
         if os.path.exists(donefn):
             logger.debug(f"skipping Anserini SearchCollection call because path already exists: {donefn}")
@@ -52,15 +47,13 @@ class AnseriniSearcherMixIn:
             "-Dapp.name=SearchCollection",
             "io.anserini.search.SearchCollection",
             "-topicreader",
-            "Trec",
+            "TsvString",
             "-index",
             index_path,
             "-topics",
             topicsfn,
             "-output",
             output_path,
-            "-topicfield",
-            topicfield,
             "-inmem",
             "-threads",
             str(MAX_THREADS),
@@ -153,7 +146,7 @@ class PostprocessMixin:
 
 
 @Searcher.register
-class BM25(Searcher, AnseriniSearcherMixIn):
+class BM25(AnseriniSearcherMixIn, Searcher):
     """ Anserini BM25. This searcher's parameters can also be specified as lists indicating parameters to grid search (e.g., ``"0.4,0.6,0.8,1.0"`` or ``"0.4..1,0.2"``). """
 
     module_name = "BM25"
@@ -163,7 +156,6 @@ class BM25(Searcher, AnseriniSearcherMixIn):
         ConfigOption("k1", 0.9, "controls term saturation", value_type="floatlist"),
         ConfigOption("b", 0.4, "controls document length normalization", value_type="floatlist"),
         ConfigOption("hits", 1000, "number of results to return"),
-        ConfigOption("fields", "title"),
     ]
 
     def _query_from_file(self, topicsfn, output_path, config):
@@ -185,7 +177,7 @@ class BM25(Searcher, AnseriniSearcherMixIn):
 
 
 @Searcher.register
-class BM25Grid(Searcher, AnseriniSearcherMixIn):
+class BM25Grid(AnseriniSearcherMixIn, Searcher):
     """ Deprecated. BM25 with a grid search for k1 and b. Search is from 0.1 to bmax/k1max in 0.1 increments """
 
     module_name = "BM25Grid"
@@ -194,7 +186,6 @@ class BM25Grid(Searcher, AnseriniSearcherMixIn):
         ConfigOption("k1max", 1.0, "maximum k1 value to include in grid search (starting at 0.1)"),
         ConfigOption("bmax", 1.0, "maximum b value to include in grid search (starting at 0.1)"),
         ConfigOption("hits", 1000, "number of results to return"),
-        ConfigOption("fields", "title"),
     ]
 
     def _query_from_file(self, topicsfn, output_path, config):
@@ -211,7 +202,7 @@ class BM25Grid(Searcher, AnseriniSearcherMixIn):
 
 
 @Searcher.register
-class BM25RM3(Searcher, AnseriniSearcherMixIn):
+class BM25RM3(AnseriniSearcherMixIn, Searcher):
     """ Anserini BM25 with RM3 expansion. This searcher's parameters can also be specified as lists indicating parameters to grid search (e.g., ``"0.4,0.6,0.8,1.0"`` or ``"0.4..1,0.2"``). """
 
     module_name = "BM25RM3"
@@ -223,7 +214,6 @@ class BM25RM3(Searcher, AnseriniSearcherMixIn):
         ConfigOption("fbDocs", [5, 10], "number of documents used for feedback", value_type="intlist"),
         ConfigOption("originalQueryWeight", [0.5], "the weight of unexpended query", value_type="floatlist"),
         ConfigOption("hits", 1000, "number of results to return"),
-        ConfigOption("fields", "title"),
     ]
 
     def _query_from_file(self, topicsfn, output_path, config):
@@ -250,7 +240,6 @@ class BM25PostProcess(BM25, PostprocessMixin):
         ConfigOption("b", 0.4, "controls document length normalization", value_type="floatlist"),
         ConfigOption("hits", 1000, "number of results expected from the core searcher"),
         ConfigOption("topn", 1000, "number of results expected after the filtering (if any)"),
-        ConfigOption("fields", "title"),
         ConfigOption("dedup", False),
     ]
 
@@ -289,7 +278,7 @@ class StaticBM25RM3Rob04Yang19(Searcher):
 
 
 @Searcher.register
-class BM25PRF(Searcher, AnseriniSearcherMixIn):
+class BM25PRF(AnseriniSearcherMixIn, Searcher):
     """ Anserini BM25 PRF. This searcher's parameters can also be specified as lists indicating parameters to grid search (e.g., ``"0.4,0.6,0.8,1.0"`` or ``"0.4..1,0.2"``). """
 
     module_name = "BM25PRF"
@@ -302,7 +291,6 @@ class BM25PRF(Searcher, AnseriniSearcherMixIn):
         ConfigOption("fbDocs", [5, 10, 15], "number of documents used for feedback", value_type="intlist"),
         ConfigOption("newTermWeight", [0.2, 0.25], value_type="floatlist"),
         ConfigOption("hits", 1000, "number of results to return"),
-        ConfigOption("fields", "title"),
     ]
 
     def _query_from_file(self, topicsfn, output_path, config):
@@ -322,7 +310,7 @@ class BM25PRF(Searcher, AnseriniSearcherMixIn):
 
 
 @Searcher.register
-class AxiomaticSemanticMatching(Searcher, AnseriniSearcherMixIn):
+class AxiomaticSemanticMatching(AnseriniSearcherMixIn, Searcher):
     """ Anserini BM25 with Axiomatic query expansion. This searcher's parameters can also be specified as lists indicating parameters to grid search (e.g., ``"0.4,0.6,0.8,1.0"`` or ``"0.4..1,0.2"``). """
 
     module_name = "axiomatic"
@@ -335,7 +323,6 @@ class AxiomaticSemanticMatching(Searcher, AnseriniSearcherMixIn):
         ConfigOption("beta", 0.4, value_type="floatlist"),
         ConfigOption("top", 20, value_type="intlist"),
         ConfigOption("hits", 1000, "number of results to return"),
-        ConfigOption("fields", "title"),
     ]
 
     def _query_from_file(self, topicsfn, output_path, config):
@@ -352,7 +339,7 @@ class AxiomaticSemanticMatching(Searcher, AnseriniSearcherMixIn):
 
 
 @Searcher.register
-class DirichletQL(Searcher, AnseriniSearcherMixIn):
+class DirichletQL(AnseriniSearcherMixIn, Searcher):
     """ Anserini QL with Dirichlet smoothing. This searcher's parameters can also be specified as lists indicating parameters to grid search (e.g., ``"0.4,0.6,0.8,1.0"`` or ``"0.4..1,0.2"``). """
 
     module_name = "DirichletQL"
@@ -361,7 +348,6 @@ class DirichletQL(Searcher, AnseriniSearcherMixIn):
     config_spec = [
         ConfigOption("mu", 1000, "smoothing parameter", value_type="intlist"),
         ConfigOption("hits", 1000, "number of results to return"),
-        ConfigOption("fields", "title"),
     ]
 
     def _query_from_file(self, topicsfn, output_path, config):
@@ -383,7 +369,7 @@ class DirichletQL(Searcher, AnseriniSearcherMixIn):
 
 
 @Searcher.register
-class QLJM(Searcher, AnseriniSearcherMixIn):
+class QLJM(AnseriniSearcherMixIn, Searcher):
     """ Anserini QL with Jelinek-Mercer smoothing. This searcher's parameters can also be specified as lists indicating parameters to grid search (e.g., ``"0.4,0.6,0.8,1.0"`` or ``"0.4..1,0.2"``). """
 
     module_name = "QLJM"
@@ -391,7 +377,6 @@ class QLJM(Searcher, AnseriniSearcherMixIn):
     config_spec = [
         ConfigOption("lam", 0.1, value_type="floatlist"),
         ConfigOption("hits", 1000, "number of results to return"),
-        ConfigOption("fields", "title"),
     ]
 
     def _query_from_file(self, topicsfn, output_path, config):
@@ -403,7 +388,7 @@ class QLJM(Searcher, AnseriniSearcherMixIn):
 
 
 @Searcher.register
-class INL2(Searcher, AnseriniSearcherMixIn):
+class INL2(AnseriniSearcherMixIn, Searcher):
     """ Anserini I(n)L2 scoring model. This searcher does not support list parameters. """
 
     module_name = "INL2"
@@ -411,7 +396,6 @@ class INL2(Searcher, AnseriniSearcherMixIn):
     config_spec = [
         ConfigOption("c", 0.1),  # array input of this parameter is not support by anserini.SearchCollection
         ConfigOption("hits", 1000, "number of results to return"),
-        ConfigOption("fields", "title"),
     ]
 
     def _query_from_file(self, topicsfn, output_path, config):
@@ -421,7 +405,7 @@ class INL2(Searcher, AnseriniSearcherMixIn):
 
 
 @Searcher.register
-class SPL(Searcher, AnseriniSearcherMixIn):
+class SPL(AnseriniSearcherMixIn, Searcher):
     """
     Anserini SPL scoring model. This searcher does not support list parameters.
     """
@@ -432,7 +416,6 @@ class SPL(Searcher, AnseriniSearcherMixIn):
     config_spec = [
         ConfigOption("c", 0.1),  # array input of this parameter is not support by anserini.SearchCollection
         ConfigOption("hits", 1000, "number of results to return"),
-        ConfigOption("fields", "title"),
     ]
 
     def _query_from_file(self, topicsfn, output_path, config):
@@ -444,7 +427,7 @@ class SPL(Searcher, AnseriniSearcherMixIn):
 
 
 @Searcher.register
-class F2Exp(Searcher, AnseriniSearcherMixIn):
+class F2Exp(AnseriniSearcherMixIn, Searcher):
     """
     F2Exp scoring model. This searcher does not support list parameters.
     """
@@ -455,7 +438,6 @@ class F2Exp(Searcher, AnseriniSearcherMixIn):
     config_spec = [
         ConfigOption("s", 0.5),  # array input of this parameter is not support by anserini.SearchCollection
         ConfigOption("hits", 1000, "number of results to return"),
-        ConfigOption("fields", "title"),
     ]
 
     def _query_from_file(self, topicsfn, output_path, config):
@@ -467,7 +449,7 @@ class F2Exp(Searcher, AnseriniSearcherMixIn):
 
 
 @Searcher.register
-class F2Log(Searcher, AnseriniSearcherMixIn):
+class F2Log(AnseriniSearcherMixIn, Searcher):
     """
     F2Log scoring model. This searcher does not support list parameters.
     """
@@ -478,7 +460,6 @@ class F2Log(Searcher, AnseriniSearcherMixIn):
     config_spec = [
         ConfigOption("s", 0.5),  # array input of this parameter is not support by anserini.SearchCollection
         ConfigOption("hits", 1000, "number of results to return"),
-        ConfigOption("fields", "title"),
     ]
 
     def _query_from_file(self, topicsfn, output_path, config):
@@ -490,7 +471,7 @@ class F2Log(Searcher, AnseriniSearcherMixIn):
 
 
 @Searcher.register
-class SDM(Searcher, AnseriniSearcherMixIn):
+class SDM(AnseriniSearcherMixIn, Searcher):
     """
     Anserini BM25 with the Sequential Dependency Model. This searcher supports list parameters for only k1 and b.
     """
@@ -506,7 +487,6 @@ class SDM(Searcher, AnseriniSearcherMixIn):
         ConfigOption("ow", 0.15, "ordered window weight"),
         ConfigOption("uw", 0.05, "unordered window weight"),
         ConfigOption("hits", 1000, "number of results to return"),
-        ConfigOption("fields", "title"),
     ]
 
     def _query_from_file(self, topicsfn, output_path, config):

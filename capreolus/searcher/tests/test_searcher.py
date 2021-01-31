@@ -15,7 +15,7 @@ searchers = set(module_registry.get_module_names("searcher")) - skip_searchers
 
 @pytest.mark.parametrize("searcher_name", searchers)
 def test_searcher_runnable(tmpdir_as_cache, tmpdir, dummy_index, searcher_name):
-    topics_fn = DummyBenchmark.topic_file
+    topics_fn = DummyBenchmark.get_topics_file()
     searcher = Searcher.create(searcher_name, provide={"index": dummy_index})
     output_dir = searcher.query_from_file(topics_fn, os.path.join(searcher.get_cache_path(), DummyBenchmark.module_name))
     assert os.path.exists(os.path.join(output_dir, "done"))
@@ -23,7 +23,7 @@ def test_searcher_runnable(tmpdir_as_cache, tmpdir, dummy_index, searcher_name):
 
 @pytest.mark.parametrize("searcher_name", searchers)
 def test_searcher_query(tmpdir_as_cache, tmpdir, dummy_index, searcher_name):
-    topics_fn = DummyBenchmark.topic_file
+    topics_fn = DummyBenchmark.get_topics_file()
     query = list(load_trec_topics(topics_fn)["title"].values())[0]
     nhits = 1
     searcher = Searcher.create(searcher_name, config={"hits": nhits}, provide={"index": dummy_index})
@@ -41,7 +41,7 @@ def test_searcher_query(tmpdir_as_cache, tmpdir, dummy_index, searcher_name):
 
 def test_searcher_bm25(tmpdir_as_cache, tmpdir, dummy_index):
     searcher = BM25(provide={"index": dummy_index})
-    topics_fn = DummyBenchmark.topic_file
+    topics_fn = DummyBenchmark.get_topics_file()
 
     output_dir = searcher.query_from_file(topics_fn, os.path.join(searcher.get_cache_path(), DummyBenchmark.module_name))
 
@@ -57,7 +57,7 @@ def test_searcher_bm25_grid(tmpdir_as_cache, tmpdir, dummy_index):
     searcher = BM25Grid(provide={"index": dummy_index})
     bs = np.around(np.arange(0.1, 1 + 0.1, 0.1), 1)
     k1s = np.around(np.arange(0.1, 1 + 0.1, 0.1), 1)
-    topics_fn = DummyBenchmark.topic_file
+    topics_fn = DummyBenchmark.get_topics_file()
 
     output_dir = searcher.query_from_file(topics_fn, os.path.join(searcher.get_cache_path(), DummyBenchmark.module_name))
     assert output_dir == os.path.join(searcher.get_cache_path(), DummyBenchmark.module_name)
