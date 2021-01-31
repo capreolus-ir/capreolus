@@ -187,7 +187,9 @@ class PytorchTrainer(Trainer):
             self.scaler = None
 
         # REF-TODO how to handle interactions between fastforward and schedule? --> just save its state
-        self.lr_scheduler = torch.optim.lr_scheduler.LambdaLR(self.optimizer, self.lr_multiplier)
+        self.lr_scheduler = torch.optim.lr_scheduler.LambdaLR(
+            self.optimizer, lambda epoch: self.lr_multiplier(step=epoch * self.n_batch_per_iter)
+        )
 
         if self.config["softmaxloss"]:
             self.loss = pair_softmax_loss
