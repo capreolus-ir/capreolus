@@ -179,6 +179,7 @@ class TensorflowTrainer(Trainer):
         total_loss = 0
         iter_bar = tqdm(total=self.config["itersize"])
 
+        best_trec_preds = {}
         initial_lr = self.change_lr(epoch, self.config["bertlr"])
         K.set_value(optimizer_2.lr, K.get_value(initial_lr))
         train_records = train_records.shuffle(100000)
@@ -221,17 +222,21 @@ class TensorflowTrainer(Trainer):
                         for p in pred_batch:
                             dev_predictions.extend(p)
 
-                    metrics = evaluate_fn(self.get_preds_in_trec_format(dev_predictions, dev_data))
+                    trec_preds = self.get_preds_in_trec_format(dev_predictions, dev_data)
+                    metrics = evaluate_fn(trec_preds)
                     logger.info("dev metrics: %s", " ".join([f"{metric}={v:0.3f}" for metric, v in sorted(metrics.items())]))
                     if metrics[metric] > best_metric:
                         best_metric = metrics[metric]
                         logger.info("new best dev metric: %0.4f", best_metric)
                         wrapped_model.save_weights("{0}/dev.best".format(train_output_path))
+                        Searcher.write_trec_run(trec_preds, dev_output_path / "best")
+                        best_trec_preds = trec_preds
 
                 iter_bar = tqdm(total=self.config["itersize"])
 
             if num_batches >= self.config["niters"] * self.config["itersize"]:
                 break
+        return best_trec_preds
 
     def predict(self, reranker, pred_data, pred_fn):
         pred_records = self.get_tf_dev_records(reranker, pred_data)
