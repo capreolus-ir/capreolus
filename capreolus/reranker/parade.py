@@ -1,6 +1,6 @@
 import tensorflow as tf
 from transformers import TFBertModel, TFElectraModel
-from transformers.models.bert.modeling_tf_bert import TFBertLayer
+from transformers.modeling_tf_bert import TFBertLayer
 
 from capreolus import ConfigOption, Dependency
 from capreolus.reranker import Reranker
