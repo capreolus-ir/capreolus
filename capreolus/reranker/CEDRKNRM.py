@@ -139,7 +139,11 @@ class CEDRKNRM_Class(nn.Module):
         bert_segments = bert_segments.view((batch_size * self.num_passages, self.maxseqlen))
 
         # get BERT embeddings (including CLS) for each passage
-        bert_output, all_layer_output = self.bert(bert_input, attention_mask=bert_mask, token_type_ids=bert_segments)
+        # TODO switch to hgf's ModelOutput after bumping tranformers version
+        outputs = self.bert(bert_input, attention_mask=bert_mask, token_type_ids=bert_segments)
+        if self.config["pretrained"].startswith("bert-"):
+            outputs = (outputs[0], outputs[2])
+        bert_output, all_layer_output = outputs
 
         # average CLS embeddings to create the CLS feature
         cls = bert_output[:, 0, :]
