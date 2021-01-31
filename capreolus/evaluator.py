@@ -41,7 +41,7 @@ def judged(qrels, runs, n):
             continue
 
         topn = sorted(rundocs.keys(), key=rundocs.get, reverse=True)[:n]
-        score = sum(docid in qrels[q] for docid in topn) / len(topn)
+        score = sum(docid in qrels.get(q, {}) for docid in topn) / len(topn)
         scores.append(score)
 
     return sum(scores) / len(scores)
