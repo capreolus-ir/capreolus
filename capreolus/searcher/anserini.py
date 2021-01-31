@@ -1,5 +1,6 @@
 import math
 import os
+import shutil
 import subprocess
 import tempfile
 from collections import OrderedDict
@@ -18,6 +19,36 @@ MAX_THREADS = constants["MAX_THREADS"]
 
 def list2str(l, delimiter="-"):
     return delimiter.join(str(x) for x in l)
+
+
+class StaticSearcherMixIn:
+    """ MixIn for static run files """
+
+    dependencies = []
+
+    def _query_from_file(self, topicsfn, output_path, config):
+        raise NotImplementedError()
+
+    def query(self, *args, **kwargs):
+        raise NotImplementedError("this searcher uses a static run file, so it cannot handle new queries")
+
+    def _static_path(self, output_path):
+        outfn = os.path.join(output_path, "static.run")
+        os.makedirs(output_path, exist_ok=True)
+        if not os.path.exists(outfn):
+            shutil.copy2(self.static_run_file, outfn)
+
+        return output_path
+
+    def fit(self, parent_dir=None):
+        parent_dir = parent_dir if parent_dir else constants["CACHE_BASE_PATH"]
+        output_dir = parent_dir / self.get_module_path() / "staticfit"
+        self.fit_results = self._static_path(output_dir)
+        return self.fit_results
+
+    def query_from_benchmark(self, parent_dir=None):
+        self.eval_results = self.fit(parent_dir=parent_dir)
+        return self.eval_results
 
 
 class AnseriniSearcherMixIn:
@@ -307,27 +338,14 @@ class BM25PostProcess(BM25, PostprocessMixin):
 
 
 @Searcher.register
-class StaticBM25RM3Rob04Yang19(Searcher):
+class StaticBM25RM3Rob04Yang19(StaticSearcherMixIn, Searcher):
     """Tuned BM25+RM3 run used by Yang et al. in [1]. This should be used only with a benchmark using the same folds and queries.
 
     [1] Wei Yang, Kuang Lu, Peilin Yang, and Jimmy Lin. Critically Examining the "Neural Hype": Weak Baselines and  the Additivity of Effectiveness Gains from Neural Ranking Models. SIGIR 2019.
     """
 
     module_name = "bm25staticrob04yang19"
-
-    def _query_from_file(self, topicsfn, output_path, config):
-        import shutil
-
-        outfn = os.path.join(output_path, "static.run")
-        os.makedirs(os.path.dirname(outfn), exist_ok=True)
-        if not os.path.exists(outfn):
-            os.makedirs(output_path, exist_ok=True)
-            shutil.copy2(constants["PACKAGE_PATH"] / "data" / "rob04_yang19_rm3.run", outfn)
-
-        return output_path
-
-    def query(self, *args, **kwargs):
-        raise NotImplementedError("this searcher uses a static run file, so it cannot handle new queries")
+    static_run_file = constants["PACKAGE_PATH"] / "data" / "rob04_yang19_rm3.run"
 
 
 @Searcher.register
