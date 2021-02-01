@@ -102,7 +102,9 @@ class IRDBenchmark(Benchmark):
         for name in self.ird_dataset_names:
             dataset = ir_datasets.load(name)
             for qrel in dataset.qrels_iter():
-                qrels.setdefault(qrel.query_id, {})[qrel.doc_id] = qrel.relevance
+                qrels.setdefault(qrel.query_id, {})
+                qrels[qrel.query_id][qrel.doc_id] = max(qrel.relevance, qrels[qrel.query_id].get(qrel.doc_id, -1))
+
         return qrels
 
     def ird_load_topics(self):
