@@ -9,7 +9,7 @@ from capreolus.searcher.anserini import BM25, BM25Grid, Searcher
 from capreolus.tests.common_fixtures import dummy_index, tmpdir_as_cache
 from capreolus.utils.trec import load_trec_topics
 
-skip_searchers = {"bm25staticrob04yang19", "BM25Grid", "BM25Postprocess", "axiomatic"}
+skip_searchers = {"bm25staticrob04yang19", "BM25Grid", "BM25Postprocess", "axiomatic", "msmarcopsg", "msmarcopsgbm25"}
 searchers = set(module_registry.get_module_names("searcher")) - skip_searchers
 
 
