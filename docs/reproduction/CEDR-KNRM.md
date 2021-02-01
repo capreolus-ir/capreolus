@@ -1,11 +1,11 @@
 # Capreolus: Reranking robust04 with CEDR-KNRM
 This page contains instructions for running CEDR-KNRM on the robust04 benchmark.
 
-[*CEDR: Contextualized Embeddings for Document Ranking*](https://arxiv.org/pdf/1904.07094.pd)f
+[*CEDR: Contextualized Embeddings for Document Ranking*](https://arxiv.org/pdf/1904.07094.pdf).
 Sean MacAvaney, Andrew Yates, Arman Cohan, and Nazli Goharian. SIGIR 2019.
 
 ## Setup
-Install Capreolus v0.2.6 or later. See the [installation guide](https://capreolus.ai/en/latest/installation.html) for help installing a release. To install from GitHub, see the [PARADE reproduction guide](https://github.com/capreolus-ir/capreolus/blob/master/docs/reproduction/PARADE.md).
+Install Capreolus v0.2.6 or later. See the [installation guide](https://capreolus.ai/en/latest/installation.html) for help installing a release. To install from GitHub, see the [PARADE guide](https://github.com/capreolus-ir/capreolus/blob/master/docs/reproduction/PARADE.md).
 
 ## Running CEDR-KNRM
 
@@ -38,7 +38,8 @@ When using a less powerful GPU or disabling mixed precision (`reranker.trainer.a
 3. Each command will take a few hours on a single V100 GPU. Per-fold metrics are displayed after each fold completes.
 4. When the final fold completes, cross-validated metrics are also displayed.
 
-Note that the Tensorflow implementation has only been tested on TPUs.
+Note that the Tensorflow implementation has primarily been tested on TPUs.
+
 
 ## Running BERT-KNRM, VanillaBERT, and other model variants
 
