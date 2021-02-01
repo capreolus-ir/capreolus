@@ -16,5 +16,3 @@ class Gov2(IRDCollection):
     module_name = "gov2"
     ird_dataset_name = "gov2"
     collection_type = "TrecwebCollection"
-
-    # TODO in download_if_missing, write out as json if that is the collection_type

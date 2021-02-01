@@ -1,7 +1,10 @@
+import json
 import os
+import shutil
+
 import ir_datasets
 
-from capreolus import ModuleBase
+from capreolus import ModuleBase, constants
 
 
 class Collection(ModuleBase):
@@ -113,7 +116,7 @@ class Collection(ModuleBase):
 class IRDCollection(Collection):
     """ Base class for collections supported by ir_datasets """
 
-    ird_dataset_name = "not set"
+    ird_dataset_name = None
     generator_type = "DefaultLuceneDocumentGenerator"
     _dataset = None
 
@@ -127,7 +130,33 @@ class IRDCollection(Collection):
         return self._dataset
 
     def download_if_missing(self):
-        return self.dataset.docs_path()
+        if self.collection_type != "JsonCollection":
+            return self.dataset.docs_path()
+
+        # write out collection as json
+        path = self.get_cache_path() / "json_corpus"
+        if not path.exists():
+            tmp_path = self.get_cache_path() / f"tmp_json_corpus_{os.getpid()}"
+            if tmp_path.exists():
+                shutil.rmtree(tmp_path)
+
+            os.makedirs(tmp_path, exist_ok=True)
+            self._save_ird_corpus(tmp_path)
+            shutil.move(tmp_path, path)
+        return path
+
+    def _save_ird_corpus(self, path):
+        file_count = max(128, constants["MAX_THREADS"])
+        fns = [open(path / f"{i}.json", "wt") for i in range(file_count)]
+        for i, doc in enumerate(self.dataset.docs_iter()):
+            fn = fns[i % file_count]
+            print(self.doc_as_json(doc), file=fn)
+
+        for fn in fns:
+            fn.close()
+
+    def doc_as_json(self, doc):
+        return json.dumps({"id": doc.doc_id, "contents": doc.body})
 
     def __iter__(self):
         return self.dataset.docs_iter()
