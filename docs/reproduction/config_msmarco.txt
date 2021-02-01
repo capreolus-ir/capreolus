@@ -1,4 +1,5 @@
 optimize=MRR@10
+threshold=1000
 
 benchmark.name=msmarcopsg
 rank.searcher.name=msmarcopsgbm25
