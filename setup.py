@@ -79,7 +79,7 @@ setuptools.setup(
         "lxml",
         "scispacy",
         "smart_open",
-        "spacy",
+        "spacy<3.0",
         "pandas",
     ],
     classifiers=["Programming Language :: Python :: 3", "Operating System :: OS Independent"],
