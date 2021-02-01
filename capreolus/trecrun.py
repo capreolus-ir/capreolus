@@ -18,7 +18,12 @@ class TrecRun:
                     fields = line.strip().split()
                     if len(fields) > 0:
                         qid, _, docid, rank, score = fields[:5]
-                        self.results.setdefault(qid, {})[docid] = float(score)
+                        score = float(score)
+                        self.results.setdefault(qid, {})
+
+                        if docid in self.results[qid]:
+                            score = max(score, self.results[qid][docid])
+                        self.results[qid][docid] = score
 
             if not self.results:
                 raise IOError("provided path contained no results: %s" % results)
