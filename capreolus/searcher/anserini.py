@@ -276,6 +276,29 @@ class StaticBM25RM3Rob04Yang19(Searcher):
 
 
 @Searcher.register
+class StaticBM25RM3Rob04Yang19Desc(Searcher):
+    """Tuned BM25+RM3 robust04 description run on the folds used by Yang et al. in [1]. This should be used only with a benchmark using the same folds and queries.
+
+    [1] Wei Yang, Kuang Lu, Peilin Yang, and Jimmy Lin. Critically Examining the "Neural Hype": Weak Baselines and  the Additivity of Effectiveness Gains from Neural Ranking Models. SIGIR 2019.
+    """
+
+    module_name = "bm25staticrob04yang19desc"
+
+    def _query_from_file(self, topicsfn, output_path, config):
+        import shutil
+
+        outfn = os.path.join(output_path, "static.run")
+        if not os.path.exists(outfn):
+            os.makedirs(output_path, exist_ok=True)
+            shutil.copy2(constants["PACKAGE_PATH"] / "data" / "data/rob04_yang19_desc_rm3.run", outfn)
+
+        return output_path
+
+    def query(self, *args, **kwargs):
+        raise NotImplementedError("this searcher uses a static run file, so it cannot handle new queries")
+
+
+@Searcher.register
 class BM25PRF(AnseriniSearcherMixIn, Searcher):
     """ Anserini BM25 PRF. This searcher's parameters can also be specified as lists indicating parameters to grid search (e.g., ``"0.4,0.6,0.8,1.0"`` or ``"0.4..1,0.2"``). """
 
@@ -366,10 +389,7 @@ class QLJM(AnseriniSearcherMixIn, Searcher):
     """ Anserini QL with Jelinek-Mercer smoothing. This searcher's parameters can also be specified as lists indicating parameters to grid search (e.g., ``"0.4,0.6,0.8,1.0"`` or ``"0.4..1,0.2"``). """
 
     module_name = "QLJM"
-    config_spec = [
-        ConfigOption("lam", 0.1, value_type="floatlist"),
-        ConfigOption("hits", 1000, "number of results to return"),
-    ]
+    config_spec = [ConfigOption("lam", 0.1, value_type="floatlist"), ConfigOption("hits", 1000, "number of results to return")]
 
     def _query_from_file(self, topicsfn, output_path, config):
         anserini_param_str = "-qljm -qljm.lambda {0} -hits {1}".format(list2str(config["lam"], delimiter=" "), config["hits"])
