@@ -1,4 +1,5 @@
 import os
+import ir_datasets
 
 from capreolus import ModuleBase
 
@@ -107,6 +108,29 @@ class Collection(ModuleBase):
         raise IOError(
             f"a download URL is not configured for collection={self.module_name} and the collection path does not exist; you must manually place the document collection at this path in order to use this collection"
         )
+
+
+class IRDCollection(Collection):
+    """ Base class for collections supported by ir_datasets """
+
+    ird_dataset_name = "not set"
+    generator_type = "DefaultLuceneDocumentGenerator"
+    _dataset = None
+
+    @property
+    def dataset(self):
+        if not self.ird_dataset_name:
+            raise ValueError("ird_dataset_name not set")
+
+        if not self._dataset:
+            self._dataset = ir_datasets.load(self.ird_dataset_name)
+        return self._dataset
+
+    def download_if_missing(self):
+        return self.dataset.docs_path()
+
+    def __iter__(self):
+        return self.dataset.docs_iter()
 
 
 from profane import import_all_modules

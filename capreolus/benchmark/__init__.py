@@ -1,6 +1,8 @@
 import json
 import os
 
+import ir_datasets
+
 from capreolus import ModuleBase
 from capreolus.utils.caching import cached_file, TargetFileExists
 from capreolus.utils.trec import load_qrels, load_trec_topics
@@ -78,6 +80,41 @@ class Benchmark(ModuleBase):
             pass
 
         return fn
+
+
+class IRDBenchmark(Benchmark):
+    ird_dataset_names = []
+
+    @property
+    def qrels(self):
+        if not hasattr(self, "_qrels"):
+            self._qrels = self.ird_load_qrels()
+        return self._qrels
+
+    @property
+    def topics(self):
+        if not hasattr(self, "_topics"):
+            self._topics = self.ird_load_topics()
+        return self._topics
+
+    def ird_load_qrels(self):
+        qrels = {}
+        for name in self.ird_dataset_names:
+            dataset = ir_datasets.load(name)
+            for qrel in dataset.qrels_iter():
+                qrels.setdefault(qrel.query_id, {})[qrel.doc_id] = qrel.relevance
+        return qrels
+
+    def ird_load_topics(self):
+        topics = {}
+        field = "description" if self.query_type == "desc" else self.query_type
+
+        for name in self.ird_dataset_names:
+            dataset = ir_datasets.load(name)
+            for query in dataset.queries_iter():
+                topics[query.query_id] = getattr(query, field)
+
+        return {field: topics}
 
 
 from profane import import_all_modules
