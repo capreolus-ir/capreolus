@@ -588,10 +588,10 @@ def test_bertpassage_build_vocab(monkeypatch):
 
     extractor._build_vocab(["301"], ["some_docid"], topics)
 
-    assert len(extractor.docid2passages["some_docid"]) == 5
+    assert len(extractor._get_passages("some_docid")) == 5
 
-    print(extractor.docid2passages["some_docid"])
-    assert extractor.docid2passages["some_docid"] == [
+    print(extractor._get_passages("some_docid"))
+    assert extractor._get_passages("some_docid") == [
         ["o", "that", "we", "now", "had"],
         ["now", "had", "here", "but", "one"],
         ["but", "one", "ten", "thousand", "of"],
