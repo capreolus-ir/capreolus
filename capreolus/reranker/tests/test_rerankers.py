@@ -8,7 +8,7 @@ import torch
 from pymagnitude import Magnitude
 
 import capreolus
-from capreolus import Reranker, module_registry
+from capreolus import Reranker, module_registry, evaluator
 from capreolus.benchmark import DummyBenchmark
 from capreolus.extractor.deeptileextractor import DeepTileExtractor
 from capreolus.extractor.embedtext import EmbedText
@@ -68,10 +68,14 @@ def test_knrm_pytorch(dummy_index, tmpdir, tmpdir_as_cache, monkeypatch):
     train_dataset = TrainTripletSampler()
     train_dataset.prepare(train_run, benchmark.qrels, extractor)
 
+    def local_evaluate_runs(runs):
+        dev_qrels = {qid: benchmark.qrels.get(qid, {}) for qid in benchmark.folds["s1"]["predict"]["dev"]}
+        return evaluator.eval_runs(runs, dev_qrels, evaluator.DEFAULT_METRICS, benchmark.relevance_level)
+
     dev_dataset = PredSampler()
     dev_dataset.prepare(train_run, benchmark.qrels, extractor)
     reranker.trainer.train(
-        reranker, train_dataset, Path(tmpdir) / "train", dev_dataset, Path(tmpdir) / "dev", benchmark.qrels, metric
+        reranker, train_dataset, Path(tmpdir) / "train", dev_dataset, Path(tmpdir) / "dev", metric, local_evaluate_runs
     )
 
     assert os.path.exists(Path(tmpdir) / "train" / "dev.best")
@@ -99,8 +103,13 @@ def test_knrm_tf(dummy_index, tmpdir, tmpdir_as_cache, monkeypatch):
     train_dataset.prepare(train_run, benchmark.qrels, extractor)
     dev_dataset = PredSampler()
     dev_dataset.prepare(train_run, benchmark.qrels, extractor)
+
+    def local_evaluate_runs(runs):
+        dev_qrels = {qid: benchmark.qrels.get(qid, {}) for qid in benchmark.folds["s1"]["predict"]["dev"]}
+        return evaluator.eval_runs(runs, dev_qrels, evaluator.DEFAULT_METRICS, benchmark.relevance_level)
+
     reranker.trainer.train(
-        reranker, train_dataset, Path(tmpdir) / "train", dev_dataset, Path(tmpdir) / "dev", benchmark.qrels, metric
+        reranker, train_dataset, Path(tmpdir) / "train", dev_dataset, Path(tmpdir) / "dev", metric, local_evaluate_runs
     )
 
     assert os.path.exists(Path(tmpdir) / "train" / "dev.best.index")
@@ -136,8 +145,13 @@ def test_knrm_tf_ce(dummy_index, tmpdir, tmpdir_as_cache, monkeypatch):
     train_dataset.prepare(train_run, benchmark.qrels, extractor)
     dev_dataset = PredSampler()
     dev_dataset.prepare(train_run, benchmark.qrels, extractor)
+
+    def local_evaluate_runs(runs):
+        dev_qrels = {qid: benchmark.qrels.get(qid, {}) for qid in benchmark.folds["s1"]["predict"]["dev"]}
+        return evaluator.eval_runs(runs, dev_qrels, evaluator.DEFAULT_METRICS, benchmark.relevance_level)
+
     reranker.trainer.train(
-        reranker, train_dataset, Path(tmpdir) / "train", dev_dataset, Path(tmpdir) / "dev", benchmark.qrels, metric
+        reranker, train_dataset, Path(tmpdir) / "train", dev_dataset, Path(tmpdir) / "dev", metric, local_evaluate_runs
     )
 
     assert os.path.exists(Path(tmpdir) / "train" / "dev.best.index")
@@ -174,8 +188,13 @@ def test_pacrr(dummy_index, tmpdir, tmpdir_as_cache, monkeypatch):
     train_dataset.prepare(train_run, benchmark.qrels, extractor)
     dev_dataset = PredSampler()
     dev_dataset.prepare(train_run, benchmark.qrels, extractor)
+
+    def local_evaluate_runs(runs):
+        dev_qrels = {qid: benchmark.qrels.get(qid, {}) for qid in benchmark.folds["s1"]["predict"]["dev"]}
+        return evaluator.eval_runs(runs, dev_qrels, evaluator.DEFAULT_METRICS, benchmark.relevance_level)
+
     reranker.trainer.train(
-        reranker, train_dataset, Path(tmpdir) / "train", dev_dataset, Path(tmpdir) / "dev", benchmark.qrels, metric
+        reranker, train_dataset, Path(tmpdir) / "train", dev_dataset, Path(tmpdir) / "dev", metric, local_evaluate_runs
     )
 
     assert os.path.exists(Path(tmpdir) / "train" / "dev.best")
@@ -195,8 +214,13 @@ def test_dssm_unigram(dummy_index, tmpdir, tmpdir_as_cache, monkeypatch):
     train_dataset.prepare(train_run, benchmark.qrels, extractor)
     dev_dataset = PredSampler()
     dev_dataset.prepare(train_run, benchmark.qrels, extractor)
+
+    def local_evaluate_runs(runs):
+        dev_qrels = {qid: benchmark.qrels.get(qid, {}) for qid in benchmark.folds["s1"]["predict"]["dev"]}
+        return evaluator.eval_runs(runs, dev_qrels, evaluator.DEFAULT_METRICS, benchmark.relevance_level)
+
     reranker.trainer.train(
-        reranker, train_dataset, Path(tmpdir) / "train", dev_dataset, Path(tmpdir) / "dev", benchmark.qrels, metric
+        reranker, train_dataset, Path(tmpdir) / "train", dev_dataset, Path(tmpdir) / "dev", metric, local_evaluate_runs
     )
 
     assert os.path.exists(Path(tmpdir) / "train" / "dev.best")
@@ -237,8 +261,13 @@ def test_tk(dummy_index, tmpdir, tmpdir_as_cache, monkeypatch):
     train_dataset.prepare(train_run, benchmark.qrels, extractor)
     dev_dataset = PredSampler()
     dev_dataset.prepare(train_run, benchmark.qrels, extractor)
+
+    def local_evaluate_runs(runs):
+        dev_qrels = {qid: benchmark.qrels.get(qid, {}) for qid in benchmark.folds["s1"]["predict"]["dev"]}
+        return evaluator.eval_runs(runs, dev_qrels, evaluator.DEFAULT_METRICS, benchmark.relevance_level)
+
     reranker.trainer.train(
-        reranker, train_dataset, Path(tmpdir) / "train", dev_dataset, Path(tmpdir) / "dev", benchmark.qrels, metric
+        reranker, train_dataset, Path(tmpdir) / "train", dev_dataset, Path(tmpdir) / "dev", metric, local_evaluate_runs
     )
 
     assert os.path.exists(Path(tmpdir) / "train" / "dev.best")
@@ -343,8 +372,13 @@ def test_deeptilebars(dummy_index, tmpdir, tmpdir_as_cache, monkeypatch):
     train_dataset.prepare(train_run, benchmark.qrels, extractor)
     dev_dataset = PredSampler()
     dev_dataset.prepare(train_run, benchmark.qrels, extractor)
+
+    def local_evaluate_runs(runs):
+        dev_qrels = {qid: benchmark.qrels.get(qid, {}) for qid in benchmark.folds["s1"]["predict"]["dev"]}
+        return evaluator.eval_runs(runs, dev_qrels, evaluator.DEFAULT_METRICS, benchmark.relevance_level)
+
     reranker.trainer.train(
-        reranker, train_dataset, Path(tmpdir) / "train", dev_dataset, Path(tmpdir) / "dev", benchmark.qrels, metric
+        reranker, train_dataset, Path(tmpdir) / "train", dev_dataset, Path(tmpdir) / "dev", metric, local_evaluate_runs
     )
 
     assert os.path.exists(Path(tmpdir) / "train" / "dev.best")
@@ -372,8 +406,13 @@ def test_HINT(dummy_index, tmpdir, tmpdir_as_cache, monkeypatch):
     train_dataset.prepare(train_run, benchmark.qrels, extractor)
     dev_dataset = PredSampler()
     dev_dataset.prepare(train_run, benchmark.qrels, extractor)
+
+    def local_evaluate_runs(runs):
+        dev_qrels = {qid: benchmark.qrels.get(qid, {}) for qid in benchmark.folds["s1"]["predict"]["dev"]}
+        return evaluator.eval_runs(runs, dev_qrels, evaluator.DEFAULT_METRICS, benchmark.relevance_level)
+
     reranker.trainer.train(
-        reranker, train_dataset, Path(tmpdir) / "train", dev_dataset, Path(tmpdir) / "dev", benchmark.qrels, metric
+        reranker, train_dataset, Path(tmpdir) / "train", dev_dataset, Path(tmpdir) / "dev", metric, local_evaluate_runs
     )
 
     assert os.path.exists(Path(tmpdir) / "train" / "dev.best")
@@ -398,8 +437,13 @@ def test_POSITDRMM(dummy_index, tmpdir, tmpdir_as_cache, monkeypatch):
     train_dataset.prepare(train_run, benchmark.qrels, extractor)
     dev_dataset = PredSampler()
     dev_dataset.prepare(train_run, benchmark.qrels, extractor)
+
+    def local_evaluate_runs(runs):
+        dev_qrels = {qid: benchmark.qrels.get(qid, {}) for qid in benchmark.folds["s1"]["predict"]["dev"]}
+        return evaluator.eval_runs(runs, dev_qrels, evaluator.DEFAULT_METRICS, benchmark.relevance_level)
+
     reranker.trainer.train(
-        reranker, train_dataset, Path(tmpdir) / "train", dev_dataset, Path(tmpdir) / "dev", benchmark.qrels, metric
+        reranker, train_dataset, Path(tmpdir) / "train", dev_dataset, Path(tmpdir) / "dev", metric, local_evaluate_runs
     )
 
     assert os.path.exists(Path(tmpdir) / "train" / "dev.best")
@@ -434,8 +478,13 @@ def test_CDSSM(dummy_index, tmpdir, tmpdir_as_cache, monkeypatch):
     train_dataset.prepare(train_run, benchmark.qrels, extractor)
     dev_dataset = PredSampler()
     dev_dataset.prepare(train_run, benchmark.qrels, extractor)
+
+    def local_evaluate_runs(runs):
+        dev_qrels = {qid: benchmark.qrels.get(qid, {}) for qid in benchmark.folds["s1"]["predict"]["dev"]}
+        return evaluator.eval_runs(runs, dev_qrels, evaluator.DEFAULT_METRICS, benchmark.relevance_level)
+
     reranker.trainer.train(
-        reranker, train_dataset, Path(tmpdir) / "train", dev_dataset, Path(tmpdir) / "dev", benchmark.qrels, metric
+        reranker, train_dataset, Path(tmpdir) / "train", dev_dataset, Path(tmpdir) / "dev", metric, local_evaluate_runs
     )
 
 
@@ -479,8 +528,13 @@ def test_tfvanillabert(dummy_index, tmpdir, tmpdir_as_cache, monkeypatch):
     train_dataset.prepare(train_run, benchmark.qrels, reranker.extractor)
     dev_dataset = PredSampler()
     dev_dataset.prepare(train_run, benchmark.qrels, reranker.extractor)
+
+    def local_evaluate_runs(runs):
+        dev_qrels = {qid: benchmark.qrels.get(qid, {}) for qid in benchmark.folds["s1"]["predict"]["dev"]}
+        return evaluator.eval_runs(runs, dev_qrels, evaluator.DEFAULT_METRICS, benchmark.relevance_level)
+
     reranker.trainer.train(
-        reranker, train_dataset, Path(tmpdir) / "train", dev_dataset, Path(tmpdir) / "dev", benchmark.qrels, "map"
+        reranker, train_dataset, Path(tmpdir) / "train", dev_dataset, Path(tmpdir) / "dev", "map", local_evaluate_runs
     )
 
 
@@ -524,8 +578,13 @@ def test_bertmaxp(dummy_index, tmpdir, tmpdir_as_cache, monkeypatch):
     train_dataset.prepare(train_run, benchmark.qrels, reranker.extractor)
     dev_dataset = PredSampler()
     dev_dataset.prepare(train_run, benchmark.qrels, reranker.extractor)
+
+    def local_evaluate_runs(runs):
+        dev_qrels = {qid: benchmark.qrels.get(qid, {}) for qid in benchmark.folds["s1"]["predict"]["dev"]}
+        return evaluator.eval_runs(runs, dev_qrels, evaluator.DEFAULT_METRICS, benchmark.relevance_level)
+
     reranker.trainer.train(
-        reranker, train_dataset, Path(tmpdir) / "train", dev_dataset, Path(tmpdir) / "dev", benchmark.qrels, "map"
+        reranker, train_dataset, Path(tmpdir) / "train", dev_dataset, Path(tmpdir) / "dev", "map", local_evaluate_runs
     )
 
 
@@ -570,8 +629,13 @@ def test_bertmaxp_ce(dummy_index, tmpdir, tmpdir_as_cache, monkeypatch):
     train_dataset.prepare(train_run, benchmark.qrels, reranker.extractor)
     dev_dataset = PredSampler()
     dev_dataset.prepare(train_run, benchmark.qrels, reranker.extractor)
+
+    def local_evaluate_runs(runs):
+        dev_qrels = {qid: benchmark.qrels.get(qid, {}) for qid in benchmark.folds["s1"]["predict"]["dev"]}
+        return evaluator.eval_runs(runs, dev_qrels, evaluator.DEFAULT_METRICS, benchmark.relevance_level)
+
     reranker.trainer.train(
-        reranker, train_dataset, Path(tmpdir) / "train", dev_dataset, Path(tmpdir) / "dev", benchmark.qrels, "map"
+        reranker, train_dataset, Path(tmpdir) / "train", dev_dataset, Path(tmpdir) / "dev", "map", local_evaluate_runs
     )
 
 
@@ -589,8 +653,13 @@ def test_birch(dummy_index, tmpdir, tmpdir_as_cache, monkeypatch):
     train_dataset.prepare(train_run, benchmark.qrels, extractor)
     dev_dataset = PredSampler()
     dev_dataset.prepare(train_run, benchmark.qrels, extractor)
+
+    def local_evaluate_runs(runs):
+        dev_qrels = {qid: benchmark.qrels.get(qid, {}) for qid in benchmark.folds["s1"]["predict"]["dev"]}
+        return evaluator.eval_runs(runs, dev_qrels, evaluator.DEFAULT_METRICS, benchmark.relevance_level)
+
     reranker.trainer.train(
-        reranker, train_dataset, Path(tmpdir) / "train", dev_dataset, Path(tmpdir) / "dev", benchmark.qrels, metric
+        reranker, train_dataset, Path(tmpdir) / "train", dev_dataset, Path(tmpdir) / "dev", metric, local_evaluate_runs
     )
 
 
@@ -611,8 +680,13 @@ def test_parade_maxp(dummy_index, tmpdir, tmpdir_as_cache, monkeypatch):
     train_dataset.prepare(train_run, benchmark.qrels, extractor)
     dev_dataset = PredSampler()
     dev_dataset.prepare(train_run, benchmark.qrels, extractor)
+
+    def local_evaluate_runs(runs):
+        dev_qrels = {qid: benchmark.qrels.get(qid, {}) for qid in benchmark.folds["s1"]["predict"]["dev"]}
+        return evaluator.eval_runs(runs, dev_qrels, evaluator.DEFAULT_METRICS, benchmark.relevance_level)
+
     reranker.trainer.train(
-        reranker, train_dataset, Path(tmpdir) / "train", dev_dataset, Path(tmpdir) / "dev", benchmark.qrels, metric
+        reranker, train_dataset, Path(tmpdir) / "train", dev_dataset, Path(tmpdir) / "dev", metric, local_evaluate_runs
     )
 
 
@@ -637,8 +711,13 @@ def test_parade_transformer(dummy_index, tmpdir, tmpdir_as_cache, monkeypatch):
     train_dataset.prepare(train_run, benchmark.qrels, extractor)
     dev_dataset = PredSampler()
     dev_dataset.prepare(train_run, benchmark.qrels, extractor)
+
+    def local_evaluate_runs(runs):
+        dev_qrels = {qid: benchmark.qrels.get(qid, {}) for qid in benchmark.folds["s1"]["predict"]["dev"]}
+        return evaluator.eval_runs(runs, dev_qrels, evaluator.DEFAULT_METRICS, benchmark.relevance_level)
+
     reranker.trainer.train(
-        reranker, train_dataset, Path(tmpdir) / "train", dev_dataset, Path(tmpdir) / "dev", benchmark.qrels, metric
+        reranker, train_dataset, Path(tmpdir) / "train", dev_dataset, Path(tmpdir) / "dev", metric, local_evaluate_runs
     )
 
 
@@ -682,6 +761,11 @@ def test_tfvanillabert(dummy_index, tmpdir, tmpdir_as_cache, monkeypatch):
     train_dataset.prepare(train_run, benchmark.qrels, reranker.extractor)
     dev_dataset = PredSampler()
     dev_dataset.prepare(train_run, benchmark.qrels, reranker.extractor)
+
+    def local_evaluate_runs(runs):
+        dev_qrels = {qid: benchmark.qrels.get(qid, {}) for qid in benchmark.folds["s1"]["predict"]["dev"]}
+        return evaluator.eval_runs(runs, dev_qrels, evaluator.DEFAULT_METRICS, benchmark.relevance_level)
+
     reranker.trainer.train(
-        reranker, train_dataset, Path(tmpdir) / "train", dev_dataset, Path(tmpdir) / "dev", benchmark.qrels, "map"
+        reranker, train_dataset, Path(tmpdir) / "train", dev_dataset, Path(tmpdir) / "dev", "map", local_evaluate_runs
     )
