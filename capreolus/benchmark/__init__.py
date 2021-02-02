@@ -114,9 +114,9 @@ class IRDBenchmark(Benchmark):
         for name in self.ird_dataset_names:
             dataset = ir_datasets.load(name)
             for query in dataset.queries_iter():
-                topics[query.query_id] = getattr(query, field)
+                topics[query.query_id] = getattr(query, field).replace("\n", " ")
 
-        return {field: topics}
+        return {self.query_type: topics}
 
 
 from profane import import_all_modules
