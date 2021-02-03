@@ -190,6 +190,20 @@ class FAISSIndex(Index):
 
         return distances, results
 
+    def manual_search_train_set(self, topic_vectors, qid_query, fold):
+        # Get the dev_run BM25 results for this fold.
+        rank_results = self.evaluate_bm25_search()
+        best_search_run_path = rank_results["path"][fold]
+        best_search_run = Searcher.load_trec_run(best_search_run_path)
+
+        bm25_train_run = {qid: docs_to_score for qid, docs_to_score in best_search_run.items() if
+                    qid in self.benchmark.folds[fold]["train_qids"]}
+
+        metrics = self.manual_search(topic_vectors, qid_query, bm25_train_run)
+
+        faiss_logger.info("Train Fold %s manual metrics: %s", fold,
+                          " ".join([f"{metric}={v:0.3f}" for metric, v in sorted(metrics.items())]))
+
     def manual_search_dev_set(self, topic_vectors, qid_query, fold):
         # Get the dev_run BM25 results for this fold.
         rank_results = self.evaluate_bm25_search()
@@ -257,7 +271,6 @@ class FAISSIndex(Index):
 
     def get_docs(self, doc_ids):
         return [self.index.get_doc(doc_id) for doc_id in doc_ids]
-
 
     def get_doc(self, docid):
         return self.index.get_doc(docid)

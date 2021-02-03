@@ -274,19 +274,22 @@ class ResidualTripletSampler(Sampler, TrainingSamplerMixin, torch.utils.data.Ite
     def prepare(self, trec_run, qrels, extractor, relevance_level=1, **kwargs):
         self.trec_run = trec_run
         self.extractor = extractor
-        self.qids = sorted([qid for qid in trec_run.keys() if qid in qrels])
+        self.qids = sorted([qid for qid in qrels.keys()])
 
         qid_to_reldocs = defaultdict(list)
         # We call these "noise docs" since we have no relevance labels for them.
         qid_to_negdocs = defaultdict(list)
 
+        for qid, doc_id_to_labels in qrels.items():
+            for doc_id, label in doc_id_to_labels.items():
+                if label >= relevance_level:
+                    qid_to_reldocs[qid].append(doc_id)
+
         for qid, doc_id_to_score in trec_run.items():
             if qid not in qrels:
                 continue
             for doc_id, score in doc_id_to_score.items():
-                if doc_id in qrels[qid] and qrels[qid][doc_id] >= relevance_level:
-                    qid_to_reldocs[qid].append(doc_id)
-                else:
+                if doc_id not in qid_to_reldocs[qid]:
                     qid_to_negdocs[qid].append(doc_id)
 
         self.qid_to_reldocs = qid_to_reldocs
@@ -309,8 +312,7 @@ class ResidualTripletSampler(Sampler, TrainingSamplerMixin, torch.utils.data.Ite
             self.rng.shuffle(all_qids)
 
             for qid in all_qids:
-                if qid not in self.qid_to_reldocs:
-                    continue
+                assert qid in self.qid_to_reldocs
 
                 posdocid = self.rng.choice(self.qid_to_reldocs[qid])
                 negdocid = self.rng.choice(self.qid_to_negdocs[qid])

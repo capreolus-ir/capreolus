@@ -42,7 +42,7 @@ class CLEAREncoder(Encoder):
         # = [1 - 1 + residual - cos(q, posdoc) + cos(q, negdoc)]
         # = [1 - [1 - residual + cos(q, posdoc)] + cos(q, negdoc)]
         #  ^ This is in the required form. Hence if we change the score from the posdoc a little bit, we can use the
-        # standard pairwise hinge function. Saves as an annoying if else condition in pytorchtrainer :)
+        # standard pairwise hinge function. Saves an annoying if else condition in pytorchtrainer :)
 
         posdoc_score = 1 - residual + F.cosine_similarity(query_emb, posdoc_emb)
         negdoc_score = F.cosine_similarity(query_emb, negdoc_emb)

@@ -35,9 +35,11 @@ class FAISSSearcher(Searcher):
 
         # A manual search is done over the docs in dev_run - this way for each qid, we only score the docids that BM25 retrieved for it
         topic_vectors, qid_query = self.create_topic_vectors(topicsfn, fold)
+        self.index.manual_search_train_set(topic_vectors, qid_query, fold)
         self.index.manual_search_dev_set(topic_vectors, qid_query, fold)
         self.index.manual_search_test_set(topic_vectors, qid_query, fold)
         distances, results = self.index.faiss_search(topic_vectors, 100, qid_query, fold)
+        self.calc_faiss_search_metrics_for_train_set(distances, results, qid_query, fold)
         self.calc_faiss_search_metrics_for_dev_set(distances, results, qid_query, fold)
         self.calc_faiss_search_metrics_for_test_set(distances, results, qid_query, fold)
         distances = distances.astype(np.float16)
@@ -103,6 +105,11 @@ class FAISSSearcher(Searcher):
                     f.write(trec_string.format(qid=qid, doc_id=doc_id, rank=j+1, score=distances[i][j]))
 
         return output_path
+
+    def calc_faiss_search_metrics_for_train_set(self, distances, results, qid_query, fold):
+        valid_qids = [qid for qid in self.benchmark.folds[fold]["train_qids"]]
+        metrics = self.calc_faiss_search_metrics(distances, results, qid_query, valid_qids)
+        faiss_logger.info("FAISS train set metrics: %s", " ".join([f"{metric}={v:0.3f}" for metric, v in sorted(metrics.items())]))
 
     def calc_faiss_search_metrics_for_dev_set(self, distances, results, qid_query, fold):
         valid_qids = [qid for qid in self.benchmark.folds[fold]["predict"]["dev"]]
