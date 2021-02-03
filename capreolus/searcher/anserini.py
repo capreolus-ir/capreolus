@@ -252,50 +252,59 @@ class BM25PostProcess(BM25, PostprocessMixin):
         return output_path
 
 
+class StaticRun(Searcher):
+    def _query_from_file(self, topicsfn, output_path, config):
+        import shutil
+
+        outfn = os.path.join(output_path, "static.run")
+        if not os.path.exists(outfn):
+            os.makedirs(output_path, exist_ok=True)
+            shutil.copy2(constants["PACKAGE_PATH"] / "data" / self.run_fn, outfn)
+
+        return output_path
+
+    def query(self, *args, **kwargs):
+        raise NotImplementedError("this searcher uses a static run file, so it cannot handle new queries")
+
+
 @Searcher.register
-class StaticBM25RM3Rob04Yang19(Searcher):
+class StaticBM25RM3Rob04Yang19(StaticRun):
     """Tuned BM25+RM3 run used by Yang et al. in [1]. This should be used only with a benchmark using the same folds and queries.
 
     [1] Wei Yang, Kuang Lu, Peilin Yang, and Jimmy Lin. Critically Examining the "Neural Hype": Weak Baselines and  the Additivity of Effectiveness Gains from Neural Ranking Models. SIGIR 2019.
     """
 
     module_name = "bm25staticrob04yang19"
-
-    def _query_from_file(self, topicsfn, output_path, config):
-        import shutil
-
-        outfn = os.path.join(output_path, "static.run")
-        if not os.path.exists(outfn):
-            os.makedirs(output_path, exist_ok=True)
-            shutil.copy2(constants["PACKAGE_PATH"] / "data" / "rob04_yang19_rm3.run", outfn)
-
-        return output_path
-
-    def query(self, *args, **kwargs):
-        raise NotImplementedError("this searcher uses a static run file, so it cannot handle new queries")
+    run_fn = "rob04_yang19_rm3.run"
 
 
 @Searcher.register
-class StaticBM25RM3Rob04Yang19Desc(Searcher):
+class StaticBM25RM3Rob04Yang19Desc(StaticRun):
     """Tuned BM25+RM3 robust04 description run on the folds used by Yang et al. in [1]. This should be used only with a benchmark using the same folds and queries.
 
     [1] Wei Yang, Kuang Lu, Peilin Yang, and Jimmy Lin. Critically Examining the "Neural Hype": Weak Baselines and  the Additivity of Effectiveness Gains from Neural Ranking Models. SIGIR 2019.
     """
 
     module_name = "bm25staticrob04yang19desc"
+    run_fn = "rob04_yang19_desc_rm3.run"
 
-    def _query_from_file(self, topicsfn, output_path, config):
-        import shutil
 
-        outfn = os.path.join(output_path, "static.run")
-        if not os.path.exists(outfn):
-            os.makedirs(output_path, exist_ok=True)
-            shutil.copy2(constants["PACKAGE_PATH"] / "data" / "rob04_yang19_desc_rm3.run", outfn)
+@Searcher.register
+class StaticBM25Gov2(StaticRun):
+    module_name = "bm25staticgov2"
+    run_fn = "gov2_bm25.run"
 
-        return output_path
 
-    def query(self, *args, **kwargs):
-        raise NotImplementedError("this searcher uses a static run file, so it cannot handle new queries")
+@Searcher.register
+class StaticBM25Gov2Desc(StaticRun):
+    module_name = "bm25staticgov2desc"
+    run_fn = "gov2_desc_bm25.run"
+
+
+@Searcher.register
+class StaticBM25Genomics(StaticRun):
+    module_name = "bm25staticgenomics"
+    run_fn = "genomics_bm25.run"
 
 
 @Searcher.register
