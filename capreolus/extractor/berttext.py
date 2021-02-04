@@ -82,7 +82,7 @@ class BertText(Extractor):
         tokenizer = self.tokenizer
 
         posdoc_toks = self.get_tokenized_doc(posid)[:510]
-        posdoc_toks = ["[DOC]"] + posdoc_toks + ["[SEP]"]
+        posdoc_toks = ["[CLS]"] + posdoc_toks + ["[SEP]"]
         posdoc = tokenizer.convert_tokens_to_ids(posdoc_toks)
         posdoc = padlist(posdoc, 512, 0)
 
@@ -96,7 +96,7 @@ class BertText(Extractor):
 
         if qid:
             query_toks = self.qid2toks[qid][:510]
-            query_toks = ["[QRY]"] + query_toks + ["[SEP]"]
+            query_toks = ["[CLS]"] + query_toks + ["[SEP]"]
             query = tokenizer.convert_tokens_to_ids(query_toks)
             query = padlist(query, 512, 0)
             data["qid"] = qid
@@ -107,7 +107,7 @@ class BertText(Extractor):
 
         if negid:
             negdoc_toks = self.get_tokenized_doc(negid)[:510]
-            negdoc_toks = ["[DOC]"] + negdoc_toks + ["[SEP]"]
+            negdoc_toks = ["[CLS]"] + negdoc_toks + ["[SEP]"]
             negdoc = tokenizer.convert_tokens_to_ids(negdoc_toks)
             negdoc = padlist(negdoc, 512, 0)
 

@@ -81,9 +81,10 @@ class FAISSSearcher(Searcher):
             for qid, query in qid_query:
                 query_toks = tokenizer.tokenize(query)[:510]
                 numericalized_query = tokenizer.convert_tokens_to_ids(["[CLS]"] + query_toks + ["[SEP]"])
+                mask = torch.tensor([1 if t != 0 else 0 for t in numericalized_query], dtype=torch.long)
                 numericalized_query = torch.tensor(numericalized_query).to(device)
                 numericalized_query = numericalized_query.reshape(1, -1)
-                topic_vector = self.index.encoder.encode(numericalized_query).cpu().numpy()
+                topic_vector = self.index.encoder.encode_query(numericalized_query, mask).cpu().numpy()
                 topic_vectors.append(topic_vector)
                 
         return np.concatenate(topic_vectors, axis=0), qid_query

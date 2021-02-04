@@ -92,29 +92,34 @@ class PytorchANNTrainer(Trainer):
         train_loss = []
         best_metric = -np.inf
 
-        for niter in range(self.config["niters"]):
-            encoder.model.train()
-            iter_start_time = time.time()
-            iter_loss_tensor = self.single_train_iteration(encoder, train_dataloader)
-            logger.info("A single iteration takes {}".format(time.time() - iter_start_time))
-            train_loss.append(iter_loss_tensor.item())
-            logger.info("iter = %d loss = %f", niter, train_loss[-1])
-            faiss_logger.info("iter = %d loss = %f", niter, train_loss[-1])
-
-            # if (niter + 1) % validation_frequency == 0:
-            #     val_preds = self.validate(encoder, dev_dataset)
-            #     metrics = evaluator.eval_runs(val_preds, qrels, evaluator.DEFAULT_METRICS, relevance_level)
-            #     logger.info("dev metrics: %s", " ".join([f"{metric}={v:0.3f}" for metric, v in sorted(metrics.items())]))
-            #     faiss_logger.info("dev metrics: %s", " ".join([f"{metric}={v:0.3f}" for metric, v in sorted(metrics.items())]))
-            #     # pickle.dump(val_preds, open("val_run.dump", "wb"), protocol=-1)
-            #     if metrics["ndcg_cut_20"] > best_metric:
-            #         logger.debug("Best val set so far! Saving checkpoint")
-            #         best_metric = metrics["ndcg_cut_20"]
-            #         weights_fn = output_path / "weights_{}".format(train_dataset.get_hash())
-            #         encoder.save_weights(weights_fn, self.optimizer)
-
+        if self.config["niters"] == 0:
+            # Useful when working with pre-trained weights
             weights_fn = output_path / "weights_{}".format(train_dataset.get_hash())
             encoder.save_weights(weights_fn, self.optimizer)
+        else:
+            for niter in range(self.config["niters"]):
+                encoder.model.train()
+                iter_start_time = time.time()
+                iter_loss_tensor = self.single_train_iteration(encoder, train_dataloader)
+                logger.info("A single iteration takes {}".format(time.time() - iter_start_time))
+                train_loss.append(iter_loss_tensor.item())
+                logger.info("iter = %d loss = %f", niter, train_loss[-1])
+                faiss_logger.info("iter = %d loss = %f", niter, train_loss[-1])
+
+                # if (niter + 1) % validation_frequency == 0:
+                #     val_preds = self.validate(encoder, dev_dataset)
+                #     metrics = evaluator.eval_runs(val_preds, qrels, evaluator.DEFAULT_METRICS, relevance_level)
+                #     logger.info("dev metrics: %s", " ".join([f"{metric}={v:0.3f}" for metric, v in sorted(metrics.items())]))
+                #     faiss_logger.info("dev metrics: %s", " ".join([f"{metric}={v:0.3f}" for metric, v in sorted(metrics.items())]))
+                #     # pickle.dump(val_preds, open("val_run.dump", "wb"), protocol=-1)
+                #     if metrics["ndcg_cut_20"] > best_metric:
+                #         logger.debug("Best val set so far! Saving checkpoint")
+                #         best_metric = metrics["ndcg_cut_20"]
+                #         weights_fn = output_path / "weights_{}".format(train_dataset.get_hash())
+                #         encoder.save_weights(weights_fn, self.optimizer)
+
+                weights_fn = output_path / "weights_{}".format(train_dataset.get_hash())
+                encoder.save_weights(weights_fn, self.optimizer)
 
     def validate(self, encoder, dev_dataset):
         encoder.model.eval()

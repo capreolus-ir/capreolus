@@ -139,7 +139,7 @@ class FAISSIndex(Index):
                 faiss_ids_for_batch.append(generated_faiss_id)
 
             with torch.no_grad():
-                doc_emb = self.encoder.encode(batch["posdoc"]).cpu().numpy()
+                doc_emb = self.encoder.encode_doc(batch["posdoc"], batch["posdoc_mask"]).cpu().numpy()
             # self.doc_embs.append((batch["posdocid"], doc_emb))
             # assert doc_emb.shape == (BATCH_SIZE, self.encoder.hidden_size)
 

@@ -110,9 +110,18 @@ class Encoder(ModuleBase):
         Initialize the PyTorch model
         """
         raise NotImplementedError
-    
-    def encode(self, numericalized_text):
-        return self.model(numericalized_text)
+
+    def encode_doc(self, numericalized_text, mask):
+        """
+        Override this if an encode needs to treat queries and documents differently (eg: RepBERT)
+        """
+        return self.encode(numericalized_text, mask)
+
+    def encode_query(self, numericalized_text, mask):
+        return self.encode(numericalized_text, mask)
+
+    def encode(self, numericalized_text, mask):
+        return self.model(numericalized_text, mask)
 
     def score(self, d):
         query = d["query"]
