@@ -13,6 +13,7 @@ class RepBERT_Class(BertPreTrainedModel):
     def __init__(self, config):
         super(RepBERT_Class, self).__init__(config)
         self.bert = BertModel(config)
+        self.hidden_size = self.bert.config.hidden_size
         self.init_weights()
 
     def _average_sequence_embeddings(self, sequence_output, valid_mask):
@@ -44,12 +45,13 @@ class RepBERT_Class(BertPreTrainedModel):
 @Encoder.register
 class RepBERTPretrained(Encoder):
     module_name = "repbertpretrained"
-    pretrained_weights_fn = "/GW/NeuralIR/nobackup/msmarco_saved/repbert.ckpt-350000"
+    pretrained_weights_fn = "/GW/NeuralIR/nobackup/kevin_cache/msmarco_saved/repbert.ckpt-350000"
 
     def instantiate_model(self):
         if not hasattr(self, "model"):
             config = BertConfig.from_pretrained(self.pretrained_weights_fn)
-            self.model = RepBERT_Class.from_pretrained(self.pretrained_weights_fn, config=config)
+            self.model = torch.nn.DataParallel(RepBERT_Class.from_pretrained(self.pretrained_weights_fn, config=config))
+            self.hidden_size = self.model.module.hidden_size
 
     def encode_doc(self, numericalized_text, mask):
         return self.model(numericalized_text, mask)
