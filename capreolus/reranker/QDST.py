@@ -2,7 +2,8 @@ import torch
 import pickle
 from torch import nn
 from transformers import LongformerModel
-from capreolus import Reranker, Dependency, ConfigOption
+from capreolus import Dependency, ConfigOption
+from capreolus.reranker import Reranker
 
 
 class QDSTPretrained_Class():
