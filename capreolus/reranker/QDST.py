@@ -60,7 +60,7 @@ class QDST(Reranker):
     pretrained_weights = "/GW/NeuralIR/nobackup/kevin_cache/msmarco_saved/qdst/qdst_model"
 
     dependencies = [
-        Dependency(key="extractor", module="extractor", name="pooledbertpassage"),
+        Dependency(key="extractor", module="extractor", name="qdst"),
         Dependency(key="trainer", module="trainer", name="pytorch"),
     ]
 

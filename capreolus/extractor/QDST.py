@@ -20,7 +20,7 @@ logger = get_logger(__name__)
 
 @Extractor.register
 class QDSExtractor(Extractor):
-    module_name = "qds"
+    module_name = "qdst"
     dependencies = [
         Dependency(
             key="index", module="index", name="anserini", default_config_overrides={"indexstops": True, "stemmer": "none"}
