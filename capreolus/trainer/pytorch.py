@@ -52,9 +52,6 @@ class PytorchTrainer(Trainer):
         if self.config["evalbatch"] < 0:
             raise ValueError("evalbatch must be 0 (to use the training batch size) or  >= 1")
 
-        if self.config["niters"] <= 0:
-            raise ValueError("niters must be > 0")
-
         if self.config["itersize"] < self.config["batch"]:
             raise ValueError("itersize must be >= batch")
 
@@ -225,49 +222,53 @@ class PytorchTrainer(Trainer):
                 logger.debug("fastforwarding train_dataloader to iteration %s", initial_iter)
                 self.exhaust_used_train_data(train_dataloader, n_batch_to_exhaust=initial_iter * self.n_batch_per_iter)
 
-        train_start_time = time.time()
-        for niter in range(initial_iter, self.config["niters"]):
-            niter = niter + 1  # index from 1
-            model.train()
+        if self.config["niters"] == 0:
+            reranker.save_weights(dev_best_weight_fn, self.optimizer)
+        else:
+            train_start_time = time.time()
+            for niter in range(initial_iter, self.config["niters"]):
+                niter = niter + 1  # index from 1
+                model.train()
 
-            iter_start_time = time.time()
-            iter_loss_tensor = self.single_train_iteration(reranker, train_dataloader)
-            logger.info("A single iteration takes {}".format(time.time() - iter_start_time))
-            train_loss.append(iter_loss_tensor.item())
-            logger.info("iter = %d loss = %f", niter, train_loss[-1])
+                iter_start_time = time.time()
+                iter_loss_tensor = self.single_train_iteration(reranker, train_dataloader)
+                logger.info("A single iteration takes {}".format(time.time() - iter_start_time))
+                train_loss.append(iter_loss_tensor.item())
+                logger.info("iter = %d loss = %f", niter, train_loss[-1])
 
-            # save model weights only when fastforward enabled
-            if self.config["fastforward"]:
-                weights_fn = weights_output_path / f"{niter}.p"
-                reranker.save_weights(weights_fn, self.optimizer)
+                # save model weights only when fastforward enabled
+                if self.config["fastforward"]:
+                    weights_fn = weights_output_path / f"{niter}.p"
+                    reranker.save_weights(weights_fn, self.optimizer)
 
-            # predict performance on dev set
-            if niter % self.config["validatefreq"] == 0:
-                pred_fn = dev_output_path / f"{niter}.run"
-                preds = self.predict(reranker, dev_data, pred_fn)
+                # predict performance on dev set
+                if niter % self.config["validatefreq"] == 0:
+                    pred_fn = dev_output_path / f"{niter}.run"
+                    preds = self.predict(reranker, dev_data, pred_fn)
 
-                # log dev metrics
-                metrics = evaluator.eval_runs(preds, qrels, evaluator.DEFAULT_METRICS, relevance_level)
-                logger.info("dev metrics: %s", " ".join([f"{metric}={v:0.3f}" for metric, v in sorted(metrics.items())]))
-                summary_writer.add_scalar("ndcg_cut_20", metrics["ndcg_cut_20"], niter)
-                summary_writer.add_scalar("map", metrics["map"], niter)
-                summary_writer.add_scalar("P_20", metrics["P_20"], niter)
-                # write best dev weights to file
-                if metrics[metric] > dev_best_metric:
-                    dev_best_metric = metrics[metric]
-                    logger.info("new best dev metric: %0.4f", dev_best_metric)
-                    reranker.save_weights(dev_best_weight_fn, self.optimizer)
-                    self.write_to_metric_file(metric_fn, metrics)
+                    # log dev metrics
+                    metrics = evaluator.eval_runs(preds, qrels, evaluator.DEFAULT_METRICS, relevance_level)
+                    logger.info("dev metrics: %s", " ".join([f"{metric}={v:0.3f}" for metric, v in sorted(metrics.items())]))
+                    summary_writer.add_scalar("ndcg_cut_20", metrics["ndcg_cut_20"], niter)
+                    summary_writer.add_scalar("map", metrics["map"], niter)
+                    summary_writer.add_scalar("P_20", metrics["P_20"], niter)
+                    # write best dev weights to file
+                    if metrics[metric] > dev_best_metric:
+                        dev_best_metric = metrics[metric]
+                        logger.info("new best dev metric: %0.4f", dev_best_metric)
+                        reranker.save_weights(dev_best_weight_fn, self.optimizer)
+                        self.write_to_metric_file(metric_fn, metrics)
 
-            # write train_loss to file
-            # loss_fn.write_text("\n".join(f"{idx} {loss}" for idx, loss in enumerate(train_loss)))
-            self.write_to_loss_file(loss_fn, train_loss)
+                # write train_loss to file
+                # loss_fn.write_text("\n".join(f"{idx} {loss}" for idx, loss in enumerate(train_loss)))
+                self.write_to_loss_file(loss_fn, train_loss)
 
-            summary_writer.add_scalar("training_loss", iter_loss_tensor.item(), niter)
-            reranker.add_summary(summary_writer, niter)
-            summary_writer.flush()
-        logger.info("training loss: %s", train_loss)
-        logger.info("Training took {}".format(time.time() - train_start_time))
+                summary_writer.add_scalar("training_loss", iter_loss_tensor.item(), niter)
+                reranker.add_summary(summary_writer, niter)
+                summary_writer.flush()
+            logger.info("training loss: %s", train_loss)
+            logger.info("Training took {}".format(time.time() - train_start_time))
+
         summary_writer.close()
 
         # TODO should we write a /done so that training can be skipped if possible when fastforward=False? or in Task?
