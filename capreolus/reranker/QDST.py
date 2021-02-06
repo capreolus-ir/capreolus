@@ -6,7 +6,7 @@ from capreolus import Dependency, ConfigOption
 from capreolus.reranker import Reranker
 
 
-class QDSTPretrained_Class():
+class QDSTPretrained_Class(nn.Module):
     def __init__(self, extractor, config):
         super(QDSTPretrained_Class, self).__init__()
         self.window_size = 64
@@ -58,7 +58,7 @@ class QDST(Reranker):
     """
 
     module_name = "qdst"
-    pretrained_weights = "/GW/NeuralIR/nobackup/kevin_cache/msmarco_saved/qdst/qdst_model"
+    pretrained_weights = "/GW/NeuralIR/nobackup/kevin_cache/msmarco_saved/qdst/qdst_model.pt"
 
     dependencies = [
         Dependency(key="extractor", module="extractor", name="qdst"),
@@ -68,10 +68,7 @@ class QDST(Reranker):
     def build_model(self):
         if not hasattr(self, "model"):
             self.model = QDSTPretrained_Class(self.extractor, self.config)
-            with open(self.pretrained_weights, "rb") as f:
-               d = pickle.load(f)
-
-            self.model.load_state_dict(d, strict=False)
+            self.model.load_state_dict(torch.load(self.pretrained_weights))
 
         return self.model
 
