@@ -78,7 +78,7 @@ setuptools.setup(
         "beautifulsoup4",
         "lxml",
         "scispacy",
-        "spacy",
+        "spacy<3.0"
         "pandas",
     ],
     classifiers=["Programming Language :: Python :: 3", "Operating System :: OS Independent"],
