@@ -1,5 +1,6 @@
 import torch
 import pickle
+from tqdm import tqdm
 import os
 import numpy as np
 from capreolus import ConfigOption, Dependency, constants, evaluator
@@ -78,7 +79,7 @@ class FAISSSearcher(Searcher):
 
         topic_vectors = []
         with torch.no_grad():
-            for qid, query in qid_query:
+            for qid, query in tqdm(qid_query, desc="Encode topics"):
                 query_toks = tokenizer.tokenize(query)[:510]
                 numericalized_query = tokenizer.convert_tokens_to_ids(["[CLS]"] + query_toks + ["[SEP]"])
                 mask = torch.tensor([1 if t != 0 else 0 for t in numericalized_query], dtype=torch.long)
