@@ -111,16 +111,19 @@ class FAISSSearcher(Searcher):
         return output_path
 
     def calc_faiss_search_metrics_for_train_set(self, distances, results, qid_query, fold):
+        logger.debug("Doing FAISS search on train set")
         valid_qids = [qid for qid in self.benchmark.folds[fold]["train_qids"]]
         metrics = self.calc_faiss_search_metrics(distances, results, qid_query, valid_qids)
         faiss_logger.info("FAISS train set metrics: %s", " ".join([f"{metric}={v:0.3f}" for metric, v in sorted(metrics.items())]))
 
     def calc_faiss_search_metrics_for_dev_set(self, distances, results, qid_query, fold):
+        logger.debug("Doing FAISS search on dev set")
         valid_qids = [qid for qid in self.benchmark.folds[fold]["predict"]["dev"]]
         metrics = self.calc_faiss_search_metrics(distances, results, qid_query, valid_qids)
         faiss_logger.info("FAISS dev set metrics: %s", " ".join([f"{metric}={v:0.3f}" for metric, v in sorted(metrics.items())]))
 
     def calc_faiss_search_metrics_for_test_set(self, distances, results, qid_query, fold):
+        logger.debug("Doing FAISS search on test set")
         valid_qids = [qid for qid in self.benchmark.folds[fold]["predict"]["test"]]
         metrics = self.calc_faiss_search_metrics(distances, results, qid_query, valid_qids)
         faiss_logger.info("FAISS test set metrics: %s",
