@@ -188,7 +188,9 @@ class FAISSIndex(Index):
         return distances
 
     def faiss_search(self, topic_vectors, k, qid_query, fold):
+        logger.debug("starting faiss search")
         faiss_index = faiss.read_index(os.path.join(self.get_index_path(), "faiss.index"))
+        logger.debug("Faiss search done")
 
         distances, results = faiss_index.search(topic_vectors, k)
         if self.config["isclear"]:
