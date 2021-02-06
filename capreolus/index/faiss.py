@@ -93,6 +93,8 @@ class FAISSIndex(Index):
     def get_all_docids_in_collection(self):
         from jnius import autoclass
 
+        start = time.time()
+        logger.debug("Iterating through all docids in collection")
         anserini_index = self.index
         anserini_index.create_index()
         anserini_index_path = anserini_index.get_index_path().as_posix()
@@ -101,9 +103,12 @@ class FAISSIndex(Index):
         JFSDirectory = autoclass("org.apache.lucene.store.FSDirectory")
         fsdir = JFSDirectory.open(JFile(anserini_index_path).toPath())
         anserini_index_reader = autoclass("org.apache.lucene.index.DirectoryReader").open(fsdir)
- 
+
         # TODO: Add check for deleted rows in the index
-        return [anserini_index.convert_lucene_id_to_doc_id(i) for i in range(0, anserini_index_reader.maxDoc())]
+        all_doc_ids = [anserini_index.convert_lucene_id_to_doc_id(i) for i in range(0, anserini_index_reader.maxDoc())]
+        logger.debug("That took {}".format(time.time() - start))
+
+        return all_doc_ids
 
     def _create_index(self, fold):
         self.train_encoder(fold)
@@ -112,7 +117,9 @@ class FAISSIndex(Index):
 
         collection_docids = self.get_all_docids_in_collection()
 
+        logger.debug("Preprocessing the extractor")
         self.encoder.extractor.preprocess([], collection_docids, topics=self.benchmark.topics[self.benchmark.query_type])
+        logger.debug("Preparing the collection sampler")
         dataset = CollectionSampler()
         dataset.prepare(
             collection_docids, None, self.encoder.extractor, relevance_level=self.benchmark.relevance_level

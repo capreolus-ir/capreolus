@@ -1,4 +1,5 @@
 import os
+import time
 from tqdm import tqdm
 
 import numpy as np
@@ -54,7 +55,7 @@ def mrr_10(qrels, runs):
 
 
 def _eval_runs(runs, qrels, metrics, relevance_level):
-    logger.error("Reached _eval_runs")
+    start = time.time()
     overlap_qids = set(qrels) & set(runs)
     if len(overlap_qids) == 0:
         logger.warning(f"No overlapping qids between qrels and runs. Skip the evaluation")
@@ -84,7 +85,8 @@ def _eval_runs(runs, qrels, metrics, relevance_level):
     if MRR_10 in metrics:
         scores[MRR_10] = mrr_10(qrels, runs)
 
-    logger.error("done with _eval_runs")
+    logger.debug("_eval_runs took {}".format(time.time() - start))
+
     return scores
 
 
@@ -167,7 +169,7 @@ def search_best_run(runfile_dirs, benchmark, primary_metric, metrics=None, folds
     for s, score_dict in best_scores.items():
         test_qids = folds[s]["predict"]["test"]
 
-        # any empty (no results) queries need to be added so they contribute zeros to the average
+        # TODO: any empty (no results) queries need to be added so they contribute zeros to the average
         # test_runs = {qid: docids_to_score for qid, docids_to_score in score_dict["runs"].items() if qid in test_qids}
         test_runs.update({qid: docids_to_score for qid, docids_to_score in Searcher.load_trec_run(score_dict["path"]).items() if qid in test_qids})
 
