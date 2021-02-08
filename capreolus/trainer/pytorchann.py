@@ -71,10 +71,10 @@ class PytorchANNTrainer(Trainer):
     def train(self, encoder, train_dataset, dev_dataset, output_path, qrels, metric="map", relevance_level=1):
         self.optimizer = torch.optim.Adam(filter(lambda param: param.requires_grad, encoder.model.parameters()), lr=self.config["bertlr"])
 
-        other_params = filter(lambda name, param: 'encoder' not in name, encoder.model.parameters())
+        other_params = filter(lambda name, param: 'encoder' not in name, encoder.model.module.parameters())
         self.optimizer = torch.optim.Adam(
             [
-                {'params': encoder.model.encoder.parameters(), 'lr': self.config["bertlr"]},
+                {'params': encoder.model.module.encoder.parameters(), 'lr': self.config["bertlr"]},
                 {'params': other_params},
             ], eps=1e-7, weight_decay=0.1
         )
