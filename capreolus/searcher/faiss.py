@@ -36,11 +36,11 @@ class FAISSSearcher(Searcher):
 
         # A manual search is done over the docs in dev_run - this way for each qid, we only score the docids that BM25 retrieved for it
         topic_vectors, qid_query = self.create_topic_vectors(topicsfn, fold)
-        self.index.manual_search_train_set(topic_vectors, qid_query, fold)
+        # self.index.manual_search_train_set(topic_vectors, qid_query, fold)
         self.index.manual_search_dev_set(topic_vectors, qid_query, fold)
         self.index.manual_search_test_set(topic_vectors, qid_query, fold)
         distances, results = self.index.faiss_search(topic_vectors, 100, qid_query, fold)
-        self.calc_faiss_search_metrics_for_train_set(distances, results, qid_query, fold)
+        # self.calc_faiss_search_metrics_for_train_set(distances, results, qid_query, fold)
         self.calc_faiss_search_metrics_for_dev_set(distances, results, qid_query, fold)
         self.calc_faiss_search_metrics_for_test_set(distances, results, qid_query, fold)
         distances = distances.astype(np.float16)
@@ -73,7 +73,7 @@ class FAISSSearcher(Searcher):
         topics = load_trec_topics(topicsfn)
         # TODO: Use the test qids in the below line
 
-        qid_query = sorted([(qid, query) for qid, query in topics["title"].items() if qid in self.benchmark.folds["predict"]["dev"] or qid in self.benchmark.folds["predict"]["test"]])
+        qid_query = sorted([(qid, query) for qid, query in topics["title"].items() if qid in self.benchmark.folds[fold]["predict"]["dev"] or qid in self.benchmark.folds[fold]["predict"]["test"]])
         tokenizer = self.index.encoder.extractor.tokenizer
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
