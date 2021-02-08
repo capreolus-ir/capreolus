@@ -22,6 +22,7 @@ class PytorchANNTrainer(Trainer):
         ConfigOption("itersize", 2048, "number of training instances in one iteration"),
         ConfigOption("gradacc", 1, "number of batches to accumulate over before updating weights"),
         ConfigOption("lr", 0.001, "learning rate"),
+        ConfigOption("bertlr", 0.00001, "learning rate"),
         ConfigOption("softmaxloss", False, "True to use softmax loss (over pairs) or False to use hinge loss"),
         ConfigOption("fastforward", False),
         ConfigOption("validatefreq", 2),
@@ -39,7 +40,6 @@ class PytorchANNTrainer(Trainer):
     ]
     config_keys_not_in_path = ["boardname"]
 
-   
     def single_train_iteration(self, encoder, train_dataloader):
         iter_loss = []
         batches_per_epoch = (self.config["itersize"] // self.config["batch"]) or 1
@@ -69,7 +69,15 @@ class PytorchANNTrainer(Trainer):
         return torch.stack(iter_loss).mean()
 
     def train(self, encoder, train_dataset, dev_dataset, output_path, qrels, metric="map", relevance_level=1):
-        self.optimizer = torch.optim.Adam(filter(lambda param: param.requires_grad, encoder.model.parameters()), lr=self.config["lr"])
+        self.optimizer = torch.optim.Adam(filter(lambda param: param.requires_grad, encoder.model.parameters()), lr=self.config["bertlr"])
+
+        other_params = filter(lambda name, param: 'encoder' not in name, encoder.model.parameters())
+        self.optimizer = torch.optim.Adam(
+            [
+                {'params': encoder.model.encoder.parameters(), 'lr': self.config["bertlr"]},
+                {'params': other_params},
+            ], eps=1e-7, weight_decay=0.1
+        )
         weights_fn = encoder.get_results_path() / "weights_{}".format(train_dataset.get_hash())
 
         if encoder.exists(weights_fn):
@@ -106,20 +114,19 @@ class PytorchANNTrainer(Trainer):
                 logger.info("iter = %d loss = %f", niter, train_loss[-1])
                 faiss_logger.info("iter = %d loss = %f", niter, train_loss[-1])
 
-                # if (niter + 1) % validation_frequency == 0:
-                #     val_preds = self.validate(encoder, dev_dataset)
-                #     metrics = evaluator.eval_runs(val_preds, qrels, evaluator.DEFAULT_METRICS, relevance_level)
-                #     logger.info("dev metrics: %s", " ".join([f"{metric}={v:0.3f}" for metric, v in sorted(metrics.items())]))
-                #     faiss_logger.info("dev metrics: %s", " ".join([f"{metric}={v:0.3f}" for metric, v in sorted(metrics.items())]))
-                #     # pickle.dump(val_preds, open("val_run.dump", "wb"), protocol=-1)
-                #     if metrics["ndcg_cut_20"] > best_metric:
-                #         logger.debug("Best val set so far! Saving checkpoint")
-                #         best_metric = metrics["ndcg_cut_20"]
-                #         weights_fn = output_path / "weights_{}".format(train_dataset.get_hash())
-                #         encoder.save_weights(weights_fn, self.optimizer)
+                if (niter + 1) % validation_frequency == 0:
+                    val_preds = self.validate(encoder, dev_dataset)
+                    metrics = evaluator.eval_runs(val_preds, qrels, evaluator.DEFAULT_METRICS, relevance_level)
+                    logger.info("dev metrics: %s", " ".join([f"{metric}={v:0.3f}" for metric, v in sorted(metrics.items())]))
+                    faiss_logger.info("pytorch train dev metrics: %s", " ".join([f"{metric}={v:0.3f}" for metric, v in sorted(metrics.items())]))
+                    if metrics["ndcg_cut_20"] > best_metric:
+                        logger.debug("Best val set so far! Saving checkpoint")
+                        best_metric = metrics["ndcg_cut_20"]
+                        weights_fn = output_path / "weights_{}".format(train_dataset.get_hash())
+                        encoder.save_weights(weights_fn, self.optimizer)
 
-                weights_fn = output_path / "weights_{}".format(train_dataset.get_hash())
-                encoder.save_weights(weights_fn, self.optimizer)
+                # weights_fn = output_path / "weights_{}".format(train_dataset.get_hash())
+                # encoder.save_weights(weights_fn, self.optimizer)
 
     def validate(self, encoder, dev_dataset):
         encoder.model.eval()

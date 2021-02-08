@@ -36,11 +36,11 @@ class FAISSSearcher(Searcher):
 
         # A manual search is done over the docs in dev_run - this way for each qid, we only score the docids that BM25 retrieved for it
         topic_vectors, qid_query = self.create_topic_vectors(topicsfn, fold)
-        # self.index.manual_search_train_set(topic_vectors, qid_query, fold)
+        self.index.manual_search_train_set(topic_vectors, qid_query, fold)
         self.index.manual_search_dev_set(topic_vectors, qid_query, fold)
         self.index.manual_search_test_set(topic_vectors, qid_query, fold)
         distances, results = self.index.faiss_search(topic_vectors, 100, qid_query, fold)
-        # self.calc_faiss_search_metrics_for_train_set(distances, results, qid_query, fold)
+        self.calc_faiss_search_metrics_for_train_set(distances, results, qid_query, fold)
         self.calc_faiss_search_metrics_for_dev_set(distances, results, qid_query, fold)
         self.calc_faiss_search_metrics_for_test_set(distances, results, qid_query, fold)
         distances = distances.astype(np.float16)
