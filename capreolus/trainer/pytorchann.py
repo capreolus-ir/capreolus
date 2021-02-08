@@ -69,8 +69,11 @@ class PytorchANNTrainer(Trainer):
         return torch.stack(iter_loss).mean()
 
     def train(self, encoder, train_dataset, dev_dataset, output_path, qrels, metric="map", relevance_level=1):
+        other_params = []
+        for name, param in encoder.model.named_parameters():
+            if 'encoder' not in name:
+                other_params.append(param)
 
-        other_params = filter(lambda name_param: 'encoder' not in name_param[0], encoder.model.named_parameters())
         self.optimizer = torch.optim.Adam(
             [
                 {'params': encoder.model.module.bert.encoder.parameters(), 'lr': self.config["bertlr"]},
