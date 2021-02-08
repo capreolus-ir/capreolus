@@ -205,19 +205,6 @@ class AmbiverseNLU(EntityLinking):
     def get_entity_description(self, entity):
         return self.entity_descriptions[entity]
 
-    def get_entities(self, profile_id):
-        entity_strategy = self['benchmark'].entity_strategy
-
-        if entity_strategy == 'none':
-            return []
-        elif entity_strategy == 'all':
-            return self.get_all_entities(profile_id)
-        elif entity_strategy == 'domain':
-            self["domainrelatedness"].initialize(self['benchmark'].domain)
-            return self["domainrelatedness"].get_domain_related_entities(self.get_all_entities(profile_id))
-        else:
-            raise NotImplementedError("TODO implement other entity strategies (by first implementing measures)")
-
     def get_all_entities(self, textid):
         data = json.load(open(join(self.get_extracted_entities_cache_path(), get_file_name(textid, self.get_benchmark_name(), self.get_benchmark_querytype())), 'r'))
 
