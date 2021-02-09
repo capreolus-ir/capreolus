@@ -35,6 +35,7 @@ class PooledBertPassage(BertPassage):
         ConfigOption("stride", 100, "Stride"),
         ConfigOption("sentences", False, "Use a sentence tokenizer to form passages"),
         ConfigOption("numpassages", 16, "Number of passages per document"),
+        # TODO remove prob here. unused.
         ConfigOption(
             "prob",
             0.1,

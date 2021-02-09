@@ -30,11 +30,16 @@ class PTParade_Class(nn.Module):
         self.maxseqlen = extractor.config["maxseqlen"]
         self.linear = nn.Linear(self.bert.config.hidden_size, 1)
 
-        if config["aggregation"] == "maxp":
+        if config["aggregation"] == "max":
+            raise NotImplementedError()
+        elif config["aggregation"] == "avg":
+            raise NotImplementedError()
+        elif config["aggregation"] == "attn":
             raise NotImplementedError()
         elif config["aggregation"] == "transformer":
             self.aggregation = self.aggregate_using_transformer
             input_embeddings = self.bert.get_input_embeddings()
+            # TODO hardcoded CLS token id
             cls_token_id = torch.tensor([[101]])
             self.initial_cls_embedding = input_embeddings(cls_token_id).view(1, self.bert.config.hidden_size)
             self.full_position_embeddings = torch.zeros(
@@ -45,7 +50,7 @@ class PTParade_Class(nn.Module):
             self.initial_cls_embedding = nn.Parameter(self.initial_cls_embedding, requires_grad=True)
             self.full_position_embeddings = nn.Parameter(self.full_position_embeddings, requires_grad=True)
         else:
-            raise NotImplementedError()
+            raise ValueError(f"unknown aggregation type: {self.config['aggregation']}")
 
     def aggregate_using_transformer(self, cls):
         expanded_cls = cls.view(-1, self.num_passages, self.bert.config.hidden_size)

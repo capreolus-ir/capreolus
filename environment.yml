@@ -4,7 +4,7 @@ channels:
 dependencies:
   - python=3.7
   - pandas
-  - spacy
+  - spacy<3.0
   - numpy
   - scipy
   - matplotlib
@@ -36,7 +36,7 @@ dependencies:
     - recommonmark
     - google-api-python-client
     - oauth2client
-    - tensorflow>=2.3,<2.4
+    - tensorflow>=2.4,<2.5
     - transformers>=3.1.0,<3.2
     - tensorflow-ranking
     - Pillow
@@ -48,3 +48,4 @@ dependencies:
     - xxhash
     - annoy
     - fasteners
+    - smart_open

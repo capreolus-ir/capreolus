@@ -25,6 +25,7 @@ class TFBERTMaxP_Class(tf.keras.layers.Layer):
         super(TFBERTMaxP_Class, self).__init__(*args, **kwargs)
         self.extractor = extractor
 
+        # TODO hidden prob missing below?
         if config["pretrained"] == "electra-base-msmarco":
             self.bert = TFAutoModelForSequenceClassification.from_pretrained("Capreolus/electra-base-msmarco")
             dropout, fc = self.bert.classifier.dropout, self.bert.classifier.out_proj

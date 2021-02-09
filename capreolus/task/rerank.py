@@ -20,6 +20,7 @@ class RerankTask(Task):
         ConfigOption("fold", "s1", "fold to run"),
         ConfigOption("optimize", "map", "metric to maximize on the dev set"),  # affects train() because we check to save weights
         ConfigOption("threshold", 100, "Number of docids per query to evaluate during prediction"),
+        ConfigOption("testthreshold", 1000, "Number of docids per query to evaluate on test data"),
     ]
     dependencies = [
         Dependency(
@@ -158,11 +159,11 @@ class RerankTask(Task):
         self.reranker.trainer.load_best_model(self.reranker, train_output_path)
 
         test_run = defaultdict(dict)
-        # This is possible because since python 3.6+, dictionaries preserve insertion order
+        # This is possible because best_search_run is an OrderedDict
         for qid, docs in best_search_run.items():
             if qid in self.benchmark.folds[fold]["predict"]["test"]:
                 for idx, (docid, score) in enumerate(docs.items()):
-                    if idx >= threshold:
+                    if idx >= self.config["testthreshold"]:
                         break
                     test_run[qid][docid] = score
 
