@@ -87,7 +87,7 @@ class MsmarcoPsgBm25(BM25, MsmarcoPsgSearcherMixin):
     def _query_from_file(self, topicsfn, output_path, config):
         final_runfn = os.path.join(output_path, "searcher")
         final_donefn = os.path.join(output_path, "done")
-        if final_donefn.exists():
+        if os.path.exists(final_donefn):
             return output_path
 
         output_path.mkdir(exist_ok=True, parents=True)
