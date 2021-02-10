@@ -48,7 +48,7 @@ def judged(qrels, runs, n):
 
 
 def mrr_10(qrels, runs):
-    qrels = {k: v for k, v in qrels.items() if k in runs}
+    # qrels = {k: v for k, v in qrels.items() if k in runs}
     return list(compute_metrics_from_files(trec_qrels=qrels, trec_runs=runs).values())[0]
 
 
