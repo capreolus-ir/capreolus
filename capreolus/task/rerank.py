@@ -68,7 +68,7 @@ class RerankTask(Task):
         docids = set(docid for querydocs in best_search_run.values() for docid in querydocs)
         logger.error("Starting the extractor")
         self.reranker.extractor.preprocess(
-            qids=best_search_run.keys(), docids=docids, topics=self.benchmark.topics[self.benchmark.query_type]
+            qids=[qid for qid in best_search_run.keys() if qid in self.benchmark.topics[self.benchmark.query_type]], docids=docids, topics=self.benchmark.topics[self.benchmark.query_type]
         )
         logger.error("building the model")
         self.reranker.build_model()
@@ -79,7 +79,7 @@ class RerankTask(Task):
         dev_run = defaultdict(dict)
         # This is possible because in python 3.6+, dictionaries preserve insertion order
         for qid, docs in best_search_run.items():
-            if qid in self.benchmark.folds[fold]["predict"]["dev"]:
+            if qid in self.benchmark.folds[fold]["predict"]["dev"] and qid in self.benchmark.qrels:
                 for idx, (docid, score) in enumerate(docs.items()):
                     if idx >= threshold:
                         break
@@ -116,7 +116,7 @@ class RerankTask(Task):
         test_run = defaultdict(dict)
         # This is possible because in python 3.6+, dictionaries preserve insertion order
         for qid, docs in best_search_run.items():
-            if qid in self.benchmark.folds[fold]["predict"]["test"]:
+            if qid in self.benchmark.folds[fold]["predict"]["test"] and qid in self.benchmark.qrels:
                 for idx, (docid, score) in enumerate(docs.items()):
                     if idx >= threshold:
                         break
