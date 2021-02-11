@@ -51,7 +51,7 @@ class FAISSSearcher(Searcher):
         self.write_results_in_trec_format(results, distances, qid_query, output_path, filename="faiss.run")
 
         expanded_topics = self.expand_queries(os.path.join(output_path, "faiss.run"))
-        expanded_topic_vectors, qid_query = self.create_topic_vectors(expanded_topics)
+        expanded_topic_vectors, qid_query = self.create_topic_vectors(expanded_topics, fold)
         self.index.manual_search_dev_set(expanded_topic_vectors, qid_query, fold)
         self.index.manual_search_test_set(expanded_topic_vectors, qid_query, fold)
         distances, results = self.index.faiss_search(expanded_topic_vectors, 1000, qid_query, fold)
