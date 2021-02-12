@@ -32,6 +32,20 @@ class FAISSSearcher(Searcher):
         
         return output_path
 
+    def do_search(self, topic_vectors, qid_query, fold, output_path, filename, tag):
+        # A manual search is done over the docs in dev_run - this way for each qid, we only score the docids that BM25 retrieved for it
+        # self.index.manual_search_train_set(topic_vectors, qid_query, fold)
+        self.index.manual_search_dev_set(topic_vectors, qid_query, fold, tag)
+        self.index.manual_search_test_set(topic_vectors, qid_query, fold, tag)
+        distances, results = self.index.faiss_search(topic_vectors, 1000, qid_query, fold)
+        # self.calc_faiss_search_metrics_for_train_set(distances, results, qid_query, fold)
+        self.calc_faiss_search_metrics_for_dev_set(distances, results, qid_query, fold, tag)
+        self.calc_faiss_search_metrics_for_test_set(distances, results, qid_query, fold, tag)
+        distances = distances.astype(np.float16)
+        self.write_results_in_trec_format(results, distances, qid_query, output_path, filename=filename)
+
+        return distances, results
+
     def _query_from_file(self, topicsfn, output_path, fold=None):
         assert fold is not None
 
@@ -39,29 +53,19 @@ class FAISSSearcher(Searcher):
         topics = load_trec_topics(topicsfn)
         # `qid_query` contains (qid, query) tuples in the order they were encoded
         topic_vectors, qid_query = self.create_topic_vectors(topics, fold)
-        # A manual search is done over the docs in dev_run - this way for each qid, we only score the docids that BM25 retrieved for it
-        # self.index.manual_search_train_set(topic_vectors, qid_query, fold)
-        self.index.manual_search_dev_set(topic_vectors, qid_query, fold)
-        self.index.manual_search_test_set(topic_vectors, qid_query, fold)
-        distances, results = self.index.faiss_search(topic_vectors, 1000, qid_query, fold)
-        # self.calc_faiss_search_metrics_for_train_set(distances, results, qid_query, fold)
-        self.calc_faiss_search_metrics_for_dev_set(distances, results, qid_query, fold)
-        self.calc_faiss_search_metrics_for_test_set(distances, results, qid_query, fold)
-        distances = distances.astype(np.float16)
-        self.write_results_in_trec_format(results, distances, qid_query, output_path, filename="faiss.run")
+        normal_distances, normal_results = self.do_search(topic_vectors, qid_query, fold, output_path, "faiss.run", "normal")
 
-        expanded_topics = self.expand_queries(os.path.join(output_path, "faiss.run"))
-        expanded_topic_vectors, qid_query = self.create_topic_vectors(expanded_topics, fold)
-        self.index.manual_search_dev_set(expanded_topic_vectors, qid_query, fold)
-        self.index.manual_search_test_set(expanded_topic_vectors, qid_query, fold)
-        distances, results = self.index.faiss_search(expanded_topic_vectors, 1000, qid_query, fold)
-        self.calc_faiss_search_metrics_for_dev_set(distances, results, qid_query, fold)
-        self.calc_faiss_search_metrics_for_test_set(distances, results, qid_query, fold)
-        distances = distances.astype(np.float16)
-        self.write_results_in_trec_format(results, distances, qid_query, output_path, filename="faiss_expanded.run")
+        # rm3_expanded_topics = self.rm3_expand_queries(os.path.join(output_path, "faiss.run"))
+        # rm3_expanded_topic_vectors, rm3_qid_query = self.create_topic_vectors(rm3_expanded_topics, fold)
+        # self.do_search(rm3_expanded_topic_vectors, rm3_qid_query, fold, output_path, "faiss_rm3_expanded.run", "rm3")
 
-        # Deleting the results obtained using the unexpanded queries
-        os.remove(os.path.join(output_path, "faiss.run"))
+        topdoc_topic_vectors, topdoc_qid_query = self.topdoc_expand_queries(qid_query, normal_results)
+        topdoc_expanded_topic_vectors,  topdoc_qid_query = self.create_topic_vectors(topdoc_topic_vectors, fold)
+        self.do_search(topdoc_expanded_topic_vectors, topdoc_qid_query, fold, output_path, "faiss_topdoc_expanded.run", "topdoc")
+
+        # Deleting the results obtained using the expanded queries
+        # os.remove(os.path.join(output_path, "faiss_rm3_expanded.run"))
+        os.remove(os.path.join(output_path, "faiss_topdoc_expanded.run"))
 
         return output_path
 
@@ -107,7 +111,26 @@ class FAISSSearcher(Searcher):
                 
         return np.concatenate(topic_vectors, axis=0), qid_query
 
-    def expand_queries(self, faiss_run_file):
+    def topdoc_expand_queries(self, qid_query, results):
+        topic_vectors = []
+        faiss_id_to_doc_id_fn = os.path.join(self.index.get_cache_path(), "faiss_id_to_doc_id.dump")
+        faiss_id_to_doc_id = pickle.load(open(faiss_id_to_doc_id_fn, "rb"))
+        faiss_index = self.index.read_index(os.path.join(self.index.get_index_path(), "faiss.index"))
+
+        for i, (qid, query) in enumerate(qid_query):
+            topdoc = results[i][results[i] > -1][0]
+            if random.random() > 0.9:
+                logger.debug("The topdoc for qid {} in faiss.run is {}".format(qid, faiss_id_to_doc_id[topdoc]))
+
+            topdoc_emb = faiss_index.reconstruct(topdoc)
+            topic_vectors.append(topdoc_emb)
+
+        topic_vectors = np.array(topic_vectors)
+        logger.debug("topdoc_expanded topics have shape {}".format(topic_vectors.shape))
+
+        return topic_vectors, qid_query
+
+    def rm3_expand_queries(self, faiss_run_file):
         index_path = self.index.index.get_index_path()
         topicsfn = self.benchmark.topic_file
         os.makedirs(self.get_cache_path(), exist_ok=True)
@@ -182,20 +205,20 @@ class FAISSSearcher(Searcher):
 
         return output_path
 
-    def calc_faiss_search_metrics_for_train_set(self, distances, results, qid_query, fold):
+    def calc_faiss_search_metrics_for_train_set(self, distances, results, qid_query, fold, tag):
         valid_qids = [qid for qid in self.benchmark.folds[fold]["train_qids"]]
         metrics = self.calc_faiss_search_metrics(distances, results, qid_query, valid_qids)
-        faiss_logger.info("FAISS train set metrics: %s", " ".join([f"{metric}={v:0.3f}" for metric, v in sorted(metrics.items())]))
+        faiss_logger.info("%s: FAISS train set metrics: %s", tag, " ".join([f"{metric}={v:0.3f}" for metric, v in sorted(metrics.items())]))
 
-    def calc_faiss_search_metrics_for_dev_set(self, distances, results, qid_query, fold):
+    def calc_faiss_search_metrics_for_dev_set(self, distances, results, qid_query, fold, tag):
         valid_qids = [qid for qid in self.benchmark.folds[fold]["predict"]["dev"]]
         metrics = self.calc_faiss_search_metrics(distances, results, qid_query, valid_qids)
-        faiss_logger.info("FAISS dev set metrics: %s", " ".join([f"{metric}={v:0.3f}" for metric, v in sorted(metrics.items())]))
+        faiss_logger.info("%s: FAISS dev set metrics: %s", tag, " ".join([f"{metric}={v:0.3f}" for metric, v in sorted(metrics.items())]))
 
-    def calc_faiss_search_metrics_for_test_set(self, distances, results, qid_query, fold):
+    def calc_faiss_search_metrics_for_test_set(self, distances, results, qid_query, fold, tag):
         valid_qids = [qid for qid in self.benchmark.folds[fold]["predict"]["test"]]
         metrics = self.calc_faiss_search_metrics(distances, results, qid_query, valid_qids)
-        faiss_logger.info("FAISS test set metrics: %s",
+        faiss_logger.info("%s: FAISS test set metrics: %s", tag,
                           " ".join([f"{metric}={v:0.3f}" for metric, v in sorted(metrics.items())]))
 
     def calc_faiss_search_metrics(self, distances, results, qid_query, valid_qids):

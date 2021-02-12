@@ -213,7 +213,7 @@ class FAISSIndex(Index):
         faiss_logger.info("Train Fold %s manual metrics: %s", fold,
                           " ".join([f"{metric}={v:0.3f}" for metric, v in sorted(metrics.items())]))
 
-    def manual_search_dev_set(self, topic_vectors, qid_query, fold):
+    def manual_search_dev_set(self, topic_vectors, qid_query, fold, tag):
         # Get the dev_run BM25 results for this fold.
         rank_results = self.evaluate_bm25_search()
         best_search_run_path = rank_results["path"][fold]
@@ -224,10 +224,10 @@ class FAISSIndex(Index):
 
         metrics = self.manual_search(topic_vectors, qid_query, bm25_dev_run)
 
-        faiss_logger.info("Dev Fold %s manual metrics: %s", fold,
+        faiss_logger.info("%s: Dev Fold %s manual metrics: %s", tag, fold,
                           " ".join([f"{metric}={v:0.3f}" for metric, v in sorted(metrics.items())]))
 
-    def manual_search_test_set(self, topic_vectors, qid_query, fold):
+    def manual_search_test_set(self, topic_vectors, qid_query, fold, tag):
         # Get the dev_run BM25 results for this fold.
         rank_results = self.evaluate_bm25_search()
         best_search_run_path = rank_results["path"][fold]
@@ -238,7 +238,7 @@ class FAISSIndex(Index):
 
         metrics = self.manual_search(topic_vectors, qid_query, bm25_dev_run)
 
-        faiss_logger.info("Test Fold %s manual metrics: %s", fold,
+        faiss_logger.info("%s: Test Fold %s manual metrics: %s", tag, fold,
                           " ".join([f"{metric}={v:0.3f}" for metric, v in sorted(metrics.items())]))
 
     def manual_search(self, topic_vectors, qid_query, bm25_run):
