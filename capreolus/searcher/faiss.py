@@ -119,7 +119,7 @@ class FAISSSearcher(Searcher):
         faiss_index = faiss.read_index(os.path.join(self.index.get_index_path(), "faiss.index"))
 
         for i, (qid, query) in enumerate(qid_query):
-            topdoc = results[i][results[i] > -1][0]
+            topdoc = int(results[i][results[i] > -1][0])
             if random.random() > 0.9:
                 logger.debug("The topdoc for qid {} in faiss.run is {}".format(qid, faiss_id_to_doc_id[topdoc]))
 
