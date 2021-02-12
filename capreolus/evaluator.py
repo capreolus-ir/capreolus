@@ -138,6 +138,7 @@ def search_best_run(runfile_dirs, benchmark, primary_metric, metrics=None, folds
     Returns:
        a dict storing specified metric score and path to the corresponding runfile
     """
+    primary_metric = MRR_10
     if not isinstance(runfile_dirs, (list, tuple)):
         runfile_dirs = [runfile_dirs]
 
