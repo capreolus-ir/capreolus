@@ -53,11 +53,11 @@ class FAISSSearcher(Searcher):
         self.build_encoder(fold)
         topics = load_trec_topics(topicsfn)
         # `qid_query` contains (qid, query) tuples in the order they were encoded
-        topic_vectors, qid_query = self.create_topic_vectors(topics, fold)
+        topic_vectors, qid_query = self.create_topic_vectors(topics, fold, topicfield="desc")
         normal_distances, normal_results = self.do_search(topic_vectors, qid_query, fold, output_path, "faiss.run", "normal")
 
-        rm3_expanded_topics = self.rm3_expand_queries(os.path.join(output_path, "faiss.run"))
-        rm3_expanded_topic_vectors, rm3_qid_query = self.create_topic_vectors(rm3_expanded_topics, fold)
+        rm3_expanded_topics = self.rm3_expand_queries(os.path.join(output_path, "faiss.run"), topicfield="desc")
+        rm3_expanded_topic_vectors, rm3_qid_query = self.create_topic_vectors(rm3_expanded_topics, fold, topicfield="desc")
         self.do_search(rm3_expanded_topic_vectors, rm3_qid_query, fold, output_path, "faiss_rm3_expanded.run", "rm3")
 
         topdoc_expanded_topic_vectors, topdoc_qid_query = self.topdoc_expand_queries(qid_query, normal_results)
@@ -85,14 +85,14 @@ class FAISSSearcher(Searcher):
 
         self.index.encoder.build_model(train_run, dev_run, docids, encoder_qids)
 
-    def create_topic_vectors(self, topics, fold):
+    def create_topic_vectors(self, topics, fold, topicfield="title"):
         """
         Creates a tensor of shape (num_queries, emb_size). Uses all the topics available in the dataset. Filtering based on folds is done later
         """
 
         # TODO: Use the test qids in the below line
 
-        qid_query = sorted([(qid, query) for qid, query in topics["desc"].items() if qid in self.benchmark.folds[fold]["predict"]["dev"] or qid in self.benchmark.folds[fold]["predict"]["test"]])
+        qid_query = sorted([(qid, query) for qid, query in topics[topicfield].items() if qid in self.benchmark.folds[fold]["predict"]["dev"] or qid in self.benchmark.folds[fold]["predict"]["test"]])
         tokenizer = self.index.encoder.extractor.tokenizer
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -130,12 +130,11 @@ class FAISSSearcher(Searcher):
 
         return topic_vectors, qid_query
 
-    def rm3_expand_queries(self, faiss_run_file):
+    def rm3_expand_queries(self, faiss_run_file, topicfield="title"):
         index_path = self.index.index.get_index_path()
         topicsfn = self.benchmark.topic_file
         os.makedirs(self.get_cache_path(), exist_ok=True)
         output_path = os.path.join(self.get_cache_path(), "expanded_queries.txt")
-        topicfield = "title"
 
         cmd = [
             "java",
