@@ -60,8 +60,7 @@ class FAISSSearcher(Searcher):
         # rm3_expanded_topic_vectors, rm3_qid_query = self.create_topic_vectors(rm3_expanded_topics, fold)
         # self.do_search(rm3_expanded_topic_vectors, rm3_qid_query, fold, output_path, "faiss_rm3_expanded.run", "rm3")
 
-        topdoc_topic_vectors, topdoc_qid_query = self.topdoc_expand_queries(qid_query, normal_results)
-        topdoc_expanded_topic_vectors,  topdoc_qid_query = self.create_topic_vectors(topdoc_topic_vectors, fold)
+        topdoc_expanded_topic_vectors, topdoc_qid_query = self.topdoc_expand_queries(qid_query, normal_results)
         self.do_search(topdoc_expanded_topic_vectors, topdoc_qid_query, fold, output_path, "faiss_topdoc_expanded.run", "topdoc")
 
         # Deleting the results obtained using the expanded queries
