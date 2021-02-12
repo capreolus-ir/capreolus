@@ -1,4 +1,5 @@
 import torch
+import faiss
 import random
 import re
 import pickle
@@ -115,7 +116,7 @@ class FAISSSearcher(Searcher):
         topic_vectors = []
         faiss_id_to_doc_id_fn = os.path.join(self.index.get_cache_path(), "faiss_id_to_doc_id.dump")
         faiss_id_to_doc_id = pickle.load(open(faiss_id_to_doc_id_fn, "rb"))
-        faiss_index = self.index.read_index(os.path.join(self.index.get_index_path(), "faiss.index"))
+        faiss_index = faiss.read_index(os.path.join(self.index.get_index_path(), "faiss.index"))
 
         for i, (qid, query) in enumerate(qid_query):
             topdoc = results[i][results[i] > -1][0]
