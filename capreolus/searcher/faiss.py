@@ -56,8 +56,8 @@ class FAISSSearcher(Searcher):
         topic_vectors, qid_query = self.create_topic_vectors(topics, fold, topicfield="desc")
         normal_distances, normal_results = self.do_search(topic_vectors, qid_query, fold, output_path, "faiss.run", "normal")
 
-        rm3_expanded_topics = self.rm3_expand_queries(os.path.join(output_path, "faiss.run"), topicfield="desc")
-        rm3_expanded_topic_vectors, rm3_qid_query = self.create_topic_vectors(rm3_expanded_topics, fold, topicfield="desc")
+        rm3_expanded_topics = self.rm3_expand_queries(os.path.join(output_path, "faiss.run"), topicfield="description")
+        rm3_expanded_topic_vectors, rm3_qid_query = self.create_topic_vectors(rm3_expanded_topics, fold, topicfield="description")
         self.do_search(rm3_expanded_topic_vectors, rm3_qid_query, fold, output_path, "faiss_rm3_expanded.run", "rm3")
 
         topdoc_expanded_topic_vectors, topdoc_qid_query = self.topdoc_expand_queries(qid_query, normal_results)
@@ -169,18 +169,18 @@ class FAISSSearcher(Searcher):
 
         logger.info("Expanded queries written to: {}".format(output_path))
 
-        expanded_topics = self.load_expanded_topics(output_path)
+        expanded_topics = self.load_expanded_topics(output_path, topicfield)
 
         return expanded_topics
 
-    def load_expanded_topics(self, expanded_topics_fn):
-        expanded_topics = {"title": {}}
+    def load_expanded_topics(self, expanded_topics_fn, topicfield):
+        expanded_topics = {topicfield: {}}
         with open(expanded_topics_fn, "r") as f:
             for line in f:
                 qid, boosted_query = line.split("\t")
                 query_terms = re.findall('\(.*?\)', boosted_query)
                 query_terms = [s[1:-1] for s in query_terms]
-                expanded_topics["title"][qid] = " ".join(query_terms)
+                expanded_topics[topicfield][qid] = " ".join(query_terms)
                 if random.random() > 0.9:
                     logger.debug("Expanded query {} is: {}".format(qid, " ".join(query_terms)))
 
