@@ -56,15 +56,15 @@ class FAISSSearcher(Searcher):
         topic_vectors, qid_query = self.create_topic_vectors(topics, fold)
         normal_distances, normal_results = self.do_search(topic_vectors, qid_query, fold, output_path, "faiss.run", "normal")
 
-        # rm3_expanded_topics = self.rm3_expand_queries(os.path.join(output_path, "faiss.run"))
-        # rm3_expanded_topic_vectors, rm3_qid_query = self.create_topic_vectors(rm3_expanded_topics, fold)
-        # self.do_search(rm3_expanded_topic_vectors, rm3_qid_query, fold, output_path, "faiss_rm3_expanded.run", "rm3")
+        rm3_expanded_topics = self.rm3_expand_queries(os.path.join(output_path, "faiss.run"))
+        rm3_expanded_topic_vectors, rm3_qid_query = self.create_topic_vectors(rm3_expanded_topics, fold)
+        self.do_search(rm3_expanded_topic_vectors, rm3_qid_query, fold, output_path, "faiss_rm3_expanded.run", "rm3")
 
         topdoc_expanded_topic_vectors, topdoc_qid_query = self.topdoc_expand_queries(qid_query, normal_results)
         self.do_search(topdoc_expanded_topic_vectors, topdoc_qid_query, fold, output_path, "faiss_topdoc_expanded.run", "topdoc")
 
         # Deleting the results obtained using the expanded queries
-        # os.remove(os.path.join(output_path, "faiss_rm3_expanded.run"))
+        os.remove(os.path.join(output_path, "faiss_rm3_expanded.run"))
         os.remove(os.path.join(output_path, "faiss_topdoc_expanded.run"))
 
         return output_path
@@ -92,7 +92,7 @@ class FAISSSearcher(Searcher):
 
         # TODO: Use the test qids in the below line
 
-        qid_query = sorted([(qid, query) for qid, query in topics["title"].items() if qid in self.benchmark.folds[fold]["predict"]["dev"] or qid in self.benchmark.folds[fold]["predict"]["test"]])
+        qid_query = sorted([(qid, query) for qid, query in topics["desc"].items() if qid in self.benchmark.folds[fold]["predict"]["dev"] or qid in self.benchmark.folds[fold]["predict"]["test"]])
         tokenizer = self.index.encoder.extractor.tokenizer
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
