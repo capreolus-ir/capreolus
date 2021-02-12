@@ -1,0 +1,4 @@
+numpy
+profane
+tensorflow-gpu
+pyjnius==1.2.1

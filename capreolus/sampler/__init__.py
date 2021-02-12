@@ -1,4 +1,5 @@
 import hashlib
+from collections import defaultdict
 
 import numpy as np
 import torch.utils.data
@@ -28,7 +29,7 @@ class Sampler(ModuleBase):
         self.qid_to_docids = {qid: docids for qid, docids in qid_to_docids.items() if qid in qrels}
         if len(self.qid_to_docids) != len(qid_to_docids):
             logger.warning(
-                "skipping qids that were missing from the qrels: {}".format(qid_to_docids.keys() - self.qid_to_docids.keys())
+                f"skipping qids that were missing from the qrels: {len(qid_to_docids.keys() - self.qid_to_docids.keys())} in total."
             )
 
         self.qid_to_reldocs = {
@@ -62,7 +63,7 @@ class TrainingSamplerMixin:
             posdocs = len(self.qid_to_reldocs[qid])
             negdocs = len(self.qid_to_negdocs[qid])
             if posdocs == 0 or negdocs == 0:
-                logger.warning("removing training qid=%s with %s positive docs and %s negative docs", qid, posdocs, negdocs)
+                # logger.warning("removing training qid=%s with %s positive docs and %s negative docs", qid, posdocs, negdocs)
                 del self.qid_to_reldocs[qid]
                 del self.qid_to_docids[qid]
                 del self.qid_to_negdocs[qid]
@@ -70,6 +71,8 @@ class TrainingSamplerMixin:
                 total_samples += posdocs * negdocs
 
         self.total_samples = total_samples
+
+        logger.debug("Done cleaning the sampler")
 
     def __iter__(self):
         # when running in a worker, the sampler will be recreated several times with same seed,
@@ -135,7 +138,7 @@ class TrainTripletSampler(Sampler, TrainingSamplerMixin, torch.utils.data.Iterab
 class TrainPairSampler(Sampler, TrainingSamplerMixin, torch.utils.data.IterableDataset):
     """
     Samples training data pairs. Each sample is of the form (query, doc)
-    The number of generate positive and negative samples are the same.
+    The number of generated positive and negative samples are the same.
     """
 
     module_name = "pair"
@@ -225,6 +228,109 @@ class PredSampler(Sampler, torch.utils.data.IterableDataset):
         for qid in self.qid_to_docids:
             for docid in self.qid_to_docids[qid]:
                 yield qid, docid
+
+
+@Sampler.register
+class CollectionSampler(Sampler, torch.utils.data.IterableDataset):
+    """
+    Goes throw every document in the collection. One use case - allows you to encode every document in the collection for ANN search. Does not make use of queries
+    """
+    module_name = "collection"
+    requires_random_seed = False
+
+    def prepare(self, docids, qrels, extractor, relevance_level=1, **kwargs):
+        assert qrels is None, "Do not pass qrels to the collection sampler. Pass None"
+        self.extractor = extractor
+        self.docids = docids
+
+    def get_hash(self):
+        sorted_rep = sorted(self.docids)
+        key_content = "{0}{1}".format(self.extractor.get_cache_path(), str(sorted_rep))
+        key = hashlib.md5(key_content.encode("utf-8")).hexdigest()
+
+        return "collection_{0}".format(key)
+
+    def generate_samples(self):
+        for docid in self.docids:
+            yield self.extractor.id2vec(None, docid)
+
+    def __iter__(self):
+        """
+        Returns: Tuples of the form (query_feature, posdoc_feature)
+        """
+
+        return iter(self.generate_samples())
+
+    def __len__(self):
+        return len(self.docids)
+
+
+@Sampler.register
+class ResidualTripletSampler(Sampler, TrainingSamplerMixin, torch.utils.data.IterableDataset):
+    """
+    Used for CLEAR. Samples negative documents from the ones retrieved by BM25
+    This is the same as TrainTripletSampler, but with residuals.
+    """
+    module_name = "residualtriplet"
+
+    def prepare(self, trec_run, qrels, extractor, relevance_level=1, **kwargs):
+        self.trec_run = trec_run
+        self.extractor = extractor
+        self.qids = sorted([qid for qid in qrels.keys()])
+
+        qid_to_reldocs = defaultdict(list)
+        # We call these "noise docs" since we have no relevance labels for them.
+        qid_to_negdocs = defaultdict(list)
+
+        for qid, doc_id_to_score in trec_run.items():
+            if qid not in qrels:
+                continue
+            for doc_id, score in doc_id_to_score.items():
+                if doc_id in qrels[qid] and qrels[qid][doc_id] >= relevance_level:
+                    qid_to_reldocs[qid].append(doc_id)
+                else:
+                    qid_to_negdocs[qid].append(doc_id)
+
+        self.qid_to_reldocs = qid_to_reldocs
+        self.qid_to_negdocs = qid_to_negdocs
+
+    def get_hash(self):
+        key_content = "{0}{1}".format(self.extractor.get_cache_path(), str(self.trec_run))
+        key = hashlib.md5(key_content.encode("utf-8")).hexdigest()
+
+        return "residual_{0}".format(key)
+
+    def generate_samples(self):
+        lambda_train = 0.1
+        epsilon = 1
+        all_qids = self.qids
+        if len(all_qids) == 0:
+            raise RuntimeError("TrainDataset has no valid qids")
+
+        while True:
+            self.rng.shuffle(all_qids)
+
+            for qid in all_qids:
+                if qid not in self.qid_to_reldocs:
+                    continue
+
+                posdocid = self.rng.choice(self.qid_to_reldocs[qid])
+                negdocid = self.rng.choice(self.qid_to_negdocs[qid])
+
+                try:
+                    # Convention for label - [1, 0] indicates that doc belongs to class 1 (i.e relevant
+                    # ^ This is used with categorical cross entropy loss
+                    data = self.extractor.id2vec(qid, posdocid, negdocid, label=[1, 0])
+
+                    # This is equation 4 in the CLEAR paper
+                    data["residual"] = epsilon + lambda_train * (self.trec_run[qid][posdocid] - self.trec_run[qid][negdocid])
+
+                    yield data
+                except MissingDocError:
+                    # at training time we warn but ignore on missing docs
+                    logger.warning(
+                        "skipping training pair with missing features: qid=%s posid=%s negid=%s", qid, posdocid, negdocid
+                    )
 
 
 from profane import import_all_modules

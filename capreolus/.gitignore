@@ -1,2 +1,5 @@
 __pycache__/
+.vimrc
+.pylintrc
+.ropeproject/*
 *.py[oc]

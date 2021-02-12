@@ -35,3 +35,6 @@ def test_anserini_get_df(tmpdir_as_cache, dummy_index):
 def test_anserini_get_idf(tmpdir_as_cache, dummy_index):
     idf = dummy_index.get_idf("hello")
     assert idf == 0.1823215567939546
+
+
+    

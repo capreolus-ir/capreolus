@@ -48,6 +48,7 @@ class BertPassage(Extractor):
             "The probability that a passage from the document will be used for training " "(the first passage is always used)",
         ),
     ]
+    config_keys_not_in_path = ["usecache"]
 
     def build(self):
         self.pad = self.tokenizer.bert_tokenizer.pad_token_id
@@ -58,18 +59,17 @@ class BertPassage(Extractor):
         self.cls_tok = self.tokenizer.bert_tokenizer.cls_token
         self.sep_tok = self.tokenizer.bert_tokenizer.sep_token
 
-    def load_state(self, qids, docids):
-        cache_fn = self.get_state_cache_file_path(qids, docids)
+    def load_state(self, qids, docids=None):
+        cache_fn = self.get_state_cache_file_path(qids, qids)
         logger.debug("loading state from: %s", cache_fn)
         with open(cache_fn, "rb") as f:
             state_dict = pickle.load(f)
             self.qid2toks = state_dict["qid2toks"]
-            self.docid2passages = state_dict["docid2passages"]
 
-    def cache_state(self, qids, docids):
+    def cache_state(self, qids, docids=None):
         os.makedirs(self.get_cache_path(), exist_ok=True)
-        with open(self.get_state_cache_file_path(qids, docids), "wb") as f:
-            state_dict = {"qid2toks": self.qid2toks, "docid2passages": self.docid2passages}
+        with open(self.get_state_cache_file_path(qids, qids), "wb") as f:
+            state_dict = {"qid2toks": self.qid2toks}
             pickle.dump(state_dict, f, protocol=-1)
 
     def get_tf_feature_description(self):
@@ -223,7 +223,35 @@ class BertPassage(Extractor):
 
         return (pos_bert_input, pos_mask, pos_seg, neg_bert_input, neg_mask, neg_seg), label
 
-    def _prepare_doc_psgs(self, doc):
+    def _get_passages(self, docid):
+        doc = self.index.get_doc(docid)
+        if not self.config["sentences"]:
+            return self._get_sliding_window_passages(doc)
+        else:
+            return self._get_sent_passages(doc)
+
+    def _get_sent_passages(self, doc):
+        passages = []
+        punkt = PunktTokenizer()
+        numpassages = self.config["numpassages"]
+        for sentence in punkt.tokenize(doc):
+            if len(passages) >= numpassages:
+                break
+            passages.extend(self._chunk_sent(sentence, self.config["passagelen"]))
+
+        if numpassages != 0:
+            passages = passages[:numpassages]
+
+        n_actual_passages = len(passages)
+        for _ in range(numpassages - n_actual_passages):
+            # randomly use one of previous passages when the document is exhausted
+            # append empty passages
+            passages.append([""])
+
+        assert len(passages) == numpassages or len(numpassages) == 0
+        return sorted(passages, key=len)
+
+    def _get_sliding_window_passages(self, doc):
         """
         Extract passages from the doc.
         If there are too many passages, keep the first and the last one and sample from the rest.
@@ -232,7 +260,6 @@ class BertPassage(Extractor):
         passages = []
         numpassages = self.config["numpassages"]
         doc = self.tokenizer.tokenize(doc)
-
         for i in range(0, len(doc), self.config["stride"]):
             if i >= len(doc):
                 assert len(passages) > 0, f"no passage can be built from empty document {doc}"
@@ -250,7 +277,7 @@ class BertPassage(Extractor):
             # Pad until we have the required number of passages
             passages.extend([[self.pad_tok] for _ in range(numpassages - n_actual_passages)])
 
-        assert len(passages) == self.config["numpassages"]
+        assert len(passages) == numpassages
         return passages
 
     # from https://github.com/castorini/birch/blob/2dd0401ebb388a1c96f8f3357a064164a5db3f0e/src/utils/doc_utils.py#L73
@@ -267,70 +294,29 @@ class BertPassage(Extractor):
             chunked_sents.append(seq)
         return chunked_sents
 
-    def _build_passages_from_sentences(self, docids):
-        punkt = PunktTokenizer()
-
-        for docid in tqdm(docids, "extract passages"):
-            passages = []
-            numpassages = self.config["numpassages"]
-            for sentence in punkt.tokenize(self.index.get_doc(docid)):
-                if len(passages) >= numpassages:
-                    break
-
-                passages.extend(self._chunk_sent(sentence, self.config["passagelen"]))
-
-            if numpassages != 0:
-                passages = passages[:numpassages]
-
-                n_actual_passages = len(passages)
-                for _ in range(numpassages - n_actual_passages):
-                    # randomly use one of previous passages when the document is exhausted
-                    # idx = random.randint(0, n_actual_passages - 1)
-                    # passages.append(passages[idx])
-
-                    # append empty passages
-                    passages.append([""])
-
-                assert len(passages) == self.config["numpassages"]
-
-            self.docid2passages[docid] = sorted(passages, key=len)
-
     def _build_vocab(self, qids, docids, topics):
         if self.is_state_cached(qids, docids) and self.config["usecache"]:
-            self.load_state(qids, docids)
             logger.info("Vocabulary loaded from cache")
-        elif self.config["sentences"]:
-            self.docid2passages = {}
-            self._build_passages_from_sentences(docids)
-            self.qid2toks = {qid: self.tokenizer.tokenize(topics[qid]) for qid in tqdm(qids, desc="querytoks")}
-            self.cache_state(qids, docids)
+            self.load_state(qids)
         else:
-            logger.info("Building bertpassage vocabulary")
-
+            logger.info("Building BertPassage vocabulary")
             self.qid2toks = {qid: self.tokenizer.tokenize(topics[qid]) for qid in tqdm(qids, desc="querytoks")}
-            self.docid2passages = {
-                docid: self._prepare_doc_psgs(self.index.get_doc(docid)) for docid in tqdm(sorted(docids), "extract passages")
-            }
-            self.cache_state(qids, docids)
 
     def exist(self):
-        return hasattr(self, "docid2passages") and len(self.docid2passages)
+        return hasattr(self, "qid2toks") and len(self.qid2toks)
 
     def preprocess(self, qids, docids, topics):
         if self.exist():
             return
 
         self.index.create_index()
-        self.qid2toks = defaultdict(list)
-        self.docid2passages = None
-
         self._build_vocab(qids, docids, topics)
 
     def _prepare_bert_input(self, query_toks, psg_toks):
         maxseqlen, maxqlen = self.config["maxseqlen"], self.config["maxqlen"]
         if len(query_toks) > maxqlen:
-            query_toks = query_toks[:maxqlen]
             logger.warning(f"Truncating query from {len(query_toks)} to {maxqlen}")
+            query_toks = query_toks[:maxqlen]
         psg_toks = psg_toks[: maxseqlen - len(query_toks) - 3]
 
         psg_toks = " ".join(psg_toks).split()  # in case that psg_toks is np.array
@@ -353,7 +339,7 @@ class BertPassage(Extractor):
         pos_bert_inputs, pos_bert_masks, pos_bert_segs = [], [], []
 
         # N.B: The passages in self.docid2passages are not bert tokenized
-        pos_passages = self.docid2passages[posid]
+        pos_passages = self._get_passages(posid)
         for tokenized_passage in pos_passages:
             inp, mask, seg = self._prepare_bert_input(query_toks, tokenized_passage)
             pos_bert_inputs.append(inp)
@@ -378,7 +364,7 @@ class BertPassage(Extractor):
             return data
 
         neg_bert_inputs, neg_bert_masks, neg_bert_segs = [], [], []
-        neg_passages = self.docid2passages[negid]
+        neg_passages = self._get_passages(negid)
 
         for tokenized_passage in neg_passages:
             inp, mask, seg = self._prepare_bert_input(query_toks, tokenized_passage)

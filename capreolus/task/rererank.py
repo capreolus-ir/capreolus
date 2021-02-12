@@ -85,7 +85,8 @@ class ReRerankTask(Task):
 
             test_preds = self.reranker.trainer.predict(self.reranker, test_dataset, test_output_path)
 
-        metrics = evaluator.eval_runs(test_preds, self.benchmark.qrels, evaluator.DEFAULT_METRICS, self.benchmark.relevance_level)
+        test_qrels = {qid: self.benchmark.qrels[qid] for qid in self.folds[fold]["predict"]["test"]}
+        metrics = evaluator.eval_runs(test_preds, test_qrels, evaluator.DEFAULT_METRICS, self.benchmark.relevance_level)
         logger.info("rerank: fold=%s test metrics: %s", fold, metrics)
 
         print("\ncomputing metrics across all folds")
@@ -102,7 +103,8 @@ class ReRerankTask(Task):
 
             found += 1
             preds = Searcher.load_trec_run(pred_path)
-            metrics = evaluator.eval_runs(preds, self.benchmark.qrels, evaluator.DEFAULT_METRICS, self.benchmark.relevance_level)
+            fold_qrels = {qid: self.benchmark.qrels[qid] for qid in self.folds[fold]["predict"]["test"]}
+            metrics = evaluator.eval_runs(preds, fold_qrels, evaluator.DEFAULT_METRICS, self.benchmark.relevance_level)
             for metric, val in metrics.items():
                 avg.setdefault(metric, []).append(val)
 

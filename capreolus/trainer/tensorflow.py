@@ -156,6 +156,8 @@ class TensorflowTrainer(Trainer):
             if self.amp and not self.tpu:
                 optimizer_2.get_unscaled_gradients(gradients)
 
+            # TODO: Expose the layer names to lookout for as a ConfigOption?
+            # TODO: Crystina mentioned that hugging face models have 'bert' in all the layers (including classifiers). Handle this case
             bert_variables = [
                 (gradients[i], variable)
                 for i, variable in enumerate(wrapped_model.trainable_variables)
@@ -198,6 +200,14 @@ class TensorflowTrainer(Trainer):
         def distributed_test_step(dataset_inputs):
             return self.strategy.run(test_step, args=(dataset_inputs,))
 
+        best_metric = -np.inf
+        epoch = 0
+        num_batches = 0
+        total_loss = 0
+        iter_bar = tqdm(total=self.config["itersize"])
+
+        initial_lr = self.change_lr(epoch, self.config["bertlr"])
+        K.set_value(optimizer_2.lr, K.get_value(initial_lr))
         train_records = train_records.shuffle(100000)
         train_dist_dataset = self.strategy.experimental_distribute_dataset(train_records)
 
@@ -423,6 +433,7 @@ class TensorflowTrainer(Trainer):
         tf_records_dataset = raw_dataset.batch(batch_size, drop_remainder=True).map(
             reranker.extractor.parse_tf_dev_example, num_parallel_calls=tf.data.experimental.AUTOTUNE
         )
+
         return tf_records_dataset
 
     def convert_to_tf_dev_record(self, reranker, dataset):

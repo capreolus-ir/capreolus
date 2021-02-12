@@ -22,6 +22,9 @@ class Benchmark(ModuleBase):
     relevance_level = 1
     """ Documents with a relevance label >= relevance_level will be considered relevant.
     This corresponds to trec_eval's --level_for_rel (and is passed to pytrec_eval as relevance_level). """
+    use_train_as_dev = True
+    """ Whether to use training set as validate set when there is no training needed, 
+    e.g. for traditional IR algorithms like BM25 """
 
     @property
     def qrels(self):
@@ -40,6 +43,14 @@ class Benchmark(ModuleBase):
         if not hasattr(self, "_folds"):
             self._folds = json.load(open(self.fold_file, "rt"), parse_int=str)
         return self._folds
+
+    @property
+    def non_nn_dev(self):
+        dev_per_fold = {fold_name: folds["predict"]["dev"] for fold_name, folds in self.folds.items()}
+        if self.use_train_as_dev:
+            for fold_name, folds in self.folds.items():
+                dev_per_fold[fold_name].extend(folds["train_qids"])
+        return dev_per_fold
 
 
 from profane import import_all_modules

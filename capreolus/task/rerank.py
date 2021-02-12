@@ -8,6 +8,8 @@ from capreolus.searcher import Searcher
 from capreolus.task import Task
 from capreolus.utils.loginit import get_logger
 
+from time import time
+
 logger = get_logger(__name__)
 
 
@@ -39,36 +41,47 @@ class RerankTask(Task):
     def train(self):
         fold = self.config["fold"]
 
+        t1 = time()
         self.rank.search()
+        logger.info(f"Time to rank.search: {time() - t1}")
+        t1 = time()
+        logger.error("Trying to evaluate")
         rank_results = self.rank.evaluate()
+        logger.info(f"Time to rank.evaluate: {time() - t1}")
+        t1 = time()
         best_search_run_path = rank_results["path"][fold]
         best_search_run = Searcher.load_trec_run(best_search_run_path)
+        logger.info(f"Time to load best search run: {time() - t1}")
 
         return self.rerank_run(best_search_run, self.get_results_path())
 
     def rerank_run(self, best_search_run, train_output_path, include_train=False):
+        logger.error("starting rerank run")
         if not isinstance(train_output_path, Path):
             train_output_path = Path(train_output_path)
 
         fold = self.config["fold"]
+        threshold = self.config["threshold"]
         dev_output_path = train_output_path / "pred" / "dev"
         logger.debug("results path: %s", train_output_path)
 
         docids = set(docid for querydocs in best_search_run.values() for docid in querydocs)
+        logger.error("Starting the extractor")
         self.reranker.extractor.preprocess(
-            qids=best_search_run.keys(), docids=docids, topics=self.benchmark.topics[self.benchmark.query_type]
+            qids=[qid for qid in best_search_run.keys() if qid in self.benchmark.topics[self.benchmark.query_type]], docids=docids, topics=self.benchmark.topics[self.benchmark.query_type]
         )
+        logger.error("building the model")
         self.reranker.build_model()
         self.reranker.searcher_scores = best_search_run
 
         train_run = {qid: docs for qid, docs in best_search_run.items() if qid in self.benchmark.folds[fold]["train_qids"]}
         # For each qid, select the top 100 (defined by config["threshold") docs to be used in validation
         dev_run = defaultdict(dict)
-        # This is possible because best_search_run is an OrderedDict
+        # This is possible because in python 3.6+, dictionaries preserve insertion order
         for qid, docs in best_search_run.items():
-            if qid in self.benchmark.folds[fold]["predict"]["dev"]:
+            if qid in self.benchmark.folds[fold]["predict"]["dev"] and qid in self.benchmark.qrels:
                 for idx, (docid, score) in enumerate(docs.items()):
-                    if idx >= self.config["threshold"]:
+                    if idx >= threshold:
                         break
                     dev_run[qid][docid] = score
 
@@ -82,28 +95,30 @@ class RerankTask(Task):
             dev_run, self.benchmark.qrels, self.reranker.extractor, relevance_level=self.benchmark.relevance_level
         )
 
-        dev_preds = self.reranker.trainer.train(
-            self.reranker,
-            train_dataset,
-            train_output_path,
-            dev_dataset,
-            dev_output_path,
-            self.benchmark.qrels,
-            self.config["optimize"],
-            self.benchmark.relevance_level,
+        def local_evaluate_runs(runs):
+            dev_qrels = {qid: self.benchmark.qrels.get(qid, {}) for qid in self.benchmark.folds[fold]["predict"]["dev"]}
+            return evaluator.eval_runs(runs, dev_qrels, evaluator.DEFAULT_METRICS, self.benchmark.relevance_level)
+
+        self.reranker.trainer.train(
+            reranker=self.reranker,
+            train_dataset=train_dataset,
+            train_output_path=train_output_path,
+            dev_data=dev_dataset,
+            dev_output_path=dev_output_path,
+            metric=self.config["optimize"],
+            evaluate_fn=local_evaluate_runs,
         )
 
         self.reranker.trainer.load_best_model(self.reranker, train_output_path)
         dev_output_path = train_output_path / "pred" / "dev" / "best"
-        if not dev_output_path.exists():
-            dev_preds = self.reranker.trainer.predict(self.reranker, dev_dataset, dev_output_path)
+        dev_preds = self.reranker.trainer.predict(self.reranker, dev_dataset, dev_output_path)
 
         test_run = defaultdict(dict)
-        # This is possible because best_search_run is an OrderedDict
+        # This is possible because in python 3.6+, dictionaries preserve insertion order
         for qid, docs in best_search_run.items():
-            if qid in self.benchmark.folds[fold]["predict"]["test"]:
+            if qid in self.benchmark.folds[fold]["predict"]["test"] and qid in self.benchmark.qrels:
                 for idx, (docid, score) in enumerate(docs.items()):
-                    if idx >= self.config["testthreshold"]:
+                    if idx >= threshold:
                         break
                     test_run[qid][docid] = score
 
@@ -130,6 +145,7 @@ class RerankTask(Task):
     def predict(self):
         fold = self.config["fold"]
         self.rank.search()
+        threshold = self.config["threshold"]
         rank_results = self.rank.evaluate()
         best_search_run_path = rank_results["path"][fold]
         best_search_run = Searcher.load_trec_run(best_search_run_path)
@@ -183,14 +199,16 @@ class RerankTask(Task):
             logger.error("could not find predictions; run the train command first")
             raise ValueError("could not find predictions; run the train command first")
 
+        dev_qrels = {qid: self.benchmark.qrels.get(qid, {}) for qid in self.benchmark.folds[fold]["predict"]["dev"]}
         fold_dev_metrics = evaluator.eval_runs(
-            reranker_runs[fold]["dev"], self.benchmark.qrels, evaluator.DEFAULT_METRICS, self.benchmark.relevance_level
+            reranker_runs[fold]["dev"], dev_qrels, evaluator.DEFAULT_METRICS, self.benchmark.relevance_level
         )
         pretty_fold_dev_metrics = " ".join([f"{metric}={v:0.3f}" for metric, v in sorted(fold_dev_metrics.items())])
         logger.info("rerank: fold=%s dev metrics: %s", fold, pretty_fold_dev_metrics)
 
+        test_qrels = {qid: self.benchmark.qrels.get(qid, {}) for qid in self.benchmark.folds[fold]["predict"]["test"]}
         fold_test_metrics = evaluator.eval_runs(
-            reranker_runs[fold]["test"], self.benchmark.qrels, evaluator.DEFAULT_METRICS, self.benchmark.relevance_level
+            reranker_runs[fold]["test"], test_qrels, evaluator.DEFAULT_METRICS, self.benchmark.relevance_level
         )
         pretty_fold_test_metrics = " ".join([f"{metric}={v:0.3f}" for metric, v in sorted(fold_test_metrics.items())])
         logger.info("rerank: fold=%s test metrics: %s", fold, pretty_fold_test_metrics)

@@ -1,12 +1,14 @@
 import os
+import time
 from collections import defaultdict, OrderedDict
 
-from capreolus import ModuleBase, constants
+from capreolus import ModuleBase, constants, ConfigOption
 from capreolus.utils.loginit import get_logger
 from capreolus.utils.trec import topic_to_trectxt
-from capreolus.utils.common import OrderedDefaultDict
 
 logger = get_logger(__name__)  # pylint: disable=invalid-name
+faiss_logger = get_logger("faiss")
+
 MAX_THREADS = constants["MAX_THREADS"]
 
 
@@ -26,10 +28,15 @@ class Searcher(ModuleBase):
 
     module_type = "searcher"
 
+    config_spec = [ConfigOption("hits", 100, "number of results to return")]
+
     @staticmethod
     def load_trec_run(fn):
         # Docids in the run file appear according to decreasing score, hence it makes sense to preserve this order
-        run = OrderedDefaultDict()
+        # ^ Python 3.6+ dicts preserve insertion order. Hurray!
+        start = time.time()
+        logger.debug("Loading TREC run: {}".format(fn))
+        run = defaultdict(dict)
 
         with open(fn, "rt") as f:
             for line in f:
@@ -37,12 +44,13 @@ class Searcher(ModuleBase):
                 if len(line) > 0:
                     qid, _, docid, rank, score, desc = line.split(" ")
                     run[qid][docid] = float(score)
+        logger.debug("Loading trec run took {}".format(time.time() - start))
         return run
 
     @staticmethod
-    def write_trec_run(preds, outfn):
+    def write_trec_run(preds, outfn, mode="wt"):
         count = 0
-        with open(outfn, "wt") as outf:
+        with open(outfn, mode) as outf:
             qids = sorted(preds.keys(), key=lambda k: int(k))
             for qid in qids:
                 rank = 1
@@ -54,8 +62,10 @@ class Searcher(ModuleBase):
     def _query_from_file(self, topicsfn, output_path, cfg):
         raise NotImplementedError()
 
-    def query_from_file(self, topicsfn, output_path):
-        return self._query_from_file(topicsfn, output_path, self.config)
+    def query_from_file(self, topicsfn, output_path, fold=None):
+        output_path = self._query_from_file(topicsfn, output_path, self.config)
+        
+        return output_path
 
     def query(self, query, **kwargs):
         """
