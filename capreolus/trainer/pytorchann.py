@@ -1,4 +1,5 @@
 import torch
+import torch.utils.data
 import pickle
 import numpy as np
 import os
@@ -165,7 +166,7 @@ class PytorchANNTrainer(Trainer):
         labels = [[j for j in range(len(docid_lst)) if docid_lst[j] in x['rel_docs']] for x in batch]
         data['labels'] = pack_tensor_2D(labels, default=-1, dtype=torch.int64, length=len(batch))
 
-        return data, qid_lst, docid_lst
+        return data
                 
 
 
