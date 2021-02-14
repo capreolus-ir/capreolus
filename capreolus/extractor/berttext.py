@@ -136,7 +136,7 @@ class BertText(Extractor):
         # faiss_logger.debug("Numericalized posdoc: {}".format(posdoc))
         data = {
             "posdocid": posid,
-            "posdoc": np.array(posdoc, dtype=np.long),
+            "posdoc": posdoc,
             "rel_docs": reldocs
         }
 
@@ -144,7 +144,7 @@ class BertText(Extractor):
         query_toks = ["[CLS]"] + query_toks + ["[SEP]"]
         query = tokenizer.convert_tokens_to_ids(query_toks)[:max_query_length]
         data["qid"] = qid
-        data["query"] = np.array(query, dtype=np.long)
+        data["query"] = query
 
         return data
 
