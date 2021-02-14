@@ -1,4 +1,5 @@
 import torch
+import torch.nn.functional as F
 from torch import nn
 import os
 from transformers import BertPreTrainedModel, BertModel, BertConfig
@@ -108,3 +109,14 @@ class RepBERTPretrained(Encoder):
 
     def score(self, batch):
         return self.model(batch["input_ids"], batch["token_type_ids"], batch["valid_mask"], batch["position_ids"], batch["labels"])
+
+    def test(self, d):
+        query = d["query"]
+        query_mask = d["query_mask"]
+        doc = d["posdoc"]
+        doc_mask = d["posdoc_mask"]
+
+        query_emb = self.model.predict(query, query_mask)
+        doc_emb = self.model.predict(doc, doc_mask)
+
+        return F.cosine_similarity(query_emb, doc_emb)
