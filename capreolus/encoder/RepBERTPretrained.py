@@ -69,9 +69,8 @@ class RepBERT_Class(BertPreTrainedModel):
         if labels is not None:
             loss_fct = nn.MultiLabelMarginLoss()
             loss = loss_fct(similarities, labels)
-            output = loss, *output
 
-        return output
+        return loss
 
     def predict(self, input_ids, valid_mask, is_query=False):
         if is_query:
