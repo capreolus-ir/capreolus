@@ -107,5 +107,5 @@ class RepBERTPretrained(Encoder):
     def encode_query(self, numericalized_text, mask):
         return self.model.predict(numericalized_text, mask, is_query=True)
 
-    def score(self, *args, **kwargs):
-        return self.model(*args, **kwargs)
+    def score(self, batch):
+        return self.model(batch["input_ids"], batch["token_type_ids"], batch["valid_mask"], batch["position_ids"], batch["labels"])
