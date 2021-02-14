@@ -102,10 +102,10 @@ class RepBERTPretrained(Encoder):
             self.hidden_size = self.model.module.hidden_size
 
     def encode_doc(self, numericalized_text, mask):
-        return self.model.predict(numericalized_text, mask)
+        return self.model.module.predict(numericalized_text, mask)
 
     def encode_query(self, numericalized_text, mask):
-        return self.model.predict(numericalized_text, mask, is_query=True)
+        return self.model.module.predict(numericalized_text, mask, is_query=True)
 
     def score(self, batch):
         return self.model(batch["input_ids"], batch["token_type_ids"], batch["valid_mask"], batch["position_ids"], batch["labels"])
