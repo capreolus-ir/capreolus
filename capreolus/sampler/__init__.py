@@ -198,7 +198,7 @@ class PredSampler(Sampler, torch.utils.data.IterableDataset):
 
     def clean(self):
         total_samples = 0  # keep tracks of the total possible number of unique training triples for this dataset
-        for qid, docids in self.qid_to_docids.keys():
+        for qid, docids in self.qid_to_docids.items():
             total_samples += len(docids)
 
         logger.debug("There are {} samples in the PredSampler")
