@@ -59,7 +59,7 @@ class Searcher(ModuleBase):
                     rank += 1
                     count += 1
 
-    def _query_from_file(self, topicsfn, output_path, cfg):
+    def _query_from_file(self, *args, **kwargs):
         raise NotImplementedError()
 
     def query_from_file(self, topicsfn, output_path, fold=None):

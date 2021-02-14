@@ -3,8 +3,8 @@ import numpy as np
 
 from capreolus import Dependency, ConfigOption, get_logger
 from capreolus.utils.exceptions import MissingDocError
-from . import Extractor
-from .bertpassage import BertPassage
+from capreolus.extractor import Extractor
+from capreolus.extractor.bertpassage import BertPassage
 
 logger = get_logger(__name__)
 
@@ -130,7 +130,6 @@ class PooledBertPassage(BertPassage):
         pos_bert_masks = []
         pos_bert_segs = []
 
-        # N.B: The passages in self.docid2passages are not bert tokenized
         pos_passages = self._get_passages(posid)
         for tokenized_passage in pos_passages:
             inp, mask, seg = self._prepare_bert_input(query_toks, tokenized_passage)

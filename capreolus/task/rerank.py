@@ -105,8 +105,8 @@ class RerankTask(Task):
             train_output_path=train_output_path,
             dev_data=dev_dataset,
             dev_output_path=dev_output_path,
+            qrels=self.benchmark.qrels,
             metric=self.config["optimize"],
-            evaluate_fn=local_evaluate_runs,
         )
 
         self.reranker.trainer.load_best_model(self.reranker, train_output_path)

@@ -22,13 +22,6 @@ class Encoder(ModuleBase):
         Dependency(key="benchmark", module="benchmark")
     ]
 
-    def get_results_path(self):
-        """Return an absolute path that can be used for storing results.
-        The path is a function of the module's config and the configs of its dependencies.
-        """
-
-        return constants["RESULTS_BASE_PATH"] / self.get_module_path()
-    
     def exists(self, weights_fn):
         return os.path.isfile(weights_fn)
 
@@ -85,23 +78,28 @@ class Encoder(ModuleBase):
 
         return dev_run
                 
-    def train_encoder(self, train_run, dev_run, docids, qids):
+    def train_encoder(self, train_run, dev_run, docids, qids, output_path):
         train_dataset = self.sampler
         self.extractor.preprocess(
             qids=qids, docids=docids, topics=self.benchmark.topics[self.benchmark.query_type]
         )
 
-        train_dataset.prepare(train_run, self.benchmark.qrels, self.extractor, relevance_level=self.benchmark.relevance_level)
+        if self.benchmark.module_name in ["robust04passagesqueriestitle", "robust04passagesquerieskeepstops", "robust04passagesqueriesdesc"]:
+            # These benchmarks use generated queries to train - for each query, the only reldoc is the passage it was
+            # generated from. We supply a different qrels to the sample to reflect this
+            train_dataset.prepare(train_run, self.benchmark.generated_qrels, self.extractor,
+                                  relevance_level=self.benchmark.relevance_level)
+        else:
+            train_dataset.prepare(train_run, self.benchmark.qrels, self.extractor, relevance_level=self.benchmark.relevance_level)
 
         dev_dataset = PredSampler()
         dev_dataset.prepare(dev_run, self.benchmark.qrels, self.extractor, relevance_level=self.benchmark.relevance_level)
 
         self.instantiate_model()
-        output_path = self.get_results_path()
         self.trainer.train(self, train_dataset, dev_dataset, output_path, self.benchmark.qrels)
 
-    def build_model(self, train_run, dev_run, docids, qids):
-        self.train_encoder(train_run, dev_run, docids, qids)
+    def build_model(self, train_run, dev_run, docids, qids, output_path):
+        self.train_encoder(train_run, dev_run, docids, qids, output_path)
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.model.to(device)
         
