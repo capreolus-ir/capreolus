@@ -155,7 +155,7 @@ class PytorchANNTrainer(Trainer):
         position_ids_lst = [list(range(len(x["query"]))) +
                             list(range(len(x["posdoc"]))) for x in batch]
         data = {
-            "input_ids": PytorchANNTrainer.pack_tensor_2D(input_ids_lst, default=0, dtype=torch.int64),
+            "input_ids": pack_tensor_2D(input_ids_lst, default=0, dtype=torch.int64),
             "token_type_ids": pack_tensor_2D(token_type_ids_lst, default=0, dtype=torch.int64),
             "valid_mask": pack_tensor_2D(valid_mask_lst, default=0, dtype=torch.int64),
             "position_ids": pack_tensor_2D(position_ids_lst, default=0, dtype=torch.int64),
