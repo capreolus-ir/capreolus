@@ -116,7 +116,7 @@ class RepBERTPretrained(Encoder):
         doc = d["posdoc"]
         doc_mask = d["posdoc_mask"]
 
-        query_emb = self.model.predict(query, query_mask)
-        doc_emb = self.model.predict(doc, doc_mask)
+        query_emb = self.model.module.predict(query, query_mask)
+        doc_emb = self.model.module.predict(doc, doc_mask)
 
         return F.cosine_similarity(query_emb, doc_emb)
