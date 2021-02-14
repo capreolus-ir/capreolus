@@ -56,14 +56,14 @@ class FAISSIndex(Index):
 
         return search_results_folder
 
-    def evaluate_bm25_search(self):
+    def evaluate_bm25_search(self, fold=None):
         if hasattr(self, "best_bm25_results"):
             return self.best_bm25_results
 
         metrics = evaluator.DEFAULT_METRICS
 
         best_results = evaluator.search_best_run(
-            self.get_results_path(), self.benchmark, primary_metric="map", metrics=metrics
+            self.get_results_path(), self.benchmark, primary_metric="map", metrics=metrics, folds=fold
         )
 
         for fold, path in best_results["path"].items():
@@ -80,7 +80,7 @@ class FAISSIndex(Index):
     def train_encoder(self, fold):
         # TODO: The BM25 search run is used to generate training data for the encoder. Remove this maybe?
         self.do_bm25_search()
-        rank_results = self.evaluate_bm25_search()
+        rank_results = self.evaluate_bm25_search(fold=fold)
         best_search_run_path = rank_results["path"][fold]
         best_search_run = Searcher.load_trec_run(best_search_run_path)
         train_run = {qid: docs for qid, docs in best_search_run.items() if qid in self.benchmark.folds[fold]["train_qids"]}
@@ -178,7 +178,7 @@ class FAISSIndex(Index):
         Takes the cosine similarity scores that FAISS produces and re-weights them as specified in the CLEAR paper
         """
         faiss_id_to_doc_id_fn = os.path.join(self.get_cache_path(), "faiss_id_to_doc_id.dump")
-        rank_results = self.evaluate_bm25_search()
+        rank_results = self.evaluate_bm25_search(fold=fold)
         best_search_run_path = rank_results["path"][fold]
         bm25_run = Searcher.load_trec_run(best_search_run_path)
         faiss_id_to_doc_id = pickle.load(open(faiss_id_to_doc_id_fn, "rb"))
@@ -208,7 +208,7 @@ class FAISSIndex(Index):
 
     def manual_search_train_set(self, topic_vectors, qid_query, fold):
         # Get the dev_run BM25 results for this fold.
-        rank_results = self.evaluate_bm25_search()
+        rank_results = self.evaluate_bm25_search(fold=fold)
         best_search_run_path = rank_results["path"][fold]
         best_search_run = Searcher.load_trec_run(best_search_run_path)
 
@@ -222,7 +222,7 @@ class FAISSIndex(Index):
 
     def manual_search_dev_set(self, topic_vectors, qid_query, fold, tag):
         # Get the dev_run BM25 results for this fold.
-        rank_results = self.evaluate_bm25_search()
+        rank_results = self.evaluate_bm25_search(fold=fold)
         best_search_run_path = rank_results["path"][fold]
         best_search_run = Searcher.load_trec_run(best_search_run_path)
 
@@ -236,7 +236,7 @@ class FAISSIndex(Index):
 
     def manual_search_test_set(self, topic_vectors, qid_query, fold, tag):
         # Get the dev_run BM25 results for this fold.
-        rank_results = self.evaluate_bm25_search()
+        rank_results = self.evaluate_bm25_search(fold=fold)
         best_search_run_path = rank_results["path"][fold]
         best_search_run = Searcher.load_trec_run(best_search_run_path)
 

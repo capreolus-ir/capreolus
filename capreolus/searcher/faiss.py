@@ -76,7 +76,7 @@ class FAISSSearcher(Searcher):
         Solution: Do not use BM25 run to form the TrainTripletSampler while training the encoder
         """
 
-        rank_results = self.index.evaluate_bm25_search()
+        rank_results = self.index.evaluate_bm25_search(fold)
         best_search_run_path = rank_results["path"][fold]
         best_search_run = Searcher.load_trec_run(best_search_run_path)
         train_run = {qid: docs for qid, docs in best_search_run.items() if qid in self.benchmark.folds[fold]["train_qids"]}
@@ -90,7 +90,7 @@ class FAISSSearcher(Searcher):
                     if idx >= 100:
                         break
                     dev_run[qid][docid] = score
-                    
+
         encoder_qids = best_search_run.keys()
         docids = set(docid for querydocs in best_search_run.values() for docid in querydocs)
 
