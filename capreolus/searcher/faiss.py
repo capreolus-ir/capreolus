@@ -1,4 +1,5 @@
 import torch
+from collections import defaultdict
 import faiss
 import random
 import re
@@ -79,7 +80,17 @@ class FAISSSearcher(Searcher):
         best_search_run_path = rank_results["path"][fold]
         best_search_run = Searcher.load_trec_run(best_search_run_path)
         train_run = {qid: docs for qid, docs in best_search_run.items() if qid in self.benchmark.folds[fold]["train_qids"]}
-        dev_run = {qid: docs for qid, docs in best_search_run.items() if qid in self.benchmark.folds[fold]["predict"]["dev"]}
+
+        dev_run = defaultdict(dict)
+        # Limit validation to top 100 BM25 results
+        # This is possible because in python 3.6+, dictionaries preserve insertion order
+        for qid, docs in best_search_run.items():
+            if qid in self.benchmark.folds[fold]["predict"]["dev"] and qid in self.benchmark.qrels:
+                for idx, (docid, score) in enumerate(docs.items()):
+                    if idx >= 100:
+                        break
+                    dev_run[qid][docid] = score
+                    
         encoder_qids = best_search_run.keys()
         docids = set(docid for querydocs in best_search_run.values() for docid in querydocs)
 

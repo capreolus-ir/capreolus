@@ -1,4 +1,5 @@
 import hashlib
+import torch
 import logging
 import os
 import sys
@@ -590,3 +591,12 @@ def get_udel_query_expander():
 
     return expand_query
 
+
+def pack_tensor_2D(lstlst, default, dtype, length=None):
+    batch_size = len(lstlst)
+    length = length if length is not None else max(len(l) for l in lstlst)
+    tensor = default * torch.ones((batch_size, length), dtype=dtype)
+    for i, l in enumerate(lstlst):
+        tensor[i, :len(l)] = torch.tensor(l, dtype=dtype)
+
+    return tensor

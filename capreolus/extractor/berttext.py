@@ -119,6 +119,35 @@ class BertText(Extractor):
 
         return data
 
+    def id2vec_for_train(self, qid, posid, negid=None, label=None, reldocs=None):
+        assert posid is not None
+        assert qid is not None
+        assert reldocs is not None
+
+        max_doc_length = 256
+        max_query_length = 20
+        tokenizer = self.tokenizer
+
+        posdoc_toks = self.get_tokenized_doc(posid)[:510]
+        posdoc_toks = ["[CLS]"] + posdoc_toks + ["[SEP]"]
+        posdoc = tokenizer.convert_tokens_to_ids(posdoc_toks)[:max_doc_length]
+
+        # faiss_logger.debug("Posdocid: {}, doctoks: {}".format(posid, posdoc_toks))
+        # faiss_logger.debug("Numericalized posdoc: {}".format(posdoc))
+        data = {
+            "posdocid": posid,
+            "posdoc": np.array(posdoc, dtype=np.long),
+            "rel_docs": reldocs
+        }
+
+        query_toks = self.qid2toks[qid][:510]
+        query_toks = ["[CLS]"] + query_toks + ["[SEP]"]
+        query = tokenizer.convert_tokens_to_ids(query_toks)[:max_query_length]
+        data["qid"] = qid
+        data["query"] = np.array(query, dtype=np.long)
+
+        return data
+
     def get_mask(self, numericalized_text):
         """
         Returns a mask where it is 1 for actual toks and 0 for pad toks

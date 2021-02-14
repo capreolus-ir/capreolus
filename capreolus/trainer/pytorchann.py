@@ -2,12 +2,15 @@ import torch
 import pickle
 import numpy as np
 import os
+
+from torch.optim import AdamW
 from tqdm import tqdm
 import time
 from capreolus import get_logger, ConfigOption, evaluator
 from capreolus.reranker.common import pair_hinge_loss, pair_softmax_loss
 
 from . import Trainer
+from ..utils.common import pack_tensor_2D
 
 logger = get_logger(__name__)  # pylint: disable=invalid-name
 faiss_logger = get_logger("faiss")
@@ -49,11 +52,11 @@ class PytorchANNTrainer(Trainer):
         for bi, batch in tqdm(enumerate(train_dataloader), desc="Training iteration", total=batches_per_epoch):
             batch = {k: v.to(self.device) if not isinstance(v, list) else v for k, v in batch.items()}
 
-            cosine_scores = encoder.score(batch)
-            loss = self.loss_function(cosine_scores)
+            loss = encoder.score(batch)
 
             iter_loss.append(loss)
             loss.backward()
+            torch.nn.utils.clip_grad_norm_(encoder.model.parameters(), 1.0)
 
             batches_since_update += 1
             if batches_since_update == batches_per_step:
@@ -69,17 +72,14 @@ class PytorchANNTrainer(Trainer):
         return torch.stack(iter_loss).mean()
 
     def train(self, encoder, train_dataset, dev_dataset, output_path, qrels, metric="map", relevance_level=1):
-        other_params = []
-        for name, param in encoder.model.named_parameters():
-            if 'encoder' not in name:
-                other_params.append(param)
-
-        self.optimizer = torch.optim.Adam(
-            [
-                {'params': encoder.model.module.bert.encoder.parameters(), 'lr': self.config["bertlr"]},
-                {'params': other_params},
-            ], lr=self.config["lr"], eps=1e-7, weight_decay=0.1
-        )
+        # Prepare optimizer and schedule (linear warmup and decay)
+        no_decay = ['bias', 'LayerNorm.weight']
+        optimizer_grouped_parameters = [
+            {'params': [p for n, p in encoder.model.named_parameters() if not any(nd in n for nd in no_decay)],
+             'weight_decay': 0.01},
+            {'params': [p for n, p in encoder.model.named_parameters() if any(nd in n for nd in no_decay)], 'weight_decay': 0.0}
+        ]
+        self.optimizer = AdamW(optimizer_grouped_parameters, lr=self.config["bertlr"], eps=1e-8)
         weights_fn = encoder.get_results_path() / "weights_{}".format(train_dataset.get_hash())
 
         if encoder.exists(weights_fn):
@@ -93,10 +93,9 @@ class PytorchANNTrainer(Trainer):
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         encoder.model.to(self.device)
  
-        self.loss_function = pair_hinge_loss
         num_workers = 1 if self.config["multithread"] else 0
         train_dataloader = torch.utils.data.DataLoader(
-            train_dataset, batch_size=self.config["batch"], pin_memory=True, num_workers=num_workers
+            train_dataset, batch_size=self.config["batch"], pin_memory=True, num_workers=num_workers, collate_fn=self.repbert_collate
         )
         
         train_loss = []
@@ -146,6 +145,27 @@ class PytorchANNTrainer(Trainer):
                     preds.setdefault(qid, {})[docid] = score.astype(np.float16).item()
 
         return preds
+
+    @staticmethod
+    def repbert_collate(batch):
+        input_ids_lst = [x["query"] + x["posdoc"] for x in batch]
+        token_type_ids_lst = [[0] * len(x["query"]) + [1] * len(x["posdoc"])
+                              for x in batch]
+        valid_mask_lst = [[1] * len(input_ids) for input_ids in input_ids_lst]
+        position_ids_lst = [list(range(len(x["query"]))) +
+                            list(range(len(x["posdoc"]))) for x in batch]
+        data = {
+            "input_ids": PytorchANNTrainer.pack_tensor_2D(input_ids_lst, default=0, dtype=torch.int64),
+            "token_type_ids": pack_tensor_2D(token_type_ids_lst, default=0, dtype=torch.int64),
+            "valid_mask": pack_tensor_2D(valid_mask_lst, default=0, dtype=torch.int64),
+            "position_ids": pack_tensor_2D(position_ids_lst, default=0, dtype=torch.int64),
+        }
+        qid_lst = [x['qid'] for x in batch]
+        docid_lst = [x['posdocid'] for x in batch]
+        labels = [[j for j in range(len(docid_lst)) if docid_lst[j] in x['rel_docs']] for x in batch]
+        data['labels'] = pack_tensor_2D(labels, default=-1, dtype=torch.int64, length=len(batch))
+
+        return data, qid_lst, docid_lst
                 
 
 
