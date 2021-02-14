@@ -22,7 +22,7 @@ class Benchmark(ModuleBase):
     relevance_level = 1
     """ Documents with a relevance label >= relevance_level will be considered relevant.
     This corresponds to trec_eval's --level_for_rel (and is passed to pytrec_eval as relevance_level). """
-    use_train_as_dev = True
+    use_train_as_dev = False
     """ Whether to use training set as validate set when there is no training needed, 
     e.g. for traditional IR algorithms like BM25 """
 
