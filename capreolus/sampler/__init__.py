@@ -201,7 +201,7 @@ class PredSampler(Sampler, torch.utils.data.IterableDataset):
         for qid, docids in self.qid_to_docids.items():
             total_samples += len(docids)
 
-        logger.debug("There are {} samples in the PredSampler")
+        logger.debug("There are {} samples in the PredSampler".format(total_samples))
         self.total_samples = total_samples
 
     def __hash__(self):
