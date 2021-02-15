@@ -39,13 +39,11 @@ class BertText(Extractor):
         with open(self.get_state_cache_file_path(qids, docids), "rb") as f:
             state_dict = pickle.load(f)
             self.qid2toks = state_dict["qid2toks"]
-            self.clsidx = state_dict["clsidx"]
-            self.sepidx = state_dict["sepidx"]
 
     def cache_state(self, qids, docids):
         os.makedirs(self.get_cache_path(), exist_ok=True)
         with open(self.get_state_cache_file_path(qids, docids), "wb") as f:
-            state_dict = {"qid2toks": self.qid2toks, "clsidx": self.clsidx, "sepidx": self.sepidx}
+            state_dict = {"qid2toks": self.qid2toks}
             pickle.dump(state_dict, f, protocol=-1)
 
     def _build_vocab(self, qids, docids, topics):
@@ -56,7 +54,6 @@ class BertText(Extractor):
             logger.info("Building bertext vocabulary")
             tokenize = self.tokenizer.tokenize
             self.qid2toks = {qid: tokenize(topics[qid]) for qid in tqdm(qids, desc="querytoks")}
-            self.clsidx, self.sepidx = self.tokenizer.convert_tokens_to_ids(["CLS", "SEP"])
 
             self.cache_state(qids, docids)
 
@@ -67,8 +64,6 @@ class BertText(Extractor):
 
         self.index.create_index()
         self.qid2toks = defaultdict(list)
-        self.clsidx = None
-        self.sepidx = None
 
         self._build_vocab(qids, docids, topics)
 
@@ -124,13 +119,12 @@ class BertText(Extractor):
         assert qid is not None
         assert reldocs is not None
 
-        max_doc_length = 256
+        max_doc_length = 488
         max_query_length = 20
         tokenizer = self.tokenizer
 
-        posdoc_toks = self.get_tokenized_doc(posid)[:510]
-        posdoc_toks = ["[CLS]"] + posdoc_toks + ["[SEP]"]
-        posdoc = tokenizer.convert_tokens_to_ids(posdoc_toks)[:max_doc_length]
+        posdoc_toks = self.get_tokenized_doc(posid)
+        posdoc = [101] + tokenizer.convert_tokens_to_ids(posdoc_toks)[:max_doc_length] + [102]
 
         # faiss_logger.debug("Posdocid: {}, doctoks: {}".format(posid, posdoc_toks))
         # faiss_logger.debug("Numericalized posdoc: {}".format(posdoc))
@@ -140,9 +134,31 @@ class BertText(Extractor):
             "rel_docs": reldocs
         }
 
-        query_toks = self.qid2toks[qid][:510]
-        query_toks = ["[CLS]"] + query_toks + ["[SEP]"]
-        query = tokenizer.convert_tokens_to_ids(query_toks)[:max_query_length]
+        query_toks = self.qid2toks[qid]
+        query = [101] + tokenizer.convert_tokens_to_ids(query_toks)[:max_query_length] + [102]
+        data["qid"] = qid
+        data["query"] = query
+
+        return data
+
+    def id2vec_for_train_reldoc_as_query(self, qid, docid, posid, reldocs=None):
+        max_doc_length = 254
+        max_query_length = 254
+        tokenizer = self.tokenizer
+
+        posdoc_toks = self.get_tokenized_doc(posid)
+        posdoc = [101] + tokenizer.convert_tokens_to_ids(posdoc_toks)[:max_doc_length] + [102]
+
+        # faiss_logger.debug("Posdocid: {}, doctoks: {}".format(posid, posdoc_toks))
+        # faiss_logger.debug("Numericalized posdoc: {}".format(posdoc))
+        data = {
+            "posdocid": posid,
+            "posdoc": posdoc,
+            "rel_docs": reldocs
+        }
+
+        query_toks = self.get_tokenized_doc(docid)
+        query = [101] + tokenizer.convert_tokens_to_ids(query_toks)[:max_query_length] + [102]
         data["qid"] = qid
         data["query"] = query
 

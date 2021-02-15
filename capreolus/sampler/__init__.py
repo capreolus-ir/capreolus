@@ -168,6 +168,49 @@ class TrainPairSampler(Sampler, TrainingSamplerMixin, torch.utils.data.IterableD
 
 
 @Sampler.register
+class ReldocAsQuerySampler(Sampler, TrainingSamplerMixin, torch.utils.IterableDataset):
+    """
+    Same as TrainPairSampler, but relevant docs too can be queries
+    """
+    module_name = "reldocpair"
+    dependencies = []
+
+    def get_hash(self):
+        sorted_rep = sorted([(qid, docids) for qid, docids in self.qid_to_docids.items()])
+        key_content = "{0}{1}".format(self.extractor.get_cache_path(), str(sorted_rep))
+        key = hashlib.md5(key_content.encode("utf-8")).hexdigest()
+        return "reldocpair_{0}".format(key)
+
+    def generate_samples(self):
+        all_qids = sorted(self.qid_to_reldocs)
+        if len(all_qids) == 0:
+            raise RuntimeError("TrainDataset has no valid training pairs")
+
+        while True:
+            self.rng.shuffle(all_qids)
+            for qid in all_qids:
+                reldocs = set(self.qid_to_reldocs[qid])
+
+                for posdocid in self.qid_to_reldocs[qid]:
+                    # First yield normal query-doc pairs
+                    yield self.extractor.id2vec_for_train(qid, posdocid, negid=None, label=[0, 1],
+                                                          reldocs=reldocs)
+                    negdocid = self.rng.choice(self.qid_to_negdocs[qid])
+
+                    yield self.extractor.id2vec_for_train(qid, negdocid, negid=None, label=[1, 0],
+                                                          reldocs=reldocs)
+
+                    # Now use the current posdocid as the query and generate pairs
+                    for another_posdocid in self.qid_to_reldocs[qid]:
+                        if another_posdocid == posdocid:
+                            continue
+
+                        yield self.extractor.id2vec_for_train_reldoc_as_query(qid, posdocid, another_posdocid, reldocs=reldocs)
+                        another_negdocid = self.rng.choice(self.qid_to_negdocs[qid])
+                        yield self.extractor.id2vec_for_train_reldoc_as_query(qid, posdocid, another_negdocid,
+                                                                              reldocs=reldocs)
+
+
 class PredSampler(Sampler, torch.utils.data.IterableDataset):
     """
     Creates a Dataset for evaluation (test) data to be used with a pytorch DataLoader
