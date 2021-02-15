@@ -168,7 +168,7 @@ class TrainPairSampler(Sampler, TrainingSamplerMixin, torch.utils.data.IterableD
 
 
 @Sampler.register
-class ReldocAsQuerySampler(Sampler, TrainingSamplerMixin, torch.utils.IterableDataset):
+class ReldocAsQuerySampler(Sampler, TrainingSamplerMixin, torch.utils.data.IterableDataset):
     """
     Same as TrainPairSampler, but relevant docs too can be queries
     """
