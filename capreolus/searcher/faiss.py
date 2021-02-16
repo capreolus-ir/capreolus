@@ -56,6 +56,7 @@ class FAISSSearcher(Searcher):
         # `qid_query` contains (qid, query) tuples in the order they were encoded
         topic_vectors, qid_query = self.create_topic_vectors(topics, fold, topicfield="desc")
         normal_distances, normal_results = self.do_search(topic_vectors, qid_query, fold, output_path, "faiss.run", "normal")
+        self.analyze_recall(os.path.join(self.index.get_results_path(), "searcher"), os.path.join(output_path, "faiss.run"), fold, "normal")
 
         # rm3_expanded_topics = self.rm3_expand_queries(os.path.join(output_path, "faiss.run"), topicfield="title")
         # rm3_expanded_topic_vectors, rm3_qid_query = self.create_topic_vectors(rm3_expanded_topics, fold, topicfield="title")
@@ -63,7 +64,7 @@ class FAISSSearcher(Searcher):
 
         topdoc_expanded_topic_vectors, topdoc_qid_query = self.topdoc_expand_queries(qid_query, normal_results)
         self.do_search(topdoc_expanded_topic_vectors, topdoc_qid_query, fold, output_path, "faiss_topdoc_expanded.run", "topdoc")
-
+        self.analyze_recall(os.path.join(self.index.get_results_path(), "searcher"), os.path.join(output_path, "faiss_topdoc_expanded.run"), fold, "topdoc")
         # Deleting the results obtained using the expanded queries
         # os.remove(os.path.join(output_path, "faiss_rm3_expanded.run"))
         os.remove(os.path.join(output_path, "faiss_topdoc_expanded.run"))
@@ -250,3 +251,23 @@ class FAISSSearcher(Searcher):
         metrics = evaluator.eval_runs(run, self.benchmark.qrels, evaluator.DEFAULT_METRICS, self.benchmark.relevance_level)
 
         return metrics
+
+    def analyze_recall(self, bm25_run_fn, faiss_run_fn, fold, tag):
+        bm25_run = Searcher.load_trec_run(bm25_run_fn)
+        faiss_run = Searcher.load_trec_run(faiss_run_fn)
+        qids = self.benchmark.folds[fold]["predict"]["test"]
+
+        faiss_favor = 0
+        bm25_favor = 0
+
+        for qid in qids:
+            if qid not in self.benchmark.qrels:
+                continue
+
+            bm25_retrieved = set([docid for docid in bm25_run[qid].keys() if docid in self.benchmark.qrels[qid]])
+            faiss_retrieved = set([docid for docid in faiss_run[qid].keys() if docid in self.benchmark.qrels[qid]])
+            faiss_favor += len(faiss_retrieved - bm25_retrieved)
+            bm25_favor += len(bm25_retrieved - faiss_retrieved)
+
+        faiss_logger.info("{}: FAISS retrieved {} reldocs that BM25 did not".format(tag, faiss_favor))
+        faiss_logger.info("{}: BM25 retrieved {} reldocs that FAISS did not".format(tag, bm25_favor))
