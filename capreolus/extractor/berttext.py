@@ -75,10 +75,11 @@ class BertText(Extractor):
     def id2vec(self, qid, posid, negid=None, label=None):
         assert posid is not None
         tokenizer = self.tokenizer
+        max_doc_length = 510
+        max_query_length = 20
+        posdoc_toks = self.get_tokenized_doc(posid)
+        posdoc = [101] + tokenizer.convert_tokens_to_ids(posdoc_toks)[:max_doc_length] + [102]
 
-        posdoc_toks = self.get_tokenized_doc(posid)[:510]
-        posdoc_toks = ["[CLS]"] + posdoc_toks + ["[SEP]"]
-        posdoc = tokenizer.convert_tokens_to_ids(posdoc_toks)
         posdoc = padlist(posdoc, 512, 0)
 
         # faiss_logger.debug("Posdocid: {}, doctoks: {}".format(posid, posdoc_toks))
@@ -90,9 +91,8 @@ class BertText(Extractor):
         }
 
         if qid:
-            query_toks = self.qid2toks[qid][:510]
-            query_toks = ["[CLS]"] + query_toks + ["[SEP]"]
-            query = tokenizer.convert_tokens_to_ids(query_toks)
+            query_toks = self.qid2toks[qid]
+            query = [101] + tokenizer.convert_tokens_to_ids(query_toks)[:max_query_length] + [102]
             query = padlist(query, 512, 0)
             data["qid"] = qid
             data["query"] = np.array(query, dtype=np.long)
@@ -101,9 +101,8 @@ class BertText(Extractor):
             # faiss_logger.debug("Numericalized query: {}".format(query))
 
         if negid:
-            negdoc_toks = self.get_tokenized_doc(negid)[:510]
-            negdoc_toks = ["[CLS]"] + negdoc_toks + ["[SEP]"]
-            negdoc = tokenizer.convert_tokens_to_ids(negdoc_toks)
+            negdoc_toks = self.get_tokenized_doc(negid)
+            negdoc = [101] + tokenizer.convert_tokens_to_ids(negdoc_toks)[:max_doc_length] + [102]
             negdoc = padlist(negdoc, 512, 0)
 
             data["negdocid"] = negid
