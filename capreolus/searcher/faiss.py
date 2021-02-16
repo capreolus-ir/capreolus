@@ -13,7 +13,7 @@ from capreolus.utils.trec import load_trec_topics
 from capreolus import get_logger
 
 from . import Searcher
-from capreolus.evaluator import search_best_run
+import capreolus.evaluator
 
 logger = get_logger(__name__)
 faiss_logger = get_logger("faiss")
@@ -253,7 +253,7 @@ class FAISSSearcher(Searcher):
         return metrics
 
     def interpolate(self, bm25_run_folder, faiss_run_fn, fold, tag):
-        bm25_run = search_best_run(bm25_run_folder, self.benchmark, "map", metrics=evaluator.DEFAULT_METRICS, folds=fold)
+        bm25_run = evaluator.search_best_run(bm25_run_folder, self.benchmark, "map", metrics=evaluator.DEFAULT_METRICS, folds=fold)
         faiss_run = Searcher.load_trec_run(faiss_run_fn)
         qids = self.benchmark.folds[fold]["predict"]["test"]
 
