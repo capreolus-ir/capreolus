@@ -26,7 +26,7 @@ DEFAULT_METRICS = [
     "ndcg_cut_20",
     "recall_100",
     "recall_1000",
-    "recall_2000"
+    "recall_2000",
     "recip_rank",
     MRR_10,
 ]
