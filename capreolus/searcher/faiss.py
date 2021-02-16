@@ -291,7 +291,7 @@ class FAISSSearcher(Searcher):
             if min_ < faiss_min:
                 faiss_min = min_
 
-        interpolated_run = defaultdict(dict)
+        interpolated_run = {}
         # Interpolate the scores
         for qid in qids:
             if qid not in self.benchmark.qrels:
@@ -302,11 +302,11 @@ class FAISSSearcher(Searcher):
                 if docid in bm25_run[qid] and docid in faiss_run[qid]:
                     normalized_bm25 = (bm25_run[qid][docid] - bm25_min) / (bm25_max - bm25_min)
                     normalized_faiss = (faiss_run[qid][docid] - faiss_min) / (faiss_max - faiss_min)
-                    interpolated_run[qid][docid] = (normalized_faiss + normalized_bm25) / 2
+                    interpolated_run.setdefault(qid, {})[docid] = (normalized_faiss + normalized_bm25) / 2
                 elif docid in bm25_run[qid] and docid not in faiss_run[qid]:
-                    interpolated_run[qid][docid] = (bm25_run[qid][docid] - bm25_min) / (bm25_max - bm25_min)
+                    interpolated_run.setdefault(qid, {})[docid] = (bm25_run[qid][docid] - bm25_min) / (bm25_max - bm25_min)
                 elif docid not in bm25_run[qid] and docid in faiss_run[qid]:
-                    interpolated_run[qid][docid] = (faiss_run[qid][docid] - faiss_min) / (faiss_max - faiss_min)
+                    interpolated_run.setdefault(qid, {})[docid] = (faiss_run[qid][docid] - faiss_min) / (faiss_max - faiss_min)
 
         metrics = evaluator.eval_runs(interpolated_run, self.benchmark.qrels, evaluator.DEFAULT_METRICS, self.benchmark.relevance_level)
         faiss_logger.info("%s: Interpolated Test Fold %s metrics: %s", tag, fold, " ".join([f"{metric}={v:0.3f}" for metric, v in sorted(metrics.items())]))
