@@ -297,7 +297,7 @@ class FAISSSearcher(Searcher):
             if qid not in self.benchmark.qrels:
                 continue
 
-            docids = set(bm25_run[qid].values()) + set(faiss_run[qid].values())
+            docids = set(bm25_run[qid].values()).union(set(faiss_run[qid].values()))
             for docid in docids:
                 if docid in bm25_run[qid] and docid in faiss_run[qid]:
                     normalized_bm25 = (bm25_run[qid][docid] - bm25_min) / (bm25_max - bm25_min)
