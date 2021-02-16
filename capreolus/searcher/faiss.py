@@ -13,7 +13,7 @@ from capreolus.utils.trec import load_trec_topics
 from capreolus import get_logger
 
 from . import Searcher
-from ..evaluator import search_best_run
+from capreolus.evaluator import search_best_run
 
 logger = get_logger(__name__)
 faiss_logger = get_logger("faiss")
