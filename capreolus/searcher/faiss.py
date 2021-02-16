@@ -13,7 +13,7 @@ from capreolus.utils.trec import load_trec_topics
 from capreolus import get_logger
 
 from . import Searcher
-
+from ..evaluator import search_best_run
 
 logger = get_logger(__name__)
 faiss_logger = get_logger("faiss")
@@ -56,7 +56,7 @@ class FAISSSearcher(Searcher):
         # `qid_query` contains (qid, query) tuples in the order they were encoded
         topic_vectors, qid_query = self.create_topic_vectors(topics, fold, topicfield="desc")
         normal_distances, normal_results = self.do_search(topic_vectors, qid_query, fold, output_path, "faiss.run", "normal")
-        self.interpolate(os.path.join(self.index.get_results_path(), "searcher"), os.path.join(output_path, "faiss.run"), fold, "normal")
+        self.interpolate(self.index.get_results_path(), os.path.join(output_path, "faiss.run"), fold, "normal")
 
         # rm3_expanded_topics = self.rm3_expand_queries(os.path.join(output_path, "faiss.run"), topicfield="title")
         # rm3_expanded_topic_vectors, rm3_qid_query = self.create_topic_vectors(rm3_expanded_topics, fold, topicfield="title")
@@ -64,7 +64,7 @@ class FAISSSearcher(Searcher):
 
         topdoc_expanded_topic_vectors, topdoc_qid_query = self.topdoc_expand_queries(qid_query, normal_results)
         self.do_search(topdoc_expanded_topic_vectors, topdoc_qid_query, fold, output_path, "faiss_topdoc_expanded.run", "topdoc")
-        self.interpolate(os.path.join(self.index.get_results_path(), "searcher"), os.path.join(output_path, "faiss_topdoc_expanded.run"), fold, "topdoc")
+        self.interpolate(self.index.get_results_path(), os.path.join(output_path, "faiss_topdoc_expanded.run"), fold, "topdoc")
         # Deleting the results obtained using the expanded queries
         # os.remove(os.path.join(output_path, "faiss_rm3_expanded.run"))
         os.remove(os.path.join(output_path, "faiss_topdoc_expanded.run"))
@@ -252,8 +252,8 @@ class FAISSSearcher(Searcher):
 
         return metrics
 
-    def interpolate(self, bm25_run_fn, faiss_run_fn, fold, tag):
-        bm25_run = Searcher.load_trec_run(bm25_run_fn)
+    def interpolate(self, bm25_run_folder, faiss_run_fn, fold, tag):
+        bm25_run = search_best_run(bm25_run_folder, self.benchmark, "map", metrics=evaluator.DEFAULT_METRICS, folds=fold)
         faiss_run = Searcher.load_trec_run(faiss_run_fn)
         qids = self.benchmark.folds[fold]["predict"]["test"]
 
