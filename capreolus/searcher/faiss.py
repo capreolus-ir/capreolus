@@ -264,8 +264,9 @@ class FAISSSearcher(Searcher):
             if qid not in self.benchmark.qrels:
                 continue
 
-            bm25_retrieved = set([docid for docid in bm25_run[qid].keys() if docid in self.benchmark.qrels[qid]])
-            faiss_retrieved = set([docid for docid in faiss_run[qid].keys() if docid in self.benchmark.qrels[qid]])
+            qrels = self.benchmark.qrels[qid]
+            bm25_retrieved = set([docid for docid in bm25_run[qid].keys() if docid in qrels and qrels[docid] >= 1])
+            faiss_retrieved = set([docid for docid in faiss_run[qid].keys() if docid in qrels and qrels[docid] >= 1])
             faiss_favor += len(faiss_retrieved - bm25_retrieved)
             bm25_favor += len(bm25_retrieved - faiss_retrieved)
 
