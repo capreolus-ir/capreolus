@@ -56,7 +56,7 @@ class FAISSSearcher(Searcher):
         # `qid_query` contains (qid, query) tuples in the order they were encoded
         topic_vectors, qid_query = self.create_topic_vectors(topics, fold, topicfield="desc")
         normal_distances, normal_results = self.do_search(topic_vectors, qid_query, fold, output_path, "faiss.run", "normal")
-        self.analyze_recall(os.path.join(self.index.get_results_path(), "searcher"), os.path.join(output_path, "faiss.run"), fold, "normal")
+        self.interpolate(os.path.join(self.index.get_results_path(), "searcher"), os.path.join(output_path, "faiss.run"), fold, "normal")
 
         # rm3_expanded_topics = self.rm3_expand_queries(os.path.join(output_path, "faiss.run"), topicfield="title")
         # rm3_expanded_topic_vectors, rm3_qid_query = self.create_topic_vectors(rm3_expanded_topics, fold, topicfield="title")
@@ -64,7 +64,7 @@ class FAISSSearcher(Searcher):
 
         topdoc_expanded_topic_vectors, topdoc_qid_query = self.topdoc_expand_queries(qid_query, normal_results)
         self.do_search(topdoc_expanded_topic_vectors, topdoc_qid_query, fold, output_path, "faiss_topdoc_expanded.run", "topdoc")
-        self.analyze_recall(os.path.join(self.index.get_results_path(), "searcher"), os.path.join(output_path, "faiss_topdoc_expanded.run"), fold, "topdoc")
+        self.interpolate(os.path.join(self.index.get_results_path(), "searcher"), os.path.join(output_path, "faiss_topdoc_expanded.run"), fold, "topdoc")
         # Deleting the results obtained using the expanded queries
         # os.remove(os.path.join(output_path, "faiss_rm3_expanded.run"))
         os.remove(os.path.join(output_path, "faiss_topdoc_expanded.run"))
@@ -252,7 +252,7 @@ class FAISSSearcher(Searcher):
 
         return metrics
 
-    def analyze_recall(self, bm25_run_fn, faiss_run_fn, fold, tag):
+    def interpolate(self, bm25_run_fn, faiss_run_fn, fold, tag):
         bm25_run = Searcher.load_trec_run(bm25_run_fn)
         faiss_run = Searcher.load_trec_run(faiss_run_fn)
         qids = self.benchmark.folds[fold]["predict"]["test"]
@@ -272,3 +272,41 @@ class FAISSSearcher(Searcher):
 
         faiss_logger.info("{}: FAISS retrieved {} reldocs that BM25 did not".format(tag, faiss_favor))
         faiss_logger.info("{}: BM25 retrieved {} reldocs that FAISS did not".format(tag, bm25_favor))
+
+        bm25_max = 0
+        bm25_min = np.inf
+        for qid, docid_to_score in bm25_run.items():
+            max_, min_ = max(docid_to_score.values()), min(docid_to_score.values())
+            if max_ > bm25_max:
+                bm25_max = max_
+            if min_ < bm25_min:
+                bm25_min = min_
+
+        faiss_max = 0
+        faiss_min = np.inf
+        for qid, docid_to_score in faiss_run.items():
+            max_, min_ = max(docid_to_score.values()), min(docid_to_score.values())
+            if max_ > faiss_max:
+                faiss_max = max_
+            if min_ < faiss_min:
+                faiss_min = min_
+
+        interpolated_run = defaultdict(dict)
+        # Interpolate the scores
+        for qid in qids:
+            if qid not in self.benchmark.qrels:
+                continue
+
+            docids = set(bm25_run[qid].values() + faiss_run[qid].values())
+            for docid in docids:
+                if docid in bm25_run[qid] and docid in faiss_run[qid]:
+                    normalized_bm25 = (bm25_run[qid][docid] - bm25_min) / (bm25_max - bm25_min)
+                    normalized_faiss = (faiss_run[qid][docid] - faiss_min) / (faiss_max - faiss_min)
+                    interpolated_run[qid][docid] = (normalized_faiss + normalized_bm25) / 2
+                elif docid in bm25_run[qid] and docid not in faiss_run[qid]:
+                    interpolated_run[qid][docid] = (bm25_run[qid][docid] - bm25_min) / (bm25_max - bm25_min)
+                elif docid not in bm25_run[qid] and docid in faiss_run[qid]:
+                    interpolated_run[qid][docid] = (faiss_run[qid][docid] - faiss_min) / (faiss_max - faiss_min)
+
+        metrics = evaluator.eval_runs(interpolated_run, self.benchmark.qrels, evaluator.DEFAULT_METRICS, self.benchmark.relevance_level)
+        faiss_logger.info("%s: Interpolated Test Fold %s metrics: %s", tag, fold, " ".join([f"{metric}={v:0.3f}" for metric, v in sorted(metrics.items())]))
