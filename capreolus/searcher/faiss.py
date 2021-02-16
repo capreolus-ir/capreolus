@@ -253,7 +253,8 @@ class FAISSSearcher(Searcher):
         return metrics
 
     def interpolate(self, bm25_run_folder, faiss_run_fn, fold, tag):
-        bm25_run = evaluator.search_best_run(bm25_run_folder, self.benchmark, "map", metrics=evaluator.DEFAULT_METRICS, folds=fold)
+        best_run = evaluator.search_best_run(bm25_run_folder, self.benchmark, "map", metrics=evaluator.DEFAULT_METRICS, folds=fold)
+        bm25_run = Searcher.load_trec_run(best_run["path"][fold])
         faiss_run = Searcher.load_trec_run(faiss_run_fn)
         qids = self.benchmark.folds[fold]["predict"]["test"]
 
