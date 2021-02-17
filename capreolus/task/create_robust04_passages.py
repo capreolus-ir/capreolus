@@ -49,7 +49,7 @@ class Robust04Passages(Task):
             passage_idx = 0
 
             passages = []
-            while start_idx < len(doc):
+            while start_idx < len(sentences):
                 selected_sentences = sentences[start_idx: start_idx + passagelen]
                 passage = " ".join(selected_sentences)
                 passage_id = "{}_{}".format(docid, passage_idx)
@@ -63,6 +63,7 @@ class Robust04Passages(Task):
             total_psg_count += len(passages)
             if random.random() > 0.95:
                 logger.debug("docid is {}".format(docid))
+                logger.debug("There are {} sentences in the doc".format(len(sentences)))
                 logger.debug("The original document is: {}".format(doc))
                 logger.debug("The document generated {} passages".format(passage_idx + 1))
                 formatted_passages = "\n----------\n".join(passages)
