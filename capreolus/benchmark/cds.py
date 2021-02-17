@@ -17,6 +17,9 @@ class CDS(IRDBenchmark):
     query_type = "summary"
     query_types = {}  # diagnosis, treatment, or test
 
+    def build(self):
+        self.topics
+
     def ird_load_qrels(self):
         qrels = {}
         for name in self.ird_dataset_names:

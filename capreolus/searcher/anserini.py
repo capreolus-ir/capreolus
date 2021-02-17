@@ -308,6 +308,12 @@ class StaticBM25Genomics(StaticRun):
 
 
 @Searcher.register
+class StaticBM25CDS(StaticRun):
+    module_name = "bm25staticcds"
+    run_fn = "cds_bm25.run"
+
+
+@Searcher.register
 class BM25PRF(AnseriniSearcherMixIn, Searcher):
     """ Anserini BM25 PRF. This searcher's parameters can also be specified as lists indicating parameters to grid search (e.g., ``"0.4,0.6,0.8,1.0"`` or ``"0.4..1,0.2"``). """
 
