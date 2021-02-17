@@ -15,13 +15,16 @@ class Sampler(ModuleBase):
     module_type = "sampler"
     requires_random_seed = True
 
-    def prepare(self, qid_to_docids, qrels, extractor, relevance_level=1, **kwargs):
+    def prepare(self, qid_to_docids, qrels, extractor, relevance_level=1, separator="_", **kwargs):
         """
         params:
-        qid_to_docids: A dict of the form {qid: [list of docids to rank]}
+        qid_to_docids: A dict of the form {qid: [list of docids to rank]} or of the form {qid: {docid: score}}
+
         qrels: A dict of the form {qid: {docid: label}}
         extractor: An Extractor instance (eg: EmbedText)
         relevance_level: Threshold score below which documents are considered to be non-relevant.
+        separator: Some datasets (eg: robust04passages) has docids in a <docid>_<passageid> format while the qrels only
+        use the docid part. In these cases, we have to ignore the passageid part - the separator helps with this.
         """
         self.extractor = extractor
 
@@ -33,12 +36,12 @@ class Sampler(ModuleBase):
             )
 
         self.qid_to_reldocs = {
-            qid: [docid for docid in docids if qrels[qid].get(docid, 0) >= relevance_level]
+            qid: [docid for docid in docids if qrels[qid].get(docid.split(separator)[0], 0) >= relevance_level]
             for qid, docids in self.qid_to_docids.items()
         }
         # TODO option to include only negdocs in a top k
         self.qid_to_negdocs = {
-            qid: [docid for docid in docids if qrels[qid].get(docid, 0) < relevance_level]
+            qid: [docid for docid in docids if qrels[qid].get(docid.split(separator)[0], 0) < relevance_level]
             for qid, docids in self.qid_to_docids.items()
         }
 
