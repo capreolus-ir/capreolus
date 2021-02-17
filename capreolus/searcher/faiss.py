@@ -9,7 +9,7 @@ import subprocess
 import os
 import numpy as np
 from capreolus import ConfigOption, Dependency, constants, evaluator, Anserini
-from capreolus.utils.trec import load_trec_topics
+from capreolus.utils.trec import load_trec_topics, max_pool_trec_passage_run
 from capreolus import get_logger
 
 from . import Searcher
@@ -248,6 +248,9 @@ class FAISSSearcher(Searcher):
                 doc_id = faiss_id_to_doc_id[faiss_id]
                 run.setdefault(qid, {})[doc_id] = distances[i][j].item()
 
+        if self.benchmark.name == "robust04passages":
+             run = max_pool_trec_passage_run(run)
+
         metrics = evaluator.eval_runs(run, self.benchmark.qrels, evaluator.DEFAULT_METRICS, self.benchmark.relevance_level)
 
         return metrics
@@ -308,6 +311,9 @@ class FAISSSearcher(Searcher):
                     interpolated_run.setdefault(qid, {})[docid] = (bm25_run[qid][docid] - bm25_min) / (bm25_max - bm25_min)
                 elif docid not in bm25_run[qid] and docid in faiss_run[qid]:
                     interpolated_run.setdefault(qid, {})[docid] = (faiss_run[qid][docid] - faiss_min) / (faiss_max - faiss_min)
+
+        if self.benchmark.name == "robust04passages":
+            interpolated_run = max_pool_trec_passage_run(interpolated_run)
 
         metrics = evaluator.eval_runs(interpolated_run, self.benchmark.qrels, evaluator.DEFAULT_METRICS, self.benchmark.relevance_level)
         faiss_logger.info("%s: Interpolated Test Fold %s metrics: %s", tag, fold, " ".join([f"{metric}={v:0.3f}" for metric, v in sorted(metrics.items())]))

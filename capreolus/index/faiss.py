@@ -12,7 +12,7 @@ from capreolus.sampler import CollectionSampler
 from capreolus.searcher import Searcher
 
 from . import Index
-
+from capreolus.utils.trec import max_pool_trec_passage_run
 
 logger = get_logger(__name__)
 faiss_logger = get_logger("faiss")
@@ -280,6 +280,9 @@ class FAISSIndex(Index):
             score_doc_id = results[qid]
             for i, (score, doc_id) in enumerate(sorted(score_doc_id, reverse=True)):
                 run.setdefault(qid, {})[doc_id] = score
+
+        if self.benchmark.name == "robust04passages":
+            run = max_pool_trec_passage_run(run)
 
         metrics = evaluator.eval_runs(run, self.benchmark.qrels, evaluator.DEFAULT_METRICS, self.benchmark.relevance_level)
 

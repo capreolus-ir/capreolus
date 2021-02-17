@@ -153,3 +153,17 @@ def anserini_index_to_trec_docs(index_dir, output_dir, expected_doc_count):
 
     for handle in output_handles:
         handle.close()
+
+
+def max_pool_trec_passage_run(run, seperator="_"):
+    pooled_run = defaultdict(dict)
+
+    for qid, passageid_to_score in run.items():
+        for passageid, score in passageid_to_score.items():
+            docid, passage_idx = passageid.split(seperator)
+            if docid not in pooled_run[qid]:
+                pooled_run[qid][docid] = score
+            elif score > pooled_run[qid][docid]:
+                pooled_run[qid][docid] = score
+
+    return pooled_run
