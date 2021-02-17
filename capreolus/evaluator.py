@@ -159,7 +159,7 @@ def search_best_run(runfile_dirs, benchmark, primary_metric, metrics=None, folds
     best_scores = {s: {primary_metric: 0, "path": None} for s in folds}
     for runfile in runfiles:
         runs = Searcher.load_trec_run(runfile)
-        if benchmark.name == "robust04passages":
+        if benchmark.module_name == "robust04passages":
             runs = max_pool_trec_passage_run(runs)
 
         for fold_name in folds:
@@ -179,7 +179,7 @@ def search_best_run(runfile_dirs, benchmark, primary_metric, metrics=None, folds
         # test_runs = {qid: docids_to_score for qid, docids_to_score in score_dict["runs"].items() if qid in test_qids}
         test_runs.update({qid: docids_to_score for qid, docids_to_score in Searcher.load_trec_run(score_dict["path"]).items() if qid in test_qids})
 
-    if benchmark.name == "robust04passages":
+    if benchmark.module_name == "robust04passages":
         test_runs = max_pool_trec_passage_run(test_runs)
     scores = eval_runs(test_runs, benchmark.qrels, metrics, benchmark.relevance_level)
     logger.info("calculated test_run scores for folds: {}".format(best_scores.keys()))

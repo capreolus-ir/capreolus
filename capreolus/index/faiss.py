@@ -281,7 +281,7 @@ class FAISSIndex(Index):
             for i, (score, doc_id) in enumerate(sorted(score_doc_id, reverse=True)):
                 run.setdefault(qid, {})[doc_id] = score
 
-        if self.benchmark.name == "robust04passages":
+        if self.benchmark.module_name == "robust04passages":
             run = max_pool_trec_passage_run(run)
 
         metrics = evaluator.eval_runs(run, self.benchmark.qrels, evaluator.DEFAULT_METRICS, self.benchmark.relevance_level)

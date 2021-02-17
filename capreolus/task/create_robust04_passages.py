@@ -25,7 +25,7 @@ class Robust04Passages(Task):
         Dependency(
             key="benchmark", module="benchmark", name="robust04", provide_this=True, provide_children=["collection"]
         ),
-        Dependency(key="index", module="index", name="anserini"),
+        Dependency(key="index", module="index", name="anserini", default_config_overrides={"keepstops": True, "stemmer": "none"})
     ]
 
     commands = ["generate"] + Task.help_commands
