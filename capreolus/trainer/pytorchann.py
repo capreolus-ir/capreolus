@@ -11,7 +11,8 @@ from capreolus import get_logger, ConfigOption, evaluator
 from capreolus.reranker.common import pair_hinge_loss, pair_softmax_loss
 
 from . import Trainer
-from ..utils.common import pack_tensor_2D
+from capreolus.utils.common import pack_tensor_2D
+from capreolus.utils.trec import max_pool_trec_passage_run
 
 logger = get_logger(__name__)  # pylint: disable=invalid-name
 faiss_logger = get_logger("faiss")
@@ -118,6 +119,8 @@ class PytorchANNTrainer(Trainer):
 
                 if (niter + 1) % validation_frequency == 0:
                     val_preds = self.validate(encoder, dev_dataset)
+                    if self.benchmark.name == "robust04passages":
+                        val_preds = max_pool_trec_passage_run(val_preds)
                     metrics = evaluator.eval_runs(val_preds, qrels, evaluator.DEFAULT_METRICS, relevance_level)
                     logger.info("dev metrics: %s", " ".join([f"{metric}={v:0.3f}" for metric, v in sorted(metrics.items())]))
                     faiss_logger.info("pytorch train dev metrics: %s", " ".join([f"{metric}={v:0.3f}" for metric, v in sorted(metrics.items())]))
