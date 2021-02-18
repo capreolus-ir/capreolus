@@ -160,7 +160,13 @@ def max_pool_trec_passage_run(run, seperator="_"):
 
     for qid, passageid_to_score in run.items():
         for passageid, score in passageid_to_score.items():
-            docid, passage_idx = passageid.split(seperator)
+            if len(passageid.split(seperator)) == 2:
+                docid, passage_idx = passageid.split(seperator)
+            elif len(passageid.split(seperator)) == 1:
+                docid = passageid.split(seperator)[0]
+            else:
+                raise ValueError("Unknown document id format: {}".format(passageid))
+
             if docid not in pooled_run[qid]:
                 pooled_run[qid][docid] = score
             elif score > pooled_run[qid][docid]:
