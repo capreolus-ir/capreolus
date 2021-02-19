@@ -158,7 +158,6 @@ class PytorchANNTrainer(Trainer):
 
     @staticmethod
     def repbert_collate(batch):
-        separator = "_"
         input_ids_lst = [x["query"] + x["posdoc"] for x in batch]
         token_type_ids_lst = [[0] * len(x["query"]) + [1] * len(x["posdoc"])
                               for x in batch]
@@ -173,7 +172,7 @@ class PytorchANNTrainer(Trainer):
         }
         qid_lst = [x['qid'] for x in batch]
         docid_lst = [x['posdocid'] for x in batch]
-        labels = [[j for j in range(len(docid_lst)) if docid_lst[j].split(separator)[0] in x['rel_docs']] for x in batch]
+        labels = [[j for j in range(len(docid_lst)) if docid_lst[j] in x['rel_docs']] for x in batch]
         data['labels'] = pack_tensor_2D(labels, default=-1, dtype=torch.int64, length=len(batch))
 
         return data
