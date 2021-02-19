@@ -7,6 +7,9 @@ import os
 from torch.optim import AdamW
 from tqdm import tqdm
 import time
+
+from transformers import get_linear_schedule_with_warmup
+
 from capreolus import get_logger, ConfigOption, evaluator
 from capreolus.reranker.common import pair_hinge_loss, pair_softmax_loss
 
@@ -82,6 +85,9 @@ class PytorchANNTrainer(Trainer):
             {'params': [p for n, p in encoder.model.named_parameters() if any(nd in n for nd in no_decay)], 'weight_decay': 0.0}
         ]
         self.optimizer = AdamW(optimizer_grouped_parameters, lr=self.config["bertlr"], eps=1e-8)
+        # t_total = self.config["gradacc"] * self.config["niters"]
+        # self.scheduler = get_linear_schedule_with_warmup(self.optimizer, num_warmup_steps=args.warmup_steps,
+        #                                             num_training_steps=t_total)
         weights_fn = encoder.get_results_path() / "weights_{}".format(train_dataset.get_hash())
 
         if encoder.exists(weights_fn):
@@ -152,6 +158,7 @@ class PytorchANNTrainer(Trainer):
 
     @staticmethod
     def repbert_collate(batch):
+        separator = "_"
         input_ids_lst = [x["query"] + x["posdoc"] for x in batch]
         token_type_ids_lst = [[0] * len(x["query"]) + [1] * len(x["posdoc"])
                               for x in batch]
@@ -166,7 +173,7 @@ class PytorchANNTrainer(Trainer):
         }
         qid_lst = [x['qid'] for x in batch]
         docid_lst = [x['posdocid'] for x in batch]
-        labels = [[j for j in range(len(docid_lst)) if docid_lst[j] in x['rel_docs']] for x in batch]
+        labels = [[j for j in range(len(docid_lst)) if docid_lst[j].split(separator)[0] in x['rel_docs']] for x in batch]
         data['labels'] = pack_tensor_2D(labels, default=-1, dtype=torch.int64, length=len(batch))
 
         return data
