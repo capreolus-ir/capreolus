@@ -1,4 +1,5 @@
 import torch
+import math
 import torch.utils.data
 import pickle
 import numpy as np
@@ -67,6 +68,7 @@ class PytorchANNTrainer(Trainer):
             if batches_since_update == batches_per_step:
                 batches_since_update = 0
                 self.optimizer.step()
+                self.scheduler.step()
                 self.optimizer.zero_grad()
 
             if (bi + 1) % batches_per_epoch == 0:
@@ -85,9 +87,11 @@ class PytorchANNTrainer(Trainer):
             {'params': [p for n, p in encoder.model.named_parameters() if any(nd in n for nd in no_decay)], 'weight_decay': 0.0}
         ]
         self.optimizer = AdamW(optimizer_grouped_parameters, lr=self.config["bertlr"], eps=1e-8)
-        # t_total = self.config["gradacc"] * self.config["niters"]
-        # self.scheduler = get_linear_schedule_with_warmup(self.optimizer, num_warmup_steps=args.warmup_steps,
-        #                                             num_training_steps=t_total)
+
+        steps_per_epoch = (self.config["itersize"] // (self.config["batch"] * self.config["gradacc"])) or 1
+        total_steps = steps_per_epoch * self.config["niters"]
+        num_warmup_steps = math.floor(0.1 * total_steps)
+        self.scheduler = get_linear_schedule_with_warmup(self.optimizer, num_warmup_steps=num_warmup_steps, num_training_steps=total_steps)
         weights_fn = encoder.get_results_path() / "weights_{}".format(train_dataset.get_hash())
 
         if encoder.exists(weights_fn):
