@@ -1,4 +1,5 @@
 import json
+from copy import deepcopy
 
 from capreolus import ModuleBase
 from capreolus.utils.trec import load_qrels, load_trec_topics
@@ -46,7 +47,7 @@ class Benchmark(ModuleBase):
 
     @property
     def non_nn_dev(self):
-        dev_per_fold = {fold_name: folds["predict"]["dev"] for fold_name, folds in self.folds.items()}
+        dev_per_fold = {fold_name: deepcopy(folds["predict"]["dev"]) for fold_name, folds in self.folds.items()}
         if self.use_train_as_dev:
             for fold_name, folds in self.folds.items():
                 dev_per_fold[fold_name].extend(folds["train_qids"])
