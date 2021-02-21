@@ -66,11 +66,18 @@ class RepBERT_Class(BertPreTrainedModel):
 
         # similarities = torch.matmul(query_embeddings, doc_embeddings.T)
         similarities = F.cosine_similarity(query_embeddings, doc_embeddings)
+        batch_size = input_ids.shape[0]
+        # We use a pair sampler. The first sample is always (query, posdoc), and the immediately following sample is
+        # (query, negdoc) for the same query
+        posdoc_indexes = [i for i in range(batch_size) if i % 2 == 0]
+        negdoc_indexes = [i for i in range(batch_size) if i % 2 != 0]
 
-        output = (similarities, query_embeddings, doc_embeddings)
-        if labels is not None:
-            loss_fct = nn.MultiLabelMarginLoss()
-            loss = loss_fct(similarities, labels)
+        posdoc_similarities = similarities[posdoc_indexes]
+        negdoc_similarities = similarities[negdoc_indexes]
+
+        labels = torch.ones_like(posdoc_similarities)
+        loss_fct = torch.nn.MarginRankingLoss(margin=1, reduction="mean")
+        loss = loss_fct(posdoc_similarities, negdoc_similarities, labels)
 
         return loss
 
