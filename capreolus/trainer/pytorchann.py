@@ -153,7 +153,7 @@ class PytorchANNTrainer(Trainer):
         )
 
         qid_to_emb = {}
-        sub_index = faiss.IndexFlatIP(self.encoder.hidden_size)
+        sub_index = faiss.IndexFlatIP(encoder.hidden_size)
         faiss_index = faiss.IndexIDMap2(sub_index)
         faiss_id_to_doc_id = {}
 
