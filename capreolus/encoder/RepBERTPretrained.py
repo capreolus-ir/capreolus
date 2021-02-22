@@ -119,4 +119,4 @@ class RepBERTPretrained(Encoder):
         query_emb = self.model.module.predict(query, query_mask)
         doc_emb = self.model.module.predict(doc, doc_mask)
 
-        return F.cosine_similarity(query_emb, doc_emb)
+        return torch.diagonal(torch.matmul(query_emb, doc_emb.T))

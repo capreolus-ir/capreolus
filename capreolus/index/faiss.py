@@ -272,8 +272,8 @@ class FAISSIndex(Index):
             for doc_id in bm25_run[qid].keys():
                 faiss_id = doc_id_to_faiss_id[doc_id]
                 doc_emb = faiss_index.reconstruct(faiss_id).reshape(768)
-                score = F.cosine_similarity(torch.from_numpy(query_emb), torch.from_numpy(doc_emb), dim=0)
-                score = score.numpy().astype(np.float16).item()
+                score = np.dot(query_emb, doc_emb)
+                score = score.astype(np.float16).item()
                 results[qid].append((score, doc_id))
 
         for qid in results:
