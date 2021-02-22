@@ -176,7 +176,7 @@ class PytorchANNTrainer(Trainer):
                 for qid, query_emb in zip(batch["qid"], query_emb):
                     qid_to_emb[qid] = query_emb
 
-        query_vectors = np.array([emb for qid, emb in query_emb.items()])
+        query_vectors = np.array([emb for qid, emb in qid_to_emb.items()])
         distances, results = faiss_index.search(query_vectors, 1000)
 
         # Dicts in python 3.6 and above preserve insertion order
