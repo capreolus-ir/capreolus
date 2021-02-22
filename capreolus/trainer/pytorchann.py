@@ -172,7 +172,7 @@ class PytorchANNTrainer(Trainer):
                 faiss_ids_for_batch = np.array(faiss_ids_for_batch, dtype=np.long).reshape(-1, )
                 faiss_index.add_with_ids(doc_emb, faiss_ids_for_batch)
 
-                query_emb = encoder.encode_query(batch["query"], batch["query_mask"]).cpu.numpy()
+                query_emb = encoder.encode_query(batch["query"], batch["query_mask"]).cpu().numpy()
                 for qid, query_emb in zip(batch["qid"], query_emb):
                     qid_to_emb[qid] = query_emb
 
