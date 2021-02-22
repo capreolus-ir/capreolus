@@ -154,7 +154,6 @@ class FAISSIndex(Index):
 
             with torch.no_grad():
                 doc_emb = self.encoder.encode_doc(batch["posdoc"], batch["posdoc_mask"]).cpu().numpy()
-                doc_emb = doc_emb / np.linalg.norm(doc_emb, axis=1)[:, None]
             # self.doc_embs.append((batch["posdocid"], doc_emb))
             # assert doc_emb.shape == (BATCH_SIZE, self.encoder.hidden_size)
 

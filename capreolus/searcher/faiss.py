@@ -119,7 +119,6 @@ class FAISSSearcher(Searcher):
                 numericalized_query = torch.tensor(numericalized_query).to(device)
                 numericalized_query = numericalized_query.reshape(1, -1)
                 topic_vector = self.index.encoder.encode_query(numericalized_query, mask).cpu().numpy()
-                topic_vector = topic_vector / np.linalg.norm(topic_vector, axis=1)[:, None]
                 topic_vectors.append(topic_vector)
                 
         return np.concatenate(topic_vectors, axis=0), qid_query

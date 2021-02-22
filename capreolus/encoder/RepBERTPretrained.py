@@ -64,8 +64,7 @@ class RepBERT_Class(BertPreTrainedModel):
             sequence_output, token_type_ids, valid_mask
         )
 
-        # similarities = torch.matmul(query_embeddings, doc_embeddings.T)
-        similarities = F.cosine_similarity(query_embeddings, doc_embeddings)
+        similarities = torch.matmul(query_embeddings, doc_embeddings.T)
 
         output = (similarities, query_embeddings, doc_embeddings)
         if labels is not None:
