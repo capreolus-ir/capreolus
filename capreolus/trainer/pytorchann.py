@@ -1,4 +1,5 @@
 import torch
+import faiss
 import math
 import torch.utils.data
 import pickle
@@ -146,19 +147,57 @@ class PytorchANNTrainer(Trainer):
     def validate(self, encoder, dev_dataset):
         encoder.model.eval()
         num_workers = 1 if self.config["multithread"] else 0
+        BATCH_SIZE = 64
         dev_dataloader = torch.utils.data.DataLoader(
-            dev_dataset, batch_size=self.config["batch"], pin_memory=True, num_workers=num_workers
+            dev_dataset, batch_size=BATCH_SIZE, pin_memory=True, num_workers=num_workers
         )
 
-        preds = {}
-        with torch.autograd.no_grad():
+        qid_to_emb = {}
+        sub_index = faiss.IndexFlatIP(self.encoder.hidden_size)
+        faiss_index = faiss.IndexIDMap2(sub_index)
+        faiss_id_to_doc_id = {}
+
+        with torch.no_grad():
             for bi, batch in tqdm(enumerate(dev_dataloader), desc="Validation set"):
                 batch = {k: v.to(self.device) if not isinstance(v, list) else v for k, v in batch.items()}
-                scores = encoder.test(batch).cpu().numpy()
-                for qid, docid, score in zip(batch["qid"], batch["posdocid"], scores):
-                    preds.setdefault(qid, {})[docid] = score.astype(np.float16).item()
+                doc_ids = batch["posdocid"]
+                faiss_ids_for_batch = []
 
-        return preds
+                for i, doc_id in enumerate(doc_ids):
+                    generated_faiss_id = bi * BATCH_SIZE + i
+                    faiss_id_to_doc_id[generated_faiss_id] = doc_id
+                    faiss_ids_for_batch.append(generated_faiss_id)
+
+                doc_emb = encoder.encode_doc(batch["posdoc"], batch["posdoc_mask"]).cpu().numpy()
+                faiss_ids_for_batch = np.array(faiss_ids_for_batch, dtype=np.long).reshape(-1, )
+                faiss_index.add_with_ids(doc_emb, faiss_ids_for_batch)
+
+                query_emb = encoder.encode_query(batch["query"], batch["query_mask"]).cpu.numpy()
+                for qid, query_emb in zip(batch["qid"], query_emb):
+                    qid_to_emb[qid] = query_emb
+
+        query_vectors = np.array([emb for qid, emb in query_emb.items()])
+        distances, results = faiss_index.search(query_vectors, 1000)
+
+        # Dicts in python 3.6 and above preserve insertion order
+        qids = [qid for qid, emb in qid_to_emb.items()]
+
+        return self.create_run_from_faiss_results(distances, results, qids, faiss_id_to_doc_id)
+
+    def create_run_from_faiss_results(self, distances, results, qids, faiss_id_to_doc_id):
+        num_queries, num_neighbours = results.shape
+        assert num_queries == 50  # for robust04
+        run = {}
+
+        for i in range(num_queries):
+            qid = qids[i]
+
+            faiss_ids = results[i][results[i] > -1]
+            for j, faiss_id in enumerate(faiss_ids):
+                doc_id = faiss_id_to_doc_id[faiss_id]
+                run.setdefault(qid, {})[doc_id] = distances[i][j].item()
+
+        return run
 
     @staticmethod
     def repbert_collate(batch):
