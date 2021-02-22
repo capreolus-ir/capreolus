@@ -180,15 +180,6 @@ def search_best_run(runfile_dirs, benchmark, primary_metric, metrics=None, folds
         test_runs.update({qid: docids_to_score for qid, docids_to_score in Searcher.load_trec_run(score_dict["path"]).items() if qid in test_qids})
 
     if benchmark.module_name == "robust04passages":
-        total_rel_passages = 0
-        for qid, passageid_to_score in test_runs.items():
-            for passageid, score in passageid_to_score.items():
-                docid = passageid.split("_")[0]
-                if docid in benchmark.qrels[qid] and benchmark.qrels[qid][docid] >= 1:
-                    total_rel_passages += 1
-
-        logger.info("BM25 retrieved on average {} relevant passages per query".format(total_rel_passages / len(test_runs)))
-
         test_runs = max_pool_trec_passage_run(test_runs)
     scores = eval_runs(test_runs, benchmark.qrels, metrics, benchmark.relevance_level)
     logger.info("calculated test_run scores for folds: {}".format(best_scores.keys()))
