@@ -44,7 +44,7 @@ class FAISSSearcher(Searcher):
         self.calc_faiss_search_metrics_for_dev_set(distances, results, qid_query, fold, tag)
         self.calc_faiss_search_metrics_for_test_set(distances, results, qid_query, fold, tag)
         distances = distances.astype(np.float16)
-        self.write_results_in_trec_format(results, distances, qid_query, output_path, filename=filename)
+        self.write_results_in_trec_format(results, distances, qid_query, output_path, fold, filename=filename)
 
         return distances, results
 
@@ -55,26 +55,26 @@ class FAISSSearcher(Searcher):
         topics = load_trec_topics(topicsfn)
         # `qid_query` contains (qid, query) tuples in the order they were encoded
         topic_vectors, qid_query = self.create_topic_vectors(topics, fold, topicfield="desc")
-        normal_distances, normal_results = self.do_search(topic_vectors, qid_query, fold, output_path, "faiss.run", "normal")
-        self.interpolate(self.index.get_results_path(), os.path.join(output_path, "faiss.run"), fold, "normal")
+        normal_distances, normal_results = self.do_search(topic_vectors, qid_query, fold, output_path, "faiss_{}.run".format(fold), "normal")
+        self.interpolate(self.index.get_results_path(), os.path.join(output_path, "faiss_{}.run".format(fold)), fold, "normal")
 
         # rm3_expanded_topics = self.rm3_expand_queries(os.path.join(output_path, "faiss.run"), topicfield="title")
         # rm3_expanded_topic_vectors, rm3_qid_query = self.create_topic_vectors(rm3_expanded_topics, fold, topicfield="title")
         # self.do_search(rm3_expanded_topic_vectors, rm3_qid_query, fold, output_path, "faiss_rm3_expanded.run", "rm3")
 
-        topdoc_expanded_topic_vectors, topdoc_qid_query = self.topdoc_expand_queries(qid_query, topic_vectors, normal_results, k=1)
-        self.do_search(topdoc_expanded_topic_vectors, topdoc_qid_query, fold, output_path, "faiss_topdoc_expanded.run", "topdoc-1:")
-        topdoc_expanded_topic_vectors, topdoc_qid_query = self.topdoc_expand_queries(qid_query, topic_vectors, normal_results, k=3)
-        self.do_search(topdoc_expanded_topic_vectors, topdoc_qid_query, fold, output_path, "faiss_topdoc_expanded.run", "topdoc-3:")
-        topdoc_expanded_topic_vectors, topdoc_qid_query = self.topdoc_expand_queries(qid_query, topic_vectors, normal_results, k=5)
-        self.do_search(topdoc_expanded_topic_vectors, topdoc_qid_query, fold, output_path, "faiss_topdoc_expanded.run", "topdoc-5:")
-        topdoc_expanded_topic_vectors, topdoc_qid_query = self.topdoc_expand_queries(qid_query, topic_vectors, normal_results, k=10)
-        self.do_search(topdoc_expanded_topic_vectors, topdoc_qid_query, fold, output_path, "faiss_topdoc_expanded.run", "topdoc-10:")
+        topdoc_expanded_topic_vectors, topdoc_qid_query = self.topdoc_expand_queries(qid_query, topic_vectors, normal_results, fold, k=1)
+        self.do_search(topdoc_expanded_topic_vectors, topdoc_qid_query, fold, output_path, "faiss_topdoc_expanded_{}.run".format(fold), "topdoc-1:")
+        topdoc_expanded_topic_vectors, topdoc_qid_query = self.topdoc_expand_queries(qid_query, topic_vectors, normal_results, fold, k=3)
+        self.do_search(topdoc_expanded_topic_vectors, topdoc_qid_query, fold, output_path, "faiss_topdoc_expanded_{}.run".format(fold), "topdoc-3:")
+        topdoc_expanded_topic_vectors, topdoc_qid_query = self.topdoc_expand_queries(qid_query, topic_vectors, normal_results, fold, k=5)
+        self.do_search(topdoc_expanded_topic_vectors, topdoc_qid_query, fold, output_path, "faiss_topdoc_expanded_{}.run".format(fold), "topdoc-5:")
+        topdoc_expanded_topic_vectors, topdoc_qid_query = self.topdoc_expand_queries(qid_query, topic_vectors, normal_results, fold, k=10)
+        self.do_search(topdoc_expanded_topic_vectors, topdoc_qid_query, fold, output_path, "faiss_topdoc_expanded_{}.run".format(fold), "topdoc-10:")
 
         self.interpolate(self.index.get_results_path(), os.path.join(output_path, "faiss_topdoc_expanded.run"), fold, "topdoc")
         # Deleting the results obtained using the expanded queries
         # os.remove(os.path.join(output_path, "faiss_rm3_expanded.run"))
-        os.remove(os.path.join(output_path, "faiss_topdoc_expanded.run"))
+        os.remove(os.path.join(output_path, "faiss_topdoc_expanded_{}.run".format(fold)))
 
         return output_path
 
@@ -130,11 +130,11 @@ class FAISSSearcher(Searcher):
                 
         return np.concatenate(topic_vectors, axis=0), qid_query
 
-    def topdoc_expand_queries(self, qid_query, original_topic_vectors, results, k=1):
+    def topdoc_expand_queries(self, qid_query, original_topic_vectors, results, fold, k=1):
         topic_vectors = []
-        faiss_id_to_doc_id_fn = os.path.join(self.index.get_cache_path(), "faiss_id_to_doc_id.dump")
+        faiss_id_to_doc_id_fn = os.path.join(self.index.get_cache_path(), "faiss_id_to_doc_id_{}.dump".format(fold))
         faiss_id_to_doc_id = pickle.load(open(faiss_id_to_doc_id_fn, "rb"))
-        faiss_index = faiss.read_index(os.path.join(self.index.get_index_path(), "faiss.index"))
+        faiss_index = faiss.read_index(os.path.join(self.index.get_index_path(), "faiss_{}.index".format(fold)))
 
         for i, (qid, query) in enumerate(qid_query):
             topdocs = results[i][results[i] > -1][:k]
@@ -211,8 +211,8 @@ class FAISSSearcher(Searcher):
 
         return expanded_topics
 
-    def write_results_in_trec_format(self, results, distances, qid_query, output_path, filename="faiss.run"):
-        faiss_id_to_doc_id_fn = os.path.join(self.index.get_cache_path(), "faiss_id_to_doc_id.dump")
+    def write_results_in_trec_format(self, results, distances, qid_query, output_path, fold, filename="faiss.run"):
+        faiss_id_to_doc_id_fn = os.path.join(self.index.get_cache_path(), "faiss_id_to_doc_id_{}.dump".format(fold))
         faiss_id_to_doc_id = pickle.load(open(faiss_id_to_doc_id_fn, "rb"))
         trec_string = "{qid} 0 {doc_id} {rank} {score} faiss\n"
         num_queries, num_neighbours = results.shape
@@ -231,22 +231,22 @@ class FAISSSearcher(Searcher):
 
     def calc_faiss_search_metrics_for_train_set(self, distances, results, qid_query, fold, tag):
         valid_qids = [qid for qid in self.benchmark.folds[fold]["train_qids"]]
-        metrics = self.calc_faiss_search_metrics(distances, results, qid_query, valid_qids)
+        metrics = self.calc_faiss_search_metrics(distances, results, qid_query, valid_qids, fold)
         faiss_logger.info("%s: FAISS train set metrics: %s", tag, " ".join([f"{metric}={v:0.3f}" for metric, v in sorted(metrics.items())]))
 
     def calc_faiss_search_metrics_for_dev_set(self, distances, results, qid_query, fold, tag):
         valid_qids = [qid for qid in self.benchmark.folds[fold]["predict"]["dev"]]
-        metrics = self.calc_faiss_search_metrics(distances, results, qid_query, valid_qids)
+        metrics = self.calc_faiss_search_metrics(distances, results, qid_query, valid_qids, fold)
         faiss_logger.info("%s: FAISS dev set metrics: %s", tag, " ".join([f"{metric}={v:0.3f}" for metric, v in sorted(metrics.items())]))
 
     def calc_faiss_search_metrics_for_test_set(self, distances, results, qid_query, fold, tag):
         valid_qids = [qid for qid in self.benchmark.folds[fold]["predict"]["test"]]
-        metrics = self.calc_faiss_search_metrics(distances, results, qid_query, valid_qids)
+        metrics = self.calc_faiss_search_metrics(distances, results, qid_query, valid_qids, fold)
         faiss_logger.info("%s: FAISS test set metrics: %s", tag,
                           " ".join([f"{metric}={v:0.3f}" for metric, v in sorted(metrics.items())]))
 
-    def calc_faiss_search_metrics(self, distances, results, qid_query, valid_qids):
-        faiss_id_to_doc_id_fn = os.path.join(self.index.get_cache_path(), "faiss_id_to_doc_id.dump")
+    def calc_faiss_search_metrics(self, distances, results, qid_query, valid_qids, fold):
+        faiss_id_to_doc_id_fn = os.path.join(self.index.get_cache_path(), "faiss_id_to_doc_id_{}.dump".format(fold))
         faiss_id_to_doc_id = pickle.load(open(faiss_id_to_doc_id_fn, "rb"))
         num_queries, num_neighbours = results.shape
         run = {}

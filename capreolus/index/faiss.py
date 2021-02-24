@@ -25,14 +25,18 @@ class FAISSIndex(Index):
     dependencies = [Dependency(key="encoder", module="encoder", name="sentencebert"), Dependency(key="index", module="index", name="anserini"), Dependency(key="benchmark", module="benchmark"), Dependency(key="searcher", module="searcher", name="BM25")] + Index.dependencies
     config_spec = [ConfigOption("isclear", False, "Whether the searcher is used with CLEAR.")]
 
+    def exists(self, fold=None):
+        donefn = self.get_index_path() / "done_{}".format(fold)
+        return donefn.exists()
+
     def create_index(self, fold=None):
         assert fold is not None
 
-        if self.exists():
+        if self.exists(fold):
             return
 
         self._create_index(fold)
-        donefn = self.get_index_path() / "done"
+        donefn = self.get_index_path() / "done_{}".format(fold)
         with open(donefn, "wt") as donef:
             print("done", file=donef)
 
@@ -161,15 +165,15 @@ class FAISSIndex(Index):
             faiss_index.add_with_ids(doc_emb, faiss_ids_for_batch)
 
         os.makedirs(self.get_cache_path(), exist_ok=True)
-        doc_id_to_faiss_id_fn = os.path.join(self.get_cache_path(), "doc_id_to_faiss_id.dump")
+        doc_id_to_faiss_id_fn = os.path.join(self.get_cache_path(), "doc_id_to_faiss_id_{}.dump".format(fold))
         pickle.dump(doc_id_to_faiss_id, open(doc_id_to_faiss_id_fn, "wb"), protocol=-1)
 
-        faiss_id_to_doc_id_fn = os.path.join(self.get_cache_path(), "faiss_id_to_doc_id.dump")
+        faiss_id_to_doc_id_fn = os.path.join(self.get_cache_path(), "faiss_id_to_doc_id_{}.dump".format(fold))
         faiss_id_to_doc_id = {faiss_id: doc_id for doc_id, faiss_id in doc_id_to_faiss_id.items()}
         pickle.dump(faiss_id_to_doc_id, open(faiss_id_to_doc_id_fn, "wb"), protocol=-1)
 
         os.makedirs(self.get_index_path(), exist_ok=True)
-        faiss.write_index(faiss_index, os.path.join(self.get_index_path(), "faiss.index"))
+        faiss.write_index(faiss_index, os.path.join(self.get_index_path(), "faiss_{}.index".format(fold)))
 
         # TODO: write the "done" file
 
@@ -177,7 +181,7 @@ class FAISSIndex(Index):
         """
         Takes the cosine similarity scores that FAISS produces and re-weights them as specified in the CLEAR paper
         """
-        faiss_id_to_doc_id_fn = os.path.join(self.get_cache_path(), "faiss_id_to_doc_id.dump")
+        faiss_id_to_doc_id_fn = os.path.join(self.get_cache_path(), "faiss_id_to_doc_id_{}.dump".format(fold))
         rank_results = self.evaluate_bm25_search(fold=fold)
         best_search_run_path = rank_results["path"][fold]
         bm25_run = Searcher.load_trec_run(best_search_run_path)
@@ -196,7 +200,7 @@ class FAISSIndex(Index):
 
     def faiss_search(self, topic_vectors, k, qid_query, fold):
         logger.debug("starting faiss search")
-        faiss_index = faiss.read_index(os.path.join(self.get_index_path(), "faiss.index"))
+        faiss_index = faiss.read_index(os.path.join(self.get_index_path(), "faiss_{}.index".format(fold)))
         logger.debug("Faiss search done")
 
         distances, results = faiss_index.search(topic_vectors, k)
@@ -215,7 +219,7 @@ class FAISSIndex(Index):
         bm25_train_run = {qid: docs_to_score for qid, docs_to_score in best_search_run.items() if
                     qid in self.benchmark.folds[fold]["train_qids"]}
 
-        metrics = self.manual_search(topic_vectors, qid_query, bm25_train_run)
+        metrics = self.manual_search(topic_vectors, qid_query, bm25_train_run, fold)
 
         faiss_logger.info("Train Fold %s manual metrics: %s", fold,
                           " ".join([f"{metric}={v:0.3f}" for metric, v in sorted(metrics.items())]))
@@ -229,7 +233,7 @@ class FAISSIndex(Index):
         bm25_dev_run = {qid: docs_to_score for qid, docs_to_score in best_search_run.items() if
                     qid in self.benchmark.folds[fold]["predict"]["dev"]}
 
-        metrics = self.manual_search(topic_vectors, qid_query, bm25_dev_run)
+        metrics = self.manual_search(topic_vectors, qid_query, bm25_dev_run, fold)
 
         faiss_logger.info("%s: Dev Fold %s manual metrics: %s", tag, fold,
                           " ".join([f"{metric}={v:0.3f}" for metric, v in sorted(metrics.items())]))
@@ -240,15 +244,15 @@ class FAISSIndex(Index):
         best_search_run_path = rank_results["path"][fold]
         best_search_run = Searcher.load_trec_run(best_search_run_path)
 
-        bm25_dev_run = {qid: docs_to_score for qid, docs_to_score in best_search_run.items() if
+        bm25_test_run = {qid: docs_to_score for qid, docs_to_score in best_search_run.items() if
                     qid in self.benchmark.folds[fold]["predict"]["test"]}
 
-        metrics = self.manual_search(topic_vectors, qid_query, bm25_dev_run)
+        metrics = self.manual_search(topic_vectors, qid_query, bm25_test_run, fold)
 
         faiss_logger.info("%s: Test Fold %s manual metrics: %s", tag, fold,
                           " ".join([f"{metric}={v:0.3f}" for metric, v in sorted(metrics.items())]))
 
-    def manual_search(self, topic_vectors, qid_query, bm25_run):
+    def manual_search(self, topic_vectors, qid_query, bm25_run, fold):
         """
         Manual search is different from the normal FAISS search.
         For a given qid, we manually calculate cosine scores for only those documents retrieved by BM25 for this qid.
@@ -256,8 +260,8 @@ class FAISSIndex(Index):
         A "real" FAISS search would calculate the cosine score by comparing a qid with _every_ other document in the index - not just the docs retrieved for the query by BM25
         """
         # Load some dicts that will allow us to map faiss index ids to docids
-        faiss_index = faiss.read_index(os.path.join(self.get_index_path(), "faiss.index"))
-        doc_id_to_faiss_id_fn = os.path.join(self.get_cache_path(), "doc_id_to_faiss_id.dump")
+        faiss_index = faiss.read_index(os.path.join(self.get_index_path(), "faiss_{}.index".format(fold)))
+        doc_id_to_faiss_id_fn = os.path.join(self.get_cache_path(), "doc_id_to_faiss_id_{}.dump".format(fold))
         doc_id_to_faiss_id = pickle.load(open(doc_id_to_faiss_id_fn, "rb"))
 
         results = defaultdict(list)

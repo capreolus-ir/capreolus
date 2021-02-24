@@ -78,6 +78,8 @@ class BertText(Extractor):
         max_doc_length = 510
         max_query_length = 20
         posdoc_toks = self.get_tokenized_doc(posid)
+        assert len(tokenizer.convert_tokens_to_ids(posdoc_toks)) < max_doc_length
+
         posdoc = [101] + tokenizer.convert_tokens_to_ids(posdoc_toks)[:max_doc_length] + [102]
 
         posdoc = padlist(posdoc, 512, 0)
@@ -102,6 +104,7 @@ class BertText(Extractor):
 
         if negid:
             negdoc_toks = self.get_tokenized_doc(negid)
+            assert len(tokenizer.convert_tokens_to_ids(negdoc_toks)) < max_doc_length
             negdoc = [101] + tokenizer.convert_tokens_to_ids(negdoc_toks)[:max_doc_length] + [102]
             negdoc = padlist(negdoc, 512, 0)
 
@@ -123,6 +126,7 @@ class BertText(Extractor):
         tokenizer = self.tokenizer
 
         posdoc_toks = self.get_tokenized_doc(posid)
+        assert len(tokenizer.convert_tokens_to_ids(posdoc_toks)) < max_doc_length
         posdoc = [101] + tokenizer.convert_tokens_to_ids(posdoc_toks)[:max_doc_length] + [102]
 
         # faiss_logger.debug("Posdocid: {}, doctoks: {}".format(posid, posdoc_toks))
@@ -146,6 +150,7 @@ class BertText(Extractor):
         tokenizer = self.tokenizer
 
         posdoc_toks = self.get_tokenized_doc(posid)
+        assert len(tokenizer.convert_tokens_to_ids(posdoc_toks)) < max_doc_length
         posdoc = [101] + tokenizer.convert_tokens_to_ids(posdoc_toks)[:max_doc_length] + [102]
 
         # faiss_logger.debug("Posdocid: {}, doctoks: {}".format(posid, posdoc_toks))
@@ -157,6 +162,8 @@ class BertText(Extractor):
         }
 
         query_toks = self.get_tokenized_doc(docid)
+        assert len(tokenizer.convert_tokens_to_ids(query_toks)) < max_query_length
+
         query = [101] + tokenizer.convert_tokens_to_ids(query_toks)[:max_query_length] + [102]
         data["qid"] = qid
         data["query"] = query
