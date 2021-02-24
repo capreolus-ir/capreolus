@@ -1,5 +1,9 @@
 import os
+import gdown
+import random
+from pathlib import Path
 from collections import defaultdict
+
 from tqdm import tqdm
 
 from capreolus import ConfigOption, Dependency, constants
@@ -11,38 +15,76 @@ from .anserini import BM25
 
 logger = get_logger(__name__)
 
+SUPPORTED_TRIPLE_FILE = ["small", "large.v1", "large.v2"]
+
+
+def get_file_line_number(fn):
+    return int(os.popen(f"wc -l {fn}").readline().split()[0])
+
 
 class MsmarcoPsgSearcherMixin:
     @staticmethod
-    def convert_to_trec_runs(msmarco_top1k_fn, train):
+    def convert_to_trec_runs(msmarco_top1k_fn, style="eval"):
+        logger.info(f"Converting file {msmarco_top1k_fn} (with style f{style}) into trec format")
         runs = defaultdict(dict)
         with open(msmarco_top1k_fn, "r", encoding="utf-8") as f:
             for line in f:
-                if train:
+                if style == "triple":
                     qid, pos_pid, neg_pid = line.strip().split("\t")
                     runs[qid][pos_pid] = len(runs.get(qid, {}))
                     runs[qid][neg_pid] = len(runs.get(qid, {}))
-                else:
+                elif style == "eval":
                     qid, pid, _, _ = line.strip().split("\t")
-                    runs[qid][pid] = len(runs.get(qid))
+                    runs[qid][pid] = len(runs.get(qid, []))
+                else:
+                    raise ValueError(f"Unexpected style {style}, should be either 'triple' or 'eval'")
         return runs
 
     @staticmethod
     def get_fn_from_url(url):
         return url.split("/")[-1].replace(".gz", "").replace(".tar", "")
 
+    def get_url(self):
+        tripleversion = self.config["tripleversion"]
+        if tripleversion == "large.v1":
+            return "https://msmarco.blob.core.windows.net/msmarcoranking/qidpidtriples.train.full.tsv.gz"
+
+        if tripleversion == "large.v2":
+            return "https://msmarco.blob.core.windows.net/msmarcoranking/qidpidtriples.train.full.2.tsv.gz"
+
+        if tripleversion == "small":
+            return "https://drive.google.com/uc?id=1LCQ-85fx61_5gQgljyok8olf6GadZUeP"
+
+        raise ValueError("Unknown version for triplet large" % self.config["tripleversion"])
+
     def download_and_prepare_train_set(self, tmp_dir):
-        url = "https://msmarco.blob.core.windows.net/msmarcoranking/qidpidtriples.train.full.tsv.gz"
-        extract_file_name = self.get_fn_from_url(url)
-        extract_dir = self.benchmark.collection.download_and_extract(url, tmp_dir, expected_fns=extract_file_name)
-        runs = self.convert_to_trec_runs(extract_dir / extract_file_name, train=True)
-        return runs
+        triple_version = self.config["tripleversion"]
+        logger.debug(f"triple version, {triple_version}")
+        data_dir = Path(__file__).parent.parent / "data"
+        logger.info("debug: data_dir: {data_dir}")
+
+        url = self.get_url()
+        if triple_version.startswith("large"):
+            extract_file_name = self.get_fn_from_url(url)
+            extract_dir = self.benchmark.collection.download_and_extract(url, tmp_dir, expected_fns=extract_file_name)
+            triple_fn = extract_dir / extract_file_name
+        elif triple_version == "small":
+            triple_fn = tmp_dir / "triples.train.small.idversion.tsv"
+            if not os.path.exists(triple_fn):
+                gdown.download(url, triple_fn.as_posix(), quiet=False)
+        else:
+            raise ValueError(f"Unknown version for triplet: {triple_version}")
+
+        return self.convert_to_trec_runs(triple_fn, style="triple")
 
 
 @Searcher.register
 class MsmarcoPsg(Searcher, MsmarcoPsgSearcherMixin):
     module_name = "msmarcopsg"
     dependencies = [Dependency(key="benchmark", module="benchmark", name="msmarcopsg")]
+    config_spec = [
+        ConfigOption("tripleversion", "large.v1", "version of triplet.qid file, small, large.v1 or large.v2"),
+    ]
 
     def _query_from_file(self, topicsfn, output_path, cfg):
         """ only query results in dev and test set are saved """
@@ -68,7 +110,7 @@ class MsmarcoPsg(Searcher, MsmarcoPsgSearcherMixin):
         for url in dev_test_urls:
             extract_file_name = self.get_fn_from_url(url)
             extract_dir = self.benchmark.collection.download_and_extract(url, tmp_dir, expected_fns=extract_file_name)
-            runs.update(self.convert_to_trec_runs(extract_dir / extract_file_name, train=False))
+            runs.update(self.convert_to_trec_runs(extract_dir / extract_file_name, style="eval"))
         self.write_trec_run(preds=runs, outfn=final_runfn, mode="a")
 
         with open(final_donefn, "wt") as f:
@@ -82,6 +124,9 @@ class MsmarcoPsgBm25(BM25, MsmarcoPsgSearcherMixin):
     dependencies = [
         Dependency(key="benchmark", module="benchmark", name="msmarcopsg"),
         Dependency(key="index", module="index", name="anserini"),
+    ]
+    config_spec = BM25.config_spec + [
+        ConfigOption("tripleversion", "large.v1", "version of triplet.qid file, small, large.v1 or large.v2"),
     ]
 
     def _query_from_file(self, topicsfn, output_path, config):
@@ -97,10 +142,12 @@ class MsmarcoPsgBm25(BM25, MsmarcoPsgSearcherMixin):
         tmp_output_dir.mkdir(exist_ok=True, parents=True)
 
         train_runs = self.download_and_prepare_train_set(tmp_dir=tmp_dir)
-        with open(tmp_topicsfn, "wt") as f:
-            for qid, title in tqdm(load_trec_topics(topicsfn)["title"].items()):
-                if qid not in self.benchmark.folds["s1"]["train_qids"]:
-                    f.write(topic_to_trectxt(qid, title))
+        if not os.path.exists(tmp_topicsfn):
+            with open(tmp_topicsfn, "wt") as f:
+                for qid, title in tqdm(load_trec_topics(topicsfn)["title"].items(), desc="write qid to tmp topic file"):
+                    if qid not in self.benchmark.folds["s1"]["train_qids"]:
+                        f.write(topic_to_trectxt(qid, title))
+
         super()._query_from_file(topicsfn=tmp_topicsfn, output_path=tmp_output_dir, config=config)
         dev_test_runfile = tmp_output_dir / "searcher"
         assert os.path.exists(dev_test_runfile)
