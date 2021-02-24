@@ -130,7 +130,7 @@ class FAISSSearcher(Searcher):
                 
         return np.concatenate(topic_vectors, axis=0), qid_query
 
-    def topdoc_expand_queries(self, qid_query, topic_vectors, results, k=1):
+    def topdoc_expand_queries(self, qid_query, original_topic_vectors, results, k=1):
         topic_vectors = []
         faiss_id_to_doc_id_fn = os.path.join(self.index.get_cache_path(), "faiss_id_to_doc_id.dump")
         faiss_id_to_doc_id = pickle.load(open(faiss_id_to_doc_id_fn, "rb"))
@@ -141,7 +141,7 @@ class FAISSSearcher(Searcher):
             if random.random() > 0.9:
                 logger.debug("The topdoc for qid {} in faiss.run is {}".format(qid, faiss_id_to_doc_id[topdoc]))
 
-            averaged_topdoc_emb = [topic_vectors[i]]
+            averaged_topdoc_emb = [original_topic_vectors[i]]
             for j in range(k):
                 topdoc = int(topdocs[j])
                 topdoc_emb = faiss_index.reconstruct(topdoc)
