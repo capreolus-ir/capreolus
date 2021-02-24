@@ -1,175 +1,91 @@
 import os
-import gdown
-import random
-from pathlib import Path
-from collections import defaultdict
+import gzip
+import shutil
+import tarfile
+from time import time
 
-from tqdm import tqdm
-
-from capreolus import ConfigOption, Dependency, constants
+from capreolus.utils.common import download_file
 from capreolus.utils.loginit import get_logger
-from capreolus.utils.trec import load_trec_topics, topic_to_trectxt
-
-from capreolus import Searcher
-from capreolus.searcher.anserini import BM25
+from capreolus.utils.trec import document_to_trectxt
+from . import Collection
 
 logger = get_logger(__name__)
 
-SUPPORTED_TRIPLE_FILE = ["small", "large.v1", "large.v2"]
 
-
-def get_file_line_number(fn):
-    return int(os.popen(f"wc -l {fn}").readline().split()[0])
-
-
-class MsmarcoPsgSearcherMixin:
+class MSMarcoMixin:
     @staticmethod
-    def convert_to_trec_runs(msmarco_top1k_fn, style="eval"):
-        logger.info(f"Converting file {msmarco_top1k_fn} (with style f{style}) into trec format")
-        runs = defaultdict(dict)
-        with open(msmarco_top1k_fn, "r", encoding="utf-8") as f:
-            for line in f:
-                if style == "triple":
-                    qid, pos_pid, neg_pid = line.strip().split("\t")
-                    runs[qid][pos_pid] = len(runs.get(qid, {}))
-                    runs[qid][neg_pid] = len(runs.get(qid, {}))
-                elif style == "eval":
-                    qid, pid, _, _ = line.strip().split("\t")
-                    runs[qid][pid] = len(runs.get(qid, []))
-                else:
-                    raise ValueError(f"Unexpected style {style}, should be either 'triple' or 'eval'")
-        return runs
-
-    @staticmethod
-    def get_fn_from_url(url):
-        return url.split("/")[-1].replace(".gz", "").replace(".tar", "")
-
-    def get_url(self):
-        tripleversion = self.config["tripleversion"]
-        if tripleversion == "large.v1":
-            return "https://msmarco.blob.core.windows.net/msmarcoranking/qidpidtriples.train.full.tsv.gz"
-
-        if tripleversion == "large.v2":
-            return "https://msmarco.blob.core.windows.net/msmarcoranking/qidpidtriples.train.full.2.tsv.gz"
-
-        if tripleversion == "small":
-            return "https://drive.google.com/uc?id=1LCQ-85fx61_5gQgljyok8olf6GadZUeP"
-
-        raise ValueError("Unknown version for triplet large" % self.config["tripleversion"])
-
-    def get_stat_folder_name(self):
-        if self.config["tripleversion"] == "large.v1":
-            return "triplet_stats"
-
-        if self.config["tripleversion"] == "large.v2":
-            return "triplet.large.v2_stats"
-
-        if self.config["tripleversion"] == "small":
-            return "triplet.small"
-
-        raise ValueError("Unknown version for triplet large" % self.config["tripleversion"])
-
-    def download_and_prepare_train_set(self, tmp_dir):
-        triple_version = self.config["tripleversion"]
-        logger.debug(f"triple version, {triple_version}")
-        data_dir = Path(__file__).parent.parent / "data"
-        logger.info("debug: data_dir: {data_dir}")
-
-        url = self.get_url()
-        if triple_version.startswith("large"):
-            extract_file_name = self.get_fn_from_url(url)
-            extract_dir = self.benchmark.collection.download_and_extract(url, tmp_dir, expected_fns=extract_file_name)
-            triple_fn = extract_dir / extract_file_name
-        elif triple_version == "small":
-            triple_fn = tmp_dir / "triples.train.small.idversion.tsv"
-            if not triple_fn.exists():
-                gdown.download(url, triple_fn.as_posix(), quiet=False)
-        else:
-            raise ValueError(f"Unknown version for triplet: {triple_version}")
-
-        return self.convert_to_trec_runs(triple_fn, style="triple")
-
-
-@Searcher.register
-class MsmarcoPsg(Searcher, MsmarcoPsgSearcherMixin):
-    module_name = "msmarcopsg"
-    dependencies = [Dependency(key="benchmark", module="benchmark", name="msmarcopsg")]
-    config_spec = [
-        ConfigOption("tripleversion", "large.v1", "version of triplet.qid file, small, large.v1 or large.v2"),
-    ]
-
-    def _query_from_file(self, topicsfn, output_path, cfg):
-        """ only query results in dev and test set are saved """
-        final_runfn = output_path / "searcher"
-        final_donefn = output_path / "done"
-        if os.path.exists(final_donefn):
-            return output_path
-
-        tmp_dir = self.get_cache_path() / "tmp"
+    def download_and_extract(url, tmp_dir, expected_fns=None):
         tmp_dir.mkdir(exist_ok=True, parents=True)
-        output_path.mkdir(exist_ok=True, parents=True)
+        gz_name = url.split("/")[-1]
+        output_gz = tmp_dir / gz_name
+        if not output_gz.exists():
+            logger.info(f"Downloading from {url}...")
+            download_file(url, output_gz)
 
-        # train
-        train_run = self.download_and_prepare_train_set(tmp_dir=tmp_dir)
-        self.write_trec_run(preds=train_run, outfn=final_runfn, mode="wt")
+        extract_dir = None
+        t = time()
+        if str(output_gz).endswith("tar.gz"):
+            tmp_dir = tmp_dir / gz_name.replace(".tar.gz", "")
+            logger.info(f"tmp_dir: {tmp_dir}")
+            if not tmp_dir.exists():
+                logger.info(f"{tmp_dir} file does not exist, extracting from {output_gz}...")
+                with tarfile.open(output_gz, "r:gz") as f:
+                    f.extractall(path=tmp_dir)
 
-        # dev and test
-        dev_test_urls = [
-            "https://msmarco.blob.core.windows.net/msmarcoranking/top1000.dev.tar.gz",
-            "https://msmarco.blob.core.windows.net/msmarcoranking/top1000.eval.tar.gz",
-        ]
-        runs = {}
-        for url in dev_test_urls:
-            extract_file_name = self.get_fn_from_url(url)
-            extract_dir = self.benchmark.collection.download_and_extract(url, tmp_dir, expected_fns=extract_file_name)
-            runs.update(self.convert_to_trec_runs(extract_dir / extract_file_name, style="eval"))
-        self.write_trec_run(preds=runs, outfn=final_runfn, mode="a")
+            if os.path.isdir(tmp_dir):  # and set(os.listdir(tmp_dir)) != expected_fns:
+                extract_dir = tmp_dir
+            elif not os.path.isdir(tmp_dir):  # and tmp_dir != list(expected_fns)[0]:
+                extract_dir = tmp_dir.parent
 
-        with open(final_donefn, "wt") as f:
-            print("done", file=f)
-        return output_path
+        else:
+            outp_fn = tmp_dir / gz_name.replace(".gz", "")
+            if not outp_fn.exists():
+                logger.info(f"{tmp_dir} file does not exist, extracting from {output_gz}...")
+                with gzip.open(output_gz, "rb") as fin, open(outp_fn, "wb") as fout:
+                    shutil.copyfileobj(fin, fout)
+            extract_dir = tmp_dir
+
+        duration = int(time() - t)
+        min, sec = duration // 60, duration % 60
+        logger.info(f"{output_gz} extracted after {duration} seconds (00:{min}:{sec})")
+        return extract_dir
 
 
-@Searcher.register
-class MsmarcoPsgBm25(BM25, MsmarcoPsgSearcherMixin):
-    module_name = "msmarcopsgbm25"
-    dependencies = [
-        Dependency(key="benchmark", module="benchmark", name="msmarcopsg"),
-        Dependency(key="index", module="index", name="anserini"),
-    ]
-    config_spec = BM25.config_spec + [
-        ConfigOption("tripleversion", "large.v1", "version of triplet.qid file, small, large.v1 or large.v2"),
-    ]
+@Collection.register
+class MSMarcoPsg(Collection, MSMarcoMixin):
+    module_name = "msmarcopsg"
+    collection_type = "TrecCollection"
+    generator_type = "DefaultLuceneDocumentGenerator"
+    # is_large_collection = True
 
-    def _query_from_file(self, topicsfn, output_path, config):
-        final_runfn = os.path.join(output_path, "searcher")
-        final_donefn = os.path.join(output_path, "done")
-        if final_donefn.exists():
-            return output_path
-
-        output_path.mkdir(exist_ok=True, parents=True)
+    def download_raw(self):
+        url = "https://msmarco.blob.core.windows.net/msmarcoranking/collectionandqueries.tar.gz"
         tmp_dir = self.get_cache_path() / "tmp"
-        tmp_topicsfn = tmp_dir / os.path.basename(topicsfn)
-        tmp_output_dir = tmp_dir / "BM25_results"
-        tmp_output_dir.mkdir(exist_ok=True, parents=True)
+        expected_fns = {
+            "collection.tsv",
+            "qrels.dev.small.tsv",
+            "qrels.train.tsv",
+            "queries.train.tsv",
+            "queries.dev.small.tsv",
+            "queries.dev.tsv",
+            "queries.eval.small.tsv",
+            "queries.eval.tsv",
+        }
+        gz_dir = self.download_and_extract(url, tmp_dir, expected_fns=expected_fns)
+        return gz_dir
 
-        train_runs = self.download_and_prepare_train_set(tmp_dir=tmp_dir)
-        if not os.path.exists(tmp_topicsfn):
-            with open(tmp_topicsfn, "wt") as f:
-                for qid, title in tqdm(load_trec_topics(topicsfn)["title"].items(), desc="write qid to tmp topic file"):
-                    if qid not in self.benchmark.folds["s1"]["train_qids"]:
-                        f.write(topic_to_trectxt(qid, title))
+    def download_if_missing(self):
+        coll_dir = self.get_cache_path() / "documents"
+        coll_fn = coll_dir / "msmarco.psg.collection.txt"
+        if coll_fn.exists():
+            return coll_dir
 
-        super()._query_from_file(topicsfn=tmp_topicsfn, output_path=tmp_output_dir, config=config)
-        dev_test_runfile = tmp_output_dir / "searcher"
-        assert os.path.exists(dev_test_runfile)
-
-        # write train and dev, test runs into final searcher file
-        Searcher.write_trec_run(train_runs, final_runfn)
-        with open(dev_test_runfile) as fin, open(final_runfn, "a") as fout:
+        # convert to trec file
+        coll_tsv_fn = self.download_raw() / "collection.tsv"
+        coll_fn.parent.mkdir(exist_ok=True, parents=True)
+        with open(coll_tsv_fn, "r") as fin, open(coll_fn, "w", encoding="utf-8") as fout:
             for line in fin:
-                fout.write(line)
+                docid, doc = line.strip().split("\t")
+                fout.write(document_to_trectxt(docid, doc))
 
-        with open(final_donefn, "w") as f:
-            f.write("done")
-        return output_path
+        return coll_dir
