@@ -88,7 +88,7 @@ class Encoder(ModuleBase):
     def train_encoder(self, train_run, dev_run, docids, qids):
         train_dataset = self.sampler
         self.extractor.preprocess(
-            qids=qids, docids=docids, topics=self.benchmark.topics
+            qids=qids, docids=docids, topics=self.benchmark.topics[self.benchmark.query_type]
         )
 
         train_dataset.prepare(train_run, self.benchmark.qrels, self.extractor, relevance_level=self.benchmark.relevance_level)
