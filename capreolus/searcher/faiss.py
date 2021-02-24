@@ -136,7 +136,7 @@ class FAISSSearcher(Searcher):
 
             averaged_topdoc_emb = []
             for j in range(k):
-                topdoc = topdocs[j]
+                topdoc = int(topdocs[j])
                 topdoc_emb = faiss_index.reconstruct(topdoc)
                 averaged_topdoc_emb.append(topdoc_emb)
 
