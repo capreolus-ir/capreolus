@@ -186,7 +186,6 @@ class PytorchANNTrainer(Trainer):
 
     def create_run_from_faiss_results(self, distances, results, qids, faiss_id_to_doc_id):
         num_queries, num_neighbours = results.shape
-        assert num_queries == 50  # for robust04
         run = {}
 
         for i in range(num_queries):
