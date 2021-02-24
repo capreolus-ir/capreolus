@@ -62,7 +62,7 @@ class FAISSSearcher(Searcher):
         # rm3_expanded_topic_vectors, rm3_qid_query = self.create_topic_vectors(rm3_expanded_topics, fold, topicfield="title")
         # self.do_search(rm3_expanded_topic_vectors, rm3_qid_query, fold, output_path, "faiss_rm3_expanded.run", "rm3")
 
-        topdoc_expanded_topic_vectors, topdoc_qid_query = self.topdoc_expand_queries(qid_query, normal_results)
+        topdoc_expanded_topic_vectors, topdoc_qid_query = self.topdoc_expand_queries(qid_query, normal_results, k=3)
         self.do_search(topdoc_expanded_topic_vectors, topdoc_qid_query, fold, output_path, "faiss_topdoc_expanded.run", "topdoc")
         self.interpolate(self.index.get_results_path(), os.path.join(output_path, "faiss_topdoc_expanded.run"), fold, "topdoc")
         # Deleting the results obtained using the expanded queries
@@ -123,19 +123,27 @@ class FAISSSearcher(Searcher):
                 
         return np.concatenate(topic_vectors, axis=0), qid_query
 
-    def topdoc_expand_queries(self, qid_query, results):
+    def topdoc_expand_queries(self, qid_query, results, k=1):
         topic_vectors = []
         faiss_id_to_doc_id_fn = os.path.join(self.index.get_cache_path(), "faiss_id_to_doc_id.dump")
         faiss_id_to_doc_id = pickle.load(open(faiss_id_to_doc_id_fn, "rb"))
         faiss_index = faiss.read_index(os.path.join(self.index.get_index_path(), "faiss.index"))
 
         for i, (qid, query) in enumerate(qid_query):
-            topdoc = int(results[i][results[i] > -1][0])
+            topdocs = results[i][results[i] > -1][:k]
             if random.random() > 0.9:
                 logger.debug("The topdoc for qid {} in faiss.run is {}".format(qid, faiss_id_to_doc_id[topdoc]))
 
-            topdoc_emb = faiss_index.reconstruct(topdoc)
-            topic_vectors.append(topdoc_emb)
+            averaged_topdoc_emb = []
+            for j in range(k):
+                topdoc = topdocs[j]
+                topdoc_emb = faiss_index.reconstruct(topdoc)
+                averaged_topdoc_emb.append(topdoc_emb)
+
+            averaged_topdoc_emb = np.array(averaged_topdoc_emb)
+            averaged_topdoc_emb = np.mean(averaged_topdoc_emb, axis=0)
+
+            topic_vectors.append(averaged_topdoc_emb)
 
         topic_vectors = np.array(topic_vectors)
         logger.debug("topdoc_expanded topics have shape {}".format(topic_vectors.shape))
