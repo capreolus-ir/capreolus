@@ -53,7 +53,7 @@ class BertText(Extractor):
         else:
             logger.info("Building bertext vocabulary")
             tokenize = self.tokenizer.tokenize
-            self.qid2toks = {qid: tokenize(topics[qid]) for qid in tqdm(qids, desc="querytoks")}
+            self.qid2toks = {qid: tokenize("{}.{}".format(topics[qid]["title"], topics[qid]["desc"])) for qid in tqdm(qids, desc="querytoks")}
 
             self.cache_state(qids, docids)
 
