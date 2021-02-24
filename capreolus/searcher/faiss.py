@@ -138,8 +138,6 @@ class FAISSSearcher(Searcher):
 
         for i, (qid, query) in enumerate(qid_query):
             topdocs = results[i][results[i] > -1][:k]
-            if random.random() > 0.9:
-                logger.debug("The topdoc for qid {} in faiss.run is {}".format(qid, faiss_id_to_doc_id[topdoc]))
 
             averaged_topdoc_emb = [original_topic_vectors[i]]
             for j in range(k):
