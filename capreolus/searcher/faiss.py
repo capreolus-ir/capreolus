@@ -54,9 +54,13 @@ class FAISSSearcher(Searcher):
         self.build_encoder(fold)
         topics = load_trec_topics(topicsfn)
         # `qid_query` contains (qid, query) tuples in the order they were encoded
-        topic_vectors, qid_query = self.create_topic_vectors(topics, fold, topicfield="desc")
-        normal_distances, normal_results = self.do_search(topic_vectors, qid_query, fold, output_path, "faiss_{}.run".format(fold), "normal")
-        self.interpolate(self.index.get_results_path(), os.path.join(output_path, "faiss_{}.run".format(fold)), fold, "normal")
+        # topic_vectors, qid_query = self.create_field_topic_vectors(topics, fold, topicfield="desc")
+        # normal_distances, normal_results = self.do_search(topic_vectors, qid_query, fold, output_path, "faiss_{}.run".format(fold), "normal")
+        # self.interpolate(self.index.get_results_path(), os.path.join(output_path, "faiss_{}.run".format(fold)), fold, "normal")
+
+        topic_vectors, qid_query = self.create_concatenated_topic_vectors(topics)
+        normal_distances, normal_results = self.do_search(topic_vectors, qid_query, fold, output_path, "faiss_concatenated_{}.run".format(fold), "concatenated")
+        self.interpolate(self.index.get_results_path(), os.path.join(output_path, "faiss_concatenated_{}.run".format(fold)), fold, "concatenated")
 
         # rm3_expanded_topics = self.rm3_expand_queries(os.path.join(output_path, "faiss.run"), topicfield="title")
         # rm3_expanded_topic_vectors, rm3_qid_query = self.create_topic_vectors(rm3_expanded_topics, fold, topicfield="title")
@@ -71,7 +75,7 @@ class FAISSSearcher(Searcher):
         topdoc_expanded_topic_vectors, topdoc_qid_query = self.topdoc_expand_queries(qid_query, topic_vectors, normal_results, fold, k=10)
         self.do_search(topdoc_expanded_topic_vectors, topdoc_qid_query, fold, output_path, "faiss_topdoc_expanded_{}.run".format(fold), "topdoc-10:")
 
-        self.interpolate(self.index.get_results_path(), os.path.join(output_path, "faiss_topdoc_expanded.run"), fold, "topdoc")
+        # self.interpolate(self.index.get_results_path(), os.path.join(output_path, "faiss_topdoc_expanded.run"), fold, "topdoc")
         # Deleting the results obtained using the expanded queries
         # os.remove(os.path.join(output_path, "faiss_rm3_expanded.run"))
         os.remove(os.path.join(output_path, "faiss_topdoc_expanded_{}.run".format(fold)))
@@ -104,14 +108,32 @@ class FAISSSearcher(Searcher):
 
         self.index.encoder.build_model(train_run, dev_run, docids, encoder_qids)
 
-    def create_topic_vectors(self, topics, fold, topicfield="title"):
+    def create_field_topic_vectors(self, topics, fold, topicfield="desc"):
+        qid_query = sorted([(qid, query) for qid, query in topics[topicfield].items() if
+                            qid in self.benchmark.folds[fold]["predict"]["dev"] or qid in
+                            self.benchmark.folds[fold]["predict"]["test"]])
+
+        return self.create_topic_vectors(qid_query)
+
+    def create_concatenated_topic_vectors(self, topics):
+        qid_query = []
+        for qid, query in topics["title"].items():
+            query_title = query
+            query_desc = topics["desc"][qid]
+            query_concat = "{}.{}".format(query_title, query_desc)
+            qid_query.append((qid, query_concat))
+
+        qid_query = sorted(qid_query)
+
+        return self.create_topic_vectors(qid_query)
+
+    def create_topic_vectors(self, qid_query):
         """
         Creates a tensor of shape (num_queries, emb_size). Uses all the topics available in the dataset. Filtering based on folds is done later
         """
 
         # TODO: Use the test qids in the below line
 
-        qid_query = sorted([(qid, query) for qid, query in topics[topicfield].items() if qid in self.benchmark.folds[fold]["predict"]["dev"] or qid in self.benchmark.folds[fold]["predict"]["test"]])
         tokenizer = self.index.encoder.extractor.tokenizer
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
