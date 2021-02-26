@@ -10,7 +10,6 @@ PACKAGE_PATH = constants["PACKAGE_PATH"]
 @Benchmark.register
 class CDS(IRDBenchmark):
     module_name = "cds"
-    query_type = "text"
     ird_dataset_names = ["pmc/v1/trec-cds-2014", "pmc/v1/trec-cds-2015", "pmc/v2/trec-cds-2016"]
     dependencies = [Dependency(key="collection", module="collection", name="cds")]
     fold_file = PACKAGE_PATH / "data" / "cds_5folds.json"
@@ -49,3 +48,9 @@ class CDS(IRDBenchmark):
                 self.query_types[qid] = query.type
 
         return {self.query_type: topics}
+
+
+@Benchmark.register
+class CDSDesc(CDS):
+    module_name = "cds.desc"
+    query_type = "description"
