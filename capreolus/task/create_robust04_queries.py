@@ -74,7 +74,7 @@ class Robust04Queries(Task):
             passage = self.index.get_doc(passage_id)
             input_ids = tokenizer.encode(passage + "</s>", return_tensors='pt').to(device)
             output = t5_model.generate(input_ids=input_ids, max_length=self.config["querylen"], do_sample=True, top_k=10, num_return_sequences=self.config["numqueries"])
-            generated_queries = [tokenizer.decode(output[i], skip_special_tokens=True) for i in range(self.config["querylen"])]
+            generated_queries = [tokenizer.decode(output[i], skip_special_tokens=True) for i in range(self.config["numqueries"])]
             cleaned_queries = [" ".join([term for term in word_tokenize(query) if term not in stopwords.words()]) for query in generated_queries]
 
             passage_to_generated_queries[passage_id] = cleaned_queries
