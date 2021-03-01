@@ -1,5 +1,6 @@
 import os
 import subprocess
+import time
 from collections import defaultdict, OrderedDict
 
 import numpy as np
@@ -285,7 +286,12 @@ class QRels(Searcher):
                 run[qid][docid] = 1.0 / rank
 
         os.makedirs(output_path, exist_ok=True)
-        self.write_trec_run(run, os.path.join(output_path, "searcher"))
+        outfn = os.path.join(output_path, "searcher")
+
+        if not os.path.exists(outfn):
+            self.write_trec_run(run, outfn)
+        else:
+            time.sleep(1)
         return output_path
 
     def query(self, *args, **kwargs):

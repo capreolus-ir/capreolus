@@ -43,7 +43,12 @@ def _eval_runs(runs, qrels, metrics, dev_qids):
 
     scores = [[metrics_dict.get(m, -100) for m in metrics] for metrics_dict in evaluator.evaluate(runs).values()]
     scores = np.array(scores).mean(axis=0).tolist()
-    scores = dict(zip(metrics, scores))
+    try:
+        scores = dict(zip(metrics, scores))
+    except TypeError:
+        logger.debug(len(runs))
+        logger.debug(scores)
+        raise TypeError("something goes wrong I don't know what")
     return scores
 
 
@@ -79,6 +84,7 @@ def eval_runfile(runfile, qrels, metrics):
     metrics = [metrics] if isinstance(metrics, str) else list(metrics)
     _verify_metric(metrics)
     runs = Searcher.load_trec_run(runfile)
+    logger.debug(runfile)
     return _eval_runs(runs, qrels, metrics, dev_qids=list(qrels.keys()))
 
 

@@ -3,13 +3,17 @@ import logging
 import os
 import requests
 import sys
+import re
 from glob import glob
 
 import numpy as np
 from tqdm import tqdm
+import matplotlib
+matplotlib.use('pdf')
 import matplotlib.pyplot as plt
 
 from capreolus.utils.loginit import get_logger
+from capreolus.utils.trec import load_trec_topics
 
 logger = get_logger(__name__)  # pylint: disable=invalid-name
 
@@ -149,3 +153,5 @@ def plot_metrics(metrics, outfn, interactive=False, show={"map", "P_20", "ndcg_c
     if interactive:
         plt.show(block=False)
     plt.close()
+
+

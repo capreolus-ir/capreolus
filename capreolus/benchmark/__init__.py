@@ -1,5 +1,5 @@
 import json
-import os
+from os.path import join
 from pathlib import Path
 
 from capreolus.registry import ModuleBase, RegisterableModule, PACKAGE_PATH
@@ -14,6 +14,7 @@ class Benchmark(ModuleBase, metaclass=RegisterableModule):
     topic_file = None
     fold_file = None
     query_type = None
+    entity_strategy = None
 
     @property
     def qrels(self):
@@ -36,15 +37,18 @@ class Benchmark(ModuleBase, metaclass=RegisterableModule):
 
 class PES20(Benchmark):
     name = "pes20"
-    PES20_DIR = Path("/GW/NeuralIR/work/PES20")  # TODO hardcoded path
+    PES20_DIR = Path(open(join(PACKAGE_PATH, "..", "paths_env_vars", "pes20benchmarkpath"), 'r').read().strip())
     qrel_file = PES20_DIR / "judgements"
     fold_file = PES20_DIR / "splits.json"
+    domain = 'book'
 
     @staticmethod
     def config():
         querytype = "query"  # one of: query, basicprofile, entityprofile
 
-        if querytype not in ["query", "basicprofile", "entityprofile"]:
+        if querytype not in ["query", "basicprofile", "entityprofile",
+                             'basicprofile_demog_hobbies', 'basicprofile_minus_books',
+                             'entityprofile_demog_hobbies', 'entityprofile_minus_books']:
             raise ValueError(f"invalid querytype: {querytype}")
 
     @property
@@ -60,31 +64,44 @@ class PES20(Benchmark):
         return self.cfg["querytype"]
 
     @property
+    def incorporate_entities(self):
+        return False if self.cfg["entity_strategy"] is None else True
+
+    @property
     def topic_file(self):
         fn = f"topics.{self.query_type}.txt"
         return self.PES20_DIR / fn
 
-class KITT(PES20):
+class KITT(Benchmark):
     name = "kitt"
-    DATA_DIR = Path("/GW/PKB/work/data_personalization/TREC_format/")
-    qrel_file = DATA_DIR / "judgements"
-    fold_file = DATA_DIR / "splits.json"
+    DATA_DIR = Path(open(join(PACKAGE_PATH, "..", "paths_env_vars", "YGWYC_experiments_data_path"), 'r').read().strip())
 
     @staticmethod
     def config():
-        querytype = "query"  # one of: query, basicprofile, entityprofile, chatprofile #TODO: probably will change how the entities are incorporated into the system.
+        querytype = "query"
         domain = "book"
-
-        if querytype not in ["query", "basicprofile", "entityprofile", "chatprofile",
-                             "basicprofile_general", 'basicprofile_food', 'basicprofile_travel', 'basicprofile_book_movie',
-                             "chatprofile_general", 'chatprofile_food', 'chatprofile_travel', 'chatprofile_book', 'chatprofile_movie', 'chatprofile_hobbies']:
+        assessed_set = 'all'
+        if querytype not in ['query', 'basicprofile', 'chatprofile',
+                              'basicprofile_general', 'basicprofile_food', 'basicprofile_travel', 'basicprofile_book',
+                              'basicprofile_food_general', 'basicprofile_travel_general', 'basicprofile_book_general',
+                              'chatprofile_general', 'chatprofile_food', 'chatprofile_travel', 'chatprofile_book',
+                              'chatprofile_food_general', 'chatprofile_travel_general', 'chatprofile_book_general'
+                             ]:
             raise ValueError(f"invalid querytype: {querytype}")
 
-        if domain not in ["book", "travel_wikivoyage", "movie", "food"]:
+        if domain not in ["book", "travel", "food", "alldomains"]:
             raise ValueError(f"invalid domain: {domain}")
 
-        KITT.qrel_file = KITT.DATA_DIR / "{}_judgements".format(domain)
-        KITT.fold_file = KITT.DATA_DIR / "{}_splits.json".format(domain)
+        if assessed_set not in ['all', 'random20', 'top10']:
+            raise ValueError(f"invalid assessed_set: {assessed_set}")
+
+        KITT.qrel_file = KITT.DATA_DIR / "judgements" / "{}_judgements_{}".format(domain, assessed_set)
+        KITT.fold_file = KITT.DATA_DIR / "splits" / "{}_folds.json".format(domain)
+
+    @property
+    def topic_file(self):
+        fn = f"{self.domain}_topics.{self.query_type}.txt"
+        return self.DATA_DIR / "topics" / fn
 
     @property
     def topics(self):
@@ -102,10 +119,6 @@ class KITT(PES20):
     def domain(self):
         return self.cfg["domain"]
 
-    @property
-    def topic_file(self):
-        fn = f"{self.domain}_topics.{self.query_type}.txt"
-        return self.DATA_DIR / fn
 
 class DummyBenchmark(Benchmark):
     name = "dummy"

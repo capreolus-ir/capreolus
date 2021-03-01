@@ -1,0 +1,1 @@
+{"strategy_NE": "d-k:0_e-k:100-avg", "strategy_C": "d-k:5-avg_e-k:25-wavg", "domain_relatedness_threshold_NE": 0.26852363 , "domain_relatedness_threshold_C": 0.46772834}

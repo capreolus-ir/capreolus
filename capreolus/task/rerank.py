@@ -47,7 +47,7 @@ def train(config, modules):
 
     docids = set(docid for querydocs in best_search_run.values() for docid in querydocs)
     qdocs = {k: v.keys() for k, v in best_search_run.items()}  # todo: to calc avgdoclen
-    reranker["extractor"].create(qids=best_search_run.keys(), docids=docids, topics=benchmark.topics[benchmark.query_type], qdocs=qdocs)
+    reranker["extractor"].create(qids=best_search_run.keys(), docids=docids, topics=benchmark.topics[benchmark.query_type], qdocs=qdocs, querytype=benchmark.query_type)
     reranker.build()
 
     train_run = {qid: docs for qid, docs in best_search_run.items() if qid in benchmark.folds[fold]["train_qids"]}
@@ -70,20 +70,20 @@ def evaluate(config, modules):
     searcher = modules["searcher"]
     benchmark = modules["benchmark"]
     reranker = modules["reranker"]
-
+    
     if os.path.exists(test_output_path):
         test_preds = Searcher.load_trec_run(test_output_path)
     else:
         topics_fn = benchmark.topic_file
         searcher_cache_dir = os.path.join(searcher.get_cache_path(), benchmark.name)
         searcher_run_dir = searcher.query_from_file(topics_fn, searcher_cache_dir)
-
         best_search_run_path = evaluator.search_best_run(searcher_run_dir, benchmark, metric)["path"][fold]
         best_search_run = searcher.load_trec_run(best_search_run_path)
+        logger.debug(best_search_run_path)
 
         docids = set(docid for querydocs in best_search_run.values() for docid in querydocs)
         qdocs = {k:v.keys() for k,v in best_search_run.items()} #todo: to calc avgdoclen
-        reranker["extractor"].create(qids=best_search_run.keys(), docids=docids, topics=benchmark.topics[benchmark.query_type], qdocs=qdocs)
+        reranker["extractor"].create(qids=best_search_run.keys(), docids=docids, topics=benchmark.topics[benchmark.query_type], qdocs=qdocs, querytype=benchmark.query_type)
         reranker.build()
 
         reranker["trainer"].load_best_model(reranker, train_output_path)
@@ -96,29 +96,29 @@ def evaluate(config, modules):
     metrics = evaluator.eval_runs(test_preds, benchmark.qrels, ["ndcg_cut_20", "ndcg_cut_10", "map", "P_20", "P_10", "ndcg_cut_5", "P_1"])
     print("test metrics for fold=%s:" % fold, metrics)
 
-    print("\ncomputing metrics across all folds")
-
-    all_preds = {}
-    avg = {}
-    found = 0
-    for fold in benchmark.folds:
-        pred_path = _pipeline_path(config, modules, fold=fold) / "pred" / "test" / "best"
-        if not os.path.exists(pred_path):
-            print("\tfold=%s results are missing and will not be included" % fold)
-            continue
-
-        found += 1
-        preds = Searcher.load_trec_run(pred_path)
-        all_preds.update(preds)
-        metrics = evaluator.eval_runs(preds, benchmark.qrels, ["ndcg_cut_20", "ndcg_cut_10", "map", "P_20", "P_10", "ndcg_cut_5", "P_1"])
-        for metric, val in metrics.items():
-            avg.setdefault(metric, []).append(val)
-
-    avg = {k: np.mean(v) for k, v in avg.items()}
-    print(f"average metrics across {found}/{len(benchmark.folds)} folds:", avg)
-
-    metrics = evaluator.eval_runs(all_preds, benchmark.qrels, ["ndcg_cut_20", "ndcg_cut_10", "map", "P_20", "P_10", "ndcg_cut_5", "P_1"])
-    print(f"micro average metrics over {len(all_preds.keys())} user-query pairs:", metrics)
+    #print("\ncomputing metrics across all folds")
+    #
+    #all_preds = {}
+    #avg = {}
+    #found = 0
+    #for fold in benchmark.folds:
+    #    pred_path = _pipeline_path(config, modules, fold=fold) / "pred" / "test" / "best"
+    #    if not os.path.exists(pred_path):
+    #        print("\tfold=%s results are missing and will not be included" % fold)
+    #        continue
+    #
+    #    found += 1
+    #    preds = Searcher.load_trec_run(pred_path)
+    #    all_preds.update(preds)
+    #    metrics = evaluator.eval_runs(preds, benchmark.qrels, ["ndcg_cut_20", "ndcg_cut_10", "map", "P_20", "P_10", "ndcg_cut_5", "P_1"])
+    #    for metric, val in metrics.items():
+    #        avg.setdefault(metric, []).append(val)
+    #
+    #avg = {k: np.mean(v) for k, v in avg.items()}
+    #print(f"average metrics across {found}/{len(benchmark.folds)} folds:", avg)
+    #
+    #metrics = evaluator.eval_runs(all_preds, benchmark.qrels, ["ndcg_cut_20", "ndcg_cut_10", "map", "P_20", "P_10", "ndcg_cut_5", "P_1"])
+    #print(f"{benchmark.query_type} - micro average metrics over {len(all_preds.keys())} user-query pairs:", metrics)
 
 
 def _pipeline_path(config, modules, fold=None):
