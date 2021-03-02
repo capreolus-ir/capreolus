@@ -150,7 +150,7 @@ class Robust04Queries(Task):
             # All anserini indexes ignore the "fold" parameter. This is required for FAISS though, since we have to train an encoder
             self.searcher.index.create_index()
 
-        search_results_folder = self.searcher.query_from_file(topics_fn, output_dir, fold=self.config["fold"])
+        search_results_folder = self.searcher.query_from_file(topics_fn, output_dir)
         logger.info("searcher results written to: %s", search_results_folder)
 
         return search_results_folder
