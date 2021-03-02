@@ -44,7 +44,7 @@ class Robust04Queries(Task):
            key="index", module="index", name="anserini", default_config_overrides={"indexstops": True, "stemmer": "none"}
        ),
        Dependency(
-           key="searcher", module="searcher", name="BM25RM3"
+           key="searcher", module="searcher", name="BM25"
        )
 
     ]
