@@ -67,8 +67,6 @@ class Robust04Queries(Task):
         passage_ids_for_query_generation = [passage_id for passage_id in all_passageids if passage_id.split("_")[0] in relevant_docids_in_qrels]
         self.rng.shuffle(passage_ids_for_query_generation)
 
-        passage_ids_for_query_generation = passage_ids_for_query_generation[:10]
-
         passage_to_generated_queries = defaultdict(list)
         doc_to_generated_queries = defaultdict(lambda: 0)
 
