@@ -105,7 +105,7 @@ class Robust04Queries(Task):
 
     def write_to_file(self, extended_topics, extended_qrels, extended_folds):
         with open(self.config["queryoutput"], "w") as out_f:
-            for qid, query in extended_topics.items():
+            for qid, query in extended_topics["title"].items():
                 out_f.write(topic_to_trectxt(qid, query))
 
         with open(self.config["qrelsoutput"], "w") as out_f:
