@@ -1,4 +1,5 @@
 from collections import defaultdict
+import os
 import json
 from copy import copy
 
@@ -10,6 +11,7 @@ from nltk.corpus import stopwords
 from nltk.tokenize import word_tokenize
 
 from capreolus import ConfigOption, Dependency
+from capreolus.searcher import Searcher
 from capreolus.task import Task
 from capreolus.utils.loginit import get_logger
 from capreolus.utils.trec import topic_to_trectxt
@@ -40,13 +42,17 @@ class Robust04Queries(Task):
        ),
        Dependency(
            key="index", module="index", name="anserini", default_config_overrides={"indexstops": True, "stemmer": "none"}
+       ),
+       Dependency(
+           key="searcher", module="searcher", name="BM25RM3"
        )
+
     ]
 
     commands = ["generate"] + Task.help_commands
     default_command = "generate"
 
-    def generate_queries(self):
+    def generate_queries(self, bm25_run):
         device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         tokenizer = T5Tokenizer.from_pretrained('t5-base')
         config = T5Config.from_pretrained('t5-base')
@@ -56,7 +62,7 @@ class Robust04Queries(Task):
 
         qrels = self.benchmark.qrels
         relevant_docids_in_qrels = set([docid for qid, docid_to_label in qrels.items() for docid, label in docid_to_label.items() if label >= 1])
-        all_passageids = self.get_all_docids_in_collection()
+        all_passageids = [passage_id for qid, passage_id_to_score in bm25_run.items() for passage_id, score in passage_id_to_score.items()]
 
         passage_ids_for_query_generation = [passage_id for passage_id in all_passageids if passage_id.split("_")[0] in relevant_docids_in_qrels]
         self.rng.shuffle(passage_ids_for_query_generation)
@@ -113,7 +119,10 @@ class Robust04Queries(Task):
 
     def generate(self):
         self.index.create_index()
-        passage_to_generated_queries = self.generate_queries()
+        bm25_results_dir = self.search()
+        bm25_run_fn = os.path.join(bm25_results_dir, "searcher")
+        bm25_run = Searcher.load_trec_run(bm25_run_fn)
+        passage_to_generated_queries = self.generate_queries(bm25_run)
         generated_topics, generated_qrels = self.generate_topics_and_qrels(passage_to_generated_queries)
 
         logger.info(passage_to_generated_queries)
@@ -133,18 +142,16 @@ class Robust04Queries(Task):
 
         self.write_to_file(extended_topics, extended_qrels, extended_folds)
 
-    def get_all_docids_in_collection(self):
-        from jnius import autoclass
-        anserini_index = self.index
-        anserini_index.create_index()
-        anserini_index_path = anserini_index.get_index_path().as_posix()
+    def search(self):
+        topics_fn = self.benchmark.topic_file
+        output_dir = self.get_results_path()
 
-        JFile = autoclass("java.io.File")
-        JFSDirectory = autoclass("org.apache.lucene.store.FSDirectory")
-        fsdir = JFSDirectory.open(JFile(anserini_index_path).toPath())
-        anserini_index_reader = autoclass("org.apache.lucene.index.DirectoryReader").open(fsdir)
+        if hasattr(self.searcher, "index"):
+            # All anserini indexes ignore the "fold" parameter. This is required for FAISS though, since we have to train an encoder
+            self.searcher.index.create_index(fold=self.config["fold"])
 
-        # TODO: Add check for deleted rows in the index
-        all_doc_ids = [anserini_index.convert_lucene_id_to_doc_id(i) for i in range(0, anserini_index_reader.maxDoc())]
+        search_results_folder = self.searcher.query_from_file(topics_fn, output_dir, fold=self.config["fold"])
+        logger.info("searcher results written to: %s", search_results_folder)
 
-        return all_doc_ids
+        return search_results_folder
+
