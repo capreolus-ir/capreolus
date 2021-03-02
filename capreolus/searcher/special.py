@@ -61,7 +61,7 @@ class MsmarcoPsgSearcherMixin:
         triple_version = self.config["tripleversion"]
         logger.debug(f"triple version, {triple_version}")
         data_dir = Path(__file__).parent.parent / "data"
-        logger.info("debug: data_dir: {data_dir}")
+        logger.info(f"debug: data_dir: {data_dir}")
 
         url = self.get_url()
         if triple_version.startswith("large"):
@@ -83,7 +83,7 @@ class MsmarcoPsg(Searcher, MsmarcoPsgSearcherMixin):
     module_name = "msmarcopsg"
     dependencies = [Dependency(key="benchmark", module="benchmark", name="msmarcopsg")]
     config_spec = [
-        ConfigOption("tripleversion", "large.v1", "version of triplet.qid file, small, large.v1 or large.v2"),
+        ConfigOption("tripleversion", "small", "version of triplet.qid file, small, large.v1 or large.v2"),
     ]
 
     def _query_from_file(self, topicsfn, output_path, cfg):
@@ -126,7 +126,7 @@ class MsmarcoPsgBm25(BM25, MsmarcoPsgSearcherMixin):
         Dependency(key="index", module="index", name="anserini"),
     ]
     config_spec = BM25.config_spec + [
-        ConfigOption("tripleversion", "large.v1", "version of triplet.qid file, small, large.v1 or large.v2"),
+        ConfigOption("tripleversion", "small", "version of triplet.qid file, small, large.v1 or large.v2"),
     ]
 
     def _query_from_file(self, topicsfn, output_path, config):
