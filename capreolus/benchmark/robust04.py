@@ -49,3 +49,16 @@ class Robust04Passages(Benchmark):
     topic_file = PACKAGE_PATH / "data" / "topics.robust04.301-450.601-700.txt"
     fold_file = PACKAGE_PATH / "data" / "rob04_cedr_folds.json"
     query_type = "title"
+
+
+@Benchmark.register
+class Robust04PassagesDocT5Queries(Benchmark):
+    """
+    More queries generated using DocT5. See task.create_robust04_queries.py
+    """
+    module_name = "robust04passagesqueries"
+    dependencies = [Dependency(key="collection", module="collection", name="robust04passages")]
+    qrel_file = PACKAGE_PATH / "data" / "qrels.robust04doct5.txt"
+    topic_file = PACKAGE_PATH / "data" / "topics.robust04doct5.txt"
+    fold_file = PACKAGE_PATH / "data" / "robust04doct5.folds.json"
+    query_type = "title"
