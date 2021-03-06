@@ -379,7 +379,7 @@ class BertPassage(Extractor):
         return inp, mask, seg
 
     def get_diffir_weights(self, docid, simmat):
-        assert simmat.shape == (1, self.config["numpassages"], self.config["maxqlen"], -1)
+        assert simmat.shape == (self.config["numpassages"], self.config["maxqlen"], -1), "simmat shape is {}".format(simmat.shape)
         weights = []
 
         for passage_id in range(self.config["numpassages"]):

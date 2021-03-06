@@ -149,7 +149,7 @@ class CEDRKNRM_Class(nn.Module):
             all_layer_output[0][:, 1:], bert_mask[:, 1:], bert_segments[:, 1:]
         )
 
-        assert passage_simmats.shape == (1, self.num_passages, self.maxqlen, self.maxdoclen), "shape: {}".format(passage_simmats.shape)
+        assert passage_simmats.shape == (self.num_passages, self.maxqlen, self.maxdoclen), "shape: {}".format(passage_simmats.shape)
 
         return passage_simmats
 
