@@ -238,7 +238,7 @@ class BertPassage(Extractor):
         """
         passages = []
         numpassages = self.config["numpassages"]
-        tokenizer = BertTokenizerFast.from_pretrained("bert-base-uncased").backend_tokenizer
+        tokenizer = self.tokenizer.bert_tokenizer.backend_tokenizer
         encoded_doc = tokenizer.encode(doc)
         doc = encoded_doc.tokens[1:-1]
 
