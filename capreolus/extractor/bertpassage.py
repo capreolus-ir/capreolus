@@ -1,8 +1,10 @@
 import pickle
+import torch
 import os
 import tensorflow as tf
 import numpy as np
 from collections import defaultdict
+from transformers import BertTokenizerFast
 from tqdm import tqdm
 
 
@@ -65,11 +67,16 @@ class BertPassage(Extractor):
             state_dict = pickle.load(f)
             self.qid2toks = state_dict["qid2toks"]
             self.docid2passages = state_dict["docid2passages"]
+            self.docid_to_passage_begin_token_obj = state_dict["docid_to_passage_begin_token_obj"]
+            self.docid_to_doc_offsets_obj = state_dict["docid_to_doc_offset_obj"]
 
     def cache_state(self, qids, docids):
         os.makedirs(self.get_cache_path(), exist_ok=True)
         with open(self.get_state_cache_file_path(qids, docids), "wb") as f:
-            state_dict = {"qid2toks": self.qid2toks, "docid2passages": self.docid2passages}
+            state_dict = {
+                "qid2toks": self.qid2toks, "docid2passages": self.docid2passages, "docid_to_passage_begin_token_obj": self.docid_to_passage_begin_token_obj,
+                "docid_to_doc_offset_obj": self.docid_to_doc_offsets_obj
+            }
             pickle.dump(state_dict, f, protocol=-1)
 
     def get_tf_feature_description(self):
@@ -231,19 +238,34 @@ class BertPassage(Extractor):
         """
         passages = []
         numpassages = self.config["numpassages"]
-        doc = self.tokenizer.tokenize(doc)
+        tokenizer = BertTokenizerFast.from_pretrained("bert-base-uncased").backend_tokenizer
+        encoded_doc = tokenizer.encode(doc)
+        doc = encoded_doc.tokens[1:-1]
+
+        # For each wordpiece token, the beginning and end of the characters in the original doc
+        doc_offsets = encoded_doc.offsets[1:-1]
+        # doc = self.tokenizer.tokenize(doc)
+
+        # To get the word in the doc corresponding to a word in the passage:
+        # doc_offsets[passage_to_offsets[passage_id] + position of word in passage]
+        passage_to_begin_token = {}
 
         for i in range(0, len(doc), self.config["stride"]):
             if i >= len(doc):
                 assert len(passages) > 0, f"no passage can be built from empty document {doc}"
                 break
+
+            # Store the offset of the first character in the passage
+            passage_to_begin_token[len(passages)] = i
+
             passages.append(doc[i : i + self.config["passagelen"]])
 
         n_actual_passages = len(passages)
         # If we have a more passages than required, keep the first and last, and sample from the rest
         if n_actual_passages > numpassages:
             if numpassages > 1:
-                passages = [passages[0]] + list(self.rng.choice(passages[1:-1], numpassages - 2, replace=False)) + [passages[-1]]
+                # passages = [passages[0]] + list(self.rng.choice(passages[1:-1], numpassages - 2, replace=False)) + [passages[-1]]
+                passages = passages[:numpassages]
             else:
                 passages = [passages[0]]
         else:
@@ -251,7 +273,8 @@ class BertPassage(Extractor):
             passages.extend([[self.pad_tok] for _ in range(numpassages - n_actual_passages)])
 
         assert len(passages) == self.config["numpassages"]
-        return passages
+
+        return passages, passage_to_begin_token, doc_offsets
 
     # from https://github.com/castorini/birch/blob/2dd0401ebb388a1c96f8f3357a064164a5db3f0e/src/utils/doc_utils.py#L73
     def _chunk_sent(self, sent, max_len):
@@ -308,9 +331,23 @@ class BertPassage(Extractor):
             logger.info("Building bertpassage vocabulary")
 
             self.qid2toks = {qid: self.tokenizer.tokenize(topics[qid]) for qid in tqdm(qids, desc="querytoks")}
-            self.docid2passages = {
-                docid: self._prepare_doc_psgs(self.index.get_doc(docid)) for docid in tqdm(sorted(docids), "extract passages")
-            }
+            self.docid2passages = {}
+
+            # Keeps track of the token index (relative to the original tokenized doc) where each passage begins
+            self.docid_to_passage_begin_token_obj = {}
+            # Maps each token in the tokenized doc to character ranges in the original doc
+            self.docid_to_doc_offsets_obj = {}
+
+            # To get the character range corresponding to a token in a passage:
+            # self.doci_id_to_doc_offsets_obj[doc_id][self.doc_id_to_passage_begin_token_obj[docid][passage_id] + position of word in passage]
+            # Yes, it's that verbose.
+
+            for docid in tqdm(sorted(docids), desc="extract passages"):
+                passages, passage_to_begin_token, doc_offsets = self._prepare_doc_psgs(self.index.get_doc(docid))
+                self.docid2passages[docid] = passages
+                self.docid_to_passage_begin_token_obj[docid] = passage_to_begin_token
+                self.docid_to_doc_offsets_obj[docid] = doc_offsets
+
             self.cache_state(qids, docids)
 
     def exist(self):
@@ -340,6 +377,28 @@ class BertPassage(Extractor):
         mask = [1] * len(input_line) + [0] * (len(padded_input_line) - len(input_line))
         seg = [0] * (len(query_toks) + 2) + [1] * (len(padded_input_line) - len(query_toks) - 2)
         return inp, mask, seg
+
+    def get_diffir_weights(self, docid, simmat):
+        assert simmat.shape == (1, self.config["numpassages"], self.config["maxqlen"], -1)
+        weights = []
+
+        for passage_id in range(self.config["numpassages"]):
+            num_doc_terms = simmat.shape[3]
+            for doc_term_idx in range(num_doc_terms):
+                char_range_in_original_doc = self.docid_to_doc_offsets_obj[docid][self.docid_to_passage_begin_token_obj[docid][passage_id] + doc_term_idx]
+                # Get the entire column - i.e we get all weights corresponding to each query term for a particular doc term
+                doc_term_weights = simmat[0][passage_id][:, doc_term_idx]
+                assert doc_term_weights.shape == (self.config["maxqlen"], 1), "doc_term_weights has shape {}".format(doc_term_weights.shape)
+                max_term_weight = torch.max(doc_term_weights, 0)
+                assert max_term_weight.shape == (1,), "max_term_weight has shape {}".format(max_term_weight.shape)
+
+                weights.append((char_range_in_original_doc[0], char_range_in_original_doc[1], max_term_weight))
+
+        original_doc = self.index.get_doc(docid)
+        for start, end, weight in weights:
+            logger.info("{}: {}".format(original_doc[start: end], weight))
+
+        return weights
 
     def id2vec(self, qid, posid, negid=None, label=None):
         """

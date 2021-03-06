@@ -148,19 +148,10 @@ class CEDRKNRM_Class(nn.Module):
         passage_simmats, passage_doc_mask, passage_query_mask = self.masked_simmats(
             all_layer_output[0][:, 1:], bert_mask[:, 1:], bert_segments[:, 1:]
         )
-        passage_doc_mask = passage_doc_mask.view(batch_size, self.num_passages, 1, -1)
 
-        # concat similarity matrices along document dimension; query mask is the same across passages
-        doc_simmat = torch.cat([passage_simmats[:, PIDX, :, :] for PIDX in range(self.num_passages)], dim=2)
-        doc_mask = torch.cat([passage_doc_mask[:, PIDX, :, :] for PIDX in range(self.num_passages)], dim=2)
-        query_mask = passage_query_mask.view(batch_size, self.num_passages, -1, 1)[:, 0, :, :]
+        assert passage_simmats.shape == (1, self.num_passages, self.maxqlen, self.maxdoclen), "shape: {}".format(passage_simmats.shape)
 
-        kernel_simmat = self.kernels(doc_simmat)
-        kernel_simmat = kernel_simmat * doc_mask.view(batch_size, 1, 1, -1) * query_mask.view(batch_size, 1, -1, 1)
-
-        assert kernel_simmat.shape == (1, self.maxqlen, self.maxdoclen), "kernel_simmat is {}".format(kernel_simmat.shape)
-
-        return kernel_simmat
+        return passage_simmats
 
     def forward(self, bert_input, bert_mask, bert_segments):
         batch_size = bert_input.shape[0]
