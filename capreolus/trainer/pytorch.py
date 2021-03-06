@@ -301,7 +301,7 @@ class PytorchTrainer(Trainer):
                 batch = {k: v.to(self.device) if not isinstance(v, list) else v for k, v in batch.items()}
                 with self.amp_pred_autocast():
                     simmat = reranker.diffir_weights(batch)
-                    weights = reranker.extractor.get_diffir_weights(simmat)
+                    weights = reranker.extractor.get_diffir_weights(batch["posdocid"][0], simmat)
                     raise Exception("foo")
 
     def predict(self, reranker, pred_data, pred_fn):
