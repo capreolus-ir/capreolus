@@ -7,6 +7,7 @@ from capreolus.sampler import PredSampler
 from capreolus.searcher import Searcher
 from capreolus.task import Task
 from capreolus.utils.loginit import get_logger
+from capreolus.utils.trec import threshold_trec_run
 
 logger = get_logger(__name__)
 
@@ -29,8 +30,26 @@ class RerankTask(Task):
         Dependency(key="sampler", module="sampler", name="triplet"),
     ]
 
-    commands = ["train", "evaluate", "traineval"] + Task.help_commands
+    commands = ["train", "evaluate", "traineval", "diffirweights"] + Task.help_commands
     default_command = "describe"
+
+    def diffirweights(self):
+        """
+        Generate weights file that can be read by diffir
+        """
+
+        fold = self.config["fold"]
+        rank_results = self.rank.evaluate()
+        best_search_run_path = rank_results["path"][fold]
+        best_search_run = Searcher.load_trec_run(best_search_run_path)
+
+        test_run = threshold_trec_run(best_search_run, self.benchmark.folds[fold], self.config["testthreshold"])
+
+        test_dataset = PredSampler()
+        test_dataset.prepare(
+            test_run, self.benchmark.qrels, self.reranker.extractor, relevance_level=self.benchmark.relevance_level
+        )
+        weights = self.reranker.trainer.generate_diffir_weights(self.reranker, test_dataset)
 
     def traineval(self):
         self.train()
@@ -63,14 +82,7 @@ class RerankTask(Task):
 
         train_run = {qid: docs for qid, docs in best_search_run.items() if qid in self.benchmark.folds[fold]["train_qids"]}
         # For each qid, select the top 100 (defined by config["threshold") docs to be used in validation
-        dev_run = defaultdict(dict)
-        # This is possible because best_search_run is an OrderedDict
-        for qid, docs in best_search_run.items():
-            if qid in self.benchmark.folds[fold]["predict"]["dev"]:
-                for idx, (docid, score) in enumerate(docs.items()):
-                    if idx >= self.config["threshold"]:
-                        break
-                    dev_run[qid][docid] = score
+        dev_run = threshold_trec_run(best_search_run, self.benchmark.folds[fold], self.config["threshold"])
 
         # Depending on the sampler chosen, the dataset may generate triplets or pairs
         train_dataset = self.sampler
@@ -98,14 +110,7 @@ class RerankTask(Task):
         if not dev_output_path.exists():
             dev_preds = self.reranker.trainer.predict(self.reranker, dev_dataset, dev_output_path)
 
-        test_run = defaultdict(dict)
-        # This is possible because best_search_run is an OrderedDict
-        for qid, docs in best_search_run.items():
-            if qid in self.benchmark.folds[fold]["predict"]["test"]:
-                for idx, (docid, score) in enumerate(docs.items()):
-                    if idx >= self.config["testthreshold"]:
-                        break
-                    test_run[qid][docid] = score
+        test_run = threshold_trec_run(best_search_run, self.benchmark.folds[fold], self.config["testthreshold"])
 
         test_dataset = PredSampler()
         test_dataset.prepare(

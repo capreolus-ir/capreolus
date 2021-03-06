@@ -4,6 +4,21 @@ import xml.etree.ElementTree as ET
 from collections import defaultdict
 
 
+def threshold_trec_run(run, fold, k):
+    """
+    Take a trec run, and keep only the top-k docs
+    """
+    filtered_run = defaultdict(dict)
+    # This is possible because best_search_run is an OrderedDict
+    for qid, docs in run.items():
+        if qid in fold["predict"]["test"]:
+            for idx, (docid, score) in enumerate(docs.items()):
+                if idx >= k:
+                    break
+                filtered_run[qid][docid] = score
+
+    return filtered_run
+
 def load_ntcir_topics(fn):
     topics = {}
 

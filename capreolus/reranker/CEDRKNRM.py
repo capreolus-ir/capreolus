@@ -132,6 +132,36 @@ class CEDRKNRM_Class(nn.Module):
 
         return knrm_features
 
+    def diffir_weights(self, bert_input, bert_mask, bert_segments):
+        batch_size = bert_input.shape[0]
+        bert_input = bert_input.view((batch_size * self.num_passages, self.maxseqlen))
+        bert_mask = bert_mask.view((batch_size * self.num_passages, self.maxseqlen))
+        bert_segments = bert_segments.view((batch_size * self.num_passages, self.maxseqlen))
+
+        # get BERT embeddings (including CLS) for each passage
+        # TODO switch to hgf's ModelOutput after bumping tranformers version
+        outputs = self.bert(bert_input, attention_mask=bert_mask, token_type_ids=bert_segments)
+        if self.config["pretrained"].startswith("bert-"):
+            outputs = (outputs[0], outputs[2])
+        bert_output, all_layer_output = outputs
+
+        passage_simmats, passage_doc_mask, passage_query_mask = self.masked_simmats(
+            all_layer_output[0][:, 1:], bert_mask[:, 1:], bert_segments[:, 1:]
+        )
+        passage_doc_mask = passage_doc_mask.view(batch_size, self.num_passages, 1, -1)
+
+        # concat similarity matrices along document dimension; query mask is the same across passages
+        doc_simmat = torch.cat([passage_simmats[:, PIDX, :, :] for PIDX in range(self.num_passages)], dim=2)
+        doc_mask = torch.cat([passage_doc_mask[:, PIDX, :, :] for PIDX in range(self.num_passages)], dim=2)
+        query_mask = passage_query_mask.view(batch_size, self.num_passages, -1, 1)[:, 0, :, :]
+
+        kernel_simmat = self.kernels(doc_simmat)
+        kernel_simmat = kernel_simmat * doc_mask.view(batch_size, 1, 1, -1) * query_mask.view(batch_size, 1, -1, 1)
+
+        assert kernel_simmat.shape == (1, self.maxqlen, self.maxdoclen), "kernel_simmat is {}".format(kernel_simmat.shape)
+
+        return kernel_simmat
+
     def forward(self, bert_input, bert_mask, bert_segments):
         batch_size = bert_input.shape[0]
         bert_input = bert_input.view((batch_size * self.num_passages, self.maxseqlen))
@@ -218,3 +248,6 @@ class CEDRKNRM(Reranker):
 
     def test(self, d):
         return self.model(d["pos_bert_input"], d["pos_mask"], d["pos_seg"]).view(-1)
+
+    def diffir_weights(self, d):
+        return self.model.diffir_weights(d["pos_bert_input"], d["pos_mask"], d["pos_seg"])

@@ -280,6 +280,29 @@ class PytorchTrainer(Trainer):
         dev_best_weight_fn = train_output_path / "dev.best"
         reranker.load_weights(dev_best_weight_fn, self.optimizer)
 
+    def generate_diffir_weights(self, reranker, pred_data):
+        if self.config["amp"] in ("both", "pred"):
+            self.amp_pred_autocast = torch.cuda.amp.autocast
+        else:
+            self.amp_pred_autocast = contextlib.nullcontext
+
+        self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+        # save to pred_fn
+        model = reranker.model.to(self.device)
+        model.eval()
+
+        evalbatch = 1
+        num_workers = 1 if self.config["multithread"] else 0
+        pred_dataloader = torch.utils.data.DataLoader(pred_data, batch_size=evalbatch, pin_memory=True,
+                                                      num_workers=num_workers)
+
+        with torch.autograd.no_grad():
+            for batch in tqdm(pred_dataloader, desc="diffir weights", total=len(pred_data) // evalbatch):
+                batch = {k: v.to(self.device) if not isinstance(v, list) else v for k, v in batch.items()}
+                with self.amp_pred_autocast():
+                    simmat = reranker.diffir_weights(batch)
+                # transform the simmat into weights
+
     def predict(self, reranker, pred_data, pred_fn):
         """Predict query-document scores on `pred_data` using `model` and write a corresponding run file to `pred_fn`
 
