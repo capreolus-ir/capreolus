@@ -49,6 +49,11 @@ class RerankTask(Task):
         test_dataset.prepare(
             test_run, self.benchmark.qrels, self.reranker.extractor, relevance_level=self.benchmark.relevance_level
         )
+
+        train_output_path = self.get_results_path()
+        self.reranker.build_model()
+        self.reranker.trainer.load_best_model(self.reranker, train_output_path)
+
         weights = self.reranker.trainer.generate_diffir_weights(self.reranker, test_dataset)
 
     def traineval(self):
