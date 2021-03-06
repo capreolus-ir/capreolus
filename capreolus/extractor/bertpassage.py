@@ -390,7 +390,7 @@ class BertPassage(Extractor):
                 doc_term_weights = simmat[passage_id][:, doc_term_idx]
                 max_term_weight = torch.max(doc_term_weights, 0)
 
-                weights.append((char_range_in_original_doc[0], char_range_in_original_doc[1], max_term_weight.item()))
+                weights.append((char_range_in_original_doc[0], char_range_in_original_doc[1], max_term_weight[0]))
 
         original_doc = self.index.get_doc(docid)
         for start, end, weight in weights:
