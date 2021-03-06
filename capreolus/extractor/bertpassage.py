@@ -389,7 +389,6 @@ class BertPassage(Extractor):
                 # Get the entire column - i.e we get all weights corresponding to each query term for a particular doc term
                 doc_term_weights = simmat[passage_id][:, doc_term_idx]
                 max_term_weight = torch.max(doc_term_weights, 0)
-                assert max_term_weight.shape == (1,), "max_term_weight has shape {}".format(max_term_weight.shape)
 
                 weights.append((char_range_in_original_doc[0], char_range_in_original_doc[1], max_term_weight))
 
