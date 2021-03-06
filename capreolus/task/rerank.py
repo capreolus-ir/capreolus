@@ -44,6 +44,10 @@ class RerankTask(Task):
         best_search_run = Searcher.load_trec_run(best_search_run_path)
 
         test_run = threshold_trec_run(best_search_run, self.benchmark.folds[fold], self.config["testthreshold"])
+        docids = set(docid for querydocs in test_run.values() for docid in querydocs)
+        self.reranker.extractor.preprocess(
+            qids=test_run.keys(), docids=docids, topics=self.benchmark.topics[self.benchmark.query_type]
+        )
 
         test_dataset = PredSampler()
         test_dataset.prepare(
