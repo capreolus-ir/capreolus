@@ -50,6 +50,24 @@ class TFBERTMaxP_Class(tf.keras.layers.Layer):
 
         return passage_scores
 
+    def diffir_weights(self, data):
+        posdoc_bert_input, posdoc_mask, posdoc_seg, negdoc_bert_input, negdoc_mask, negdoc_seg = data
+        batch_size = tf.shape(posdoc_bert_input)[0]
+        num_passages = self.extractor.config["numpassages"]
+        maxseqlen = self.extractor.config["maxseqlen"]
+
+        passage_position = tf.reduce_sum(posdoc_mask * posdoc_seg, axis=-1)  # (B, P)
+        passage_mask = tf.cast(tf.greater(passage_position, 5), tf.float32)  # (B, P)
+
+        posdoc_bert_input = tf.reshape(posdoc_bert_input, [batch_size * num_passages, maxseqlen])
+        posdoc_mask = tf.reshape(posdoc_mask, [batch_size * num_passages, maxseqlen])
+        posdoc_seg = tf.reshape(posdoc_seg, [batch_size * num_passages, maxseqlen])
+
+        passage_scores = self.call((posdoc_bert_input, posdoc_mask, posdoc_seg), training=False)[:, 1]
+        passage_scores = tf.reshape(passage_scores, [batch_size, num_passages])
+
+        return passage_scores
+
     def predict_step(self, data):
         """
         Scores each passage and applies max pooling over it.

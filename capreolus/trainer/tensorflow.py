@@ -274,7 +274,7 @@ class TensorflowTrainer(Trainer):
 
         return trec_preds
 
-    def generate_diffir_weights(self, reranker, pred_data, pred_fn):
+    def generate_diffir_weights(self, reranker, pred_data):
         pred_records = self.get_tf_dev_records(reranker, pred_data)
         pred_dist_dataset = self.strategy.experimental_distribute_dataset(pred_records)
 
@@ -293,14 +293,17 @@ class TensorflowTrainer(Trainer):
         def distributed_test_step(dataset_inputs):
             return self.strategy.run(test_step, args=(dataset_inputs,))
 
-        diffir_weights_list = []
+        passage_scores_list = []
         for x in tqdm(pred_dist_dataset, desc="validation"):
-            pred_batch = distributed_test_step(x).values if self.strategy.num_replicas_in_sync > 1 else [
+            passage_scores_batch = distributed_test_step(x).values if self.strategy.num_replicas_in_sync > 1 else [
                 distributed_test_step(x)]
-            for p in pred_batch:
-                diffir_weights_list.extend(p)
+            for p in passage_scores_batch:
+                passage_scores_list.append(p)
 
-        diffir_weights = reranker.extractor.get_diffir_weights_from_maxp
+        diffir_weights = defaultdict(lambda: defaultdict(dict))
+        for i, (qid, docid) in enumerate(pred_data.get_qid_docid_pairs()):
+            passage_scores = passage_scores_list[i]
+            diffir_weights[qid][docid]["text"] = reranker.extractor.get_diffir_weights_from_passage_scores(docid, passage_scores)
 
         return diffir_weights
 

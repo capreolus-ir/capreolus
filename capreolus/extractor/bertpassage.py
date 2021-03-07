@@ -388,8 +388,27 @@ class BertPassage(Extractor):
         seg = [0] * (len(query_toks) + 2) + [1] * (len(padded_input_line) - len(query_toks) - 2)
         return inp, mask, seg
 
-    def get_diffir_weights_from_maxp(self, docid, *args):
-        pass
+    def get_diffir_weights_from_passage_scores(self, docid, passage_scores):
+        assert passage_scores.shape == (1, self.config["numpassages"])
+        diffir_weights = []
+        doc_offsets = self.docid_to_doc_offsets_obj[docid]
+
+        for passage_id in range(self.config["numpassages"]):
+            if passage_id not in self.docid_to_passage_begin_token_obj[docid]:
+                continue
+
+            passage_begin_token_id = self.docid_to_passage_begin_token_obj[docid][passage_id]
+            passage_begin = doc_offsets[passage_begin_token_id]
+            if passage_id + 1 in self.docid_to_passage_begin_token_obj[docid]:
+                next_passage_begin_token_id = self.docid_to_passage_begin_token_obj[docid][passage_id + 1]
+                next_passage_begin = doc_offsets[next_passage_begin_token_id]
+                passage_end = next_passage_begin
+            else:
+                passage_end = doc_offsets[-1][1]
+
+            diffir_weights.append([passage_begin, passage_end, passage_scores[passage_id].item()])
+
+        return diffir_weights
 
     def get_diffir_weights_from_simmat(self, docid, simmat, passage_doc_mask):
         # assert simmat.shape == (self.config["numpassages"], self.config["maxqlen"], -1), "simmat shape is {}".format(simmat.shape)
