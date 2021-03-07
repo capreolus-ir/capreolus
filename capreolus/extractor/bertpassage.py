@@ -397,6 +397,7 @@ class BertPassage(Extractor):
                 try:
                     char_range_in_original_doc = doc_offsets[passage_begin_token_idx + doc_term_idx]
                 except IndexError:
+                    logger.error("Max term weight was: {}".format(max_term_weight))
                     logger.error("passage_id: {}, passage_begin_token_idx: {}".format(passage_id, passage_begin_token_idx))
                     logger.error("doc_term_idx: {}".format(doc_term_idx))
                     logger.error("Doc position of term: {}".format(passage_begin_token_idx + doc_term_idx))
