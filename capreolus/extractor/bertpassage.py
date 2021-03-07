@@ -399,17 +399,18 @@ class BertPassage(Extractor):
                 continue
 
             passage_begin_token_id = self.docid_to_passage_begin_token_obj[docid][passage_id]
-            passage_begin = doc_offsets[passage_begin_token_id]
+            passage_begin = doc_offsets[passage_begin_token_id][0]
             if passage_id + 1 in self.docid_to_passage_begin_token_obj[docid]:
                 next_passage_begin_token_id = self.docid_to_passage_begin_token_obj[docid][passage_id + 1]
                 next_passage_begin = doc_offsets[next_passage_begin_token_id]
-                passage_end = next_passage_begin
+                passage_end = next_passage_begin[0]
             else:
                 passage_end = doc_offsets[-1][1]
 
             diffir_weights.append([passage_begin, passage_end, passage_scores[passage_id].numpy().item()])
 
         doc_text = self.get_doc(docid)
+        print("docid is: {}".format(docid))
         for i, (start, end, weight) in enumerate(diffir_weights):
             print("{}: {}".format(weight, doc_text[start: end]))
 
