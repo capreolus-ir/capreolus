@@ -303,10 +303,11 @@ class PytorchTrainer(Trainer):
                 batch = {k: v.to(self.device) if not isinstance(v, list) else v for k, v in batch.items()}
                 qid = batch["qid"][0]
                 docid = batch["posdocid"][0]
-                with self.amp_pred_autocast():
-                    simmat, passage_doc_mask = reranker.diffir_weights(batch)
-                weights = reranker.extractor.get_diffir_weights(docid, simmat, passage_doc_mask)
-                diffir_weights[qid][docid]["text"] = weights
+                if qid == "623" and docid == "FBIS4-52195":
+                    with self.amp_pred_autocast():
+                        simmat, passage_doc_mask = reranker.diffir_weights(batch)
+                    weights = reranker.extractor.get_diffir_weights(docid, simmat, passage_doc_mask)
+                    diffir_weights[qid][docid]["text"] = weights
 
         return diffir_weights
 

@@ -418,6 +418,11 @@ class BertPassage(Extractor):
 
                 weights.append([char_range_in_original_doc[0], char_range_in_original_doc[1], max_term_weight])
 
+        doc = self.index.get_doc(docid)
+        logger.info("The doc is {}".format(doc[:200]))
+        for i, (start, end, weight) in enumerate(weights):
+            print("{}: {}".format(doc[start:end], weight))
+
         return weights
 
     def id2vec(self, qid, posid, negid=None, label=None):
