@@ -1,4 +1,5 @@
 import pickle
+import ir_datasets
 import torch
 import os
 import tensorflow as tf
@@ -59,6 +60,15 @@ class BertPassage(Extractor):
         self.pad_tok = self.tokenizer.bert_tokenizer.pad_token
         self.cls_tok = self.tokenizer.bert_tokenizer.cls_token
         self.sep_tok = self.tokenizer.bert_tokenizer.sep_token
+
+        if self.benchmark.module_name == "robust04.yang19" or self.benchmark.module_name == "robust04":
+            self.docs_store = ir_datasets.load("trec-robust04").docs_store()
+
+    def get_doc(self, doc_id):
+        if hasattr(self, "docs_store"):
+            return self.docs_store.get(doc_id)
+
+        return self.index.get_doc(doc_id)
 
     def load_state(self, qids, docids):
         cache_fn = self.get_state_cache_file_path(qids, docids)
@@ -296,7 +306,7 @@ class BertPassage(Extractor):
         for docid in tqdm(docids, "extract passages"):
             passages = []
             numpassages = self.config["numpassages"]
-            for sentence in punkt.tokenize(self.index.get_doc(docid)):
+            for sentence in punkt.tokenize(self.get_doc(docid)):
                 if len(passages) >= numpassages:
                     break
 
@@ -343,7 +353,7 @@ class BertPassage(Extractor):
             # Yes, it's that verbose.
 
             for docid in tqdm(sorted(docids), desc="extract passages"):
-                passages, passage_to_begin_token, doc_offsets = self._prepare_doc_psgs(self.index.get_doc(docid))
+                passages, passage_to_begin_token, doc_offsets = self._prepare_doc_psgs(self.get_doc(docid))
                 self.docid2passages[docid] = passages
                 self.docid_to_passage_begin_token_obj[docid] = passage_to_begin_token
                 self.docid_to_doc_offsets_obj[docid] = doc_offsets
@@ -417,11 +427,6 @@ class BertPassage(Extractor):
                     raise
 
                 weights.append([char_range_in_original_doc[0], char_range_in_original_doc[1], max_term_weight])
-
-        doc = self.index.get_doc(docid)
-        logger.info("The doc is {}".format(doc[:200]))
-        for i, (start, end, weight) in enumerate(weights):
-            print("{}: {}".format(doc[start:end], weight))
 
         return weights
 
