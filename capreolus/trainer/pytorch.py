@@ -308,8 +308,6 @@ class PytorchTrainer(Trainer):
                 weights = reranker.extractor.get_diffir_weights(docid, simmat)
                 diffir_weights[qid][docid]["text"] = weights
 
-                break
-
         return diffir_weights
 
     def predict(self, reranker, pred_data, pred_fn):
