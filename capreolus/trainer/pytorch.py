@@ -297,7 +297,7 @@ class PytorchTrainer(Trainer):
         pred_dataloader = torch.utils.data.DataLoader(pred_data, batch_size=evalbatch, pin_memory=True,
                                                       num_workers=num_workers)
 
-        diffir_weights = defaultdict(defaultdict(dict))
+        diffir_weights = defaultdict(lambda: defaultdict(dict))
         with torch.autograd.no_grad():
             for batch in tqdm(pred_dataloader, desc="diffir weights", total=len(pred_data) // evalbatch):
                 batch = {k: v.to(self.device) if not isinstance(v, list) else v for k, v in batch.items()}
