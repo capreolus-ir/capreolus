@@ -389,6 +389,7 @@ class BertPassage(Extractor):
         return inp, mask, seg
 
     def get_diffir_weights_from_passage_scores(self, docid, passage_scores):
+        # TODO: Tested only with TFBERTMaxP. Pytorch models may not work
         assert passage_scores.shape == (self.config["numpassages"], ), "passage scores shape is {}".format(passage_scores.shape)
         diffir_weights = []
         doc_offsets = self.docid_to_doc_offsets_obj[docid]
@@ -406,7 +407,7 @@ class BertPassage(Extractor):
             else:
                 passage_end = doc_offsets[-1][1]
 
-            diffir_weights.append([passage_begin, passage_end, passage_scores[passage_id].item()])
+            diffir_weights.append([passage_begin, passage_end, passage_scores[passage_id].numpy().item()])
 
         doc_text = self.get_doc(docid)
         for i, (start, end, weight) in enumerate(diffir_weights):
