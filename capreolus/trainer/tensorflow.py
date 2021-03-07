@@ -297,8 +297,9 @@ class TensorflowTrainer(Trainer):
         for x in tqdm(pred_dist_dataset, desc="validation"):
             passage_scores_batch = distributed_test_step(x).values if self.strategy.num_replicas_in_sync > 1 else [
                 distributed_test_step(x)]
+            # assert passage_scores_batch.shape == (self.config["evalbatch"], reranker.extractor.config["numpasages"]), "This has shape {}".format(passage_scores_batch)
             for p in passage_scores_batch:
-                passage_scores_list.append(p)
+                passage_scores_list.extend(p)
 
         diffir_weights = defaultdict(lambda: defaultdict(dict))
         for i, (qid, docid) in enumerate(pred_data.get_qid_docid_pairs()):
