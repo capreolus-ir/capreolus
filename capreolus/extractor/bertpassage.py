@@ -383,6 +383,10 @@ class BertPassage(Extractor):
         weights = []
         doc_offsets = self.docid_to_doc_offsets_obj[docid]
         for passage_id in range(self.config["numpassages"]):
+            # Check for passages that are just padding
+            if passage_id not in self.docid_to_passage_begin_token_obj[docid]:
+                continue
+
             passage_begin_token_idx = self.docid_to_passage_begin_token_obj[docid][passage_id]
             num_doc_terms = simmat.shape[2]
 
