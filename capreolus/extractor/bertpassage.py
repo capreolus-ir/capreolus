@@ -389,7 +389,7 @@ class BertPassage(Extractor):
         return inp, mask, seg
 
     def get_diffir_weights_from_passage_scores(self, docid, passage_scores):
-        assert passage_scores.shape == (1, self.config["numpassages"])
+        assert passage_scores.shape == (self.config["numpassages"], ), "passage scores shape is {}".format(passage_scores.shape)
         diffir_weights = []
         doc_offsets = self.docid_to_doc_offsets_obj[docid]
 
