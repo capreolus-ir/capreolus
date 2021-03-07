@@ -61,7 +61,7 @@ class BertPassage(Extractor):
         self.cls_tok = self.tokenizer.bert_tokenizer.cls_token
         self.sep_tok = self.tokenizer.bert_tokenizer.sep_token
 
-        if self.benchmark.module_name == "robust04.yang19" or self.benchmark.module_name == "robust04":
+        if self.index.collection.module_name == "robust04":
             self.docs_store = ir_datasets.load("trec-robust04").docs_store()
 
     def get_doc(self, doc_id):
