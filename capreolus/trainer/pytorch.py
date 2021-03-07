@@ -305,7 +305,7 @@ class PytorchTrainer(Trainer):
                 docid = batch["posdocid"][0]
                 with self.amp_pred_autocast():
                     simmat, passage_doc_mask = reranker.diffir_weights(batch)
-                weights = reranker.extractor.get_diffir_weights(docid, simmat, passage_doc_mask)
+                weights = reranker.extractor.get_diffir_weights_from_simmat(docid, simmat, passage_doc_mask)
                 diffir_weights[qid][docid]["text"] = weights
 
         return diffir_weights

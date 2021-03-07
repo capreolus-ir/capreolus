@@ -274,6 +274,36 @@ class TensorflowTrainer(Trainer):
 
         return trec_preds
 
+    def generate_diffir_weights(self, reranker, pred_data, pred_fn):
+        pred_records = self.get_tf_dev_records(reranker, pred_data)
+        pred_dist_dataset = self.strategy.experimental_distribute_dataset(pred_records)
+
+        strategy_scope = self.strategy.scope()
+
+        with strategy_scope:
+            wrapped_model = self.get_wrapped_model(reranker.model)
+
+        def test_step(inputs):
+            data, labels = inputs
+            weights = wrapped_model.diffir_weights(data)
+
+            return weights
+
+        @tf.function
+        def distributed_test_step(dataset_inputs):
+            return self.strategy.run(test_step, args=(dataset_inputs,))
+
+        diffir_weights_list = []
+        for x in tqdm(pred_dist_dataset, desc="validation"):
+            pred_batch = distributed_test_step(x).values if self.strategy.num_replicas_in_sync > 1 else [
+                distributed_test_step(x)]
+            for p in pred_batch:
+                diffir_weights_list.extend(p)
+
+        diffir_weights = reranker.extractor.get_diffir_weights_from_maxp
+
+        return diffir_weights
+
     def predict(self, reranker, pred_data, pred_fn):
         pred_records = self.get_tf_dev_records(reranker, pred_data)
         pred_dist_dataset = self.strategy.experimental_distribute_dataset(pred_records)

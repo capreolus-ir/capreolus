@@ -145,8 +145,10 @@ class CEDRKNRM_Class(nn.Module):
             outputs = (outputs[0], outputs[2])
         bert_output, all_layer_output = outputs
 
+        # Create the simmat from the final layer
+        assert self.config["simmat_layers"] == 12, "simmat laters: {}".format(self.config["simmat_layers"])
         passage_simmats, passage_doc_mask, passage_query_mask = self.masked_simmats(
-            all_layer_output[0][:, 1:], bert_mask[:, 1:], bert_segments[:, 1:]
+            all_layer_output[self.config["simmat_layers"]][:, 1:], bert_mask[:, 1:], bert_segments[:, 1:]
         )
 
         assert passage_simmats.shape == (self.num_passages, self.maxqlen, self.maxdoclen), "shape: {}".format(passage_simmats.shape)

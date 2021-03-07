@@ -388,7 +388,10 @@ class BertPassage(Extractor):
         seg = [0] * (len(query_toks) + 2) + [1] * (len(padded_input_line) - len(query_toks) - 2)
         return inp, mask, seg
 
-    def get_diffir_weights(self, docid, simmat, passage_doc_mask):
+    def get_diffir_weights_from_maxp(self, docid, *args):
+        pass
+
+    def get_diffir_weights_from_simmat(self, docid, simmat, passage_doc_mask):
         # assert simmat.shape == (self.config["numpassages"], self.config["maxqlen"], -1), "simmat shape is {}".format(simmat.shape)
         weights = []
         doc_offsets = self.docid_to_doc_offsets_obj[docid]
