@@ -381,11 +381,20 @@ class BertPassage(Extractor):
     def get_diffir_weights(self, docid, simmat):
         # assert simmat.shape == (self.config["numpassages"], self.config["maxqlen"], -1), "simmat shape is {}".format(simmat.shape)
         weights = []
-
+        doc_offsets = self.docid_to_doc_offsets_obj[docid]
         for passage_id in range(self.config["numpassages"]):
+            passage_begin_token_idx = self.docid_to_passage_begin_token_obj[docid][passage_id]
             num_doc_terms = simmat.shape[2]
             for doc_term_idx in range(num_doc_terms):
-                char_range_in_original_doc = self.docid_to_doc_offsets_obj[docid][self.docid_to_passage_begin_token_obj[docid][passage_id] + doc_term_idx]
+                try:
+                    char_range_in_original_doc = doc_offsets[passage_begin_token_idx + doc_term_idx]
+                except IndexError:
+                    logger.error("passage_id: {}, passage_begin_token_idx: {}".format(passage_id, passage_begin_token_idx))
+                    logger.error("doc_term_idx: {}".format(doc_term_idx))
+                    logger.error("Doc position of term: {}".format(passage_begin_token_idx + doc_term_idx))
+                    logger.error("Total number of tokens in original doc (i.e doc_offsets): {}".format(doc_offsets))
+                    raise
+
                 # Get the entire column - i.e we get all weights corresponding to each query term for a particular doc term
                 doc_term_weights = simmat[passage_id][:, doc_term_idx]
                 max_term_weight = torch.max(doc_term_weights, 0)
