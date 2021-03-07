@@ -1,4 +1,5 @@
 import os
+import json
 from collections import defaultdict
 from pathlib import Path
 
@@ -58,7 +59,14 @@ class RerankTask(Task):
         self.reranker.build_model()
         self.reranker.trainer.load_best_model(self.reranker, train_output_path)
 
-        weights = self.reranker.trainer.generate_diffir_weights(self.reranker, test_dataset)
+        diffir_weights = self.reranker.trainer.generate_diffir_weights(self.reranker, test_dataset)
+        output_path = self.get_results_path()
+        output_fn = os.path.join(output_path, "diffir_weights.json")
+
+        with open(output_fn, "w") as f:
+            json.dump(diffir_weights, f)
+
+        logger.info("Diffir weights file written to {}".format(output_fn))
 
     def traineval(self):
         self.train()

@@ -1,4 +1,5 @@
 import contextlib
+from collections import defaultdict
 import math
 import os
 import time
@@ -296,13 +297,20 @@ class PytorchTrainer(Trainer):
         pred_dataloader = torch.utils.data.DataLoader(pred_data, batch_size=evalbatch, pin_memory=True,
                                                       num_workers=num_workers)
 
+        diffir_weights = defaultdict(defaultdict(dict))
         with torch.autograd.no_grad():
             for batch in tqdm(pred_dataloader, desc="diffir weights", total=len(pred_data) // evalbatch):
                 batch = {k: v.to(self.device) if not isinstance(v, list) else v for k, v in batch.items()}
+                qid = batch["qid"][0]
+                docid = batch["posdocid"][0]
                 with self.amp_pred_autocast():
                     simmat = reranker.diffir_weights(batch)
-                    weights = reranker.extractor.get_diffir_weights(batch["posdocid"][0], simmat)
-                    raise Exception("foo")
+                weights = reranker.extractor.get_diffir_weights(docid, simmat)
+                diffir_weights[qid][docid]["text"] = weights
+
+                break
+
+        return diffir_weights
 
     def predict(self, reranker, pred_data, pred_fn):
         """Predict query-document scores on `pred_data` using `model` and write a corresponding run file to `pred_fn`
