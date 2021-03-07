@@ -378,25 +378,26 @@ class BertPassage(Extractor):
         seg = [0] * (len(query_toks) + 2) + [1] * (len(padded_input_line) - len(query_toks) - 2)
         return inp, mask, seg
 
-    def get_diffir_weights(self, docid, simmat):
+    def get_diffir_weights(self, docid, simmat, passage_doc_mask):
         # assert simmat.shape == (self.config["numpassages"], self.config["maxqlen"], -1), "simmat shape is {}".format(simmat.shape)
         weights = []
         doc_offsets = self.docid_to_doc_offsets_obj[docid]
         for passage_id in range(self.config["numpassages"]):
             passage_begin_token_idx = self.docid_to_passage_begin_token_obj[docid][passage_id]
             num_doc_terms = simmat.shape[2]
+
             for doc_term_idx in range(num_doc_terms):
+                # Avoid masked doc terms
+                if passage_doc_mask[0][passage_id][0][doc_term_idx] == 0:
+                    continue
                 # Get the entire column - i.e we get all weights corresponding to each query term for a particular doc term
                 doc_term_weights = simmat[passage_id][:, doc_term_idx]
                 max_term_weight = torch.max(doc_term_weights, 0)[0].item()
 
-                # Lazy hack - if the doc-term had a weight of 0 throughout the simmat, then it was a pad token
-                if not max_term_weight:
-                    continue
-
                 try:
                     char_range_in_original_doc = doc_offsets[passage_begin_token_idx + doc_term_idx]
                 except IndexError:
+                    logger.error("The mask is {}".format(passage_doc_mask[0][passage_id][0][doc_term_idx]))
                     logger.error("Max term weight was: {}".format(max_term_weight))
                     logger.error("passage_id: {}, passage_begin_token_idx: {}".format(passage_id, passage_begin_token_idx))
                     logger.error("doc_term_idx: {}".format(doc_term_idx))

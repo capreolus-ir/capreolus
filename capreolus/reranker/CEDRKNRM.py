@@ -151,7 +151,9 @@ class CEDRKNRM_Class(nn.Module):
 
         assert passage_simmats.shape == (self.num_passages, self.maxqlen, self.maxdoclen), "shape: {}".format(passage_simmats.shape)
 
-        return passage_simmats
+        passage_doc_mask = passage_doc_mask.view(batch_size, self.num_passages, 1, -1)
+
+        return passage_simmats, passage_doc_mask
 
     def forward(self, bert_input, bert_mask, bert_segments):
         batch_size = bert_input.shape[0]
