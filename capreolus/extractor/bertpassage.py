@@ -392,7 +392,7 @@ class BertPassage(Extractor):
                     logger.error("passage_id: {}, passage_begin_token_idx: {}".format(passage_id, passage_begin_token_idx))
                     logger.error("doc_term_idx: {}".format(doc_term_idx))
                     logger.error("Doc position of term: {}".format(passage_begin_token_idx + doc_term_idx))
-                    logger.error("Total number of tokens in original doc (i.e doc_offsets): {}".format(doc_offsets))
+                    logger.error("Total number of tokens in original doc (i.e doc_offsets): {}".format(len(doc_offsets)))
                     raise
 
                 # Get the entire column - i.e we get all weights corresponding to each query term for a particular doc term
