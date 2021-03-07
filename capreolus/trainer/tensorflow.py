@@ -285,7 +285,7 @@ class TensorflowTrainer(Trainer):
 
         def test_step(inputs):
             data, labels = inputs
-            weights = wrapped_model.diffir_weights(data)
+            weights = wrapped_model.model.diffir_weights(data)
 
             return weights
 
