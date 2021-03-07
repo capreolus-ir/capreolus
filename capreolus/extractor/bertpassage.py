@@ -408,6 +408,12 @@ class BertPassage(Extractor):
 
             diffir_weights.append([passage_begin, passage_end, passage_scores[passage_id].item()])
 
+        doc_text = self.get_doc(docid)
+        for i, (start, end, weight) in enumerate(diffir_weights):
+            print("{}: {}".format(weight, doc_text[start: end]))
+
+        raise Exception("alright so far?")
+
         return diffir_weights
 
     def get_diffir_weights_from_simmat(self, docid, simmat, passage_doc_mask):
