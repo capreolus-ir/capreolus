@@ -386,6 +386,14 @@ class BertPassage(Extractor):
             passage_begin_token_idx = self.docid_to_passage_begin_token_obj[docid][passage_id]
             num_doc_terms = simmat.shape[2]
             for doc_term_idx in range(num_doc_terms):
+                # Get the entire column - i.e we get all weights corresponding to each query term for a particular doc term
+                doc_term_weights = simmat[passage_id][:, doc_term_idx]
+                max_term_weight = torch.max(doc_term_weights, 0)[0].item()
+
+                # Lazy hack - if the doc-term had a weight of 0 throughout the simmat, then it was a pad token
+                if not max_term_weight:
+                    continue
+
                 try:
                     char_range_in_original_doc = doc_offsets[passage_begin_token_idx + doc_term_idx]
                 except IndexError:
@@ -395,11 +403,7 @@ class BertPassage(Extractor):
                     logger.error("Total number of tokens in original doc (i.e doc_offsets): {}".format(len(doc_offsets)))
                     raise
 
-                # Get the entire column - i.e we get all weights corresponding to each query term for a particular doc term
-                doc_term_weights = simmat[passage_id][:, doc_term_idx]
-                max_term_weight = torch.max(doc_term_weights, 0)
-
-                weights.append([char_range_in_original_doc[0], char_range_in_original_doc[1], max_term_weight[0].item()])
+                weights.append([char_range_in_original_doc[0], char_range_in_original_doc[1], max_term_weight])
 
         return weights
 
