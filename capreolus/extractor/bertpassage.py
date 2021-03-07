@@ -394,6 +394,13 @@ class BertPassage(Extractor):
                 doc_term_weights = simmat[passage_id][:, doc_term_idx]
                 max_term_weight = torch.max(doc_term_weights, 0)[0].item()
 
+                # Why? The [SEP] token that appears at the end will have a term weight, and won't be masked
+                # However, we won't be able to map to the original doc. So, skip it
+                # TODO: This could be potentially hiding a bug. I _think_ that I'm skipping the [SEP] token, but I could
+                # be skipping something legit.
+                if (passage_begin_token_idx + doc_term_idx) >= len(doc_offsets):
+                    continue
+
                 try:
                     char_range_in_original_doc = doc_offsets[passage_begin_token_idx + doc_term_idx]
                 except IndexError:
