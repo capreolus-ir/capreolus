@@ -25,7 +25,7 @@ def get_file_line_number(fn):
 class MsmarcoPsgSearcherMixin:
     @staticmethod
     def convert_to_trec_runs(msmarco_top1k_fn, style="eval"):
-        logger.info(f"Converting file {msmarco_top1k_fn} (with style f{style}) into trec format")
+        logger.info(f"Converting file {msmarco_top1k_fn} (with style {style}) into trec format")
         runs = defaultdict(dict)
         with open(msmarco_top1k_fn, "r", encoding="utf-8") as f:
             for line in f:
@@ -58,6 +58,7 @@ class MsmarcoPsgSearcherMixin:
         raise ValueError("Unknown version for triplet large" % self.config["tripleversion"])
 
     def download_and_prepare_train_set(self, tmp_dir):
+        tmp_dir.mkdir(exist_ok=True, parents=True)
         triple_version = self.config["tripleversion"]
         logger.debug(f"triple version, {triple_version}")
         data_dir = Path(__file__).parent.parent / "data"
@@ -161,3 +162,42 @@ class MsmarcoPsgBm25(BM25, MsmarcoPsgSearcherMixin):
         with open(final_donefn, "w") as f:
             f.write("done")
         return output_path
+
+
+
+# todo: make this another type of "Module" (e.g. DPR Module)
+@Searcher.register
+class StaticTctColBertDev(Searcher, MsmarcoPsgSearcherMixin):
+    module_name = "static_tct_colbert"
+    dependencies = [Dependency(key="benchmark", module="benchmark", name="msmarcopsg")]
+    config_spec = [
+        ConfigOption("tripleversion", "small", "version of triplet.qid file, small, large.v1 or large.v2"),
+    ]
+
+    def _query_from_file(self, topicsfn, output_path, cfg):
+        outfn = output_path / "static.run"
+        if outfn.exists():
+            return outfn
+
+        tmp_dir = self.get_cache_path() / "tmp"
+        output_path.mkdir(exist_ok=True, parents=True)
+
+        # train
+        train_runs = self.download_and_prepare_train_set(tmp_dir=tmp_dir)
+        self.write_trec_run(preds=train_runs, outfn=outfn, mode="wt")
+        logger.info(f"prepared runs from train set")
+
+        # dev
+        tmp_dev = tmp_dir / "tct_colbert_v1_wo_neg.tsv"
+        if not tmp_dev.exists():
+            tmp_dir.mkdir(exist_ok=True, parents=True)
+            url = "http://drive.google.com/uc?id=1jOVL3DIya6qDiwM_Dnqc81FT5ZB43csP"
+            gdown.download(url, tmp_dev.as_posix(), quiet=False)
+
+        assert tmp_dev.exists()
+        with open(tmp_dev, "rt") as f, open(outfn, "at") as fout:
+            for line in f:
+                qid, docid, rank, score = line.strip().split("\t")
+                fout.write(f"{qid} Q0 {docid} {rank} {score} tct_colbert\n")
+        return outfn
+
