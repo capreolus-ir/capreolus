@@ -1,4 +1,5 @@
 import tensorflow as tf
+import numpy as np
 from transformers import TFAutoModelForSequenceClassification
 
 from capreolus import ConfigOption, Dependency
@@ -50,7 +51,7 @@ class TFBERTMaxP_Class(tf.keras.layers.Layer):
 
         return passage_scores
 
-    def diffir_weights(self, data):
+    def extract_weights(self, data):
         posdoc_bert_input, posdoc_mask, posdoc_seg, negdoc_bert_input, negdoc_mask, negdoc_seg = data
         batch_size = tf.shape(posdoc_bert_input)[0]
         num_passages = self.extractor.config["numpassages"]
@@ -141,3 +142,30 @@ class TFBERTMaxP(Reranker):
     def build_model(self):
         self.model = TFBERTMaxP_Class(self.extractor, self.config)
         return self.model
+
+    def weights_to_weighted_char_ranges(self, docid, passage_scores):
+        assert passage_scores.shape == (self.reranker.config["numpassages"], ), "passage scores shape is {}".format(passage_scores.shape)
+        diffir_weights = []
+        doc_offsets = self.reranker.docid_to_doc_offsets_obj[docid]
+
+        max_weight = -np.inf
+        for passage_id in range(self.reranker.config["numpassages"]):
+            if passage_id not in self.reranker.docid_to_passage_begin_token_obj[docid]:
+                continue
+
+            passage_begin_token_id = self.reranker.docid_to_passage_begin_token_obj[docid][passage_id]
+            passage_begin = doc_offsets[passage_begin_token_id][0]
+            if passage_id + 1 in self.reranker.docid_to_passage_begin_token_obj[docid]:
+                next_passage_begin_token_id = self.reranker.docid_to_passage_begin_token_obj[docid][passage_id + 1]
+                next_passage_begin = doc_offsets[next_passage_begin_token_id]
+                passage_end = next_passage_begin[0]
+            else:
+                passage_end = doc_offsets[-1][1]
+
+            curr_weight = passage_scores[passage_id].numpy().item()
+            if curr_weight > max_weight:
+                # Doing the maxpool for maxp. This method should be in the re-ranker
+                max_weight = curr_weight
+                diffir_weights = [[passage_begin, passage_end, passage_scores[passage_id].numpy().item()]]
+
+        return diffir_weights

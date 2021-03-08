@@ -132,7 +132,7 @@ class CEDRKNRM_Class(nn.Module):
 
         return knrm_features
 
-    def diffir_weights(self, bert_input, bert_mask, bert_segments):
+    def extract_weights(self, bert_input, bert_mask, bert_segments):
         batch_size = bert_input.shape[0]
         bert_input = bert_input.view((batch_size * self.num_passages, self.maxseqlen))
         bert_mask = bert_mask.view((batch_size * self.num_passages, self.maxseqlen))
@@ -244,5 +244,48 @@ class CEDRKNRM(Reranker):
     def test(self, d):
         return self.model(d["pos_bert_input"], d["pos_mask"], d["pos_seg"]).view(-1)
 
-    def diffir_weights(self, d):
+    def extract_weights(self, d):
         return self.model.diffir_weights(d["pos_bert_input"], d["pos_mask"], d["pos_seg"])
+
+    def weights_to_weighted_char_ranges(self, docid, simmat, passage_doc_mask):
+        weights = []
+        doc_offsets = self.reranker.docid_to_doc_offsets_obj[docid]
+        for passage_id in range(self.reranker.config["numpassages"]):
+            # Check for passages that are just padding
+            if passage_id not in self.reranker.docid_to_passage_begin_token_obj[docid]:
+                continue
+
+            passage_begin_token_idx = self.reranker.docid_to_passage_begin_token_obj[docid][passage_id]
+            num_doc_terms = simmat.shape[2]
+
+            for doc_term_idx in range(num_doc_terms):
+                # Avoid masked doc terms
+                if passage_doc_mask[0][passage_id][0][doc_term_idx] == 0:
+                    continue
+                # Get the entire column - i.e we get all weights corresponding to each query term for a particular doc term
+                doc_term_weights = simmat[passage_id][:, doc_term_idx]
+                max_term_weight = torch.max(doc_term_weights, 0)[0].item()
+
+                # Why? The [SEP] token that appears at the end will have a term weight, and won't be masked
+                # However, we won't be able to map to the original doc. So, skip it
+                # TODO: This could be potentially hiding a bug. I _think_ that I'm skipping the [SEP] token, but I could
+                # be skipping something legit.
+                if (passage_begin_token_idx + doc_term_idx) >= len(doc_offsets):
+                    continue
+
+                try:
+                    char_range_in_original_doc = doc_offsets[passage_begin_token_idx + doc_term_idx]
+                except IndexError:
+                    logger.error("The mask is {}".format(passage_doc_mask[0][passage_id][0][doc_term_idx]))
+                    logger.error("Max term weight was: {}".format(max_term_weight))
+                    logger.error(
+                        "passage_id: {}, passage_begin_token_idx: {}".format(passage_id, passage_begin_token_idx))
+                    logger.error("doc_term_idx: {}".format(doc_term_idx))
+                    logger.error("Doc position of term: {}".format(passage_begin_token_idx + doc_term_idx))
+                    logger.error(
+                        "Total number of tokens in original doc (i.e doc_offsets): {}".format(len(doc_offsets)))
+                    raise
+
+                weights.append([char_range_in_original_doc[0], char_range_in_original_doc[1], max_term_weight])
+
+        return weights

@@ -285,7 +285,7 @@ class TensorflowTrainer(Trainer):
 
         def test_step(inputs):
             data, labels = inputs
-            weights = wrapped_model.model.diffir_weights(data)
+            weights = wrapped_model.model.extract_weights(data)
 
             return weights
 
@@ -293,18 +293,18 @@ class TensorflowTrainer(Trainer):
         def distributed_test_step(dataset_inputs):
             return self.strategy.run(test_step, args=(dataset_inputs,))
 
-        passage_scores_list = []
+        pred_list = []
         for x in tqdm(pred_dist_dataset, desc="validation"):
-            passage_scores_batch = distributed_test_step(x).values if self.strategy.num_replicas_in_sync > 1 else [
+            pred_batch = distributed_test_step(x).values if self.strategy.num_replicas_in_sync > 1 else [
                 distributed_test_step(x)]
             # assert passage_scores_batch.shape == (self.config["evalbatch"], reranker.extractor.config["numpasages"]), "This has shape {}".format(passage_scores_batch)
-            for p in passage_scores_batch:
-                passage_scores_list.extend(p)
+            for p in pred_batch:
+                pred_list.extend(p)
 
         diffir_weights = defaultdict(lambda: defaultdict(dict))
         for i, (qid, docid) in enumerate(pred_data.get_qid_docid_pairs()):
-            passage_scores = passage_scores_list[i]
-            diffir_weights[qid][docid]["text"] = reranker.extractor.get_diffir_weights_from_passage_scores(docid, passage_scores)
+            extracted_weights = pred_list[i]
+            diffir_weights[qid][docid]["text"] = reranker.weights_to_weighted_char_ranges(docid, extracted_weights)
 
         return diffir_weights
 
