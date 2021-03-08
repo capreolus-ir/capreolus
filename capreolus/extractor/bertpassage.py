@@ -389,11 +389,13 @@ class BertPassage(Extractor):
         return inp, mask, seg
 
     def get_diffir_weights_from_passage_scores(self, docid, passage_scores):
+        # TODO: I'm doing max-pooling here. This should be part of the reranker, not extractor. Fix this later.
         # TODO: Tested only with TFBERTMaxP. Pytorch models may not work
         assert passage_scores.shape == (self.config["numpassages"], ), "passage scores shape is {}".format(passage_scores.shape)
         diffir_weights = []
         doc_offsets = self.docid_to_doc_offsets_obj[docid]
 
+        max_weight = -np.inf
         for passage_id in range(self.config["numpassages"]):
             if passage_id not in self.docid_to_passage_begin_token_obj[docid]:
                 continue
@@ -407,7 +409,11 @@ class BertPassage(Extractor):
             else:
                 passage_end = doc_offsets[-1][1]
 
-            diffir_weights.append([passage_begin, passage_end, passage_scores[passage_id].numpy().item()])
+            curr_weight = passage_scores[passage_id].numpy().item()
+            if curr_weight > max_weight:
+                # Doing the maxpool for maxp. This method should be in the re-ranker
+                max_weight = curr_weight
+                diffir_weights = [[passage_begin, passage_end, passage_scores[passage_id].numpy().item()]]
 
         return diffir_weights
 
