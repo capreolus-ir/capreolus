@@ -144,19 +144,19 @@ class TFBERTMaxP(Reranker):
         return self.model
 
     def weights_to_weighted_char_ranges(self, docid, passage_scores):
-        assert passage_scores.shape == (self.reranker.config["numpassages"], ), "passage scores shape is {}".format(passage_scores.shape)
+        assert passage_scores.shape == (self.extractor.config["numpassages"], ), "passage scores shape is {}".format(passage_scores.shape)
         diffir_weights = []
-        doc_offsets = self.reranker.docid_to_doc_offsets_obj[docid]
+        doc_offsets = self.extractor.docid_to_doc_offsets_obj[docid]
 
         max_weight = -np.inf
-        for passage_id in range(self.reranker.config["numpassages"]):
-            if passage_id not in self.reranker.docid_to_passage_begin_token_obj[docid]:
+        for passage_id in range(self.extractor.config["numpassages"]):
+            if passage_id not in self.extractor.docid_to_passage_begin_token_obj[docid]:
                 continue
 
-            passage_begin_token_id = self.reranker.docid_to_passage_begin_token_obj[docid][passage_id]
+            passage_begin_token_id = self.extractor.docid_to_passage_begin_token_obj[docid][passage_id]
             passage_begin = doc_offsets[passage_begin_token_id][0]
-            if passage_id + 1 in self.reranker.docid_to_passage_begin_token_obj[docid]:
-                next_passage_begin_token_id = self.reranker.docid_to_passage_begin_token_obj[docid][passage_id + 1]
+            if passage_id + 1 in self.extractor.docid_to_passage_begin_token_obj[docid]:
+                next_passage_begin_token_id = self.extractor.docid_to_passage_begin_token_obj[docid][passage_id + 1]
                 next_passage_begin = doc_offsets[next_passage_begin_token_id]
                 passage_end = next_passage_begin[0]
             else:

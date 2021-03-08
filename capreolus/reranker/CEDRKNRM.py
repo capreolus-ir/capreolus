@@ -249,13 +249,13 @@ class CEDRKNRM(Reranker):
 
     def weights_to_weighted_char_ranges(self, docid, simmat, passage_doc_mask):
         weights = []
-        doc_offsets = self.reranker.docid_to_doc_offsets_obj[docid]
-        for passage_id in range(self.reranker.config["numpassages"]):
+        doc_offsets = self.extractor.docid_to_doc_offsets_obj[docid]
+        for passage_id in range(self.extractor.config["numpassages"]):
             # Check for passages that are just padding
-            if passage_id not in self.reranker.docid_to_passage_begin_token_obj[docid]:
+            if passage_id not in self.extractor.docid_to_passage_begin_token_obj[docid]:
                 continue
 
-            passage_begin_token_idx = self.reranker.docid_to_passage_begin_token_obj[docid][passage_id]
+            passage_begin_token_idx = self.extractor.docid_to_passage_begin_token_obj[docid][passage_id]
             num_doc_terms = simmat.shape[2]
 
             for doc_term_idx in range(num_doc_terms):
