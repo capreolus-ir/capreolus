@@ -128,7 +128,8 @@ class TFCEDRKNRM_Class(tf.keras.layers.Layer):
 
         return knrm_features
 
-    def extract_weights(self, bert_input, bert_mask, bert_segments):
+    def extract_weights(self, data):
+        bert_input, bert_mask, bert_segments, negdoc_bert_input, negdoc_mask, negdoc_seg = data
         batch_size = bert_input.shape[0]
         bert_input = tf.reshape(bert_input, [batch_size * self.num_passages, self.maxseqlen])
         bert_mask = tf.reshape(bert_mask, [batch_size * self.num_passages, self.maxseqlen])
