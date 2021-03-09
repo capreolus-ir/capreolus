@@ -306,9 +306,8 @@ class TensorflowTrainer(Trainer):
                     pred_list.extend(p)
 
         diffir_weights = defaultdict(lambda: defaultdict(dict))
-        logger.info("{} pairs in pred_list".format(len(pred_list)))
         batch_size = self.config["evalbatch"]
-        for i, (qid, docid) in enumerate(pred_data.get_qid_docid_pairs()):
+        for i, (qid, docid) in tqdm(enumerate(pred_data.get_qid_docid_pairs()), desc="parse diffir weights"):
             if is_tuple:
                 batch_idx = i // batch_size
                 batch_offset = (i % batch_size)
