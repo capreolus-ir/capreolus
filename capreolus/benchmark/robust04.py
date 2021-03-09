@@ -36,3 +36,9 @@ class Robust04Yang19(Benchmark):
     topic_file = PACKAGE_PATH / "data" / "topics.robust04.301-450.601-700.txt"
     fold_file = PACKAGE_PATH / "data" / "rob04_yang19_folds.json"
     query_type = "title"
+
+
+@Benchmark.register
+class Robust04Yang19Desc(Robust04Yang19, Benchmark):
+    module_name = "robust04.yang19.desc"
+    query_type = "desc"

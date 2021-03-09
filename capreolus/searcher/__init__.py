@@ -65,11 +65,11 @@ class Searcher(ModuleBase):
 
         cache_dir = self.get_cache_path()
         cache_dir.mkdir(exist_ok=True)
-        topic_fn, runfile_dir = cache_dir / "topic.txt", cache_dir / "runfiles"
+        topic_fn, runfile_dir = cache_dir / "topic.tsv", cache_dir / "runfiles"
 
         fake_qid = "1"
         with open(topic_fn, "w", encoding="utf-8") as f:
-            f.write(topic_to_trectxt(fake_qid, query))
+            f.write(f"{fake_qid}\t{query}")
 
         self._query_from_file(topic_fn, runfile_dir, config)
 

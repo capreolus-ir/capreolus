@@ -1,6 +1,10 @@
+import json
 import os
+import shutil
 
-from capreolus import ModuleBase
+import ir_datasets
+
+from capreolus import ModuleBase, constants
 
 
 class Collection(ModuleBase):
@@ -107,6 +111,55 @@ class Collection(ModuleBase):
         raise IOError(
             f"a download URL is not configured for collection={self.module_name} and the collection path does not exist; you must manually place the document collection at this path in order to use this collection"
         )
+
+
+class IRDCollection(Collection):
+    """ Base class for collections supported by ir_datasets """
+
+    ird_dataset_name = None
+    generator_type = "DefaultLuceneDocumentGenerator"
+    _dataset = None
+
+    @property
+    def dataset(self):
+        if not self.ird_dataset_name:
+            raise ValueError("ird_dataset_name not set")
+
+        if not self._dataset:
+            self._dataset = ir_datasets.load(self.ird_dataset_name)
+        return self._dataset
+
+    def download_if_missing(self):
+        if self.collection_type != "JsonCollection":
+            return self.dataset.docs_path()
+
+        # write out collection as json
+        path = self.get_cache_path() / "json_corpus"
+        if not path.exists():
+            tmp_path = self.get_cache_path() / f"tmp_json_corpus_{os.getpid()}"
+            if tmp_path.exists():
+                shutil.rmtree(tmp_path)
+
+            os.makedirs(tmp_path, exist_ok=True)
+            self._save_ird_corpus(tmp_path)
+            shutil.move(tmp_path, path)
+        return path
+
+    def _save_ird_corpus(self, path):
+        file_count = max(128, constants["MAX_THREADS"])
+        fns = [open(path / f"{i}.json", "wt") for i in range(file_count)]
+        for i, doc in enumerate(self.dataset.docs_iter()):
+            fn = fns[i % file_count]
+            print(self.doc_as_json(doc), file=fn)
+
+        for fn in fns:
+            fn.close()
+
+    def doc_as_json(self, doc):
+        return json.dumps({"id": doc.doc_id, "contents": doc.body})
+
+    def __iter__(self):
+        return self.dataset.docs_iter()
 
 
 from profane import import_all_modules

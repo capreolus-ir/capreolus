@@ -28,6 +28,7 @@ class BertPassage(Extractor):
 
     module_name = "bertpassage"
     dependencies = [
+        Dependency(key="benchmark", module="benchmark", name=None),
         Dependency(
             key="index", module="index", name="anserini", default_config_overrides={"indexstops": True, "stemmer": "none"}
         ),
@@ -329,8 +330,8 @@ class BertPassage(Extractor):
     def _prepare_bert_input(self, query_toks, psg_toks):
         maxseqlen, maxqlen = self.config["maxseqlen"], self.config["maxqlen"]
         if len(query_toks) > maxqlen:
-            query_toks = query_toks[:maxqlen]
             logger.warning(f"Truncating query from {len(query_toks)} to {maxqlen}")
+            query_toks = query_toks[:maxqlen]
         psg_toks = psg_toks[: maxseqlen - len(query_toks) - 3]
 
         psg_toks = " ".join(psg_toks).split()  # in case that psg_toks is np.array

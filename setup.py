@@ -81,6 +81,7 @@ setuptools.setup(
         "smart_open",
         "spacy<3.0",
         "pandas",
+        "ir_datasets",
     ],
     classifiers=["Programming Language :: Python :: 3", "Operating System :: OS Independent"],
     python_requires=">=3.6",
