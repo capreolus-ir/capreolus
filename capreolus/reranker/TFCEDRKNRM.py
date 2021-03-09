@@ -273,8 +273,10 @@ class TFCEDRKNRM(Reranker):
                 if passage_doc_mask[passage_id][0][doc_term_idx] == 0:
                     continue
                 # Get the entire column - i.e we get all weights corresponding to each query term for a particular doc term
+                special_start = time.time()
                 doc_term_weights = simmat[passage_id][:, doc_term_idx]
                 max_term_weight = tf.reduce_max(doc_term_weights, 0).numpy().item()
+                logger.info("Special part takes {}".format(time.time() - special_start))
 
                 # Why? The [SEP] token that appears at the end will have a term weight, and won't be masked
                 # However, we won't be able to map to the original doc. So, skip it
@@ -297,7 +299,6 @@ class TFCEDRKNRM(Reranker):
                     raise
 
                 weights.append([char_range_in_original_doc[0], char_range_in_original_doc[1], max_term_weight])
-                logger.info("Going through a single doc term takes: {}".format(time.time() - doc_term_time))
 
             logger.info("A single passage takes: {}".format(time.time() - passage_time))
 
