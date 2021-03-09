@@ -314,7 +314,7 @@ class TensorflowTrainer(Trainer):
                 the_tuple = pred_list[batch_idx]
                 args_to_pass = []
                 for k in range(len(the_tuple)):
-                    args_to_pass.append(the_tuple[k][batch_offset])
+                    args_to_pass.append(the_tuple[k][batch_offset].numpy())
 
                 diffir_weights[qid][docid]["text"] = reranker.weights_to_weighted_char_ranges(docid, *args_to_pass)
             else:

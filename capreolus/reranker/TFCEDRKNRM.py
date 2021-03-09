@@ -152,7 +152,7 @@ class TFCEDRKNRM_Class(tf.keras.layers.Layer):
         passage_simmats = tf.reshape(passage_simmats, [batch_size, self.num_passages, self.maxqlen, self.maxdoclen])
         passage_doc_mask = tf.reshape(passage_doc_mask, [batch_size, self.num_passages, 1, -1])
 
-        return (passage_simmats.numpy(), passage_doc_mask.numpy())
+        return (passage_simmats, passage_doc_mask)
 
     def call(self, x, **kwargs):
         doc_input, doc_mask, doc_seg = x[0], x[1], x[2]
