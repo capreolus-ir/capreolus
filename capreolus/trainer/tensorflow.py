@@ -293,6 +293,7 @@ class TensorflowTrainer(Trainer):
             return result
 
         pred_list = []
+        is_tuple = False
         for x in tqdm(pred_dist_dataset, desc="validation"):
             pred_batch = distributed_test_step(x).values if self.strategy.num_replicas_in_sync > 1 else [
                 distributed_test_step(x)]
@@ -300,20 +301,26 @@ class TensorflowTrainer(Trainer):
             for p in pred_batch:
                 if isinstance(p, tuple):
                     pred_list.append(p)
+                    is_tuple = True
                 else:
                     pred_list.extend(p)
 
         diffir_weights = defaultdict(lambda: defaultdict(dict))
         logger.info("{} pairs in pred_list".format(len(pred_list)))
+        batch_size = self.config["evalbatch"]
         for i, (qid, docid) in enumerate(pred_data.get_qid_docid_pairs()):
-            try:
-                extracted_weights = pred_list[i]
-            except IndexError:
-                logger.info("i is {}".format(i))
-                logger.info("An entry in pred_list looks like: {}".format(pred_list[0]))
-                raise
+            if is_tuple:
+                batch_idx = i // batch_size
+                batch_offset = (i % batch_size)
+                the_tuple = pred_list[batch_idx]
+                args_to_pass = []
+                for k in range(len(the_tuple)):
+                    args_to_pass.append(the_tuple[k][batch_offset])
 
-            diffir_weights[qid][docid]["text"] = reranker.weights_to_weighted_char_ranges(docid, extracted_weights)
+                diffir_weights[qid][docid]["text"] = reranker.weights_to_weighted_char_ranges(docid, *args_to_pass)
+            else:
+                extracted_weights = pred_list[i]
+                diffir_weights[qid][docid]["text"] = reranker.weights_to_weighted_char_ranges(docid, extracted_weights)
 
         return diffir_weights
 

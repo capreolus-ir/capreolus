@@ -253,8 +253,7 @@ class TFCEDRKNRM(Reranker):
                 self.model = TFCEDRKNRM_Class(self.extractor, self.config)
         return self.model
 
-    def weights_to_weighted_char_ranges(self, docid, simmat_passage_doc_mask_tuple):
-        simmat, passage_doc_mask = simmat_passage_doc_mask_tuple[0], simmat_passage_doc_mask_tuple[1]
+    def weights_to_weighted_char_ranges(self, docid, simmat, passage_doc_mask):
         weights = []
         doc_offsets = self.extractor.docid_to_doc_offsets_obj[docid]
 
