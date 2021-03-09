@@ -1,4 +1,5 @@
 import math
+import numpy as np
 import time
 
 import tensorflow as tf
@@ -151,7 +152,7 @@ class TFCEDRKNRM_Class(tf.keras.layers.Layer):
         passage_simmats = tf.reshape(passage_simmats, [batch_size, self.num_passages, self.maxqlen, self.maxdoclen])
         passage_doc_mask = tf.reshape(passage_doc_mask, [batch_size, self.num_passages, 1, -1])
 
-        return (passage_simmats, passage_doc_mask)
+        return (passage_simmats.numpy(), passage_doc_mask.numpy())
 
     def call(self, x, **kwargs):
         doc_input, doc_mask, doc_seg = x[0], x[1], x[2]
@@ -275,7 +276,7 @@ class TFCEDRKNRM(Reranker):
                 # Get the entire column - i.e we get all weights corresponding to each query term for a particular doc term
                 special_start = time.time()
                 doc_term_weights = simmat[passage_id][:, doc_term_idx]
-                max_term_weight = tf.reduce_max(doc_term_weights, 0).numpy().item()
+                max_term_weight = np.max(doc_term_weights, 0)
                 logger.info("Special part takes {}".format(time.time() - special_start))
 
                 # Why? The [SEP] token that appears at the end will have a term weight, and won't be masked
