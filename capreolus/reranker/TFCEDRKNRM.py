@@ -25,7 +25,7 @@ class TFCEDRKNRM_Class(tf.keras.layers.Layer):
                 "google/electra-base-discriminator", hidden_dropout_prob=config["hidden_dropout_prob"], output_hidden_states=True
             )
         elif config["pretrained"] == "bert-base-msmarco":
-            self.bert = TFBertModel.from_pretrained(
+            self.bert = TFAutoModel.from_pretrained(
                 "Capreolus/bert-base-msmarco", hidden_dropout_prob=config["hidden_dropout_prob"], output_hidden_states=True
             )
         elif config["pretrained"] == "bert-base-uncased":
