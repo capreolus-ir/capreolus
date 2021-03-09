@@ -147,10 +147,7 @@ class TFCEDRKNRM_Class(tf.keras.layers.Layer):
         passage_simmats, passage_doc_mask, passage_query_mask = self.masked_simmats(
             all_layer_output[self.config["simmat_layers"][0]][:, 1:], bert_mask[:, 1:], bert_segments[:, 1:]
         )
-
-        assert passage_simmats.shape == (self.num_passages, self.maxqlen, self.maxdoclen), "shape: {}".format(
-            passage_simmats.shape)
-
+        passage_simmats = tf.reshape(passage_simmats, [batch_size, self.num_passages, self.maxqlen, self.maxdoclen])
         passage_doc_mask = tf.reshape(passage_doc_mask, [batch_size, self.num_passages, 1, -1])
 
         return (passage_simmats, passage_doc_mask)
