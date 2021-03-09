@@ -304,8 +304,15 @@ class TensorflowTrainer(Trainer):
                     pred_list.extend(p)
 
         diffir_weights = defaultdict(lambda: defaultdict(dict))
+        logger.info("{} pairs in pred_list".format(len(pred_list)))
         for i, (qid, docid) in enumerate(pred_data.get_qid_docid_pairs()):
-            extracted_weights = pred_list[i]
+            try:
+                extracted_weights = pred_list[i]
+            except IndexError:
+                logger.info("i is {}".format(i))
+                logger.info("An entry in pred_list looks like: {}".format(pred_list[0]))
+                raise
+
             diffir_weights[qid][docid]["text"] = reranker.weights_to_weighted_char_ranges(docid, extracted_weights)
 
         return diffir_weights
