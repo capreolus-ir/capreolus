@@ -266,7 +266,7 @@ class TFCEDRKNRM(Reranker):
 
             for doc_term_idx in range(num_doc_terms):
                 # Avoid masked doc terms
-                if passage_doc_mask[0][passage_id][0][doc_term_idx] == 0:
+                if passage_doc_mask[passage_id][0][doc_term_idx] == 0:
                     continue
                 # Get the entire column - i.e we get all weights corresponding to each query term for a particular doc term
                 doc_term_weights = simmat[passage_id][:, doc_term_idx]
