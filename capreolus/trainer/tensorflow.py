@@ -295,6 +295,10 @@ class TensorflowTrainer(Trainer):
         pred_list = []
         is_tuple = False
         for x in tqdm(pred_dist_dataset, desc="validation"):
+            if self.strategy.num_replicas_in_sync > 1:
+                pred_batch = distributed_test_step(x)
+                logger.info(pred_batch)
+                raise Exception("foo")
             pred_batch = distributed_test_step(x).values if self.strategy.num_replicas_in_sync > 1 else [
                 distributed_test_step(x)]
             # assert passage_scores_batch.shape == (self.config["evalbatch"], reranker.extractor.config["numpasages"]), "This has shape {}".format(passage_scores_batch)
