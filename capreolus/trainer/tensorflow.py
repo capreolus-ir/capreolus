@@ -285,9 +285,7 @@ class TensorflowTrainer(Trainer):
 
         def test_step(inputs):
             data, labels = inputs
-            weights = wrapped_model.model.extract_weights(data)
-
-            return weights
+            return wrapped_model.model.extract_weights(data)
 
         @tf.function
         def distributed_test_step(dataset_inputs):

@@ -1,7 +1,7 @@
 import math
 
 import tensorflow as tf
-from transformers import TFAutoModel
+from transformers import TFAutoModel, TFBertModel
 
 from capreolus import ConfigOption, Dependency, get_logger
 from capreolus.reranker import Reranker
@@ -25,7 +25,7 @@ class TFCEDRKNRM_Class(tf.keras.layers.Layer):
                 "google/electra-base-discriminator", hidden_dropout_prob=config["hidden_dropout_prob"], output_hidden_states=True
             )
         elif config["pretrained"] == "bert-base-msmarco":
-            self.bert = TFAutoModel.from_pretrained(
+            self.bert = TFBertModel.from_pretrained(
                 "Capreolus/bert-base-msmarco", hidden_dropout_prob=config["hidden_dropout_prob"], output_hidden_states=True
             )
         elif config["pretrained"] == "bert-base-uncased":
@@ -128,6 +128,32 @@ class TFCEDRKNRM_Class(tf.keras.layers.Layer):
 
         return knrm_features
 
+    def extract_weights(self, bert_input, bert_mask, bert_segments):
+        batch_size = bert_input.shape[0]
+        bert_input = tf.reshape(bert_input, [batch_size * self.num_passages, self.maxseqlen])
+        bert_mask = tf.reshape(bert_mask, [batch_size * self.num_passages, self.maxseqlen])
+        bert_segments = tf.reshape(bert_segments, [batch_size * self.num_passages, self.maxseqlen])
+
+        # get BERT embeddings (including CLS) for each passage
+        # TODO switch to hgf's ModelOutput after bumping tranformers version
+        outputs = self.bert(bert_input, attention_mask=bert_mask, token_type_ids=bert_segments)
+        if self.config["pretrained"].startswith("bert-"):
+            outputs = (outputs[0], outputs[2])
+        bert_output, all_layer_output = outputs
+
+        # Create the simmat from the final layer
+        assert self.config["simmat_layers"] == (12,), "simmat laters: {}".format(self.config["simmat_layers"])
+        passage_simmats, passage_doc_mask, passage_query_mask = self.masked_simmats(
+            all_layer_output[self.config["simmat_layers"][0]][:, 1:], bert_mask[:, 1:], bert_segments[:, 1:]
+        )
+
+        assert passage_simmats.shape == (self.num_passages, self.maxqlen, self.maxdoclen), "shape: {}".format(
+            passage_simmats.shape)
+
+        passage_doc_mask = tf.reshape(passage_doc_mask, [batch_size, self.num_passages, 1, -1])
+
+        return (passage_simmats, passage_doc_mask)
+
     def call(self, x, **kwargs):
         doc_input, doc_mask, doc_seg = x[0], x[1], x[2]
         batch_size = tf.shape(doc_input)[0]
@@ -228,3 +254,48 @@ class TFCEDRKNRM(Reranker):
             with self.trainer.strategy.scope():
                 self.model = TFCEDRKNRM_Class(self.extractor, self.config)
         return self.model
+
+    def weights_to_weighted_char_ranges(self, docid, simmat_passage_doc_mask_tuple):
+        simmat, passage_doc_mask = simmat_passage_doc_mask_tuple
+        weights = []
+        doc_offsets = self.extractor.docid_to_doc_offsets_obj[docid]
+
+        for passage_id in range(self.extractor.config["passages"]):
+            if passage_id not in self.extractor.docid_to_passage_begin_token_obj[docid]:
+                continue
+
+            passage_begin_token_idx = self.extractor.docid_to_passage_begin_token_obj[docid][passage_id]
+            num_doc_terms = simmat.shape[2]
+
+            for doc_term_idx in range(num_doc_terms):
+                # Avoid masked doc terms
+                if passage_doc_mask[0][passage_id][0][doc_term_idx] == 0:
+                    continue
+                # Get the entire column - i.e we get all weights corresponding to each query term for a particular doc term
+                doc_term_weights = simmat[passage_id][:, doc_term_idx]
+                max_term_weight = tf.reduce_max(doc_term_weights, 0)[0].numpy().item()
+
+                # Why? The [SEP] token that appears at the end will have a term weight, and won't be masked
+                # However, we won't be able to map to the original doc. So, skip it
+                # TODO: This could be potentially hiding a bug. I _think_ that I'm skipping the [SEP] token, but I could
+                # be skipping something legit.
+                if (passage_begin_token_idx + doc_term_idx) >= len(doc_offsets):
+                    continue
+
+                try:
+                    char_range_in_original_doc = doc_offsets[passage_begin_token_idx + doc_term_idx]
+                except IndexError:
+                    logger.error("The mask is {}".format(passage_doc_mask[0][passage_id][0][doc_term_idx]))
+                    logger.error("Max term weight was: {}".format(max_term_weight))
+                    logger.error(
+                        "passage_id: {}, passage_begin_token_idx: {}".format(passage_id, passage_begin_token_idx))
+                    logger.error("doc_term_idx: {}".format(doc_term_idx))
+                    logger.error("Doc position of term: {}".format(passage_begin_token_idx + doc_term_idx))
+                    logger.error(
+                        "Total number of tokens in original doc (i.e doc_offsets): {}".format(len(doc_offsets)))
+                    raise
+
+                weights.append([char_range_in_original_doc[0], char_range_in_original_doc[1], max_term_weight])
+
+        return weights
+
