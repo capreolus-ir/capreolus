@@ -314,7 +314,7 @@ class TensorflowTrainer(Trainer):
                     pred_list.extend(p)
 
         diffir_weights = defaultdict(lambda: defaultdict(dict))
-        batch_size = self.config["evalbatch"] // self.strategy.num_replicas_in_sync
+        batch_size = self.config["evalbatch"]
 
         for i, (qid, docid) in tqdm(enumerate(pred_data.get_qid_docid_pairs()), desc="parse diffir weights"):
             if is_tuple:
