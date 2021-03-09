@@ -296,11 +296,14 @@ class TensorflowTrainer(Trainer):
         is_tuple = False
         for x in tqdm(pred_dist_dataset, desc="validation"):
             if self.strategy.num_replicas_in_sync > 1:
+                pred_batch = []
+                per_replica_batches = distributed_test_step(x)
+                for k in range(self.strategy.num_replicas_in_sync):
+                    per_replica_batch = per_replica_batches[k]
+                    pred_batch.append(per_replica_batch)
+            else:
                 pred_batch = distributed_test_step(x)
-                logger.info(pred_batch)
-                raise Exception("foo")
-            pred_batch = distributed_test_step(x).values if self.strategy.num_replicas_in_sync > 1 else [
-                distributed_test_step(x)]
+
             # assert passage_scores_batch.shape == (self.config["evalbatch"], reranker.extractor.config["numpasages"]), "This has shape {}".format(passage_scores_batch)
             for p in pred_batch:
                 if isinstance(p, tuple):
@@ -310,7 +313,8 @@ class TensorflowTrainer(Trainer):
                     pred_list.extend(p)
 
         diffir_weights = defaultdict(lambda: defaultdict(dict))
-        batch_size = self.config["evalbatch"]
+        batch_size = self.config["evalbatch"] / self.strategy.num_replicas_in_sync
+
         for i, (qid, docid) in tqdm(enumerate(pred_data.get_qid_docid_pairs()), desc="parse diffir weights"):
             if is_tuple:
                 batch_idx = i // batch_size
