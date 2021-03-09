@@ -306,7 +306,7 @@ class TensorflowTrainer(Trainer):
             for p in pred_batch:
                 if isinstance(p, tuple):
                     if self.strategy.num_replicas_in_sync > 1:
-                        pred_list.append((p[0].values, p[1].values))
+                        pred_list.append((tf.concat(p[0].values, 0), tf.concat(p[1].values, 0)))
                     else:
                         pred_list.append(p)
                     is_tuple = True
