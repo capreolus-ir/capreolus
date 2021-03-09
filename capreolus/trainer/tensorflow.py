@@ -289,7 +289,12 @@ class TensorflowTrainer(Trainer):
 
         @tf.function
         def distributed_test_step(dataset_inputs):
-            return self.strategy.run(test_step, args=(dataset_inputs,))
+            result = self.strategy.run(test_step, args=(dataset_inputs,))
+            logger.info("result is {}".format(result))
+            logger.info("result shape is {}".format(result.shape))
+
+            raise Exception("foo")
+            return result
 
         pred_list = []
         for x in tqdm(pred_dist_dataset, desc="validation"):
