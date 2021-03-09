@@ -1,7 +1,6 @@
 import json
-import os
 
-from capreolus import ConfigOption, constants
+from capreolus import constants
 from capreolus.utils.loginit import get_logger
 
 from . import Collection, IRDCollection
