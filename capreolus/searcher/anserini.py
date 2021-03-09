@@ -309,6 +309,8 @@ class StaticBM25Genomics(StaticRun):
 
 @Searcher.register
 class StaticBM25CDS(StaticRun):
+    """ CDS BM25 run with k1=4.0, b=0.6 and new CDS 2016 documents removed from the 2014 and 2015 queries """
+
     module_name = "bm25staticcds"
     run_fn = "cds_bm25.run"
 
