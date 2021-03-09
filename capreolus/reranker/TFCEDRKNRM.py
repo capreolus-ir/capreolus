@@ -273,7 +273,7 @@ class TFCEDRKNRM(Reranker):
                 # Get the entire column - i.e we get all weights corresponding to each query term for a particular doc term
                 special_start = time.time()
                 doc_term_weights = simmat[passage_id][:, doc_term_idx]
-                max_term_weight = np.max(doc_term_weights, 0)
+                max_term_weight = np.max(doc_term_weights, 0).item()
 
                 # Why? The [SEP] token that appears at the end will have a term weight, and won't be masked
                 # However, we won't be able to map to the original doc. So, skip it
