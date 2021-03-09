@@ -297,17 +297,18 @@ class TensorflowTrainer(Trainer):
         for x in tqdm(pred_dist_dataset, desc="validation"):
             if self.strategy.num_replicas_in_sync > 1:
                 pred_batch = []
-                per_replica_batches = distributed_test_step(x)
-                for k in range(self.strategy.num_replicas_in_sync):
-                    per_replica_batch = per_replica_batches[k]
-                    pred_batch.append(per_replica_batch)
+                distributed_batch = distributed_test_step(x)
+                pred_batch.append(distributed_batch)
             else:
                 pred_batch = distributed_test_step(x)
 
             # assert passage_scores_batch.shape == (self.config["evalbatch"], reranker.extractor.config["numpasages"]), "This has shape {}".format(passage_scores_batch)
             for p in pred_batch:
                 if isinstance(p, tuple):
-                    pred_list.append(p)
+                    if self.strategy.num_replicas_in_sync > 1:
+                        pred_list.append((p[0].values, p[1].values))
+                    else:
+                        pred_list.append(p)
                     is_tuple = True
                 else:
                     pred_list.extend(p)
