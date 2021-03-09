@@ -290,10 +290,6 @@ class TensorflowTrainer(Trainer):
         @tf.function
         def distributed_test_step(dataset_inputs):
             result = self.strategy.run(test_step, args=(dataset_inputs,))
-            logger.info("result is {}".format(result))
-            logger.info("result shape is {}".format(result.shape))
-
-            raise Exception("foo")
             return result
 
         pred_list = []
@@ -302,7 +298,10 @@ class TensorflowTrainer(Trainer):
                 distributed_test_step(x)]
             # assert passage_scores_batch.shape == (self.config["evalbatch"], reranker.extractor.config["numpasages"]), "This has shape {}".format(passage_scores_batch)
             for p in pred_batch:
-                pred_list.extend(p)
+                if isinstance(p, tuple):
+                    pred_batch.append(p)
+                else:
+                    pred_list.extend(p)
 
         diffir_weights = defaultdict(lambda: defaultdict(dict))
         for i, (qid, docid) in enumerate(pred_data.get_qid_docid_pairs()):
