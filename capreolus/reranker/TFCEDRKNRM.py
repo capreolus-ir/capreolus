@@ -1,4 +1,5 @@
 import math
+import time
 
 import tensorflow as tf
 from transformers import TFAutoModel, TFBertModel
@@ -254,10 +255,12 @@ class TFCEDRKNRM(Reranker):
         return self.model
 
     def weights_to_weighted_char_ranges(self, docid, simmat, passage_doc_mask):
+        start_time = time.time()
         weights = []
         doc_offsets = self.extractor.docid_to_doc_offsets_obj[docid]
 
         for passage_id in range(self.extractor.config["numpassages"]):
+            passage_time = time.time()
             if passage_id not in self.extractor.docid_to_passage_begin_token_obj[docid]:
                 continue
 
@@ -265,6 +268,7 @@ class TFCEDRKNRM(Reranker):
             num_doc_terms = simmat.shape[2]
 
             for doc_term_idx in range(num_doc_terms):
+                doc_term_time = time.time()
                 # Avoid masked doc terms
                 if passage_doc_mask[passage_id][0][doc_term_idx] == 0:
                     continue
@@ -293,6 +297,12 @@ class TFCEDRKNRM(Reranker):
                     raise
 
                 weights.append([char_range_in_original_doc[0], char_range_in_original_doc[1], max_term_weight])
+                logger.info("Going through a single doc term takes: {}".format(time.time() - doc_term_time))
 
+            logger.info("A single passage takes: {}".format(time.time() - passage_time))
+
+        logger.info("One iter here takes {}".format(time.time() - start_time))
+
+        raise Exception("foo")
         return weights
 
