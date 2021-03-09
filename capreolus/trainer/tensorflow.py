@@ -299,7 +299,7 @@ class TensorflowTrainer(Trainer):
             # assert passage_scores_batch.shape == (self.config["evalbatch"], reranker.extractor.config["numpasages"]), "This has shape {}".format(passage_scores_batch)
             for p in pred_batch:
                 if isinstance(p, tuple):
-                    pred_batch.append(p)
+                    pred_list.append(p)
                 else:
                     pred_list.extend(p)
 
