@@ -254,8 +254,6 @@ class TFCEDRKNRM(Reranker):
         return self.model
 
     def weights_to_weighted_char_ranges(self, docid, simmat, passage_doc_mask):
-        logger.info("simmat has shape {}".format(simmat.shape))
-        logger.info("passage_doc_mask has shape {}".format(passage_doc_mask.shape))
         weights = []
         doc_offsets = self.extractor.docid_to_doc_offsets_obj[docid]
 
@@ -272,7 +270,7 @@ class TFCEDRKNRM(Reranker):
                     continue
                 # Get the entire column - i.e we get all weights corresponding to each query term for a particular doc term
                 doc_term_weights = simmat[passage_id][:, doc_term_idx]
-                max_term_weight = tf.reduce_max(doc_term_weights, 0)[0].numpy().item()
+                max_term_weight = tf.reduce_max(doc_term_weights, 0).numpy().item()
 
                 # Why? The [SEP] token that appears at the end will have a term weight, and won't be masked
                 # However, we won't be able to map to the original doc. So, skip it
