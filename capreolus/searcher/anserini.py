@@ -316,6 +316,12 @@ class StaticBM25CDS(StaticRun):
 
 
 @Searcher.register
+class StaticCovidUdelAbstract(StaticRun):
+    module_name = "qdelstaticcovidabstract"
+    run_fn = "anserini.covid-r5.abstract.qdel.bm25-top1k.txt"
+
+
+@Searcher.register
 class BM25PRF(AnseriniSearcherMixIn, Searcher):
     """ Anserini BM25 PRF. This searcher's parameters can also be specified as lists indicating parameters to grid search (e.g., ``"0.4,0.6,0.8,1.0"`` or ``"0.4..1,0.2"``). """
 
