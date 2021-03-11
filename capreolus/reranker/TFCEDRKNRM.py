@@ -1,4 +1,5 @@
 import math
+from collections import defaultdict
 import numpy as np
 import time
 
@@ -256,6 +257,7 @@ class TFCEDRKNRM(Reranker):
         return self.model
 
     def weights_to_weighted_char_ranges(self, docid, simmat, passage_doc_mask):
+        char_ranges_to_weights = defaultdict(lambda: -np.inf)
         weights = []
         doc_offsets = self.extractor.docid_to_doc_offsets_obj[docid]
 
@@ -294,7 +296,9 @@ class TFCEDRKNRM(Reranker):
                         "Total number of tokens in original doc (i.e doc_offsets): {}".format(len(doc_offsets)))
                     raise
 
-                weights.append([char_range_in_original_doc[0], char_range_in_original_doc[1], max_term_weight])
+                if max_term_weight > char_ranges_to_weights[char_range_in_original_doc]:
+                    char_ranges_to_weights[char_range_in_original_doc] = max_term_weight
+                    weights.append([char_range_in_original_doc[0], char_range_in_original_doc[1], max_term_weight])
 
         return weights
 

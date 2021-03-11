@@ -164,7 +164,6 @@ class TFBERTMaxP(Reranker):
 
             curr_weight = passage_scores[passage_id].numpy().item()
             if curr_weight > max_weight:
-                # Doing the maxpool for maxp. This method should be in the re-ranker
                 max_weight = curr_weight
                 diffir_weights = [[passage_begin, passage_end, passage_scores[passage_id].numpy().item()]]
 
