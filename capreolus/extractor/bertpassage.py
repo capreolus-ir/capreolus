@@ -64,6 +64,8 @@ class BertPassage(Extractor):
 
         if self.index.collection.module_name == "robust04":
             self.docs_store = ir_datasets.load("trec-robust04").docs_store()
+        elif self.index.collection.module_name == "covidabstract":
+            self.docs_store = ir_datasets.load("cord19/trec-covid").docs_store()
 
     def get_doc(self, doc_id):
         if hasattr(self, "docs_store"):
