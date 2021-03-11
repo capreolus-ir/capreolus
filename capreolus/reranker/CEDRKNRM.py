@@ -288,7 +288,7 @@ class CEDRKNRM(Reranker):
                         "Total number of tokens in original doc (i.e doc_offsets): {}".format(len(doc_offsets)))
                     raise
 
-                if max_term_weight > char_ranges_to_weights[char_range_in_original_doc]:
+                if max_term_weight and max_term_weight > char_ranges_to_weights[char_range_in_original_doc]:
                     char_ranges_to_weights[char_range_in_original_doc] = max_term_weight
 
         weights = [[start, end, weight] for (start, end), weight in char_ranges_to_weights.items()]
