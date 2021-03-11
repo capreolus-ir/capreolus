@@ -49,3 +49,4 @@ dependencies:
     - annoy
     - fasteners
     - smart_open
+    - ir_datasets

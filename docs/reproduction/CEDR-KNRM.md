@@ -40,7 +40,6 @@ When using a less powerful GPU or disabling mixed precision (`reranker.trainer.a
 
 Note that the Tensorflow implementation has primarily been tested on TPUs.
 
-
 ## Running BERT-KNRM, VanillaBERT, and other model variants
 
 The CEDR-KNRM model can be converted to BERT-KNRM by omitting the CLS token or to "VanillaBERT" by omitting the KNRM component. To do so, add the following config options to the above commands:
