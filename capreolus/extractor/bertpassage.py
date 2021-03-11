@@ -69,7 +69,10 @@ class BertPassage(Extractor):
 
     def get_doc(self, doc_id):
         if hasattr(self, "docs_store"):
-            return self.docs_store.get(doc_id).text
+            if self.index.collection.module_name == "covidabstract":
+                return self.docs_store.get(doc_id).abstract
+            else:
+                return self.docs_store.get(doc_id).text
 
         return self.index.get_doc(doc_id)
 
