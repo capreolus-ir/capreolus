@@ -30,7 +30,8 @@ class Robust04Queries(Task):
     config_spec = [
         ConfigOption("querylen", 64, "DocT5 max query len parameter"),
         ConfigOption("keepstopwords", False, "Should stop words be removed"),
-        ConfigOption("numqueries", 3, "How many queries need to be generated per doc?"),
+        ConfigOption("numqueries", 3, "How many queries need to be generated per passage?"),
+        ConfigOption("maxqueriesperdoc", 15, "The maximum number of queries generated per doc"),
         ConfigOption("queryoutput", "/GW/NeuralIR/nobackup/kevin_cache/robust04doct5.topics.txt"),
         ConfigOption("qrelsoutput", "/GW/NeuralIR/nobackup/kevin_cache/robust04doct5.qrels.txt"),
         ConfigOption("foldsoutput", "/GW/NeuralIR/nobackup/kevin_cache/robust04doct5.folds.json"),
@@ -73,7 +74,7 @@ class Robust04Queries(Task):
 
         for passage_id in tqdm(passage_ids_for_query_generation, desc="Generating"):
             # Generate only a fixed number of queries per doc
-            if doc_to_generated_queries[passage_id.split("_")[0]] >= self.config["numqueries"] * 3:
+            if doc_to_generated_queries[passage_id.split("_")[0]] >= self.config["maxqueriesperdoc"]:
                 continue
 
             passage = self.index.get_doc(passage_id)
