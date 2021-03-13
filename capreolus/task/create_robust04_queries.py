@@ -83,6 +83,8 @@ class Robust04Queries(Task):
             generated_queries = [tokenizer.decode(output[i], skip_special_tokens=True) for i in range(self.config["numqueries"])]
             if not self.config["keepstopwords"]:
                 cleaned_queries = [" ".join([term for term in word_tokenize(query) if term not in stopwords.words()]) for query in generated_queries]
+            else:
+                cleaned_queries = generated_queries
 
             passage_to_generated_queries[passage_id] = cleaned_queries
             doc_to_generated_queries[passage_id.split("_")[0]] += len(cleaned_queries)
