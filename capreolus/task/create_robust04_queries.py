@@ -29,6 +29,7 @@ class Robust04Queries(Task):
     requires_random_seed = True
     config_spec = [
         ConfigOption("querylen", 64, "DocT5 max query len parameter"),
+        ConfigOption("keepstopwords", False, "Should stop words be removed"),
         ConfigOption("numqueries", 3, "How many queries need to be generated per doc?"),
         ConfigOption("queryoutput", "/GW/NeuralIR/nobackup/kevin_cache/robust04doct5.topics.txt"),
         ConfigOption("qrelsoutput", "/GW/NeuralIR/nobackup/kevin_cache/robust04doct5.qrels.txt"),
@@ -79,7 +80,8 @@ class Robust04Queries(Task):
             input_ids = tokenizer.encode(passage + "</s>", return_tensors='pt').to(device)
             output = t5_model.generate(input_ids=input_ids, max_length=self.config["querylen"], do_sample=True, top_k=10, num_return_sequences=self.config["numqueries"])
             generated_queries = [tokenizer.decode(output[i], skip_special_tokens=True) for i in range(self.config["numqueries"])]
-            cleaned_queries = [" ".join([term for term in word_tokenize(query) if term not in stopwords.words()]) for query in generated_queries]
+            if not self.config["keepstopwords"]:
+                cleaned_queries = [" ".join([term for term in word_tokenize(query) if term not in stopwords.words()]) for query in generated_queries]
 
             passage_to_generated_queries[passage_id] = cleaned_queries
             doc_to_generated_queries[passage_id.split("_")[0]] += len(cleaned_queries)
