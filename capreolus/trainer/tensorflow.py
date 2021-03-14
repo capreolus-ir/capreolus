@@ -311,7 +311,10 @@ class TensorflowTrainer(Trainer):
                         pred_list.append(p)
                     is_tuple = True
                 else:
-                    pred_list.extend(p)
+                    if self.strategy.num_replicas_in_sync > 1:
+                        pred_list.extend(p.values)
+                    else:
+                        pred_list.extend(p)
 
         diffir_weights = defaultdict(lambda: defaultdict(dict))
         batch_size = self.config["evalbatch"]
