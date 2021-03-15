@@ -63,14 +63,12 @@ class Robust04DescQueries(Task):
         t5_model.to(device)
 
         qrels = self.benchmark.qrels
-        relevant_docid_to_query = {}
+        relevant_docid_to_query = defaultdict(list)
         relevant_docids_in_qrels = set()
         for qid, docid_to_label in qrels.items():
             for docid, label in docid_to_label.items():
                 if label >= 1:
-                    if docid in relevant_docid_to_query:
-                        raise Exception("Docid {} is already added to dict".format(docid))
-                    relevant_docid_to_query[docid] = qid
+                    relevant_docid_to_query[docid].append(qid)
                     relevant_docids_in_qrels.add(docid)
 
         docid_to_passageids = defaultdict(list)
@@ -81,29 +79,30 @@ class Robust04DescQueries(Task):
 
         doc_to_generated_queries = defaultdict(lambda: 0)
         passage_to_generated_queries = defaultdict(list)
-        for doc_id, qid in relevant_docid_to_query.items():
-            query_desc = self.benchmark.topics["desc"][qid]
-            passages_in_doc = docid_to_passageids[doc_id]
+        for doc_id, qid_list in relevant_docid_to_query.items():
+            for qid in qid_list:
+                query_desc = self.benchmark.topics["desc"][qid]
+                passages_in_doc = docid_to_passageids[doc_id]
 
-            for passage_id in passages_in_doc:
-                if doc_to_generated_queries[passage_id.split("_")[0]] >= self.config["maxqueriesperdoc"]:
-                    continue
+                for passage_id in passages_in_doc:
+                    if doc_to_generated_queries[passage_id.split("_")[0]] >= self.config["maxqueriesperdoc"]:
+                        continue
 
-                passage = self.index.get_doc(passage_id)
-                input_ids = tokenizer.encode(passage + "</s>", return_tensors='pt').to(device)
-                output = t5_model.generate(input_ids=input_ids, max_length=self.config["querylen"], do_sample=True, top_k=10,
-                                           num_return_sequences=self.config["numqueries"])
-                generated_queries = ["{}.{}".format(query_desc, tokenizer.decode(output[i], skip_special_tokens=True)) for i in
-                                     range(self.config["numqueries"])]
+                    passage = self.index.get_doc(passage_id)
+                    input_ids = tokenizer.encode(passage + "</s>", return_tensors='pt').to(device)
+                    output = t5_model.generate(input_ids=input_ids, max_length=self.config["querylen"], do_sample=True, top_k=10,
+                                               num_return_sequences=self.config["numqueries"])
+                    generated_queries = ["{}.{}".format(query_desc, tokenizer.decode(output[i], skip_special_tokens=True)) for i in
+                                         range(self.config["numqueries"])]
 
-                if not self.config["keepstopwords"]:
-                    cleaned_queries = [" ".join([term for term in word_tokenize(query) if term not in stopwords.words()]) for
-                                       query in generated_queries]
-                else:
-                    cleaned_queries = generated_queries
+                    if not self.config["keepstopwords"]:
+                        cleaned_queries = [" ".join([term for term in word_tokenize(query) if term not in stopwords.words()]) for
+                                           query in generated_queries]
+                    else:
+                        cleaned_queries = generated_queries
 
-                passage_to_generated_queries[passage_id] = cleaned_queries
-                doc_to_generated_queries[passage_id.split("_")[0]] += len(cleaned_queries)
+                    passage_to_generated_queries[passage_id] = cleaned_queries
+                    doc_to_generated_queries[passage_id.split("_")[0]] += len(cleaned_queries)
 
         return passage_to_generated_queries
 
