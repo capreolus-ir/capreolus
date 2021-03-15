@@ -79,7 +79,7 @@ class Robust04DescQueries(Task):
 
         doc_to_generated_queries = defaultdict(lambda: 0)
         passage_to_generated_queries = defaultdict(list)
-        for doc_id, qid_list in relevant_docid_to_query.items():
+        for doc_id, qid_list in tqdm(relevant_docid_to_query.items(), desc="Generate queries"):
             for qid in qid_list:
                 query_desc = self.benchmark.topics["desc"][qid]
                 passages_in_doc = docid_to_passageids[doc_id]
@@ -92,7 +92,7 @@ class Robust04DescQueries(Task):
                     input_ids = tokenizer.encode(passage + "</s>", return_tensors='pt').to(device)
                     output = t5_model.generate(input_ids=input_ids, max_length=self.config["querylen"], do_sample=True, top_k=10,
                                                num_return_sequences=self.config["numqueries"])
-                    generated_queries = ["{}.{}".format(query_desc, tokenizer.decode(output[i], skip_special_tokens=True)) for i in
+                    generated_queries = ["{} {}".format(query_desc, tokenizer.decode(output[i], skip_special_tokens=True)) for i in
                                          range(self.config["numqueries"])]
 
                     if not self.config["keepstopwords"]:
