@@ -312,7 +312,7 @@ class TensorflowTrainer(Trainer):
                     is_tuple = True
                 else:
                     if self.strategy.num_replicas_in_sync > 1:
-                        pred_list.extend(p.values)
+                        pred_list.extend(tf.concat(p.values, 0))
                     else:
                         pred_list.extend(p)
 
