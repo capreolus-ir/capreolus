@@ -74,7 +74,7 @@ class Robust04DescQueries(Task):
         docid_to_passageids = defaultdict(list)
         for qid, passage_id_to_score in bm25_run.items():
             for passage_id, score in passage_id_to_score.items():
-                doc_id, _ = passage_id.split("_")[0]
+                doc_id = passage_id.split("_")[0]
                 docid_to_passageids[doc_id].append(passage_id)
 
         doc_to_generated_queries = defaultdict(lambda: 0)
