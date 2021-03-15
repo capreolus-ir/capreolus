@@ -31,10 +31,10 @@ class Robust04DescQueries(Task):
         ConfigOption("querylen", 64, "DocT5 max query len parameter"),
         ConfigOption("keepstopwords", False, "Should stop words be removed"),
         ConfigOption("numqueries", 3, "How many queries need to be generated per passage?"),
-        ConfigOption("maxqueriesperdoc", 15, "The maximum number of queries generated per doc"),
-        ConfigOption("queryoutput", "/GW/NeuralIR/nobackup/kevin_cache/robust04doct5.topics.txt"),
-        ConfigOption("qrelsoutput", "/GW/NeuralIR/nobackup/kevin_cache/robust04doct5.qrels.txt"),
-        ConfigOption("foldsoutput", "/GW/NeuralIR/nobackup/kevin_cache/robust04doct5.folds.json"),
+        ConfigOption("maxqueriesperdoc", 10, "The maximum number of queries generated per doc"),
+        ConfigOption("queryoutput", "/GW/NeuralIR/nobackup/kevin_cache/robust04doct5desc.topics.txt"),
+        ConfigOption("qrelsoutput", "/GW/NeuralIR/nobackup/kevin_cache/robust04doct5desc.qrels.txt"),
+        ConfigOption("foldsoutput", "/GW/NeuralIR/nobackup/kevin_cache/robust04doct5desc.folds.json"),
         ConfigOption("doct5", "/GW/NeuralIR/nobackup/kevin_cache/msmarco_saved/docT5", "path to docT5 model")
     ]
 
@@ -79,11 +79,16 @@ class Robust04DescQueries(Task):
                 doc_id, _ = passage_id.split("_")[0]
                 docid_to_passageids[doc_id].append(passage_id)
 
+        doc_to_generated_queries = defaultdict(lambda: 0)
         passage_to_generated_queries = defaultdict(list)
         for doc_id, qid in relevant_docid_to_query.items():
             query_desc = self.benchmark.topics["desc"][qid]
             passages_in_doc = docid_to_passageids[doc_id]
+
             for passage_id in passages_in_doc:
+                if doc_to_generated_queries[passage_id.split("_")[0]] >= self.config["maxqueriesperdoc"]:
+                    continue
+
                 passage = self.index.get_doc(passage_id)
                 input_ids = tokenizer.encode(passage + "</s>", return_tensors='pt').to(device)
                 output = t5_model.generate(input_ids=input_ids, max_length=self.config["querylen"], do_sample=True, top_k=10,
@@ -98,6 +103,7 @@ class Robust04DescQueries(Task):
                     cleaned_queries = generated_queries
 
                 passage_to_generated_queries[passage_id] = cleaned_queries
+                doc_to_generated_queries[passage_id.split("_")[0]] += len(cleaned_queries)
 
         return passage_to_generated_queries
 
