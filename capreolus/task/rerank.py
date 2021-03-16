@@ -105,6 +105,7 @@ class RerankTask(Task):
             train_output_path=train_output_path,
             dev_data=dev_dataset,
             dev_output_path=dev_output_path,
+            qrels=self.benchmark.qrels,
             metric=self.config["optimize"],
         )
 
