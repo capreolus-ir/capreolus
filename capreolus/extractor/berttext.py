@@ -71,7 +71,7 @@ class BertText(Extractor):
         doc = self.index.get_doc(doc_id)
 
         if not doc:
-            raise MissingDocError("doc {} not found".format(doc_id))
+            raise MissingDocError(doc_id, doc_id)
 
         return self.tokenizer.tokenize(doc)
 

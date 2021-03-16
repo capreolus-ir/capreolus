@@ -181,6 +181,8 @@ class QrelTrainPairSampler(Sampler, TrainingSamplerMixin, torch.utils.data.Itera
 
         self.qid_to_reldocs = defaultdict(list)
         for qid, docid_to_label in qrels.items():
+            if qid not in bm25_run:
+                continue
             for docid, label in docid_to_label.items():
                 # Assume there are 10 passages per doc
                 for passage_no in range(10):
