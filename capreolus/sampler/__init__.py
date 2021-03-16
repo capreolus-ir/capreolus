@@ -188,7 +188,7 @@ class QrelTrainPairSampler(Sampler, TrainingSamplerMixin, torch.utils.data.Itera
 
         # TODO option to include only negdocs in a top k
         self.qid_to_negdocs = {
-            qid: [docid for docid in docid_to_score if qrels[qid].get(docid.split(separator)[0], 0) < relevance_level]
+            qid: [docid for docid in docid_to_score if qid in qrels and qrels[qid].get(docid.split(separator)[0], 0) < relevance_level]
             for qid, docid_to_score in bm25_run.items()
         }
 
