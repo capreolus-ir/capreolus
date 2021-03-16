@@ -70,6 +70,9 @@ class BertText(Extractor):
     def get_tokenized_doc(self, doc_id):
         doc = self.index.get_doc(doc_id)
 
+        if not doc:
+            raise MissingDocError("doc {} not found".format(doc_id))
+
         return self.tokenizer.tokenize(doc)
 
     def id2vec(self, qid, posid, negid=None, label=None):
