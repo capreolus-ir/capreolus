@@ -74,7 +74,7 @@ class Robust04SimmatQueries(Task):
         passage_to_generated_queries = defaultdict(list)
         for doc_id, qid_list in tqdm(relevant_docid_to_query.items(), desc="Generate queries"):
             for qid in qid_list:
-                input_data = self.reranker.extractor.id2vec(qid, doc_id)
+                input_data = self.reranker.extractor.id2vec(qid, doc_id, label=[1, 0])
                 input_data = {k: v.to(self.device) if not isinstance(v, list) else v for k, v in input_data.items()}
                 candidates = self.reranker.get_replacement_candidates(input_data)
                 logger.info("candidates are: {}".format(candidates))
