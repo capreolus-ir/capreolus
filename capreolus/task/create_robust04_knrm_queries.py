@@ -54,7 +54,7 @@ class Robust04SimmatQueries(Task):
     commands = ["generate"] + Task.help_commands
     default_command = "generate"
 
-    def generate_queries(self, bm25_run):
+    def generate_queries(self):
         device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         self.reranker.trainer.load_best_model(self.reranker, self.config["modeldir"])
         self.reranker.model.to(device)
@@ -114,10 +114,7 @@ class Robust04SimmatQueries(Task):
 
     def generate(self):
         self.index.create_index()
-        bm25_results_dir = self.search()
-        bm25_run_fn = os.path.join(bm25_results_dir, "searcher")
-        bm25_run = Searcher.load_trec_run(bm25_run_fn)
-        passage_to_generated_queries = self.generate_queries(bm25_run)
+        passage_to_generated_queries = self.generate_queries()
         generated_topics, generated_qrels = self.generate_topics_and_qrels(passage_to_generated_queries)
 
         logger.info(passage_to_generated_queries)
