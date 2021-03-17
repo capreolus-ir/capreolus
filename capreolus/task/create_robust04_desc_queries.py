@@ -29,13 +29,14 @@ class Robust04DescQueries(Task):
     requires_random_seed = True
     config_spec = [
         ConfigOption("querylen", 64, "DocT5 max query len parameter"),
-        ConfigOption("keepstopwords", False, "Should stop words be removed"),
+        ConfigOption("keepstopwords", True, "Should stop words be removed"),
         ConfigOption("numqueries", 3, "How many queries need to be generated per passage?"),
-        ConfigOption("maxqueriesperdoc", 10, "The maximum number of queries generated per doc"),
-        ConfigOption("queryoutput", "/GW/NeuralIR/nobackup/kevin_cache/robust04doct5desc.topics.txt"),
-        ConfigOption("qrelsoutput", "/GW/NeuralIR/nobackup/kevin_cache/robust04doct5desc.qrels.txt"),
-        ConfigOption("foldsoutput", "/GW/NeuralIR/nobackup/kevin_cache/robust04doct5desc.folds.json"),
-        ConfigOption("doct5", "/GW/NeuralIR/nobackup/kevin_cache/msmarco_saved/docT5", "path to docT5 model")
+        ConfigOption("maxqueriesperdoc",30, "The maximum number of queries generated per doc"),
+        ConfigOption("queryoutput", "/home/kjose/capreolus/capreolus/data/topics.robust04doct5desc.txt"),
+        ConfigOption("qrelsoutput", "/home/kjose/capreolus/capreolus/data/qrels.robust04doct5desc.txt"),
+        ConfigOption("foldsoutput", "/home/kjose/capreolus/capreolus/data/robust04doct5desc.folds.json"),
+        ConfigOption("doct5", "/GW/NeuralIR/nobackup/kevin_cache/msmarco_saved/docT5", "path to docT5 model"),
+
     ]
 
     dependencies = [
@@ -112,12 +113,11 @@ class Robust04DescQueries(Task):
         generated_qrels = {}
 
         for passage_id, queries in passage_to_generated_queries.items():
-            doc_id = passage_id.split("_")[0]
             for query in queries:
                 topic_id = str(topic_id_offset + len(generated_topics))
                 generated_topics[topic_id] = query
                 # The generated qrels will only have relevant docs.
-                generated_qrels[topic_id] = {doc_id: 1}
+                generated_qrels[topic_id] = {passage_id: 1}
 
         return generated_topics, generated_qrels
 
@@ -142,22 +142,21 @@ class Robust04DescQueries(Task):
         passage_to_generated_queries = self.generate_queries(bm25_run)
         generated_topics, generated_qrels = self.generate_topics_and_qrels(passage_to_generated_queries)
 
-        logger.info(passage_to_generated_queries)
-
-        extended_topics = copy(self.benchmark.topics)
-
+        # Everything is a title query. topic_to_trectxt automatically uses title as desc if desc is not provided
+        topics = {"title": {}}
         for qid, query in generated_topics.items():
-            extended_topics["title"][qid] = query
+            topics["title"][qid] = query
 
-        extended_qrels = copy(self.benchmark.qrels)
+
+        qrels = defaultdict(dict)
         for qid, docid_to_label in generated_qrels.items():
-            extended_qrels[qid] = copy(docid_to_label)
+            qrels[qid] = copy(docid_to_label)
 
-        extended_folds = copy(self.benchmark.folds)
-        for s in extended_folds:
-            extended_folds[s]["train_qids"].extend(generated_topics.keys())
+        folds = copy(self.benchmark.folds)
+        for s in folds:
+            folds[s]["train_qids"] = generated_topics.keys()
 
-        self.write_to_file(extended_topics, extended_qrels, extended_folds)
+        self.write_to_file(topics, qrels, folds)
 
     def search(self):
         topics_fn = self.benchmark.topic_file

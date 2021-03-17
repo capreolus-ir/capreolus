@@ -31,10 +31,10 @@ class Robust04Queries(Task):
         ConfigOption("querylen", 64, "DocT5 max query len parameter"),
         ConfigOption("keepstopwords", False, "Should stop words be removed"),
         ConfigOption("numqueries", 3, "How many queries need to be generated per passage?"),
-        ConfigOption("maxqueriesperdoc", 15, "The maximum number of queries generated per doc"),
-        ConfigOption("queryoutput", "/GW/NeuralIR/nobackup/kevin_cache/robust04doct5.topics.txt"),
-        ConfigOption("qrelsoutput", "/GW/NeuralIR/nobackup/kevin_cache/robust04doct5.qrels.txt"),
-        ConfigOption("foldsoutput", "/GW/NeuralIR/nobackup/kevin_cache/robust04doct5.folds.json"),
+        ConfigOption("maxqueriesperdoc", 30, "The maximum number of queries generated per doc"),
+        ConfigOption("queryoutput", "/home/kjose/capreolus/capreolus/data/topics.robust04doct5title.txt"),
+        ConfigOption("qrelsoutput", "/home/kjose/capreolus/capreolus/data/qrels.robust04doct5title.txt"),
+        ConfigOption("foldsoutput", "/home/kjose/capreolus/capreolus/data/robust04doct5title.folds.json"),
         ConfigOption("doct5", "/GW/NeuralIR/nobackup/kevin_cache/msmarco_saved/docT5", "path to docT5 model")
     ]
 
@@ -63,31 +63,46 @@ class Robust04Queries(Task):
         t5_model.to(device)
 
         qrels = self.benchmark.qrels
-        relevant_docids_in_qrels = set([docid for qid, docid_to_label in qrels.items() for docid, label in docid_to_label.items() if label >= 1])
-        all_passageids = [passage_id for qid, passage_id_to_score in bm25_run.items() for passage_id, score in passage_id_to_score.items()]
+        relevant_docid_to_query = defaultdict(list)
+        relevant_docids_in_qrels = set()
+        for qid, docid_to_label in qrels.items():
+            for docid, label in docid_to_label.items():
+                if label >= 1:
+                    relevant_docid_to_query[docid].append(qid)
+                    relevant_docids_in_qrels.add(docid)
 
-        passage_ids_for_query_generation = [passage_id for passage_id in all_passageids if passage_id.split("_")[0] in relevant_docids_in_qrels]
-        self.rng.shuffle(passage_ids_for_query_generation)
+        docid_to_passageids = defaultdict(list)
+        for qid, passage_id_to_score in bm25_run.items():
+            for passage_id, score in passage_id_to_score.items():
+                doc_id = passage_id.split("_")[0]
+                docid_to_passageids[doc_id].append(passage_id)
 
-        passage_to_generated_queries = defaultdict(list)
         doc_to_generated_queries = defaultdict(lambda: 0)
+        passage_to_generated_queries = defaultdict(list)
+        for doc_id, qid_list in tqdm(relevant_docid_to_query.items(), desc="Generate queries"):
+            for qid in qid_list:
+                query_title = self.benchmark.topics["title"][qid]
+                passages_in_doc = docid_to_passageids[doc_id]
 
-        for passage_id in tqdm(passage_ids_for_query_generation, desc="Generating"):
-            # Generate only a fixed number of queries per doc
-            if doc_to_generated_queries[passage_id.split("_")[0]] >= self.config["maxqueriesperdoc"]:
-                continue
+                for passage_id in passages_in_doc:
+                    if doc_to_generated_queries[passage_id.split("_")[0]] >= self.config["maxqueriesperdoc"]:
+                        continue
 
-            passage = self.index.get_doc(passage_id)
-            input_ids = tokenizer.encode(passage + "</s>", return_tensors='pt').to(device)
-            output = t5_model.generate(input_ids=input_ids, max_length=self.config["querylen"], do_sample=True, top_k=10, num_return_sequences=self.config["numqueries"])
-            generated_queries = [tokenizer.decode(output[i], skip_special_tokens=True) for i in range(self.config["numqueries"])]
-            if not self.config["keepstopwords"]:
-                cleaned_queries = [" ".join([term for term in word_tokenize(query) if term not in stopwords.words()]) for query in generated_queries]
-            else:
-                cleaned_queries = generated_queries
+                    passage = self.index.get_doc(passage_id)
+                    input_ids = tokenizer.encode(passage + "</s>", return_tensors='pt').to(device)
+                    output = t5_model.generate(input_ids=input_ids, max_length=self.config["querylen"], do_sample=True, top_k=10,
+                                               num_return_sequences=self.config["numqueries"])
+                    generated_queries = [tokenizer.decode(output[i], skip_special_tokens=True) for i in
+                                         range(self.config["numqueries"])]
 
-            passage_to_generated_queries[passage_id] = cleaned_queries
-            doc_to_generated_queries[passage_id.split("_")[0]] += len(cleaned_queries)
+                    if not self.config["keepstopwords"]:
+                        cleaned_queries = [" ".join([term for term in word_tokenize(query) if term not in stopwords.words()]) for
+                                           query in generated_queries]
+                    else:
+                        cleaned_queries = generated_queries
+
+                    passage_to_generated_queries[passage_id] = cleaned_queries
+                    doc_to_generated_queries[passage_id.split("_")[0]] += len(cleaned_queries)
 
         return passage_to_generated_queries
 
@@ -97,12 +112,11 @@ class Robust04Queries(Task):
         generated_qrels = {}
 
         for passage_id, queries in passage_to_generated_queries.items():
-            doc_id = passage_id.split("_")[0]
             for query in queries:
                 topic_id = str(topic_id_offset + len(generated_topics))
                 generated_topics[topic_id] = query
                 # The generated qrels will only have relevant docs.
-                generated_qrels[topic_id] = {doc_id: 1}
+                generated_qrels[topic_id] = {passage_id: 1}
 
         return generated_topics, generated_qrels
 
@@ -116,7 +130,6 @@ class Robust04Queries(Task):
                 for docid, label in docid_to_label.items():
                     out_f.write("{qid} 0 {docid} {label}\n".format(qid=qid, docid=docid, label=label))
 
-
         with open(self.config["foldsoutput"], "w") as out_f:
             json.dump(extended_folds, out_f)
 
@@ -128,22 +141,20 @@ class Robust04Queries(Task):
         passage_to_generated_queries = self.generate_queries(bm25_run)
         generated_topics, generated_qrels = self.generate_topics_and_qrels(passage_to_generated_queries)
 
-        logger.info(passage_to_generated_queries)
-
-        extended_topics = copy(self.benchmark.topics)
-
+        # Everything is a title query. topic_to_trectxt automatically uses title as desc if desc is not provided
+        topics = {"title": {}}
         for qid, query in generated_topics.items():
-            extended_topics["title"][qid] = query
+            topics["title"][qid] = query
 
-        extended_qrels = copy(self.benchmark.qrels)
+        qrels = defaultdict(dict)
         for qid, docid_to_label in generated_qrels.items():
-            extended_qrels[qid] = copy(docid_to_label)
+            qrels[qid] = copy(docid_to_label)
 
-        extended_folds = copy(self.benchmark.folds)
-        for s in extended_folds:
-            extended_folds[s]["train_qids"].extend(generated_topics.keys())
+        folds = copy(self.benchmark.folds)
+        for s in folds:
+            folds[s]["train_qids"] = generated_topics.keys()
 
-        self.write_to_file(extended_topics, extended_qrels, extended_folds)
+        self.write_to_file(topics, qrels, folds)
 
     def search(self):
         topics_fn = self.benchmark.topic_file

@@ -92,6 +92,7 @@ class FAISSIndex(Index):
         for qid, docs in best_search_run.items():
             if qid in self.benchmark.folds[fold]["predict"]["dev"] and qid in self.benchmark.qrels:
                 for idx, (docid, score) in enumerate(docs.items()):
+                    # Abritrary number for dev set. Should have used 1000, but don't have all day.
                     if idx >= 300:
                         break
                     dev_run[qid][docid] = score

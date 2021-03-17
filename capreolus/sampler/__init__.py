@@ -15,7 +15,7 @@ class Sampler(ModuleBase):
     module_type = "sampler"
     requires_random_seed = True
 
-    def prepare(self, qid_to_docids, qrels, extractor, relevance_level=1, separator="_", **kwargs):
+    def prepare(self, qid_to_docids, qrels, extractor, relevance_level=1, **kwargs):
         """
         params:
         qid_to_docids: A dict of the form {qid: [list of docids to rank]} or of the form {qid: {docid: score}}
@@ -36,14 +36,23 @@ class Sampler(ModuleBase):
             )
 
         self.qid_to_reldocs = {
-            qid: [docid for docid in docids if qrels[qid].get(docid.split(separator)[0], 0) >= relevance_level]
+            qid: [docid for docid in docids if qrels[qid].get(docid, 0) >= relevance_level]
             for qid, docids in self.qid_to_docids.items()
         }
         # TODO option to include only negdocs in a top k
         self.qid_to_negdocs = {
-            qid: [docid for docid in docids if qrels[qid].get(docid.split(separator)[0], 0) < relevance_level]
+            qid: [docid for docid in docids if qrels[qid].get(docid, 0) < relevance_level]
             for qid, docids in self.qid_to_docids.items()
         }
+
+        count = 0
+        for qid, reldocs in self.qid_to_reldocs.items():
+            if len(reldocs):
+                count += 1
+
+        logger.info("{} out of {} queries had a relevant doc in the BM25 results".format(count, len(self.qid_to_reldocs)))
+
+        raise Exception("Sanity check")
 
         self.total_samples = 0
         self.clean()
