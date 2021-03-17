@@ -1,4 +1,5 @@
 import math
+from collections import defaultdict
 
 import torch
 from torch import nn
@@ -132,6 +133,35 @@ class CEDRKNRM_Class(nn.Module):
 
         return knrm_features
 
+    def get_similarity_matrix(self, bert_input, bert_mask, bert_segments):
+        batch_size = bert_input.shape[0]
+        bert_input = bert_input.view((batch_size * self.num_passages, self.maxseqlen))
+        bert_mask = bert_mask.view((batch_size * self.num_passages, self.maxseqlen))
+        bert_segments = bert_segments.view((batch_size * self.num_passages, self.maxseqlen))
+
+        # get BERT embeddings (including CLS) for each passage
+        # TODO switch to hgf's ModelOutput after bumping tranformers version
+        outputs = self.bert(bert_input, attention_mask=bert_mask, token_type_ids=bert_segments)
+        if self.config["pretrained"].startswith("bert-"):
+            outputs = (outputs[0], outputs[2])
+        bert_output, all_layer_output = outputs
+
+        # average CLS embeddings to create the CLS feature
+        cls = bert_output[:, 0, :]
+        assert self.config["cls"] is None
+        assert self.config["simmat_layers"] == (12,)
+
+        passage_simmats, passage_doc_mask, passage_query_mask = self.masked_simmats(
+            all_layer_output[self.config["simmat_layers"][0]][:, 1:], bert_mask[:, 1:], bert_segments[:, 1:]
+        )
+
+        assert passage_simmats.shape == (self.num_passages, self.maxqlen, self.maxdoclen), "shape: {}".format(
+            passage_simmats.shape)
+
+        passage_doc_mask = passage_doc_mask.view(batch_size, self.num_passages, 1, -1)
+
+        return passage_simmats, passage_doc_mask
+
     def forward(self, bert_input, bert_mask, bert_segments):
         batch_size = bert_input.shape[0]
         bert_input = bert_input.view((batch_size * self.num_passages, self.maxseqlen))
@@ -218,3 +248,24 @@ class CEDRKNRM(Reranker):
 
     def test(self, d):
         return self.model(d["pos_bert_input"], d["pos_mask"], d["pos_seg"]).view(-1)
+
+    def get_replacement_candidates(self, d, threshold=0.8):
+        """
+        1. Get the similarity matrix
+        2. For each query term, find terms in the similarity matrix that have a high score
+        3. Return all (query_term, candidate_term) combinations
+        """
+        # simmat has shape (num_passages, qlen, maxdoclen)
+        # maxdoclen is the same as maxseqlen - 1
+        simmat, simmat_mask = self.model.get_similarity_matrix(d["pos_bert_input"], d["pos_mask"], d["pos_seg"])
+        numpassages, qlen, doclen = simmat.shape
+        decoded_bert_input = self.extractor.tokenizer.decode(d["pos_bert_input"][1:])
+        assert len(decoded_bert_input) == doclen, "decoded_bert_input: {}, simmat: {}".format(len(decoded_bert_input), simmat.shape)
+
+        candidates = defaultdict(list)
+        for i in range(qlen):
+            for j in range(doclen):
+                if simmat[i][j] > threshold:
+                    candidates[decoded_bert_input[i]].append(decoded_bert_input[j])
+
+        return candidates
