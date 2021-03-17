@@ -259,7 +259,7 @@ class CEDRKNRM(Reranker):
         # maxdoclen is the same as maxseqlen - 1
         simmat, simmat_mask = self.model.get_similarity_matrix(d["pos_bert_input"], d["pos_mask"], d["pos_seg"])
         numpassages, qlen, doclen = simmat.shape
-        decoded_bert_input = self.extractor.tokenizer.bert_tokenizer.decode(d["pos_bert_input"][1:])
+        decoded_bert_input = self.extractor.tokenizer.bert_tokenizer.decode(d["pos_bert_input"][0][1:])
         assert len(decoded_bert_input) == doclen, "decoded_bert_input: {}, simmat: {}".format(len(decoded_bert_input), simmat.shape)
 
         candidates = defaultdict(list)
