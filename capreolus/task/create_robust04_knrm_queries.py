@@ -56,6 +56,7 @@ class Robust04SimmatQueries(Task):
 
     def generate_queries(self):
         device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        self.reranker.build_model()
         self.reranker.trainer.load_best_model(self.reranker, self.config["modeldir"])
         self.reranker.model.to(device)
 
