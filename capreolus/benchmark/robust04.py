@@ -20,7 +20,7 @@ class Robust04(Benchmark):
     qrel_file = PACKAGE_PATH / "data" / "qrels.robust2004.txt"
     topic_file = PACKAGE_PATH / "data" / "topics.robust04.301-450.601-700.txt"
     fold_file = PACKAGE_PATH / "data" / "rob04_cedr_folds.json"
-    query_type = "desc"
+    query_type = "title"
 
 
 @Benchmark.register
@@ -35,7 +35,7 @@ class Robust04Yang19(Benchmark):
     qrel_file = PACKAGE_PATH / "data" / "qrels.robust2004.txt"
     topic_file = PACKAGE_PATH / "data" / "topics.robust04.301-450.601-700.txt"
     fold_file = PACKAGE_PATH / "data" / "rob04_yang19_folds.json"
-    query_type = "desc"
+    query_type = "title"
 
 
 @Benchmark.register
