@@ -72,6 +72,8 @@ class Robust04SimmatQueries(Task):
 
         doc_to_generated_queries = defaultdict(lambda: 0)
         passage_to_generated_queries = defaultdict(list)
+        self.reranker.extractor.preprocess(list(qrels.keys()), list(relevant_docids_in_qrels))
+
         for doc_id, qid_list in tqdm(relevant_docid_to_query.items(), desc="Generate queries"):
             for qid in qid_list:
                 input_data = self.reranker.extractor.id2vec(qid, doc_id, label=[1, 0])
