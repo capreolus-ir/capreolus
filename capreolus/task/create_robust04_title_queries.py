@@ -25,7 +25,7 @@ class Robust04Queries(Task):
     """
     We use DocT5 to generate queries for robust04passages and remove the stopwords
     """
-    module_name = "robust04queries"
+    module_name = "robust04titlequeries"
     requires_random_seed = True
     config_spec = [
         ConfigOption("querylen", 64, "DocT5 max query len parameter"),
