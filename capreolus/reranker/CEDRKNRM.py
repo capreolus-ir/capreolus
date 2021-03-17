@@ -262,7 +262,7 @@ class CEDRKNRM(Reranker):
 
         candidates = defaultdict(list)
         for passage_id in range(numpassages):
-            decoded_bert_input = self.extractor.tokenizer.bert_tokenizer.decode(d["pos_bert_input"][0][passage_id][1:].tolist())
+            decoded_bert_input = self.extractor.tokenizer.bert_tokenizer.convert_ids_to_tokens(d["pos_bert_input"][0][passage_id][1:].tolist())
             assert len(decoded_bert_input) == doclen, "decoded_bert_input: {}, simmat: {}".format(
                 len(decoded_bert_input), simmat.shape)
 
