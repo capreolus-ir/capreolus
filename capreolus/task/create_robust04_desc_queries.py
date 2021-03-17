@@ -154,7 +154,7 @@ class Robust04DescQueries(Task):
 
         folds = copy(self.benchmark.folds)
         for s in folds:
-            folds[s]["train_qids"] = generated_topics.keys()
+            folds[s]["train_qids"] = list(generated_topics.keys())
 
         self.write_to_file(topics, qrels, folds)
 
