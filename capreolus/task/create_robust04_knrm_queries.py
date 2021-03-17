@@ -29,9 +29,9 @@ class Robust04SimmatQueries(Task):
     requires_random_seed = True
     config_spec = [
         ConfigOption("maxqueriesperdoc", 10, "The maximum number of queries generated per doc"),
-        ConfigOption("queryoutput", "/GW/NeuralIR/nobackup/kevin_cache/robust04doct5desc.topics.txt"),
-        ConfigOption("qrelsoutput", "/GW/NeuralIR/nobackup/kevin_cache/robust04doct5desc.qrels.txt"),
-        ConfigOption("foldsoutput", "/GW/NeuralIR/nobackup/kevin_cache/robust04doct5desc.folds.json"),
+        ConfigOption("queryoutput", "/GW/NeuralIR/nobackup/kevin_cache/topics.robust04simmat.txt"),
+        ConfigOption("qrelsoutput", "/GW/NeuralIR/nobackup/kevin_cache/qrels.robust04simmat.txt"),
+        ConfigOption("foldsoutput", "/GW/NeuralIR/nobackup/kevin_cache/robust04simmat.folds.json"),
         ConfigOption("modeldir", "/GW/NeuralIR/nobackup/kevin_cache/cedr-knrm", "Path to a trained ELECTRA-KNRM model"),
         ConfigOption("threshold", 0.8, "The similarity score above which we consider the terms to be equal")
     ]
