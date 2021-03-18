@@ -52,8 +52,6 @@ class Sampler(ModuleBase):
 
         logger.info("{} out of {} queries had a relevant doc in the BM25 results".format(count, len(self.qid_to_reldocs)))
 
-        raise Exception("Sanity check")
-
         self.total_samples = 0
         self.clean()
 
@@ -164,7 +162,8 @@ class TrainPairSampler(Sampler, TrainingSamplerMixin, torch.utils.data.IterableD
         return "pair_{0}".format(key)
 
     def generate_samples(self):
-        all_qids = sorted(self.qid_to_reldocs)
+        all_qids = sorted([qid for qid in self.qid_to_reldocs if len(self.qid_to_reldocs[qid]) > 0])
+
         if len(all_qids) == 0:
             raise RuntimeError("TrainDataset has no valid training pairs")
 
