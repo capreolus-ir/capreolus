@@ -143,7 +143,8 @@ class Robust04DescQueries(Task):
         generated_topics, generated_qrels = self.generate_topics_and_qrels(passage_to_generated_queries)
 
         # Everything is a title query. topic_to_trectxt automatically uses title as desc if desc is not provided
-        topics = {"title": {}}
+        # Include the original topics as well in the topics file - else BM25 search won't use those queries
+        topics = copy(self.benchmark.topics)
         for qid, query in generated_topics.items():
             topics["title"][qid] = query
 
