@@ -59,8 +59,8 @@ class Robust04DescQueries(Task):
         device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         tokenizer = T5Tokenizer.from_pretrained('t5-base')
         config = T5Config.from_pretrained('t5-base')
-        t5_model = T5ForConditionalGeneration.from_pretrained(
-            '/GW/NeuralIR/nobackup/kevin_cache/msmarco_saved/docT5/model.ckpt-1004000', from_tf=True, config=config)
+        t5_model = torch.nn.DataParallel(T5ForConditionalGeneration.from_pretrained(
+            '/GW/NeuralIR/nobackup/kevin_cache/msmarco_saved/docT5/model.ckpt-1004000', from_tf=True, config=config))
         t5_model.to(device)
 
         qrels = self.benchmark.qrels
@@ -91,7 +91,7 @@ class Robust04DescQueries(Task):
 
                     passage = self.index.get_doc(passage_id)
                     input_ids = tokenizer.encode(passage + "</s>", return_tensors='pt').to(device)
-                    output = t5_model.generate(input_ids=input_ids, max_length=self.config["querylen"], do_sample=True, top_k=10,
+                    output = t5_model.module.generate(input_ids=input_ids, max_length=self.config["querylen"], do_sample=True, top_k=10,
                                                num_return_sequences=self.config["numqueries"])
                     generated_queries = ["{} {}".format(query_desc, tokenizer.decode(output[i], skip_special_tokens=True)) for i in
                                          range(self.config["numqueries"])]
