@@ -39,13 +39,13 @@ class Robust04DescQueries(Task):
         old_queries = set()
 
         for query in tb04_dataset.queries_iter():
-            old_queries.add(query.text)
+            old_queries.add(query.title)
 
         for query in tb05_dataset.queries_iter():
-            old_queries.add(query.text)
+            old_queries.add(query.tilte)
 
         for query in tb06_dataset.queries_iter():
-            old_queries.add(query.text)
+            old_queries.add(query.title)
 
         assert len(old_queries) == 150
 
