@@ -355,10 +355,52 @@ class CollectionSampler(Sampler, torch.utils.data.IterableDataset):
 
 
 @Sampler.register
+class ResidualTrainPairSampler(Sampler, TrainingSamplerMixin, torch.utils.data.IterableDataset):
+    """
+    Samples training data pairs. Each sample is of the form (query, doc)
+    The number of generated positive and negative samples are the same.
+    We alternate between posdoc and negdocs. This is required for RepBERT.
+    """
+
+    module_name = "residualpair"
+    dependencies = []
+
+    def get_hash(self):
+        sorted_rep = sorted([(qid, docids) for qid, docids in self.qid_to_docids.items()])
+        key_content = "{0}{1}".format(self.extractor.get_cache_path(), str(sorted_rep))
+        key = hashlib.md5(key_content.encode("utf-8")).hexdigest()
+        return "residualpair_{0}".format(key)
+
+    def generate_samples(self):
+        lambda_train = 0.1
+        epsilon = 1
+
+        # TODO: Fix this naming.
+        trec_run = self.qid_to_docids
+
+        all_qids = sorted(self.qid_to_reldocs)
+        if len(all_qids) == 0:
+            raise RuntimeError("TrainDataset has no valid training pairs")
+        while True:
+            qid = self.rng.choice(all_qids)
+            posdocid = self.rng.choice(self.qid_to_reldocs[qid])
+            negdocid = self.rng.choice(self.qid_to_negdocs[qid])
+            data = self.extractor.id2vec_for_train(qid, posdocid, negid=None, label=1,
+                                                  reldocs=set(self.qid_to_reldocs[qid]))
+            data["residual"] = epsilon - lambda_train * (trec_run[qid][posdocid] - trec_run[qid][negdocid])
+            yield data
+
+            data = self.extractor.id2vec_for_train(qid, negdocid, negid=None, label=0,
+                                                  reldocs=set(self.qid_to_reldocs[qid]))
+            data["residual"] = epsilon - lambda_train * (trec_run[qid][posdocid] - trec_run[qid][negdocid])
+            yield data
+
+
+@Sampler.register
 class ResidualTripletSampler(Sampler, TrainingSamplerMixin, torch.utils.data.IterableDataset):
     """
-    Used for CLEAR. Samples negative documents from the ones retrieved by BM25
-    This is the same as TrainTripletSampler, but with residuals.
+    TODO: This needs a re-write to make it work with RepBERT:
+    1. RepBERT models expect pairs right now. Change it to make it accept triplets
     """
     module_name = "residualtriplet"
 
@@ -412,7 +454,7 @@ class ResidualTripletSampler(Sampler, TrainingSamplerMixin, torch.utils.data.Ite
                     data = self.extractor.id2vec(qid, posdocid, negdocid, label=[1, 0])
 
                     # This is equation 4 in the CLEAR paper
-                    data["residual"] = epsilon + lambda_train * (self.trec_run[qid][posdocid] - self.trec_run[qid][negdocid])
+                    data["residual"] = epsilon - lambda_train * (self.trec_run[qid][posdocid] - self.trec_run[qid][negdocid])
 
                     yield data
                 except MissingDocError:
