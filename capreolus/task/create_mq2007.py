@@ -14,7 +14,7 @@ class Robust04DescQueries(Task):
     """
     We use DocT5 to generate queries for robust04passages and remove the stopwords
     """
-    module_name = "robust04descqueries"
+    module_name = "mq2007"
     requires_random_seed = True
     config_spec = [
         ConfigOption("queryoutput", "/home/kjose/capreolus/capreolus/data/topics.mq2007.txt"),
