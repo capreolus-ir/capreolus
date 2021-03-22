@@ -42,7 +42,7 @@ class Robust04DescQueries(Task):
             old_queries.add(query.title)
 
         for query in tb05_dataset.queries_iter():
-            old_queries.add(query.tilte)
+            old_queries.add(query.title)
 
         for query in tb06_dataset.queries_iter():
             old_queries.add(query.title)
