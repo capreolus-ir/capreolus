@@ -146,7 +146,7 @@ class Robust04DescQueries(Task):
             }
         }
 
-        with open(self.config["gov2foldsoutput", "w"]) as out_f:
+        with open(self.config["gov2foldsoutput"], "w") as out_f:
             json.dump(gov2_folds, out_f)
 
         with open(self.config["gov2queryoutput"], "w") as out_f:
