@@ -153,7 +153,7 @@ class Robust04DescQueries(Task):
             for query in duplicate_queries:
                 out_f.write(topic_to_trectxt(query.query_id, query.text.lower()))
 
-        with open(self.config["gov2qrelsoutput", "w"]) as out_f:
+        with open(self.config["gov2qrelsoutput"], "w") as out_f:
             for qid, docid_to_label in old_qrels.items():
                 for docid, label in docid_to_label.items():
                     out_f.write("{} 0 {} {}\n".format(qid, docid, label))
