@@ -21,7 +21,26 @@ class Gov2(Collection):
     collection_type = "TrecCollection"
     generator_type = "DefaultLuceneDocumentGenerator"
     config_keys_not_in_path = ["path"]
-    config_spec = [ConfigOption("path", "Aquaint-TREC-3-4", "path to corpus")]
+    config_spec = [ConfigOption("path", "/GW/NeuralIR/nobackup/GOV2/GOV2_data", "path to corpus")]
 
     def download_if_missing(self):
         raise Exception("This should not have happened")
+
+    def _validate_document_path(self, path):
+        """Validate that the document path appears to contain robust04's documents (Aquaint-TREC-3-4).
+
+        Validation is performed by looking for four directories (case-insensitive): `FBIS`, `FR94`, `FT`, and `LATIMES`.
+        These directories may either be at the root of `path` or they may be in `path/NEWS_data` (case-insensitive).
+
+        Returns:
+            True if the Aquaint-TREC-3-4 document directories are found or False if not
+        """
+
+        if not os.path.isdir(path):
+            return False
+
+        contents = {fn.lower(): fn for fn in os.listdir(path)}
+        if "GX000" in contents and "GX272" in contents:
+            return True
+
+        return False

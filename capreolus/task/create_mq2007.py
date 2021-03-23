@@ -22,7 +22,6 @@ class Robust04DescQueries(Task):
         ConfigOption("qrelsoutput", "/home/kjose/capreolus/capreolus/data/qrels.mq2007.txt"),
         ConfigOption("foldsoutput", "/home/kjose/capreolus/capreolus/data/mq2007.folds.json"),
         ConfigOption("gov2queryoutput", "/home/kjose/capreolus/capreolus/data/topics.gov2.txt"),
-        ConfigOption("gov2qrelsoutput", "/home/kjose/capreolus/capreolus/data/qrels.gov2.txt"),
         ConfigOption("gov2foldsoutput", "/home/kjose/capreolus/capreolus/data/gov2.folds.json"),
     ]
 
@@ -153,10 +152,7 @@ class Robust04DescQueries(Task):
             for query in duplicate_queries:
                 out_f.write(topic_to_trectxt(query.query_id, query.text.lower()))
 
-        with open(self.config["gov2qrelsoutput"], "w") as out_f:
-            for qid, docid_to_label in old_qrels.items():
-                for docid, label in docid_to_label.items():
-                    out_f.write("{} 0 {} {}\n".format(qid, docid, label))
+        # Qrels for gov2 - download it from here: https://lintool.github.io/Ivory/data/gov2/qrels.gov2.all
 
     def update_qrels(self, qrels_dict, dataset):
         for qrel in dataset.qrels_iter():
