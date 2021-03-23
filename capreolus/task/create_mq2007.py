@@ -38,15 +38,19 @@ class Robust04DescQueries(Task):
         tb06_dataset = ir_datasets.load("gov2/trec-tb-2006")
 
         old_queries = set()
+        gov2_queries = []
 
         for query in tb04_dataset.queries_iter():
             old_queries.add(query.title.lower())
+            gov2_queries.append(query)
 
         for query in tb05_dataset.queries_iter():
             old_queries.add(query.title.lower())
+            gov2_queries.append(query)
 
         for query in tb06_dataset.queries_iter():
             old_queries.add(query.title.lower())
+            gov2_queries.append(query)
 
         assert len(old_queries) == 150
 
@@ -121,26 +125,30 @@ class Robust04DescQueries(Task):
             for qrel in mq2007_dataset.qrels_iter():
                 out_f.write("{} 0 {} {}\n".format(qrel.query_id, qrel.doc_id, qrel.relevance))
 
+        gov2_set_1 = [query.query_id for query in gov2_queries[:50]]
+        gov2_set_2 = [query.query_id for query in gov2_queries[50:100]]
+        gov2_set_3 = [query.query_id for query in gov2_queries[100:150]]
+
         gov2_folds = {
             "s1": {
-                "train_qids": old_set_1,
+                "train_qids": gov2_set_1,
                 "predict": {
-                    "dev": old_set_2,
-                    "test": old_set_3
+                    "dev": gov2_set_2,
+                    "test": gov2_set_3
                 }
             },
             "s2": {
-                "train_qids": old_set_2,
+                "train_qids": gov2_set_2,
                 "predict": {
-                    "dev": old_set_3,
-                    "test": old_set_1
+                    "dev": gov2_set_3,
+                    "test": gov2_set_1
                 }
             },
             "s3": {
-                "train_qids": old_set_3,
+                "train_qids": gov2_set_3,
                 "predict": {
-                    "dev": old_set_1,
-                    "test": old_set_2
+                    "dev": gov2_set_1,
+                    "test": gov2_set_2
                 }
             }
         }
@@ -149,8 +157,8 @@ class Robust04DescQueries(Task):
             json.dump(gov2_folds, out_f)
 
         with open(self.config["gov2queryoutput"], "w") as out_f:
-            for query in duplicate_queries:
-                out_f.write(topic_to_trectxt(query.query_id, query.text.lower()))
+            for query in gov2_queries:
+                out_f.write(topic_to_trectxt(query.query_id, query.title.lower()))
 
         # Qrels for gov2 - download it from here: https://lintool.github.io/Ivory/data/gov2/qrels.gov2.all
 
