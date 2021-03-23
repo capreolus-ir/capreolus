@@ -39,7 +39,7 @@ class Gov2(Collection):
         if not os.path.isdir(path):
             return False
 
-        contents = {fn.lower(): fn for fn in os.listdir(path)}
+        contents = {fn: fn for fn in os.listdir(path)}
         if "GX000" in contents and "GX272" in contents:
             return True
 
