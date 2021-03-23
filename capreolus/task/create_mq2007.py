@@ -69,7 +69,16 @@ class Robust04DescQueries(Task):
             elif qid not in old_qrels:
                 new_qrels += 1
 
+        query_duplicates = 0
+        new_queries = 0
+        for query in mq2007_dataset.queries_iter():
+            if query.text in old_queries:
+                query_duplicates += 1
+            else:
+                new_queries += 1
+
         logger.info("There are {} duplicates, {} deeper judgements, and {} new judgements".format(duplicate_qrels, deeper_qrels, new_qrels))
+        logger.info("There are {} query duplicates and {} new queries".format(query_duplicates, new_queries))
 
     def update_qrels(self, qrels_dict, dataset):
         for qrel in dataset.qrels_iter():
