@@ -55,6 +55,9 @@ class PytorchTrainer(Trainer):
         if self.config["niters"] <= 0:
             raise ValueError("niters must be > 0")
 
+        if self.config["niters"] < self.config["validatefreq"]:
+            raise ValueError("niters must be equal or greater than validatefreq")
+
         if self.config["itersize"] < self.config["batch"]:
             raise ValueError("itersize must be >= batch")
 
