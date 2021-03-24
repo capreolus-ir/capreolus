@@ -39,17 +39,21 @@ class Robust04DescQueries(Task):
 
         old_queries = set()
         gov2_queries = []
+        gov2_query_to_qid = {}
 
         for query in tb04_dataset.queries_iter():
             old_queries.add(query.title.lower())
+            gov2_query_to_qid[query.title.lower()] = query.query_id
             gov2_queries.append(query)
 
         for query in tb05_dataset.queries_iter():
             old_queries.add(query.title.lower())
+            gov2_query_to_qid[query.title.lower()] = query.query_id
             gov2_queries.append(query)
 
         for query in tb06_dataset.queries_iter():
             old_queries.add(query.title.lower())
+            gov2_query_to_qid[query.title.lower()] = query.query_id
             gov2_queries.append(query)
 
         assert len(old_queries) == 150
@@ -59,31 +63,45 @@ class Robust04DescQueries(Task):
         self.update_qrels(old_qrels, tb05_dataset)
         self.update_qrels(old_qrels, tb06_dataset)
 
-        duplicate_qrels = 0
-        deeper_qrels = 0
-        new_qrels = 0
-
-        for qrel in mq2007_dataset.qrels_iter():
-            qid = qrel.query_id
-            doc_id = qrel.doc_id
-
-            if qid in old_qrels and doc_id in old_qrels[qid]:
-                duplicate_qrels += 1
-            elif qid in old_qrels and doc_id not in old_qrels[qid]:
-                deeper_qrels += 1
-            elif qid not in old_qrels:
-                new_qrels += 1
-
         duplicate_queries = []
         new_queries = []
+        mq2007_qid_to_query = {}
         for query in mq2007_dataset.queries_iter():
-            if query.text in old_queries:
+            if query.text.lower() in old_queries:
                 duplicate_queries.append(query)
             else:
                 new_queries.append(query)
 
+            mq2007_qid_to_query[query.query_id] = query.text.lower()
+
         assert len(duplicate_queries) == 150
+        duplicate_qrels = 0
+        deeper_qrels = 0
+        new_qrels = 0
+
+        duplicate_qrel_qids = set()
+        deeper_qrel_qids = set()
+        new_qrel_qids = set()
+
+        for qrel in mq2007_dataset.qrels_iter():
+            qid = qrel.query_id
+            doc_id = qrel.doc_id
+            query_text = mq2007_qid_to_query[qid]
+            gov2_qid = gov2_query_to_qid.get(query_text)
+
+            if query_text in old_queries and doc_id in old_qrels[gov2_qid]:
+                duplicate_qrels += 1
+                duplicate_qrel_qids.add(qrel.query_id)
+            elif query_text in old_qrels and doc_id not in old_qrels[gov2_qid]:
+                deeper_qrels += 1
+                deeper_qrel_qids.add(qrel.query_id)
+            elif qid not in old_qrels:
+                new_qrels += 1
+                new_qrel_qids.add(qrel.query_id)
+
+
         logger.info("There are {} duplicate judgements, {} deeper judgements, and {} new judgements".format(duplicate_qrels, deeper_qrels, new_qrels))
+        logger.info("There are {} qids with duplicate judgements, {} qids with deeper judgements, and {} with new judgements".format(len(duplicate_qrel_qids), len(deeper_qrel_qids), len(new_qrel_qids)))
         logger.info("There are {} query duplicates and {} new queries".format(len(duplicate_queries), len(new_queries)))
 
         new_query_ids = [query.query_id for query in new_queries]
