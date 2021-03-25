@@ -205,9 +205,6 @@ class FAISSIndex(Index):
         logger.debug("Faiss search done")
 
         distances, results = faiss_index.search(topic_vectors, k)
-        if self.config["isclear"]:
-            faiss_logger.info("Reweighting FAISS scores for CLEAR")
-            distances = self.reweight_using_bm25_scores(distances, results, qid_query, fold)
 
         return distances, results
 
