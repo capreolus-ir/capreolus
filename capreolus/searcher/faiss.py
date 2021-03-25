@@ -33,16 +33,12 @@ class FAISSSearcher(Searcher):
     dependencies = [Dependency(key="index", module="index", name="faiss"), Dependency(key="benchmark", module="benchmark")]
 
     def query_from_file(self, topicsfn, output_path, fold=None):
-        output_path = self._query_from_file(topicsfn, output_path, fold=fold)
-        
-        return output_path
+        raise Exception("Call _query_from_file directly - you need to pass an encoder instance")
 
-    def do_search(self, topic_vectors, qid_query, fold, output_path, filename, tag):
+    def do_search(self, topic_vectors, qid_query, numshards, docs_per_shard, fold, output_path, filename, tag):
         # A manual search is done over the docs in dev_run - this way for each qid, we only score the docids that BM25 retrieved for it
         # self.index.manual_search_train_set(topic_vectors, qid_query, fold)
-        self.index.manual_search_dev_set(topic_vectors, qid_query, fold, tag)
-        self.index.manual_search_test_set(topic_vectors, qid_query, fold, tag)
-        distances, results = self.index.faiss_search(topic_vectors, 1000, qid_query, fold)
+        distances, results = self.index.faiss_search(topic_vectors, 1000, qid_query, numshards, docs_per_shard, fold)
         # self.calc_faiss_search_metrics_for_train_set(distances, results, qid_query, fold)
         self.calc_faiss_search_metrics_for_dev_set(distances, results, qid_query, fold, tag)
         self.calc_faiss_search_metrics_for_test_set(distances, results, qid_query, fold, tag)
@@ -51,14 +47,13 @@ class FAISSSearcher(Searcher):
 
         return distances, results
 
-    def _query_from_file(self, topicsfn, output_path, fold=None):
+    def _query_from_file(self, encoder, topicsfn, output_path, numshards, docs_per_shard, fold=None):
         assert fold is not None
-
-        self.build_encoder(fold)
         topics = load_trec_topics(topicsfn)
+
         # `qid_query` contains (qid, query) tuples in the order they were encoded
-        topic_vectors, qid_query = self.create_topic_vectors(topics, fold, topicfield=self.config["field"])
-        normal_distances, normal_results = self.do_search(topic_vectors, qid_query, fold, output_path, "faiss_{}.run".format(fold), "normal")
+        topic_vectors, qid_query = self.create_topic_vectors(encoder, topics, fold, topicfield=self.config["field"])
+        normal_distances, normal_results = self.do_search(topic_vectors, qid_query, numshards, docs_per_shard, fold, output_path, "faiss_{}.run".format(fold), "normal")
         self.interpolate(self.index.get_results_path(), os.path.join(output_path, "faiss_{}.run".format(fold)), fold, "normal")
 
         # rm3_expanded_topics = self.rm3_expand_queries(os.path.join(output_path, "faiss.run"), topicfield="title")
@@ -107,7 +102,7 @@ class FAISSSearcher(Searcher):
 
         self.index.encoder.build_model(train_run, dev_run, docids, encoder_qids)
 
-    def create_topic_vectors(self, topics, fold, topicfield="title"):
+    def create_topic_vectors(self, encoder, topics, fold, topicfield="title"):
         """
         Creates a tensor of shape (num_queries, emb_size). Uses all the topics available in the dataset. Filtering based on folds is done later
         """
@@ -115,7 +110,7 @@ class FAISSSearcher(Searcher):
         # TODO: Use the test qids in the below line
 
         qid_query = sorted([(qid, query) for qid, query in topics[topicfield].items() if qid in self.benchmark.folds[fold]["predict"]["dev"] or qid in self.benchmark.folds[fold]["predict"]["test"]])
-        tokenizer = self.index.encoder.extractor.tokenizer
+        tokenizer = encoder.extractor.tokenizer
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
         topic_vectors = []
@@ -128,7 +123,7 @@ class FAISSSearcher(Searcher):
                 mask = mask.reshape(1, -1)
                 numericalized_query = torch.tensor(numericalized_query).to(device)
                 numericalized_query = numericalized_query.reshape(1, -1)
-                topic_vector = self.index.encoder.encode_query(numericalized_query, mask).cpu().numpy()
+                topic_vector = encoder.encode_query(numericalized_query, mask).cpu().numpy()
                 topic_vectors.append(topic_vector)
                 
         return np.concatenate(topic_vectors, axis=0), qid_query

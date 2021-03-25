@@ -98,6 +98,22 @@ class AnseriniIndex(Index):
 
         return self.index_reader_utils.convertDocidToLuceneDocid(self.reader, doc_id)
 
+    def get_all_docids_in_collection(self):
+        from jnius import autoclass
+        self.create_index()
+
+        anserini_index_path = self.get_index_path().as_posix()
+
+        JFile = autoclass("java.io.File")
+        JFSDirectory = autoclass("org.apache.lucene.store.FSDirectory")
+        fsdir = JFSDirectory.open(JFile(anserini_index_path).toPath())
+        anserini_index_reader = autoclass("org.apache.lucene.index.DirectoryReader").open(fsdir)
+
+        # TODO: Add check for deleted rows in the index
+        all_doc_ids = [self.convert_lucene_id_to_doc_id(i) for i in range(0, anserini_index_reader.maxDoc())]
+
+        return all_doc_ids
+
     def get_df(self, term):
         # returns 0 for missing terms
         if not hasattr(self, "reader") or self.reader is None:

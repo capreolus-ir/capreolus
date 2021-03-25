@@ -79,6 +79,21 @@ class PytorchANNTrainer(Trainer):
 
         return torch.stack(iter_loss).mean()
 
+    def load_trained_weights(self, encoder, output_path):
+        no_decay = ['bias', 'LayerNorm.weight']
+        optimizer_grouped_parameters = [
+            {'params': [p for n, p in encoder.model.named_parameters() if not any(nd in n for nd in no_decay)],
+             'weight_decay': 0.01},
+            {'params': [p for n, p in encoder.model.named_parameters() if any(nd in n for nd in no_decay)], 'weight_decay': 0.0}
+        ]
+        optimizer = AdamW(optimizer_grouped_parameters, lr=self.config["bertlr"], eps=1e-8)
+        weights_fn = output_path / "weights"
+
+        if encoder.exists(weights_fn):
+            encoder.load_weights(weights_fn, optimizer)
+        else:
+            raise ValueError("Weights not found: {}".format(weights_fn))
+
     def train(self, encoder, train_dataset, dev_dataset, output_path, qrels, metric="map", relevance_level=1):
         # Prepare optimizer and schedule (linear warmup and decay)
         no_decay = ['bias', 'LayerNorm.weight']
@@ -138,7 +153,7 @@ class PytorchANNTrainer(Trainer):
                     if metrics["ndcg_cut_20"] > best_metric:
                         logger.debug("Best val set so far! Saving checkpoint")
                         best_metric = metrics["ndcg_cut_20"]
-                        weights_fn = output_path / "weights_{}".format(train_dataset.get_hash())
+                        weights_fn = output_path / "weights"
                         encoder.save_weights(weights_fn, self.optimizer)
 
                 # weights_fn = output_path / "weights_{}".format(train_dataset.get_hash())
