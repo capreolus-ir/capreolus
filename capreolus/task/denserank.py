@@ -59,7 +59,7 @@ class DenseRankTask(Task):
         encoder = self.encoder
         fold = self.config["fold"]
 
-        bm25_run = self.searcher.do_bm25_search(fold)
+        bm25_run = self.do_bm25_search(fold)
         train_run = {qid: docs for qid, docs in bm25_run.items() if
                      qid in self.benchmark.folds[fold]["train_qids"]}
 
