@@ -49,13 +49,13 @@ class FAISSIndex(Index):
         offset - shard_id * num_docs_per_shard. This is used to generate unique ids for docs
         """
         logger.info("Creating shard: {} with {} docs".format(shard_id, len(doc_ids)))
-        sub_index = faiss.IndexFlatIP(self.encoder.hidden_size)
+        sub_index = faiss.IndexFlatIP(encoder.hidden_size)
         faiss_index = faiss.IndexIDMap2(sub_index)
         encoder.extractor.preprocess([], doc_ids, topics=self.benchmark.topics[self.benchmark.query_type])
 
         dataset = CollectionSampler()
         dataset.prepare(
-            doc_ids, None, self.encoder.extractor, relevance_level=self.benchmark.relevance_level
+            doc_ids, None, encoder.extractor, relevance_level=self.benchmark.relevance_level
         )
 
         BATCH_SIZE = 64
@@ -78,7 +78,7 @@ class FAISSIndex(Index):
                 faiss_ids_for_batch.append(generated_faiss_id)
 
             with torch.no_grad():
-                doc_emb = self.encoder.encode_doc(batch["posdoc"], batch["posdoc_mask"]).cpu().numpy()
+                doc_emb = encoder.encode_doc(batch["posdoc"], batch["posdoc_mask"]).cpu().numpy()
 
             faiss_ids_for_batch = np.array(faiss_ids_for_batch, dtype=np.long).reshape(-1, )
             faiss_index.add_with_ids(doc_emb, faiss_ids_for_batch)
