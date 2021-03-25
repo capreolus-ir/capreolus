@@ -108,7 +108,7 @@ class PytorchANNTrainer(Trainer):
         total_steps = steps_per_epoch * self.config["niters"]
         num_warmup_steps = math.floor(0.1 * total_steps)
         self.scheduler = get_linear_schedule_with_warmup(self.optimizer, num_warmup_steps=num_warmup_steps, num_training_steps=total_steps)
-        weights_fn = encoder.get_results_path() / "weights_{}".format(train_dataset.get_hash())
+        weights_fn = output_path / "weights_{}".format(train_dataset.get_hash())
 
         if encoder.exists(weights_fn):
             encoder.load_weights(weights_fn, self.optimizer)
