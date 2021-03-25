@@ -84,7 +84,7 @@ class DenseRankTask(Task):
         docs_per_shard = math.ceil(len(all_docids) / self.config["numshards"])
         docids_for_current_shard = all_docids[shard_id * docs_per_shard: (shard_id + 1) * docs_per_shard]
         offset = shard_id * docs_per_shard
-        self.annsearcher.index.create_shard(self.encoder, shard_id, offset, docids_for_current_shard)
+        self.annsearcher.index.create_shard(self.encoder, shard_id, offset, docids_for_current_shard, self.config["fold"])
 
     def evaluate(self):
         fold = self.config["fold"]
