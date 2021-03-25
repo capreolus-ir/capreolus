@@ -94,6 +94,7 @@ class FAISSIndex(Index):
 
         os.makedirs(self.get_index_path(), exist_ok=True)
         faiss.write_index(faiss_index, os.path.join(self.get_index_path(), "shard_{}_faiss_{}.index".format(shard_id, fold)))
+        faiss_logger.info("Shard: {} written to disk".format(shard_id))
 
     def reweight_using_bm25_scores(self, distances, results, qid_query, fold, lambda_test=0.5):
         """
@@ -122,6 +123,7 @@ class FAISSIndex(Index):
         aggregated_faiss_id_to_doc_id = {}
         aggregated_doc_id_to_faiss_id = {}
         index_path = self.get_index_path()
+        index_cache_path = self.get_cache_path()
         for shard_id in range(numshards):
             filename = os.path.join(index_path, "shard_{}_faiss_{}.index".format(shard_id, fold))
             assert os.path.isfile(filename), "shard {} not found".format(filename)
@@ -129,14 +131,14 @@ class FAISSIndex(Index):
             distances, results = faiss_shard.search(topic_vectors, k)
             result_heap.add_result(D=distances, I=results + (shard_id * docs_per_shard))
 
-            faiss_id_to_doc_id = pickle.load(open(os.path.join(index_path, "shard_{}_faiss_id_to_doc_id_{}.dump".format(shard_id, fold)), "rb"))
-            doc_id_to_faiss_id = pickle.load(open(os.path.join(index_path, "shard_{}_doc_id_to_faiss_id_{}.dump".format(shard_id, fold)), "rb"))
+            faiss_id_to_doc_id = pickle.load(open(os.path.join(index_cache_path, "shard_{}_faiss_id_to_doc_id_{}.dump".format(shard_id, fold)), "rb"))
+            doc_id_to_faiss_id = pickle.load(open(os.path.join(index_cache_path, "shard_{}_doc_id_to_faiss_id_{}.dump".format(shard_id, fold)), "rb"))
             aggregated_faiss_id_to_doc_id.update(faiss_id_to_doc_id)
             aggregated_doc_id_to_faiss_id.update(doc_id_to_faiss_id)
 
         result_heap.finalize()
-        pickle.dump(aggregated_faiss_id_to_doc_id, open(os.path.join(index_path, "faiss_id_to_doc_id_{}.dump".format(fold)), "wb"), protocol=-1)
-        pickle.dump(aggregated_doc_id_to_faiss_id, open(os.path.join(index_path, "doc_id_to_faiss_id_{}.dump".format(fold)), "wb"), protocol=-1)
+        pickle.dump(aggregated_faiss_id_to_doc_id, open(os.path.join(index_cache_path, "faiss_id_to_doc_id_{}.dump".format(fold)), "wb"), protocol=-1)
+        pickle.dump(aggregated_doc_id_to_faiss_id, open(os.path.join(index_cache_path, "doc_id_to_faiss_id_{}.dump".format(fold)), "wb"), protocol=-1)
 
         if self.config["isclear"]:
             faiss_logger.info("Reweighting FAISS scores for CLEAR")
