@@ -98,6 +98,6 @@ class DenseRankTask(Task):
         topics_fn = self.benchmark.topic_file
         all_docids = sorted(self.searcher.index.get_all_docids_in_collection())
         docs_per_shard = math.ceil(len(all_docids) / self.config["numshards"])
-        search_results_folder = self.annsearcher._query_from_file(self.encoder, topics_fn, output_path, self.config["numshards"], docs_per_shard, fold=fold)
+        search_results_folder = self.annsearcher._query_from_file(self.encoder, topics_fn, output_path, self.config["numshards"], fold=fold)
 
         # do faiss search

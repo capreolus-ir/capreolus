@@ -117,7 +117,7 @@ class FAISSIndex(Index):
 
         return distances
 
-    def faiss_search(self, topic_vectors, k, qid_query, numshards, docs_per_shard, fold):
+    def faiss_search(self, topic_vectors, k, qid_query, numshards, fold):
         result_heap = faiss.ResultHeap(nq=len(topic_vectors), k=k)
 
         aggregated_faiss_id_to_doc_id = {}
@@ -129,7 +129,7 @@ class FAISSIndex(Index):
             assert os.path.isfile(filename), "shard {} not found".format(filename)
             faiss_shard = faiss.read_index(os.path.join(index_path, filename))
             distances, results = faiss_shard.search(topic_vectors, k)
-            result_heap.add_result(D=distances, I=results + (shard_id * docs_per_shard))
+            result_heap.add_result(D=distances, I=results)
 
             faiss_id_to_doc_id = pickle.load(open(os.path.join(index_cache_path, "shard_{}_faiss_id_to_doc_id_{}.dump".format(shard_id, fold)), "rb"))
             doc_id_to_faiss_id = pickle.load(open(os.path.join(index_cache_path, "shard_{}_doc_id_to_faiss_id_{}.dump".format(shard_id, fold)), "rb"))

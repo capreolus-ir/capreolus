@@ -35,10 +35,10 @@ class FAISSSearcher(Searcher):
     def query_from_file(self, topicsfn, output_path, fold=None):
         raise Exception("Call _query_from_file directly - you need to pass an encoder instance")
 
-    def do_search(self, topic_vectors, qid_query, numshards, docs_per_shard, fold, output_path, filename, tag):
+    def do_search(self, topic_vectors, qid_query, numshards, fold, output_path, filename, tag):
         # A manual search is done over the docs in dev_run - this way for each qid, we only score the docids that BM25 retrieved for it
         # self.index.manual_search_train_set(topic_vectors, qid_query, fold)
-        distances, results = self.index.faiss_search(topic_vectors, 1000, qid_query, numshards, docs_per_shard, fold)
+        distances, results = self.index.faiss_search(topic_vectors, 1000, qid_query, numshards, fold)
         # self.calc_faiss_search_metrics_for_train_set(distances, results, qid_query, fold)
         self.calc_faiss_search_metrics_for_dev_set(distances, results, qid_query, fold, tag)
         self.calc_faiss_search_metrics_for_test_set(distances, results, qid_query, fold, tag)
@@ -47,13 +47,13 @@ class FAISSSearcher(Searcher):
 
         return distances, results
 
-    def _query_from_file(self, encoder, topicsfn, output_path, numshards, docs_per_shard, fold=None):
+    def _query_from_file(self, encoder, topicsfn, output_path, numshards, fold=None):
         assert fold is not None
         topics = load_trec_topics(topicsfn)
 
         # `qid_query` contains (qid, query) tuples in the order they were encoded
         topic_vectors, qid_query = self.create_topic_vectors(encoder, topics, fold, topicfield=self.config["field"])
-        normal_distances, normal_results = self.do_search(topic_vectors, qid_query, numshards, docs_per_shard, fold, output_path, "faiss_{}.run".format(fold), "normal")
+        normal_distances, normal_results = self.do_search(topic_vectors, qid_query, numshards, fold, output_path, "faiss_{}.run".format(fold), "normal")
         self.interpolate(self.index.get_results_path(), os.path.join(output_path, "faiss_{}.run".format(fold)), fold, "normal")
 
         # rm3_expanded_topics = self.rm3_expand_queries(os.path.join(output_path, "faiss.run"), topicfield="title")
