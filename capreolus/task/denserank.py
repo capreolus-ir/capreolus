@@ -38,7 +38,7 @@ class DenseRankTask(Task):
 
     def do_bm25_search(self, fold):
         topics_fn = self.benchmark.topic_file
-        output_dir = self.get_results_path()
+        output_dir = os.path.join(self.get_results_path(), "rank")
 
         if hasattr(self.searcher, "index"):
             # All anserini indexes ignore the "fold" parameter. This is required for FAISS though, since we have to train an encoder
