@@ -79,11 +79,13 @@ class DenseRankTask(Task):
     def createshard(self):
         assert os.path.isfile(os.path.join(self.get_results_path(), "weights")), "Saved encoder weights not found at {}".format(self.get_results_path())
 
-        shard_id = self.config["shard"]
+        shard_id = self.config["shard"] - 1  # shard_ids are 1-indexed
         all_docids = sorted(self.searcher.index.get_all_docids_in_collection())
         docs_per_shard = math.ceil(len(all_docids) / self.config["numshards"])
         docids_for_current_shard = all_docids[shard_id * docs_per_shard: (shard_id + 1) * docs_per_shard]
         offset = shard_id * docs_per_shard
+
+        self.encoder.trainer.load_trained_weights(self.encoder, self.get_results_path())
         self.annsearcher.index.create_shard(self.encoder, shard_id, offset, docids_for_current_shard, self.config["fold"])
 
     def evaluate(self):

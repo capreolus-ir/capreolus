@@ -80,6 +80,7 @@ class PytorchANNTrainer(Trainer):
         return torch.stack(iter_loss).mean()
 
     def load_trained_weights(self, encoder, output_path):
+        encoder.instantiate_model()
         no_decay = ['bias', 'LayerNorm.weight']
         optimizer_grouped_parameters = [
             {'params': [p for n, p in encoder.model.named_parameters() if not any(nd in n for nd in no_decay)],
