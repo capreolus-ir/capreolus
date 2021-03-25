@@ -54,7 +54,7 @@ class FAISSSearcher(Searcher):
         # `qid_query` contains (qid, query) tuples in the order they were encoded
         topic_vectors, qid_query = self.create_topic_vectors(encoder, topics, fold, topicfield=self.config["field"])
         normal_distances, normal_results = self.do_search(topic_vectors, qid_query, numshards, fold, output_path, "faiss_{}.run".format(fold), "normal")
-        self.interpolate(self.index.get_results_path(), os.path.join(output_path, "faiss_{}.run".format(fold)), fold, "normal")
+        # self.interpolate(self.index.get_results_path(), os.path.join(output_path, "faiss_{}.run".format(fold)), fold, "normal")
 
         # rm3_expanded_topics = self.rm3_expand_queries(os.path.join(output_path, "faiss.run"), topicfield="title")
         # rm3_expanded_topic_vectors, rm3_qid_query = self.create_topic_vectors(rm3_expanded_topics, fold, topicfield="title")
