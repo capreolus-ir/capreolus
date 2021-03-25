@@ -134,7 +134,8 @@ class FAISSIndex(Index):
             faiss_id_to_doc_id = pickle.load(open(os.path.join(index_cache_path, "shard_{}_faiss_id_to_doc_id_{}.dump".format(shard_id, fold)), "rb"))
             doc_id_to_faiss_id = pickle.load(open(os.path.join(index_cache_path, "shard_{}_doc_id_to_faiss_id_{}.dump".format(shard_id, fold)), "rb"))
             for faiss_id, doc_id in faiss_id_to_doc_id.items():
-                assert faiss_id not in aggregated_doc_id_to_faiss_id, "{} already in aggregated".format(faiss_id)
+                assert faiss_id not in aggregated_faiss_id_to_doc_id, "{} already in aggregated".format(faiss_id)
+
             aggregated_faiss_id_to_doc_id.update(faiss_id_to_doc_id)
             aggregated_doc_id_to_faiss_id.update(doc_id_to_faiss_id)
 
