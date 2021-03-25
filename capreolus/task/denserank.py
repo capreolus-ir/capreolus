@@ -33,7 +33,7 @@ class DenseRankTask(Task):
         Dependency(key="encoder", module="encoder", name="repbertpretrained")
     ]
 
-    commands = ["run", "evaluate", "createshard"] + Task.help_commands
+    commands = ["run", "evaluate", "createshard", "trainencoder"] + Task.help_commands
     default_command = "describe"
 
     def do_bm25_search(self, fold):
