@@ -73,7 +73,7 @@ class FAISSIndex(Index):
             faiss_ids_for_batch = []
 
             for i, doc_id in enumerate(doc_ids):
-                generated_faiss_id = bi * BATCH_SIZE + i + offset
+                generated_faiss_id = bi * BATCH_SIZE + i
                 doc_id_to_faiss_id[doc_id] = generated_faiss_id
                 faiss_ids_for_batch.append(generated_faiss_id)
 
@@ -117,7 +117,7 @@ class FAISSIndex(Index):
 
         return distances
 
-    def faiss_search(self, topic_vectors, k, qid_query, numshards, fold):
+    def faiss_search(self, topic_vectors, k, qid_query, numshards, docs_per_shard, fold):
         result_heap = faiss.ResultHeap(nq=len(topic_vectors), k=k)
 
         aggregated_faiss_id_to_doc_id = {}
@@ -126,14 +126,18 @@ class FAISSIndex(Index):
         index_path = self.get_index_path()
         index_cache_path = self.get_cache_path()
         for shard_id in range(numshards):
+            offset = shard_id * docs_per_shard
             filename = os.path.join(index_path, "shard_{}_faiss_{}.index".format(shard_id, fold))
             assert os.path.isfile(filename), "shard {} not found".format(filename)
             faiss_shard = faiss.read_index(os.path.join(index_path, filename))
             distances, results = faiss_shard.search(topic_vectors, k)
+            results = results + offset
             result_heap.add_result(D=distances, I=results)
 
             faiss_id_to_doc_id = pickle.load(open(os.path.join(index_cache_path, "shard_{}_faiss_id_to_doc_id_{}.dump".format(shard_id, fold)), "rb"))
-            doc_id_to_faiss_id = pickle.load(open(os.path.join(index_cache_path, "shard_{}_doc_id_to_faiss_id_{}.dump".format(shard_id, fold)), "rb"))
+            faiss_id_to_doc_id = {faiss_id + offset: doc_id for faiss_id, doc_id in faiss_id_to_doc_id.items()}
+            doc_id_to_faiss_id = {doc_id: faiss_id for faiss_id, doc_id in faiss_id_to_doc_id.items()}
+            # doc_id_to_faiss_id = pickle.load(open(os.path.join(index_cache_path, "shard_{}_doc_id_to_faiss_id_{}.dump".format(shard_id, fold)), "rb"))
             for faiss_id, doc_id in faiss_id_to_doc_id.items():
                 count_map[faiss_id] += 1
 
