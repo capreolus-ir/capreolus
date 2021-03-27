@@ -122,6 +122,7 @@ class FAISSIndex(Index):
 
         aggregated_faiss_id_to_doc_id = {}
         aggregated_doc_id_to_faiss_id = {}
+        count_map = defaultdict(lambda: 0)
         index_path = self.get_index_path()
         index_cache_path = self.get_cache_path()
         for shard_id in range(numshards):
@@ -134,7 +135,7 @@ class FAISSIndex(Index):
             faiss_id_to_doc_id = pickle.load(open(os.path.join(index_cache_path, "shard_{}_faiss_id_to_doc_id_{}.dump".format(shard_id, fold)), "rb"))
             doc_id_to_faiss_id = pickle.load(open(os.path.join(index_cache_path, "shard_{}_doc_id_to_faiss_id_{}.dump".format(shard_id, fold)), "rb"))
             for faiss_id, doc_id in faiss_id_to_doc_id.items():
-                assert faiss_id not in aggregated_faiss_id_to_doc_id, "{} already in aggregated".format(faiss_id)
+                count_map[faiss_id] += 1
 
             aggregated_faiss_id_to_doc_id.update(faiss_id_to_doc_id)
             aggregated_doc_id_to_faiss_id.update(doc_id_to_faiss_id)
@@ -146,6 +147,14 @@ class FAISSIndex(Index):
         if self.config["isclear"]:
             faiss_logger.info("Reweighting FAISS scores for CLEAR")
             distances = self.reweight_using_bm25_scores(result_heap.D, result_heap.I, qid_query, fold)
+
+        temp = 0
+        for faiss_id, count in count_map.items():
+            if count > 1:
+                logger.info("{} has count {}".format(faiss_id, count))
+                temp += 1
+        logger.info("temp is {}".format(temp))
+        assert temp == 0
 
         return result_heap.D, result_heap.I
 
