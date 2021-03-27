@@ -152,9 +152,9 @@ class FAISSIndex(Index):
 
         indices = np.argsort(aggregated_distances, axis=1)
         aggregated_distances = np.take_along_axis(aggregated_distances, indices, 1)
-        aggregated_distances = aggregated_distances[:, :k]
+        aggregated_distances = aggregated_distances[:, (numshards - 1) * k: numshards * k]
         aggregated_ids = np.take_along_axis(aggregated_ids, indices, 1)
-        aggregated_ids = aggregated_ids[:, :k]
+        aggregated_ids = aggregated_ids[:, (numshards - 1) * k: numshards * k]
 
         assert aggregated_distances.shape == (len(topic_vectors), k)
         assert aggregated_ids.shape == (len(topic_vectors), k)
