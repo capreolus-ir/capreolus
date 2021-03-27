@@ -73,7 +73,7 @@ class FAISSIndex(Index):
             faiss_ids_for_batch = []
 
             for i, doc_id in enumerate(doc_ids):
-                generated_faiss_id = bi * BATCH_SIZE + i
+                generated_faiss_id = bi * BATCH_SIZE + i + offset
                 doc_id_to_faiss_id[doc_id] = generated_faiss_id
                 faiss_ids_for_batch.append(generated_faiss_id)
 
@@ -125,32 +125,39 @@ class FAISSIndex(Index):
         count_map = defaultdict(lambda: 0)
         index_path = self.get_index_path()
         index_cache_path = self.get_cache_path()
+        aggregated_distances, aggregated_ids = np.zeros((len(topic_vectors), numshards * k)), np.zeros((len(topic_vectors), numshards * k))
+
         for shard_id in range(numshards):
             offset = shard_id * docs_per_shard
             filename = os.path.join(index_path, "shard_{}_faiss_{}.index".format(shard_id, fold))
             assert os.path.isfile(filename), "shard {} not found".format(filename)
             faiss_shard = faiss.read_index(os.path.join(index_path, filename))
             distances, results = faiss_shard.search(topic_vectors, k)
-            results = results + offset
-            result_heap.add_result(D=distances, I=results)
+            aggregated_distances[:, shard_id * k: (shard_id + 1) * k] = distances
+            aggregated_ids[:, shard_id * k: (shard_id + 1) * k] = results
+            # result_heap.add_result(D=distances, I=results)
 
             faiss_id_to_doc_id = pickle.load(open(os.path.join(index_cache_path, "shard_{}_faiss_id_to_doc_id_{}.dump".format(shard_id, fold)), "rb"))
-            faiss_id_to_doc_id = {faiss_id + offset: doc_id for faiss_id, doc_id in faiss_id_to_doc_id.items()}
-            doc_id_to_faiss_id = {doc_id: faiss_id for faiss_id, doc_id in faiss_id_to_doc_id.items()}
-            # doc_id_to_faiss_id = pickle.load(open(os.path.join(index_cache_path, "shard_{}_doc_id_to_faiss_id_{}.dump".format(shard_id, fold)), "rb"))
+            doc_id_to_faiss_id = pickle.load(open(os.path.join(index_cache_path, "shard_{}_doc_id_to_faiss_id_{}.dump".format(shard_id, fold)), "rb"))
             for faiss_id, doc_id in faiss_id_to_doc_id.items():
+                assert faiss_id >= offset, "faiss_id {} for shard: {} not greater than the offset: {} (docs_per_shard is: {})".format(faiss_id, shard_id, offset, docs_per_shard)
                 count_map[faiss_id] += 1
 
             aggregated_faiss_id_to_doc_id.update(faiss_id_to_doc_id)
             aggregated_doc_id_to_faiss_id.update(doc_id_to_faiss_id)
 
-        result_heap.finalize()
+        # result_heap.finalize()
         pickle.dump(aggregated_faiss_id_to_doc_id, open(os.path.join(index_cache_path, "faiss_id_to_doc_id_{}.dump".format(fold)), "wb"), protocol=-1)
         pickle.dump(aggregated_doc_id_to_faiss_id, open(os.path.join(index_cache_path, "doc_id_to_faiss_id_{}.dump".format(fold)), "wb"), protocol=-1)
 
-        if self.config["isclear"]:
-            faiss_logger.info("Reweighting FAISS scores for CLEAR")
-            distances = self.reweight_using_bm25_scores(result_heap.D, result_heap.I, qid_query, fold)
+        indices = np.argsort(aggregated_distances, axis=1)
+        aggregated_distances = np.take_along_axis(aggregated_distances, indices, 1)
+        aggregated_distances = aggregated_distances[:, :k]
+        aggregated_ids = np.take_along_axis(aggregated_ids, indices, 1)
+        aggregated_ids = aggregated_ids[:, :k]
+
+        assert aggregated_distances.shape == (len(topic_vectors), k)
+        assert aggregated_ids.shape == (len(topic_vectors), k)
 
         temp = 0
         for faiss_id, count in count_map.items():
@@ -160,7 +167,7 @@ class FAISSIndex(Index):
         logger.info("temp is {}".format(temp))
         assert temp == 0
 
-        return result_heap.D, result_heap.I
+        return aggregated_distances, aggregated_ids
 
     def get_docs(self, doc_ids):
         return [self.index.get_doc(doc_id) for doc_id in doc_ids]
