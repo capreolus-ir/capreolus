@@ -60,19 +60,19 @@ class FAISSSearcher(Searcher):
         # rm3_expanded_topic_vectors, rm3_qid_query = self.create_topic_vectors(rm3_expanded_topics, fold, topicfield="title")
         # self.do_search(rm3_expanded_topic_vectors, rm3_qid_query, fold, output_path, "faiss_rm3_expanded.run", "rm3")
 
-        topdoc_expanded_topic_vectors, topdoc_qid_query = self.topdoc_expand_queries(qid_query, topic_vectors, normal_results, fold, k=1)
-        self.do_search(topdoc_expanded_topic_vectors, topdoc_qid_query, fold, output_path, "faiss_topdoc_expanded_{}.run".format(fold), "topdoc-1:")
-        topdoc_expanded_topic_vectors, topdoc_qid_query = self.topdoc_expand_queries(qid_query, topic_vectors, normal_results, fold, k=3)
-        self.do_search(topdoc_expanded_topic_vectors, topdoc_qid_query, fold, output_path, "faiss_topdoc_expanded_{}.run".format(fold), "topdoc-3:")
-        topdoc_expanded_topic_vectors, topdoc_qid_query = self.topdoc_expand_queries(qid_query, topic_vectors, normal_results, fold, k=5)
-        self.do_search(topdoc_expanded_topic_vectors, topdoc_qid_query, fold, output_path, "faiss_topdoc_expanded_{}.run".format(fold), "topdoc-5:")
-        topdoc_expanded_topic_vectors, topdoc_qid_query = self.topdoc_expand_queries(qid_query, topic_vectors, normal_results, fold, k=10)
-        self.do_search(topdoc_expanded_topic_vectors, topdoc_qid_query, fold, output_path, "faiss_topdoc_expanded_{}.run".format(fold), "topdoc-10:")
-
-        self.interpolate(self.index.get_results_path(), os.path.join(output_path, "faiss_topdoc_expanded.run"), fold, "topdoc")
-        # Deleting the results obtained using the expanded queries
-        # os.remove(os.path.join(output_path, "faiss_rm3_expanded.run"))
-        os.remove(os.path.join(output_path, "faiss_topdoc_expanded_{}.run".format(fold)))
+        # topdoc_expanded_topic_vectors, topdoc_qid_query = self.topdoc_expand_queries(qid_query, topic_vectors, normal_results, fold, k=1)
+        # self.do_search(topdoc_expanded_topic_vectors, topdoc_qid_query, fold, output_path, "faiss_topdoc_expanded_{}.run".format(fold), "topdoc-1:")
+        # topdoc_expanded_topic_vectors, topdoc_qid_query = self.topdoc_expand_queries(qid_query, topic_vectors, normal_results, fold, k=3)
+        # self.do_search(topdoc_expanded_topic_vectors, topdoc_qid_query, fold, output_path, "faiss_topdoc_expanded_{}.run".format(fold), "topdoc-3:")
+        # topdoc_expanded_topic_vectors, topdoc_qid_query = self.topdoc_expand_queries(qid_query, topic_vectors, normal_results, fold, k=5)
+        # self.do_search(topdoc_expanded_topic_vectors, topdoc_qid_query, fold, output_path, "faiss_topdoc_expanded_{}.run".format(fold), "topdoc-5:")
+        # topdoc_expanded_topic_vectors, topdoc_qid_query = self.topdoc_expand_queries(qid_query, topic_vectors, normal_results, fold, k=10)
+        # self.do_search(topdoc_expanded_topic_vectors, topdoc_qid_query, fold, output_path, "faiss_topdoc_expanded_{}.run".format(fold), "topdoc-10:")
+        #
+        # self.interpolate(self.index.get_results_path(), os.path.join(output_path, "faiss_topdoc_expanded.run"), fold, "topdoc")
+        # # Deleting the results obtained using the expanded queries
+        # # os.remove(os.path.join(output_path, "faiss_rm3_expanded.run"))
+        # os.remove(os.path.join(output_path, "faiss_topdoc_expanded_{}.run".format(fold)))
 
         return output_path
 
