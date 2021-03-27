@@ -48,7 +48,7 @@ class FAISSIndex(Index):
         shard_id - an integer indicating the id of the shard
         offset - shard_id * num_docs_per_shard. This is used to generate unique ids for docs
         """
-        logger.info("Creating shard: {} with {} docs".format(shard_id, len(doc_ids)))
+        faiss_logger.info("Creating shard: {} with {} docs".format(shard_id, len(doc_ids)))
         sub_index = faiss.IndexFlatIP(encoder.hidden_size)
         faiss_index = faiss.IndexIDMap2(sub_index)
         encoder.extractor.preprocess([], doc_ids, topics=self.benchmark.topics[self.benchmark.query_type])
