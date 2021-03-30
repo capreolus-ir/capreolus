@@ -218,9 +218,7 @@ class RerankTask(Task):
                 for docid, score in docscores.items():
                     all_preds[qid][docid] = score
 
-        cv_metrics = evaluator.eval_runs(
-            all_preds, self.benchmark.qrels, metrics, self.benchmark.relevance_level
-        )
+        cv_metrics = evaluator.eval_runs(all_preds, self.benchmark.qrels, metrics, self.benchmark.relevance_level)
         interpolated_results = evaluator.interpolated_eval(
             searcher_runs, reranker_runs, self.benchmark, self.config["optimize"], metrics
         )
