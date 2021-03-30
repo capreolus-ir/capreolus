@@ -175,8 +175,11 @@ class PytorchTrainer(Trainer):
             `Validation is scheduled on iterations: [3, 6, 9, 12, 15, 18]` given initial_iter in [0, 1, 2]
             `Validation is scheduled on iterations: [6, 9, 12, 15, 18]` given initial_iter == 3
         """
-        validation_schedule = [validate for validate in range(initial_iter+1, self.config["niters"]+1)
-                               if validate % self.config["validatefreq"] == 0]
+        validation_schedule = [
+            validate
+            for validate in range(initial_iter + 1, self.config["niters"] + 1)
+            if validate % self.config["validatefreq"] == 0
+        ]
         msg = f"Validation is scheduled on iterations: {validation_schedule}"
         return msg
 
