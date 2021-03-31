@@ -234,8 +234,7 @@ class PytorchANNTrainer(Trainer):
             "token_type_ids": pack_tensor_2D(token_type_ids_lst, default=0, dtype=torch.int64),
             "valid_mask": pack_tensor_2D(valid_mask_lst, default=0, dtype=torch.int64),
             "position_ids": pack_tensor_2D(position_ids_lst, default=0, dtype=torch.int64),
-            "is_relevant": [x["is_relevant"] for x in batch],
-            "residual": torch.tensor([x["residual"] for x in batch])
+            "is_relevant": [x["is_relevant"] for x in batch]
         }
         qid_lst = [x['qid'] for x in batch]
         docid_lst = [x['posdocid'] for x in batch]
