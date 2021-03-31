@@ -158,7 +158,8 @@ class PytorchANNTrainer(Trainer):
                         encoder.save_weights(weights_fn, self.optimizer)
 
                         # TODO: This would fail for all non-huggingface models
-                        encoder.model.save_pretrained(output_path)
+                        # Will fail if dataparallel is not used
+                        encoder.model.module.save_pretrained(output_path)
 
                 # weights_fn = output_path / "weights_{}".format(train_dataset.get_hash())
                 # encoder.save_weights(weights_fn, self.optimizer)
