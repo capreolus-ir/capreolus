@@ -136,7 +136,7 @@ class Robust04DescQueries(Task):
             json.dump(folds, out_f)
 
         with open(self.config["queryoutput"], "w") as out_f:
-            for query in new_queries:
+            for query in new_queries + duplicate_queries:
                 out_f.write(topic_to_trectxt(query.query_id, query.text.lower()))
 
         with open(self.config["qrelsoutput"], "w") as out_f:
