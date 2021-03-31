@@ -134,7 +134,6 @@ class PytorchANNTrainer(Trainer):
             # Useful when working with pre-trained weights
             weights_fn = output_path / "weights"
             encoder.save_weights(weights_fn, self.optimizer)
-            logger.info("Weights saved to {}".format(weights_fn))
         else:
             for niter in range(self.config["niters"]):
                 encoder.model.train()
@@ -158,8 +157,12 @@ class PytorchANNTrainer(Trainer):
                         weights_fn = output_path / "weights"
                         encoder.save_weights(weights_fn, self.optimizer)
 
+                        # TODO: This would fail for all non-huggingface models
+                        encoder.model.save_pretrained(output_path)
+
                 # weights_fn = output_path / "weights_{}".format(train_dataset.get_hash())
                 # encoder.save_weights(weights_fn, self.optimizer)
+        logger.info("Encoder weights saved to {}".format(weights_fn))
 
     def validate(self, encoder, dev_dataset):
         encoder.model.eval()

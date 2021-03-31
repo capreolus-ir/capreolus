@@ -1,4 +1,5 @@
 import torch
+from capreolus import ConfigOption
 import torch.nn.functional as F
 from torch import nn
 import os
@@ -93,12 +94,14 @@ class RepBERT_Class(BertPreTrainedModel):
 @Encoder.register
 class RepBERTPretrained(Encoder):
     module_name = "repbertpretrained"
-    pretrained_weights_fn = "/GW/NeuralIR/nobackup/kevin_cache/msmarco_saved/repbert.ckpt-350000"
+    config_spec = [
+        ConfigOption("pretrainedweights", "/GW/NeuralIR/nobackup/kevin_cache/msmarco_saved/repbert.ckpt-350000", "By default we use RepBERT MSMarco checkpoint")
+    ]
 
     def instantiate_model(self):
         if not hasattr(self, "model"):
             config = BertConfig.from_pretrained(self.pretrained_weights_fn)
-            self.model = torch.nn.DataParallel(RepBERT_Class.from_pretrained(self.pretrained_weights_fn, config=config))
+            self.model = torch.nn.DataParallel(RepBERT_Class.from_pretrained(self.config["pretrainedweights"], config=config))
             self.hidden_size = self.model.module.hidden_size
 
     def encode_doc(self, numericalized_text, mask):
