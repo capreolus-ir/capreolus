@@ -100,7 +100,7 @@ class RepBERTPretrained(Encoder):
 
     def instantiate_model(self):
         if not hasattr(self, "model"):
-            config = BertConfig.from_pretrained(self.pretrained_weights_fn)
+            config = BertConfig.from_pretrained(self.config["pretrainedweights"])
             self.model = torch.nn.DataParallel(RepBERT_Class.from_pretrained(self.config["pretrainedweights"], config=config))
             self.hidden_size = self.model.module.hidden_size
 
