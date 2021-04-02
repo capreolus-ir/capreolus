@@ -334,6 +334,18 @@ class StaticCovidUdelAbstract(StaticRun):
 
 
 @Searcher.register
+class StaticRM3TitleCore18(StaticRun):
+    module_name = "rm3staticcore18title"
+    run_fn = "core18_title_rm3.run"
+
+
+@Searcher.register
+class StaticRM3DescCore18(StaticRun):
+    module_name = "rm3staticcore18desc"
+    run_fn = "core18_desc_rm3.run"
+
+
+@Searcher.register
 class BM25PRF(AnseriniSearcherMixIn, Searcher):
     """ Anserini BM25 PRF. This searcher's parameters can also be specified as lists indicating parameters to grid search (e.g., ``"0.4,0.6,0.8,1.0"`` or ``"0.4..1,0.2"``). """
 

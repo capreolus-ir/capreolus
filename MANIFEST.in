@@ -28,3 +28,7 @@ include capreolus/data/gov2_bm25.run
 include capreolus/data/gov2_desc_bm25.run
 include capreolus/data/gov2_maxp_folds.json
 include capreolus/data/rob04_yang19_desc_rm3.run
+include capreolus/data/core18_desc_folds.json
+include capreolus/data/core18_title_folds.json
+include capreolus/data/core18_desc_rm3.run
+include capreolus/data/core18_title_rm3.run
