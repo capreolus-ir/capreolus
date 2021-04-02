@@ -18,5 +18,5 @@ class WaPo(IRDCollection):
     collection_type = "JsonCollection"
 
     def doc_as_json(self, doc):
-        content = " ".join((doc.title, doc.body))
+        content = " ".join((x for x in (doc.title, doc.body) if x is not None))
         return json.dumps({"id": doc.doc_id, "contents": content})
