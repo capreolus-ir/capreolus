@@ -53,6 +53,7 @@ class Robust04Huston14(Benchmark):
     fold_file = PACKAGE_PATH / "data" / "rob04_huston14_title_folds.json"
     query_type = "title"
 
+
 @Benchmark.register
 class Robust04Huston14Desc(Robust04Huston14, Benchmark):
     module_name = "robust04.huston14.desc"

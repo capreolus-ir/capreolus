@@ -19,6 +19,7 @@ def threshold_trec_run(run, fold, k):
 
     return filtered_run
 
+
 def load_ntcir_topics(fn):
     topics = {}
 
