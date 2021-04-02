@@ -30,11 +30,15 @@ class TFBERTMaxP_Class(tf.keras.layers.Layer):
             self.bert = TFAutoModelForSequenceClassification.from_pretrained("Capreolus/electra-base-msmarco")
             dropout, fc = self.bert.classifier.dropout, self.bert.classifier.out_proj
             self.bert.classifier = TFElectraRelevanceHead(dropout, fc)
+        elif config["pretrained"] == "electra-base":
+            self.bert = TFAutoModelForSequenceClassification.from_pretrained("google/electra-base-discriminator")
+            dropout, fc = self.bert.classifier.dropout, self.bert.classifier.out_proj
+            self.bert.classifier = TFElectraRelevanceHead(dropout, fc)
         elif config["pretrained"] == "bert-base-msmarco":
             self.bert = TFAutoModelForSequenceClassification.from_pretrained("Capreolus/bert-base-msmarco")
         else:
             self.bert = TFAutoModelForSequenceClassification.from_pretrained(
-                config["pretrained"], hidden_dropout_prob=config["hidden_dropout_prob"]
+                config["pretrained"], hidden_dropout_prob=config["hidden_dropout_prob"], from_pt=True
             )
 
         self.config = config
