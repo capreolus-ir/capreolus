@@ -15,3 +15,7 @@ include capreolus/data/robust04.yaml
 include capreolus/data/topics.antique.txt
 include capreolus/data/topics.dummy.txt
 include capreolus/data/topics.robust04.301-450.601-700.txt
+include capreolus/data/rob04_huston14_desc_folds.json
+include capreolus/data/rob04_huston14_desc_rm3.run
+include capreolus/data/rob04_huston14_title_folds.json
+include capreolus/data/rob04_huston14_title_rm3.run

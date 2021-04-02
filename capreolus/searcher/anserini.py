@@ -288,7 +288,19 @@ class StaticBM25RM3Rob04Yang19Desc(StaticRun):
     module_name = "bm25staticrob04yang19desc"
     run_fn = "rob04_yang19_desc_rm3.run"
 
+    
+@Searcher.register
+class StaticBM25Rob04Huston14Title(StaticRun):
+    module_name = "bm25staticrob04huston14title"
+    run_fn = "rob04_huston14_title_rm3.run"
 
+    
+@Searcher.register
+class StaticBM25Rob04Huston14Desc(StaticRun):
+    module_name = "bm25staticrob04huston14desc"
+    run_fn = "rob04_huston14_desc_rm3.run"
+
+    
 @Searcher.register
 class StaticBM25Gov2(StaticRun):
     module_name = "bm25staticgov2"
