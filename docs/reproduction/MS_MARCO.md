@@ -53,3 +53,4 @@ This requires GPU(s) with 48GB memory (e.g. 4 V100 or a RTX 8000) or a TPU.
 
 ## Replication Logs
 + Results (with hypperparameter-0) replicated by [@crystina-z](https://github.com/crystina-z) on 2020-12-06 (commit [`6c3759f`](https://github.com/crystina-z/capreolus-1/commit/6c3759fe620f18f8939670176a18c744752bc9240)) (Tesla V100 on Compute Canada)
++ Results (with hypperparameter-0) replicated by [@Dahlia-Chehata](https://github.com/Dahlia-Chehata) on 2021-03-29 (commit [`7915aad`](https://github.com/capreolus-ir/capreolus/commit/7915aad75406527a3b88498926cff85259808696)) (Tesla V100 on Compute Canada)
