@@ -51,17 +51,12 @@ class FAISSIndex(Index):
         faiss_logger.info("Creating shard: {} with {} docs".format(shard_id, len(doc_ids)))
         sub_index = faiss.IndexFlatIP(encoder.hidden_size)
         faiss_index = faiss.IndexIDMap2(sub_index)
-        start_time = time.time()
         encoder.extractor.preprocess([], doc_ids, topics=self.benchmark.topics[self.benchmark.query_type])
-        logger.info("Preprocessing extractor took {}".format(time.time() - start_time))
 
-
-        start_time = time.time()
         dataset = CollectionSampler()
         dataset.prepare(
             doc_ids, None, encoder.extractor, relevance_level=self.benchmark.relevance_level
         )
-        logger.info("Preparing CollectionSampler took {}".format(time.time() - start_time))
 
         BATCH_SIZE = 64
         dataloader = torch.utils.data.DataLoader(

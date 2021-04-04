@@ -114,6 +114,19 @@ class AnseriniIndex(Index):
 
         return all_doc_ids
 
+    def get_anserini_index_reader(self):
+        from jnius import autoclass
+        self.create_index()
+
+        anserini_index_path = self.get_index_path().as_posix()
+
+        JFile = autoclass("java.io.File")
+        JFSDirectory = autoclass("org.apache.lucene.store.FSDirectory")
+        fsdir = JFSDirectory.open(JFile(anserini_index_path).toPath())
+        anserini_index_reader = autoclass("org.apache.lucene.index.DirectoryReader").open(fsdir)
+
+        return anserini_index_reader
+
     def get_df(self, term):
         # returns 0 for missing terms
         if not hasattr(self, "reader") or self.reader is None:
