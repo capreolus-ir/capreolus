@@ -102,8 +102,9 @@ class DenseRankTask(Task):
         output_path = self.get_results_path()
         self.encoder.trainer.load_trained_weights(self.encoder, output_path)
         topics_fn = self.benchmark.topic_file
-        all_docids = sorted(self.searcher.index.get_all_docids_in_collection())
-        docs_per_shard = math.ceil(len(all_docids) / self.config["numshards"])
+        index_reader = self.searcher.index.get_anserini_index_reader()
+        num_docs = index_reader.maxDoc()
+        docs_per_shard = math.ceil(num_docs / self.config["numshards"])
         search_results_folder = self.annsearcher._query_from_file(self.encoder, topics_fn, output_path, self.config["numshards"], docs_per_shard, fold=fold)
 
         # do faiss search
