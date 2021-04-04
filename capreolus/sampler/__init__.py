@@ -391,7 +391,10 @@ class CollectionSampler(Sampler, torch.utils.data.IterableDataset):
 
     def generate_samples(self):
         for docid in self.docids:
-            yield self.extractor.id2vec(None, docid)
+            try:
+                yield self.extractor.id2vec(None, docid)
+            except MissingDocError:
+                logger.info("Doc {} was missing".format(docid))
 
     def __iter__(self):
         """
