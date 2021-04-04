@@ -1,4 +1,5 @@
 import math
+import time
 import os
 from collections import defaultdict
 from capreolus import ConfigOption, Dependency, evaluator
@@ -80,12 +81,16 @@ class DenseRankTask(Task):
         assert os.path.isfile(os.path.join(self.get_results_path(), "weights")), "Saved encoder weights not found at {}".format(self.get_results_path())
 
         shard_id = self.config["shard"] - 1  # shard_ids are 1-indexed
+        start_time = time.time()
         all_docids = sorted(self.searcher.index.get_all_docids_in_collection())
+        logger.info("Getting all docs took {}".format(time.time() - start_time))
         docs_per_shard = math.ceil(len(all_docids) / self.config["numshards"])
         docids_for_current_shard = all_docids[shard_id * docs_per_shard: (shard_id + 1) * docs_per_shard]
         offset = shard_id * docs_per_shard
 
+        start_time = time.time()
         self.encoder.trainer.load_trained_weights(self.encoder, self.get_results_path())
+        logger.info("Loading trained weights took {}".format(time.time() - start_time))
         self.annsearcher.index.create_shard(self.encoder, shard_id, offset, docids_for_current_shard, self.config["fold"])
 
     def evaluate(self):
