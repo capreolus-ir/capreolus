@@ -87,6 +87,8 @@ class DenseRankTask(Task):
         num_docs = index_reader.maxDoc()
         docs_per_shard = math.ceil(num_docs / self.config["numshards"])
         docids_for_current_shard = [self.searcher.index.convert_lucene_id_to_doc_id(x) for x in range(shard_id * docs_per_shard, (shard_id + 1) * docs_per_shard)]
+        docids_for_current_shard = [x for x in docids_for_current_shard if x is not None]
+
         logger.info("Getting all docs took {}".format(time.time() - start_time))
         offset = shard_id * docs_per_shard
         self.encoder.trainer.load_trained_weights(self.encoder, self.get_results_path())
