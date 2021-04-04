@@ -139,8 +139,13 @@ class FAISSIndex(Index):
 
             faiss_id_to_doc_id = pickle.load(open(os.path.join(index_cache_path, "shard_{}_faiss_id_to_doc_id_{}.dump".format(shard_id, fold)), "rb"))
             doc_id_to_faiss_id = pickle.load(open(os.path.join(index_cache_path, "shard_{}_doc_id_to_faiss_id_{}.dump".format(shard_id, fold)), "rb"))
+
+            faiss_id_to_doc_id = {faiss_id + offset: doc_id for faiss_id, doc_id in faiss_id_to_doc_id.items()}
+            doc_id_to_faiss_id = {doc_id: faiss_id + offset for doc_id, faiss_id in doc_id_to_faiss_id.items()}
+
             for faiss_id, doc_id in faiss_id_to_doc_id.items():
                 assert faiss_id >= offset, "faiss_id {} for shard: {} not greater than the offset: {} (docs_per_shard is: {})".format(faiss_id, shard_id, offset, docs_per_shard)
+                assert faiss_id <= (shard_id + 1) * docs_per_shard, "faiss_id {} for shard: {} is greater than the next offset: {} (docs_per_shard is: {})".format(faiss_id, shard_id, (shard_id + 1) * docs_per_shard, docs_per_shard)
                 count_map[faiss_id] += 1
 
             aggregated_faiss_id_to_doc_id.update(faiss_id_to_doc_id)
