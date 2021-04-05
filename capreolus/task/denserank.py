@@ -92,14 +92,14 @@ class DenseRankTask(Task):
         logger.info("Getting all docs took {}".format(time.time() - start_time))
         offset = shard_id * docs_per_shard
         self.encoder.trainer.load_trained_weights(self.encoder, self.get_results_path())
-        self.annsearcher.index.create_shard(self.encoder, shard_id, offset, docids_for_current_shard, self.config["fold"])
+        self.annsearcher.index.create_shard(self.encoder, shard_id, offset, docids_for_current_shard, self.config["fold"], self.get_results_path())
 
     def evaluate(self):
         fold = self.config["fold"]
-        for shard_id in range(self.config["numshards"]):
-            assert os.path.isfile(os.path.join(self.annsearcher.index.get_index_path(), "shard_{}_faiss_{}.index".format(shard_id, fold))), "Shard {} does not exist".format(shard_id)
-
         output_path = self.get_results_path()
+        for shard_id in range(self.config["numshards"]):
+            assert os.path.isfile(os.path.join(output_path, "shard_{}_faiss_{}.index".format(shard_id, fold))), "Shard {} does not exist".format(shard_id)
+
         self.encoder.trainer.load_trained_weights(self.encoder, output_path)
         topics_fn = self.benchmark.topic_file
         index_reader = self.searcher.index.get_anserini_index_reader()

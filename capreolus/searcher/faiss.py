@@ -38,7 +38,7 @@ class FAISSSearcher(Searcher):
     def do_search(self, topic_vectors, qid_query, numshards, docs_per_shard, fold, output_path, filename, tag):
         # A manual search is done over the docs in dev_run - this way for each qid, we only score the docids that BM25 retrieved for it
         # self.index.manual_search_train_set(topic_vectors, qid_query, fold)
-        distances, results = self.index.faiss_search(topic_vectors, 1000, qid_query, numshards, docs_per_shard, fold)
+        distances, results = self.index.faiss_search(topic_vectors, 1000, qid_query, numshards, docs_per_shard, fold, output_path)
         # self.calc_faiss_search_metrics_for_train_set(distances, results, qid_query, fold)
         self.calc_faiss_search_metrics_for_dev_set(distances, results, qid_query, fold, tag)
         self.calc_faiss_search_metrics_for_test_set(distances, results, qid_query, fold, tag)
