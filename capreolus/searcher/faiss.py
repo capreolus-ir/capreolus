@@ -210,7 +210,7 @@ class FAISSSearcher(Searcher):
         return expanded_topics
 
     def write_results_in_trec_format(self, results, distances, qid_query, output_path, fold, filename="faiss.run"):
-        faiss_id_to_doc_id_fn = os.path.join(self.index.get_cache_path(), "faiss_id_to_doc_id_{}.dump".format(fold))
+        faiss_id_to_doc_id_fn = os.path.join(output_path, "faiss_id_to_doc_id_{}.dump".format(fold))
         faiss_id_to_doc_id = pickle.load(open(faiss_id_to_doc_id_fn, "rb"))
         trec_string = "{qid} 0 {doc_id} {rank} {score} faiss\n"
         num_queries, num_neighbours = results.shape
