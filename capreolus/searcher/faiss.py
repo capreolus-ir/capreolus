@@ -40,8 +40,8 @@ class FAISSSearcher(Searcher):
         # self.index.manual_search_train_set(topic_vectors, qid_query, fold)
         distances, results = self.index.faiss_search(topic_vectors, 1000, qid_query, numshards, docs_per_shard, fold, output_path)
         # self.calc_faiss_search_metrics_for_train_set(distances, results, qid_query, fold)
-        self.calc_faiss_search_metrics_for_dev_set(distances, results, qid_query, fold, tag)
-        self.calc_faiss_search_metrics_for_test_set(distances, results, qid_query, fold, tag)
+        self.calc_faiss_search_metrics_for_dev_set(distances, results, qid_query, fold, tag, output_path)
+        self.calc_faiss_search_metrics_for_test_set(distances, results, qid_query, fold, tag, output_path)
         distances = distances.astype(np.float16)
         self.write_results_in_trec_format(results, distances, qid_query, output_path, fold, filename=filename)
 
@@ -227,24 +227,19 @@ class FAISSSearcher(Searcher):
 
         return output_path
 
-    def calc_faiss_search_metrics_for_train_set(self, distances, results, qid_query, fold, tag):
-        valid_qids = [qid for qid in self.benchmark.folds[fold]["train_qids"]]
-        metrics = self.calc_faiss_search_metrics(distances, results, qid_query, valid_qids, fold)
-        faiss_logger.info("%s: FAISS train set metrics: %s", tag, " ".join([f"{metric}={v:0.3f}" for metric, v in sorted(metrics.items())]))
-
-    def calc_faiss_search_metrics_for_dev_set(self, distances, results, qid_query, fold, tag):
+    def calc_faiss_search_metrics_for_dev_set(self, distances, results, qid_query, fold, tag, output_path):
         valid_qids = [qid for qid in self.benchmark.folds[fold]["predict"]["dev"]]
-        metrics = self.calc_faiss_search_metrics(distances, results, qid_query, valid_qids, fold)
+        metrics = self.calc_faiss_search_metrics(distances, results, qid_query, valid_qids, fold, output_path)
         faiss_logger.info("%s: FAISS dev set metrics: %s", tag, " ".join([f"{metric}={v:0.3f}" for metric, v in sorted(metrics.items())]))
 
-    def calc_faiss_search_metrics_for_test_set(self, distances, results, qid_query, fold, tag):
+    def calc_faiss_search_metrics_for_test_set(self, distances, results, qid_query, fold, tag, output_path):
         valid_qids = [qid for qid in self.benchmark.folds[fold]["predict"]["test"]]
-        metrics = self.calc_faiss_search_metrics(distances, results, qid_query, valid_qids, fold)
+        metrics = self.calc_faiss_search_metrics(distances, results, qid_query, valid_qids, fold, output_path)
         faiss_logger.info("%s: FAISS test set metrics: %s", tag,
                           " ".join([f"{metric}={v:0.3f}" for metric, v in sorted(metrics.items())]))
 
-    def calc_faiss_search_metrics(self, distances, results, qid_query, valid_qids, fold):
-        faiss_id_to_doc_id_fn = os.path.join(self.index.get_cache_path(), "faiss_id_to_doc_id_{}.dump".format(fold))
+    def calc_faiss_search_metrics(self, distances, results, qid_query, valid_qids, fold, output_path):
+        faiss_id_to_doc_id_fn = os.path.join(output_path, "faiss_id_to_doc_id_{}.dump".format(fold))
         faiss_id_to_doc_id = pickle.load(open(faiss_id_to_doc_id_fn, "rb"))
         num_queries, num_neighbours = results.shape
         run = {}
