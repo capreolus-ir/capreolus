@@ -49,6 +49,7 @@ class Robust04Passages(Benchmark):
     topic_file = PACKAGE_PATH / "data" / "topics.robust04.301-450.601-700.txt"
     fold_file = PACKAGE_PATH / "data" / "rob04_cedr_folds.json"
     query_type = "title"
+    need_pooling = True
 
 
 @Benchmark.register
@@ -63,7 +64,7 @@ class Robust04PassagesDocT5Queries(Benchmark):
     topic_file = PACKAGE_PATH / "data" / "topics.robust04doct5title.txt"
     fold_file = PACKAGE_PATH / "data" / "robust04doct5title.folds.json"
     query_type = "title"
-
+    need_pooling = True
 
 @Benchmark.register
 class Robust04PassagesDocT5QueriesKeepStops(Benchmark):
@@ -77,6 +78,7 @@ class Robust04PassagesDocT5QueriesKeepStops(Benchmark):
     topic_file = PACKAGE_PATH / "data" / "topics.robust04doct5keepstops.txt"
     fold_file = PACKAGE_PATH / "data" / "robust04doct5keepstops.folds.json"
     query_type = "desc"
+    need_pooling = True
 
 
 @Benchmark.register
@@ -91,3 +93,4 @@ class Robust04PassagesDocT5QueriesDesc(Benchmark):
     topic_file = PACKAGE_PATH / "data" / "topics.robust04doct5desc.txt"
     fold_file = PACKAGE_PATH / "data" / "robust04doct5desc.folds.json"
     query_type = "desc"
+    need_pooling = True

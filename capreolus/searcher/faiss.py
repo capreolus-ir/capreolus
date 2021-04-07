@@ -254,7 +254,7 @@ class FAISSSearcher(Searcher):
                 doc_id = faiss_id_to_doc_id[faiss_id]
                 run.setdefault(qid, {})[doc_id] = distances[i][j].item()
 
-        if self.benchmark.module_name.startswith("robust04passages"):
+        if hasattr(self.benchmark, "need_pooling") and self.benchmark.need_pooling:
              run = max_pool_trec_passage_run(run)
 
         metrics = evaluator.eval_runs(run, self.benchmark.qrels, evaluator.DEFAULT_METRICS, self.benchmark.relevance_level)
@@ -318,7 +318,7 @@ class FAISSSearcher(Searcher):
                 elif docid not in bm25_run[qid] and docid in faiss_run[qid]:
                     interpolated_run.setdefault(qid, {})[docid] = (faiss_run[qid][docid] - faiss_min) / (faiss_max - faiss_min)
 
-        if self.benchmark.module_name.startswith("robust04passages"):
+        if hasattr(self.benchmark, "need_pooling") and self.benchmark.need_pooling:
             interpolated_run = max_pool_trec_passage_run(interpolated_run)
 
         metrics = evaluator.eval_runs(interpolated_run, self.benchmark.qrels, evaluator.DEFAULT_METRICS, self.benchmark.relevance_level)
