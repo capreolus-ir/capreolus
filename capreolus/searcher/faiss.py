@@ -27,7 +27,7 @@ class FAISSSearcher(Searcher):
 
     module_name = "faiss"
     config_spec = [
-        ConfigOption("field", "desc", "The query field that should be used for retrieval")
+        ConfigOption("field", "title", "The query field that should be used for retrieval")
     ]
 
     dependencies = [Dependency(key="index", module="index", name="faiss"), Dependency(key="benchmark", module="benchmark")]
