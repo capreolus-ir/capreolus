@@ -23,8 +23,6 @@ class Sampler(ModuleBase):
         qrels: A dict of the form {qid: {docid: label}}
         extractor: An Extractor instance (eg: EmbedText)
         relevance_level: Threshold score below which documents are considered to be non-relevant.
-        separator: Some datasets (eg: robust04passages) has docids in a <docid>_<passageid> format while the qrels only
-        use the docid part. In these cases, we have to ignore the passageid part - the separator helps with this.
         """
         self.extractor = extractor
 
@@ -176,6 +174,65 @@ class TrainPairSampler(Sampler, TrainingSamplerMixin, torch.utils.data.IterableD
 
             yield self.extractor.id2vec_for_train(qid, negdocid, negid=None, label=[1, 0],
                                                   reldocs=set(self.qid_to_reldocs[qid]))
+
+
+@Sampler.register
+class TrainPairSamplerRobust04passages(TrainPairSampler):
+    """
+    Samples training data pairs. Each sample is of the form (query, doc)
+    The number of generated positive and negative samples are the same.
+    We alternate between posdoc and negdocs. This is required for RepBERT.
+    """
+
+    module_name = "pairrobust04passages"
+    dependencies = []
+
+    def get_hash(self):
+        sorted_rep = sorted([(qid, docids) for qid, docids in self.qid_to_docids.items()])
+        key_content = "{0}{1}".format(self.extractor.get_cache_path(), str(sorted_rep))
+        key = hashlib.md5(key_content.encode("utf-8")).hexdigest()
+        return "pairrobust04passages_{0}".format(key)
+
+    def prepare(self, qid_to_docids, qrels, extractor, relevance_level=1, separator="_", **kwargs):
+        """
+        params:
+        qid_to_docids: A dict of the form {qid: [list of docids to rank]} or of the form {qid: {docid: score}}
+
+        qrels: A dict of the form {qid: {docid: label}}
+        extractor: An Extractor instance (eg: EmbedText)
+        relevance_level: Threshold score below which documents are considered to be non-relevant.
+        separator: Some datasets (eg: robust04passages) has docids in a <docid>_<passageid> format while the qrels only
+        use the docid part. In these cases, we have to ignore the passageid part - the separator helps with this.
+        """
+        self.extractor = extractor
+
+        # remove qids from qid_to_docids that do not have relevance labels in the qrels
+        self.qid_to_docids = {qid: docids for qid, docids in qid_to_docids.items() if qid in qrels}
+        if len(self.qid_to_docids) != len(qid_to_docids):
+            logger.warning(
+                f"skipping qids that were missing from the qrels: {len(qid_to_docids.keys() - self.qid_to_docids.keys())} in total."
+            )
+
+        self.qid_to_reldocs = {
+            qid: [docid for docid in docids if qrels[qid].get(docid.split(separator)[0], 0) >= relevance_level]
+            for qid, docids in self.qid_to_docids.items()
+        }
+        # TODO option to include only negdocs in a top k
+        self.qid_to_negdocs = {
+            qid: [docid for docid in docids if qrels[qid].get(docid.split(separator)[0], 0) < relevance_level]
+            for qid, docids in self.qid_to_docids.items()
+        }
+
+        count = 0
+        for qid, reldocs in self.qid_to_reldocs.items():
+            if len(reldocs):
+                count += 1
+
+        logger.info("{} out of {} queries had a relevant doc in the BM25 results".format(count, len(self.qid_to_reldocs)))
+
+        self.total_samples = 0
+        self.clean()
+
 
 @Sampler.register
 class QrelTrainPairSampler(Sampler, TrainingSamplerMixin, torch.utils.data.IterableDataset):
