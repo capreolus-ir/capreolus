@@ -39,10 +39,18 @@ class Gov2Passages(Task):
         overlap = self.config["overlap"]
         output_dir = os.path.join(self.get_cache_path(), "generated") if self.config["output"] is None else self.config["output"]
         os.makedirs(output_dir, exist_ok=True)
-        fout = open(os.path.join(output_dir, "collection.txt"), "w", encoding="utf-8")
+        files_count = 0
+        fout = open(os.path.join(output_dir, "collection_{}.txt".format(files_count)), "w", encoding="utf-8")
         total_psg_count = 0
+        docs_count = 0
 
-        for docid in tqdm(all_docids, desc="generating"):
+        for i, docid in tqdm(enumerate(all_docids), desc="generating"):
+            docs_count += 1
+            if i % 5000000 == 0:
+                fout.close()
+                files_count += 1
+                fout = open(os.path.join(output_dir, "collection_{}.txt".format(files_count)), "w", encoding="utf-8")
+
             doc = self.index.get_doc(docid)
             sentences = nltk.sent_tokenize(doc)
             start_idx = 0
@@ -69,7 +77,7 @@ class Gov2Passages(Task):
                 formatted_passages = "\n----------\n".join(passages)
                 logger.debug("The passages are: {}".format(formatted_passages))
 
-        logger.info("Generated {} passages from gov2".format(total_psg_count))
+        logger.info("Generated {} passages from {} gov2 docs".format(total_psg_count, docs_count))
         fout.close()
 
     def get_all_docids_in_collection(self):
