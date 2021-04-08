@@ -46,7 +46,7 @@ class Gov2Passages(Task):
 
         for i, docid in tqdm(enumerate(all_docids), desc="generating"):
             docs_count += 1
-            if i % 5000000 == 0:
+            if i % 1000000 == 0:
                 fout.close()
                 files_count += 1
                 fout = open(os.path.join(output_dir, "collection_{}.txt".format(files_count)), "w", encoding="utf-8")
