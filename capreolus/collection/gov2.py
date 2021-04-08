@@ -51,7 +51,7 @@ class Gov2Passages(Collection):
     """ TREC Robust04 (TREC disks 4 and 5 without the Congressional Record documents) """
 
     module_name = "gov2passages"
-    collection_type = "TrecwebCollection"
+    collection_type = "TrecCollection"
     generator_type = "DefaultLuceneDocumentGenerator"
     config_keys_not_in_path = ["path"]
     config_spec = [ConfigOption("path", "/GW/NeuralIR/nobackup/GOV2/GOV2_data", "path to corpus")]
