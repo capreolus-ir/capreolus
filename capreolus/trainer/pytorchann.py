@@ -132,7 +132,7 @@ class PytorchANNTrainer(Trainer):
         num_workers = 1 if self.config["multithread"] else 0
 
         # RepBERT and RepBERTPretrained has implemented the collate method based on the original author's code
-        collate_fn = self.encoder.collate if hasattr(self.encoder, "collate") else None
+        collate_fn = encoder.collate if hasattr(encoder, "collate") else None
         train_dataloader = torch.utils.data.DataLoader(
             train_dataset, batch_size=self.config["batch"], pin_memory=True, num_workers=num_workers, collate_fn=collate_fn
         )
