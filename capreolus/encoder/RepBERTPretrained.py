@@ -5,7 +5,7 @@ from torch import nn
 import os
 from transformers import BertPreTrainedModel, BertModel, BertConfig
 from capreolus import get_logger
-from capreolus.utils.common import download_file
+from capreolus.utils.common import download_file, pack_tensor_2D
 from capreolus.encoder import Encoder
 
 
@@ -67,12 +67,7 @@ class RepBERT_Class(BertPreTrainedModel):
 
         similarities = torch.matmul(query_embeddings, doc_embeddings.T)
 
-        output = (similarities, query_embeddings, doc_embeddings)
-        if labels is not None:
-            loss_fct = nn.MultiLabelMarginLoss()
-            loss = loss_fct(similarities, labels)
-
-        return loss
+        return similarities, labels
 
     def predict(self, input_ids, valid_mask, is_query=False):
         if is_query:
@@ -123,3 +118,27 @@ class RepBERTPretrained(Encoder):
         doc_emb = self.model.module.predict(doc, doc_mask)
 
         return torch.diagonal(torch.matmul(query_emb, doc_emb.T))
+
+    @staticmethod
+    def collate(batch):
+        input_ids_lst = [x["query"] + x["posdoc"] for x in batch]
+        token_type_ids_lst = [[0] * len(x["query"]) + [1] * len(x["posdoc"])
+                              for x in batch]
+        valid_mask_lst = [[1] * len(input_ids) for input_ids in input_ids_lst]
+        position_ids_lst = [list(range(len(x["query"]))) +
+                            list(range(len(x["posdoc"]))) for x in batch]
+        data = {
+            "input_ids": pack_tensor_2D(input_ids_lst, default=0, dtype=torch.int64),
+            "token_type_ids": pack_tensor_2D(token_type_ids_lst, default=0, dtype=torch.int64),
+            "valid_mask": pack_tensor_2D(valid_mask_lst, default=0, dtype=torch.int64),
+            "position_ids": pack_tensor_2D(position_ids_lst, default=0, dtype=torch.int64),
+            "is_relevant": [x["is_relevant"] for x in batch]
+        }
+        qid_lst = [x['qid'] for x in batch]
+        docid_lst = [x['posdocid'] for x in batch]
+        # `labels` contain pointers to the samples in the batch (i.e indices)
+        # It's saying "hey for this qid, the docs in these rows are the relevant ones"
+        labels = [[j for j in range(len(docid_lst)) if docid_lst[j] in x['rel_docs']] for x in batch]
+        data['labels'] = pack_tensor_2D(labels, default=-1, dtype=torch.int64, length=len(batch))
+
+        return data

@@ -13,7 +13,7 @@ import time
 from transformers import get_linear_schedule_with_warmup
 
 from capreolus import get_logger, ConfigOption, evaluator
-from capreolus.reranker.common import pair_hinge_loss, pair_softmax_loss
+from capreolus.reranker.common import pair_hinge_loss, pair_softmax_loss, multi_label_margin_loss
 
 from . import Trainer
 from capreolus.utils.common import pack_tensor_2D
@@ -47,6 +47,7 @@ class PytorchANNTrainer(Trainer):
         ConfigOption("decaystep", 3),
         ConfigOption("decaytype", None),
         ConfigOption("amp", None, "Automatic mixed precision mode; one of: None, train, pred, both"),
+        ConfigOption("loss", "mlmargin")
     ]
     config_keys_not_in_path = ["boardname"]
 
@@ -59,7 +60,8 @@ class PytorchANNTrainer(Trainer):
         for bi, batch in tqdm(enumerate(train_dataloader), desc="Training iteration", total=batches_per_epoch):
             batch = {k: v.to(self.device) if not isinstance(v, list) else v for k, v in batch.items()}
 
-            loss = encoder.score(batch)
+            output = encoder.score(batch)
+            loss = self.loss(*output)
 
             iter_loss.append(loss)
             loss.backward()
@@ -118,13 +120,21 @@ class PytorchANNTrainer(Trainer):
             self._train(encoder, train_dataset, dev_dataset, output_path, qrels, metric, relevance_level)
 
     def _train(self, encoder, train_dataset, dev_dataset, output_path, qrels, metric, relevance_level):
+        if self.config["loss"] == "mlmargin":
+            self.loss = multi_label_margin_loss
+        elif self.config["loss"] == "pairwise_hinge_loss":
+            self.loss = pair_hinge_loss
+
         validation_frequency = self.config["validatefreq"]
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         encoder.model.to(self.device)
  
         num_workers = 1 if self.config["multithread"] else 0
+
+        # RepBERT and RepBERTPretrained has implemented the collate method based on the original author's code
+        collate_fn = self.encoder.collate if hasattr(self.encoder, "collate") else None
         train_dataloader = torch.utils.data.DataLoader(
-            train_dataset, batch_size=self.config["batch"], pin_memory=True, num_workers=num_workers, collate_fn=self.repbert_collate
+            train_dataset, batch_size=self.config["batch"], pin_memory=True, num_workers=num_workers, collate_fn=collate_fn
         )
         
         train_loss = []
@@ -222,30 +232,6 @@ class PytorchANNTrainer(Trainer):
 
         return run
 
-    @staticmethod
-    def repbert_collate(batch):
-        input_ids_lst = [x["query"] + x["posdoc"] for x in batch]
-        token_type_ids_lst = [[0] * len(x["query"]) + [1] * len(x["posdoc"])
-                              for x in batch]
-        valid_mask_lst = [[1] * len(input_ids) for input_ids in input_ids_lst]
-        position_ids_lst = [list(range(len(x["query"]))) +
-                            list(range(len(x["posdoc"]))) for x in batch]
-        data = {
-            "input_ids": pack_tensor_2D(input_ids_lst, default=0, dtype=torch.int64),
-            "token_type_ids": pack_tensor_2D(token_type_ids_lst, default=0, dtype=torch.int64),
-            "valid_mask": pack_tensor_2D(valid_mask_lst, default=0, dtype=torch.int64),
-            "position_ids": pack_tensor_2D(position_ids_lst, default=0, dtype=torch.int64),
-            "is_relevant": [x["is_relevant"] for x in batch]
-        }
-        qid_lst = [x['qid'] for x in batch]
-        docid_lst = [x['posdocid'] for x in batch]
-        # `labels` contain pointers to the samples in the batch (i.e indices)
-        # It's saying "hey for this qid, the docs in these rows are the relevant ones"
-        labels = [[j for j in range(len(docid_lst)) if docid_lst[j] in x['rel_docs']] for x in batch]
-        data['labels'] = pack_tensor_2D(labels, default=-1, dtype=torch.int64, length=len(batch))
-
-        return data
-                
 
 
 

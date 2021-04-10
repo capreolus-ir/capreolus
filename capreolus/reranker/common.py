@@ -5,6 +5,7 @@ from tensorflow.python.keras.losses import CategoricalCrossentropy
 from tensorflow_ranking.python.keras.losses import PairwiseHingeLoss
 
 _hinge_loss = torch.nn.MarginRankingLoss(margin=1, reduction="mean")
+_mlmargin_loss = torch.nn.MultiLabelMarginLoss()
 
 
 class KerasPairModel(tf.keras.Model):
@@ -60,6 +61,10 @@ def pair_softmax_loss(pos_neg_scores, *args, **kwargs):
 def pair_hinge_loss(pos_neg_scores, *args, **kwargs):
     label = torch.ones_like(pos_neg_scores[0])  # , dtype=torch.int)
     return _hinge_loss(pos_neg_scores[0], pos_neg_scores[1], label)
+
+
+def multi_label_margin_loss(similarities, labels):
+    return _mlmargin_loss(similarities, labels)
 
 
 def new_similarity_matrix_tf(query_embed, doc_embed, query_tok, doc_tok, padding):
