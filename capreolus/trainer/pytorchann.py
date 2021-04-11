@@ -70,11 +70,12 @@ class PytorchANNTrainer(Trainer):
             iter_loss.append(loss)
             loss.backward()
 
-            scaler.unscale_(self.optimizer)
-            torch.nn.utils.clip_grad_norm_(encoder.model.parameters(), 1.0)
 
             batches_since_update += 1
             if batches_since_update == batches_per_step:
+                scaler.unscale_(self.optimizer)
+                torch.nn.utils.clip_grad_norm_(encoder.model.parameters(), 1.0)
+
                 batches_since_update = 0
                 scaler.step(self.optimizer)
                 scaler.update()
