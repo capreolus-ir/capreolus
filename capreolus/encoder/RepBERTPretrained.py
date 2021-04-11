@@ -67,7 +67,7 @@ class RepBERT_Class(BertPreTrainedModel):
 
         similarities = torch.matmul(query_embeddings, doc_embeddings.T)
 
-        return similarities
+        return similarities, labels
 
     def predict(self, input_ids, valid_mask, is_query=False):
         if is_query:
