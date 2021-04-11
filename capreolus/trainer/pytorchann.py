@@ -56,29 +56,20 @@ class PytorchANNTrainer(Trainer):
         batches_per_epoch = (self.config["itersize"] // self.config["batch"]) or 1
         batches_per_step = self.config["gradacc"]
         batches_since_update = 0
-        scaler = torch.cuda.amp.GradScaler()
 
         for bi, batch in tqdm(enumerate(train_dataloader), desc="Training iteration", total=batches_per_epoch):
             batch = {k: v.to(self.device) if not isinstance(v, list) else v for k, v in batch.items()}
 
-            with torch.cuda.amp.autocast():
-                output = encoder.score(batch)
-                loss = self.loss(*output)
-
-            loss = scaler.scale(loss)
-
+            output = encoder.score(batch)
+            loss = self.loss(*output)
             iter_loss.append(loss)
             loss.backward()
 
-
+            torch.nn.utils.clip_grad_norm_(encoder.model.parameters(), 1.0)
             batches_since_update += 1
             if batches_since_update == batches_per_step:
-                scaler.unscale_(self.optimizer)
-                torch.nn.utils.clip_grad_norm_(encoder.model.parameters(), 1.0)
-
                 batches_since_update = 0
-                scaler.step(self.optimizer)
-                scaler.update()
+                self.optimizer.step()
                 self.scheduler.step()
                 self.optimizer.zero_grad()
 
