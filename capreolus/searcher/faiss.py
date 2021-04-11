@@ -106,10 +106,17 @@ class FAISSSearcher(Searcher):
         """
         Creates a tensor of shape (num_queries, emb_size). Uses all the topics available in the dataset. Filtering based on folds is done later
         """
+        if topicfield == "combined":
+            qid_query = []
+            for qid in topics:
+                query_title = topics["title"][qid]
+                query_desc = topics["desc"][qid]
+                qid_query.append((qid, "{}. {}".format(query_title, query_desc)))
 
-        # TODO: Use the test qids in the below line
+            qid_query = sorted(qid_query)
+        else:
+            qid_query = sorted([(qid, query) for qid, query in topics[topicfield].items() if qid in self.benchmark.folds[fold]["predict"]["dev"] or qid in self.benchmark.folds[fold]["predict"]["test"]])
 
-        qid_query = sorted([(qid, query) for qid, query in topics[topicfield].items() if qid in self.benchmark.folds[fold]["predict"]["dev"] or qid in self.benchmark.folds[fold]["predict"]["test"]])
         tokenizer = encoder.extractor.tokenizer
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
