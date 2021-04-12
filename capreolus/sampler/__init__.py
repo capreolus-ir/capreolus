@@ -143,6 +143,72 @@ class TrainTripletSampler(Sampler, TrainingSamplerMixin, torch.utils.data.Iterab
 
 
 @Sampler.register
+class QrelTrainTripletSampler(Sampler, TrainingSamplerMixin, torch.utils.data.IterableDataset):
+    """
+    Samples positive docs from the qrels
+    """
+
+    module_name = "qreltriplet"
+
+    def prepare(self, bm25_run, qrels, extractor, relevance_level=1, **kwargs):
+        self.extractor = extractor
+        self.qid_to_docids = bm25_run
+
+        self.qid_to_reldocs = defaultdict(list)
+        for qid, docid_to_label in qrels.items():
+            if qid not in bm25_run:
+                continue
+            for docid, label in docid_to_label.items():
+                if label >= relevance_level:
+                    self.qid_to_reldocs[qid].append(docid)
+
+        # TODO option to include only negdocs in a top k
+        self.qid_to_negdocs = defaultdict(list)
+        for qid, docid_to_score in bm25_run.items():
+            if qid not in qrels:
+                continue
+            for docid, score in docid_to_score.items():
+                # Skip the relevant docs
+                if qrels[qid].get(docid, 0) < relevance_level:
+                    self.qid_to_negdocs[qid].append(docid)
+
+        self.total_samples = 0
+        self.clean()
+
+    def __hash__(self):
+        return self.get_hash()
+
+    def get_hash(self):
+        sorted_rep = sorted([(qid, docids) for qid, docids in self.qid_to_docids.items()])
+        key_content = "{0}{1}".format(self.extractor.get_cache_path(), str(sorted_rep))
+        key = hashlib.md5(key_content.encode("utf-8")).hexdigest()
+        return "qreltriplet_{0}".format(key)
+
+    def generate_samples(self):
+        """
+        Generates triplets infinitely.
+        """
+        all_qids = sorted(self.qid_to_reldocs)
+        if len(all_qids) == 0:
+            raise RuntimeError("TrainDataset has no valid qids")
+
+        while True:
+            qid = self.rng.choice(all_qids)
+            posdocid = self.rng.choice(self.qid_to_reldocs[qid])
+            negdocid = self.rng.choice(self.qid_to_negdocs[qid])
+
+            try:
+                # Convention for label - [1, 0] indicates that doc belongs to class 1 (i.e relevant
+            # ^ This is used with categorical cross entropy loss
+                yield self.extractor.id2vec(qid, posdocid, negdocid, label=[1, 0])
+            except MissingDocError:
+                # at training time we warn but ignore on missing docs
+                logger.warning(
+                    "skipping training pair with missing features: qid=%s posid=%s negid=%s", qid, posdocid, negdocid
+                )
+
+
+@Sampler.register
 class TrainPairSampler(Sampler, TrainingSamplerMixin, torch.utils.data.IterableDataset):
     """
     Samples training data pairs. Each sample is of the form (query, doc)
