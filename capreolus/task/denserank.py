@@ -34,7 +34,7 @@ class DenseRankTask(Task):
         Dependency(key="encoder", module="encoder", name="repbertpretrained")
     ]
 
-    commands = ["run", "evaluate", "createshard", "trainencoder"] + Task.help_commands
+    commands = ["run", "evaluate", "createshard", "trainencoder", outputpath] + Task.help_commands
     default_command = "describe"
 
     def do_bm25_search(self, fold):
@@ -55,6 +55,9 @@ class DenseRankTask(Task):
         best_search_run = Searcher.load_trec_run(best_search_run_path)
 
         return best_search_run
+
+    def outputpath(self):
+        return str(self.get_results_path())
 
     def trainencoder(self):
         encoder = self.encoder
