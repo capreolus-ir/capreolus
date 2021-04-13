@@ -57,7 +57,7 @@ class DenseRankTask(Task):
         return best_search_run
 
     def outputpath(self):
-        return str(self.get_results_path())
+        print(str(self.get_results_path()))
 
     def trainencoder(self):
         encoder = self.encoder
