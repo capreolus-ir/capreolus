@@ -19,9 +19,9 @@ class RepBERTTriplet_Class(BertPreTrainedModel):
             self, query, posdoc, negdoc, query_mask, posdoc_mask, negdoc_mask
     ):
 
-        query_lengths = (query_mask != 0).sum(dim=1)
-        posdoc_lengths = (posdoc_mask != 0).sum(dim=1)
-        negdoc_lengths = (negdoc_mask != 0).sum(dim=1)
+        query_lengths = (query_mask != 0).sum(dim=1, keepdim=True)
+        posdoc_lengths = (posdoc_mask != 0).sum(dim=1, keepdim=True)
+        negdoc_lengths = (negdoc_mask != 0).sum(dim=1, keepdim=True)
         query_output = self.bert(query, attention_mask=query_mask)[0]
         posdoc_output = self.bert(posdoc, attention_mask=posdoc_mask)[0]
         negdoc_output = self.bert(negdoc, attention_mask=negdoc_mask)[0]
