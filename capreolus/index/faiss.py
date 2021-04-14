@@ -171,5 +171,69 @@ class FAISSIndex(Index):
 
     def get_doc(self, docid):
         return self.index.get_doc(docid)
-        
+
+    def manual_search_dev_set(self, bm25_run, topic_vectors, qid_query, fold, docs_per_shard, output_path, tag):
+        # Get the dev_run BM25 results for this fold.
+        bm25_dev_run = {qid: docs_to_score for qid, docs_to_score in bm25_run.items() if
+                        qid in self.benchmark.folds[fold]["predict"]["dev"]}
+
+        metrics = self.manual_search(topic_vectors, qid_query, bm25_dev_run, fold, docs_per_shard, output_path)
+
+        faiss_logger.info("%s: Dev Fold %s manual metrics: %s", tag, fold,
+                          " ".join([f"{metric}={v:0.3f}" for metric, v in sorted(metrics.items())]))
+
+    def manual_search_test_set(self, bm25_run, topic_vectors, qid_query, fold, docs_per_shard, output_path, tag):
+        bm25_test_run = {qid: docs_to_score for qid, docs_to_score in bm25_run.items() if
+                         qid in self.benchmark.folds[fold]["predict"]["test"]}
+
+        metrics = self.manual_search(topic_vectors, qid_query, bm25_test_run, fold, docs_per_shard, output_path)
+
+        faiss_logger.info("%s: Test Fold %s manual metrics: %s", tag, fold,
+                          " ".join([f"{metric}={v:0.3f}" for metric, v in sorted(metrics.items())]))
+
+    def manual_search(self, topic_vectors, qid_query, bm25_run, fold, docs_per_shard, output_path):
+        """
+        Manual search is different from the normal FAISS search.
+        For a given qid, we manually calculate cosine scores for only those documents retrieved by BM25 for this qid.
+        This helps in debugging - the scores should be the same as the final validation scored obtained while training the encoder
+        A "real" FAISS search would calculate the cosine score by comparing a qid with _every_ other document in the index - not just the docs retrieved for the query by BM25
+        """
+        # Load some dicts that will allow us to map faiss index ids to docids
+        shard_hash = {}
+        doc_id_to_faiss_id_fn = os.path.join(output_path, "doc_id_to_faiss_id_{}.dump".format(fold))
+        doc_id_to_faiss_id = pickle.load(open(doc_id_to_faiss_id_fn, "rb"))
+
+        results = defaultdict(list)
+        run = {}
+        faiss_logger.debug("Starting manual search")
+
+        for i, (qid, query) in tqdm(enumerate(qid_query), desc="Manual search"):
+            if qid not in bm25_run:
+                continue
+
+            query_emb = topic_vectors[i].reshape(768)
+            for doc_id in bm25_run[qid].keys():
+                faiss_id = doc_id_to_faiss_id[doc_id]
+                shard_id = faiss_id // docs_per_shard
+                if shard_id not in shard_hash:
+                    shard_hash[shard_id] = faiss.read_index(os.path.join(output_path, "shard_{}_faiss_{}.index".format(shard_id, fold)))
+
+                shard = shard_hash[shard_id]
+                doc_emb = shard.reconstruct(faiss_id).reshape(768)
+                score = np.dot(query_emb, doc_emb)
+                score = score.astype(np.float16).item()
+                results[qid].append((score, doc_id))
+
+        for qid in results:
+            score_doc_id = results[qid]
+            for i, (score, doc_id) in enumerate(sorted(score_doc_id, reverse=True)):
+                run.setdefault(qid, {})[doc_id] = score
+
+        if self.benchmark.need_pooling:
+            run = max_pool_trec_passage_run(run)
+
+        metrics = evaluator.eval_runs(run, self.benchmark.qrels, evaluator.DEFAULT_METRICS,
+                                      self.benchmark.relevance_level)
+
+        return metrics
 
