@@ -229,7 +229,7 @@ class FAISSIndex(Index):
             for i, (score, doc_id) in enumerate(sorted(score_doc_id, reverse=True)):
                 run.setdefault(qid, {})[doc_id] = score
 
-        if self.benchmark.need_pooling:
+        if hasattr(self.benchmark, "need_pooling") and self.benchmark.need_pooling:
             run = max_pool_trec_passage_run(run)
 
         metrics = evaluator.eval_runs(run, self.benchmark.qrels, evaluator.DEFAULT_METRICS,
