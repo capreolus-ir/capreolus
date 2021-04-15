@@ -1,6 +1,7 @@
 import numpy as np
 
-from capreolus import Dependency, ConfigOption, get_logger, Extractor
+from capreolus import Dependency, ConfigOption, get_logger
+from capreolus.extractor import Extractor
 from capreolus.extractor.pooled_bertpassage import PooledBertPassage
 from capreolus.utils.common import padlist
 
