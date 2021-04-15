@@ -3,8 +3,8 @@ import numpy as np
 
 from capreolus import Dependency, ConfigOption, get_logger
 from capreolus.utils.exceptions import MissingDocError
-from . import Extractor
-from .bertpassage import BertPassage
+from capreolus.extractor import Extractor
+from capreolus.extractor.bertpassage import BertPassage
 
 logger = get_logger(__name__)
 
