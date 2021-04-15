@@ -68,8 +68,8 @@ class AlternatePooledBertPassage(PooledBertPassage):
             query_toks = self.qid2toks[qid]
             query, query_mask = self.convert_to_bert_input(query_toks)
             data["qid"] = qid
-            data["query"] = query
-            data["query_mask"] = query_mask
+            data["query"] = np.array(query, dtype=np.long)
+            data["query_mask"] = np.array(query_mask, dtype=np.long)
 
         if negid:
             neg_bert_inputs, neg_bert_masks = [], []
