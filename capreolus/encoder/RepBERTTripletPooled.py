@@ -33,7 +33,7 @@ class RepBERTTripletPooled_Class(BertPreTrainedModel):
         batch_size, num_passages, seq_len = doc.shape
         doc = doc.reshape(batch_size * num_passages, seq_len)
         doc_mask = doc_mask.reshape(batch_size * num_passages, seq_len)
-        doc_lengths = torch.sum(doc_mask != 0).sum(dim=1, keepdim=True)
+        doc_lengths = torch.sum((doc_mask != 0), dim=1, keepdim=True)
 
         doc_output = self.bert(doc, attention_mask=doc_mask)
         doc_embedding = torch.sum(doc_output, dim=1) / doc_lengths
