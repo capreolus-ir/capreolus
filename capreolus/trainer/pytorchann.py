@@ -102,8 +102,16 @@ class PytorchANNTrainer(Trainer):
         optimizer_grouped_parameters = [
             {'params': [p for n, p in encoder.model.named_parameters() if not any(nd in n for nd in no_decay)],
              'weight_decay': 0.01},
-            {'params': [p for n, p in encoder.model.named_parameters() if any(nd in n for nd in no_decay)], 'weight_decay': 0.0}
+            {'params': [p for n, p in encoder.model.named_parameters() if any(nd in n for nd in no_decay)], 'weight_decay': 0.0},
         ]
+
+        # TODO: Clean this. Hack for RepBERTTripletPooled
+        if hasattr(encoder.model.module, "pool_layer"):
+            logger.info("Setting a different learning rate for the pool layer")
+            optimizer_grouped_parameters += [
+                {'params': encoder.model.module.pool_layer.parameters(), 'lr': self.config["lr"]}
+            ]
+
         self.optimizer = AdamW(optimizer_grouped_parameters, lr=self.config["bertlr"], eps=1e-8)
 
         steps_per_epoch = (self.config["itersize"] // (self.config["batch"] * self.config["gradacc"])) or 1
@@ -201,7 +209,7 @@ class PytorchANNTrainer(Trainer):
                 with torch.cuda.amp.autocast():
                     doc_emb = encoder.encode_doc(batch["posdoc"], batch["posdoc_mask"])
 
-                doc_emb = doc_emb.cpu().numpy()
+                doc_emb = doc_emb.cpu().numpy().astype(np.float32)
                 faiss_ids_for_batch = np.array(faiss_ids_for_batch, dtype=np.long).reshape(-1, )
                 faiss_index.add_with_ids(doc_emb, faiss_ids_for_batch)
 
