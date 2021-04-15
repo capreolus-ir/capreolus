@@ -1,5 +1,5 @@
 import torch
-from capreolus import ConfigOption
+from capreolus import ConfigOption, Dependency
 import torch.nn.functional as F
 from torch import nn
 import os
@@ -9,119 +9,99 @@ from capreolus.utils.common import download_file, pack_tensor_2D
 from capreolus.encoder import Encoder
 
 
-class RepBERTPooled_Class(BertPreTrainedModel):
+class RepBERTTripletPooled_Class(BertPreTrainedModel):
     """
     Adapted from https://github.com/jingtaozhan/RepBERT-Index/
     """
     def __init__(self, config):
-        super(RepBERTPooled_Class, self).__init__(config)
+        super(RepBERTTripletPooled_Class, self).__init__(config)
         self.bert = BertModel(config)
         self.hidden_size = self.bert.config.hidden_size
+        self.pool_method = config.pool_method
         self.init_weights()
 
-    def _average_query_doc_embeddings(self, sequence_output, token_type_ids, valid_mask):
-        query_flags = (token_type_ids == 0) * (valid_mask == 1)
-        doc_flags = (token_type_ids == 1) * (valid_mask == 1)
+        if self.pool_method == "conv":
+            self.pool_layer = nn.Conv2d(1, self.hidden_size, (config.num_passages, self.hidden_size))
+        elif self.pool_method == "linear":
+            self.pool_layer = nn.Linear(self.num_passages * self.hidden_size, self.hidden_size)
+        else:
+            raise ValueError("Invalid pool method")
 
-        query_lengths = torch.sum(query_flags, dim=-1)
-        query_lengths = torch.clamp(query_lengths, 1, None)
-        doc_lengths = torch.sum(doc_flags, dim=-1)
-        doc_lengths = torch.clamp(doc_lengths, 1, None)
+    def get_doc_embedding(self, doc, doc_mask):
+        batch_size, num_passages, seq_len = doc.shape
+        doc = doc.reshape(batch_size * num_passages, seq_len)
+        doc_mask = doc_mask.reshape(batch_size * num_passages, seq_len)
+        doc_lengths = torch.sum(doc_mask != 0).sum(dim=1, keepdim=True)
 
-        query_embeddings = torch.sum(sequence_output * query_flags[:, :, None], dim=1)
-        query_embeddings = query_embeddings / query_lengths[:, None]
-        doc_embeddings = torch.sum(sequence_output * doc_flags[:, :, None], dim=1)
-        doc_embeddings = doc_embeddings / doc_lengths[:, None]
-        return query_embeddings, doc_embeddings
+        doc_output = self.bert(doc, attention_mask=doc_mask)
+        doc_embedding = torch.sum(doc_output, dim=1) / doc_lengths
+        doc_embedding = doc_embedding.reshape(batch_size, num_passages, self.hidden_size)
+        if self.pool_method == "conv":
+            doc_embedding = doc_embedding.reshape((batch_size, 1, num_passages, self.hidden_size))
+        elif self.pool_method == "linear":
+            doc_embedding = doc_embedding.reshape((batch_size, num_passages * self.hidden_size))
+        else:
+            raise ValueError("Unknown pool method")
 
-    def _mask_both_directions(self, valid_mask, token_type_ids):
-        assert valid_mask.dim() == 2
-        attention_mask = valid_mask[:, None, :]
+        doc_embedding = self.pool_layer(doc_embedding)
+        doc_embedding = doc_embedding.reshape((batch_size, self.hidden_size))
 
-        type_attention_mask = torch.abs(token_type_ids[:, :, None] - token_type_ids[:, None, :])
-        attention_mask = attention_mask - type_attention_mask
-        attention_mask = torch.clamp(attention_mask, 0, None)
-        return attention_mask
+        return doc_embedding
 
-    def _average_sequence_embeddings(self, sequence_output, valid_mask):
-        flags = valid_mask == 1
-        lengths = torch.sum(flags, dim=-1)
-        lengths = torch.clamp(lengths, 1, None)
-        sequence_embeddings = torch.sum(sequence_output * flags[:, :, None], dim=1)
-        sequence_embeddings = sequence_embeddings / lengths[:, None]
-
-        return sequence_embeddings
-
-    def forward(self, input_ids, token_type_ids, valid_mask, labels=None):
+    def forward(self, query, posdoc, negdoc, query_mask, posdoc_mask, negdoc_mask):
         """
-        :param input_ids: has shape (batch_size, num_passages, seq_length)
-        :param token_type_ids: shape (batch_size, num_passages, seq_length)
-        :param valid_mask: shape (batch_size, num_passages, seq_length)
-        :param position_ids: shape (batch_size, num_passages, seq_length)
-        :param labels: shape (batch_size, batch_size)
+        :param query: has shape (batch_size, seq_length)
+        :param everything else: has shape (batch_size, num_passages, seq_len)
+
         :return:
         """
-        batch_size, num_passages, seq_len = input_ids.shape
-        input_ids = input_ids.reshape(batch_size * num_passages, seq_len)
-        token_type_ids = token_type_ids.reshape(batch_size * num_passages, seq_len)
-        valid_mask = valid_mask.reshape(batch_size * num_passages, seq_len)
 
+        batch_size, num_passages, seq_len = posdoc.shape
 
-        attention_mask = self._mask_both_directions(valid_mask, token_type_ids)
+        # These lengths are required for averaging
+        query_lengths = (query_mask != 0).sum(dim=1, keepdim=True)
+        query_output = self.bert(query, attention_mask=query_mask)[0]
+        query_embedding = torch.sum(query_output, dim=1) / query_lengths
+        assert query_embedding.shape == (batch_size, self.hidden_size)
 
-        sequence_output = self.bert(input_ids,
-                                    attention_mask=attention_mask,
-                                    token_type_ids=token_type_ids)[0]
+        posdoc_embedding = self.get_doc_embedding(posdoc, posdoc_mask)
+        negdoc_embedding = self.get_doc_embedding(negdoc, negdoc_mask)
 
-        query_embeddings, doc_embeddings = self._average_query_doc_embeddings(
-            sequence_output, token_type_ids, valid_mask
-        )
+        posdoc_score = F.cosine_similarity(query_embedding, posdoc_embedding, dim=1)
+        negdoc_score = F.cosine_similarity(query_embedding, negdoc_embedding, dim=1)
 
-        assert query_embeddings.shape == (batch_size * num_passages, self.hidden_size)
-        assert doc_embeddings.shape == (batch_size * num_passages, self.hidden_size)
-
-        query_embeddings = query_embeddings.reshape(batch_size, num_passages, self.hidden_size)
-        doc_embeddings = doc_embeddings.reshape(batch_size, num_passages, self.hidden_size)
-
-        max_passage_indices = []
-        for i in range(batch_size):
-            passage_scores_for_doc = F.cosine_similarity(query_embeddings[i], doc_embeddings[i])
-            assert passage_scores_for_doc.shape == (num_passages, )
-            winning_passage_idx = torch.max(passage_scores_for_doc, 0).indices
-            max_passage_indices.append(winning_passage_idx)
-
-        similarities = torch.matmul(query_embeddings, doc_embeddings.T)
-        #
-        # return similarities, labels
+        return posdoc_score, negdoc_score
 
     def predict(self, input_ids, valid_mask, is_query=False):
         if is_query:
-            token_type_ids = torch.zeros_like(input_ids)
+            query_lengths = (valid_mask != 0).sum(dim=1, keepdim=True)
+            sequence_output = self.bert(input_ids, attention_mask=valid_mask)[0]
+            sequence_output = torch.sum(sequence_output, dim=1) / query_lengths
         else:
-            token_type_ids = torch.ones_like(input_ids)
+            sequence_output = self.get_doc_embedding(input_ids, valid_mask)
 
-        sequence_output = self.bert(input_ids,
-                                    attention_mask=valid_mask,
-                                    token_type_ids=token_type_ids)[0]
-
-        text_embeddings = self._average_sequence_embeddings(
-            sequence_output, valid_mask
-        )
-
-        return text_embeddings
+        return sequence_output
 
 
 @Encoder.register
-class RepBERTPretrainedPooled(Encoder):
-    module_name = "repbertpretrainedpooled"
+class RepBERTTripletPooled(Encoder):
+    module_name = "repberttripletpooled"
+    dependencies = [
+        Dependency(key="trainer", module="trainer", name="pytorchann"),
+        Dependency(key="sampler", module="sampler", name="triplet"),
+        Dependency(key="extractor", module="extractor", name="altpooledbertpassage"),
+        Dependency(key="benchmark", module="benchmark")
+    ]
     config_spec = [
-        ConfigOption("pretrainedweights", "/GW/NeuralIR/nobackup/kevin_cache/msmarco_saved/repbert.ckpt-350000", "By default we use RepBERT MSMarco checkpoint")
+        ConfigOption("pretrainedweights", "/GW/NeuralIR/nobackup/kevin_cache/msmarco_saved/repbert.ckpt-350000", "By default we use RepBERT MSMarco checkpoint"),
+        ConfigOption("poolmethod", "conv")
     ]
 
     def instantiate_model(self):
         if not hasattr(self, "model"):
             config = BertConfig.from_pretrained(self.config["pretrainedweights"])
-            self.model = torch.nn.DataParallel(RepBERTPooled_Class.from_pretrained(self.config["pretrainedweights"], config=config))
+            config.pool_method = self.config["poolmethod"]
+            self.model = torch.nn.DataParallel(RepBERTTripletPooled_Class.from_pretrained(self.config["pretrainedweights"], config=config))
             self.hidden_size = self.model.module.hidden_size
 
     def encode_doc(self, numericalized_text, mask):
@@ -131,39 +111,5 @@ class RepBERTPretrainedPooled(Encoder):
         return self.model.module.predict(numericalized_text, mask, is_query=True)
 
     def score(self, batch):
-        return self.model(batch["input_ids"], batch["token_type_ids"], batch["valid_mask"], batch["position_ids"], batch["labels"])
+        return self.model(batch["query"], batch["posdoc"], batch["negdoc"], batch["query_mask"], batch["posdoc_mask"], batch["negdoc_mask"])
 
-    def test(self, d):
-        query = d["query"]
-        query_mask = d["query_mask"]
-        doc = d["posdoc"]
-        doc_mask = d["posdoc_mask"]
-
-        query_emb = self.model.module.predict(query, query_mask)
-        doc_emb = self.model.module.predict(doc, doc_mask)
-
-        return torch.diagonal(torch.matmul(query_emb, doc_emb.T))
-
-    @staticmethod
-    def collate(batch):
-        # TODO: I use different keys in each collate() method. Standardize the API
-        input_ids_lst = [x["input_ids"] for x in batch]
-        token_type_ids_lst = [x["token_type_ids"] for x in batch]
-        mask_lst = [x["mask"] for x in batch]
-
-        # TODO: Are the position tokens really unnecessary?
-        # position_ids_lst = [list(range(len(x["query"]))) +
-        # list(range(len(x["posdoc"]))) for x in batch]
-        data = {
-            "input_ids": torch.tensor(input_ids_lst, dtype=torch.float),
-            "token_type_ids": torch.tensor(token_type_ids_lst, dtype=torch.long),
-            "mask": torch.tensor(mask_lst, dtype=torch.long)
-        }
-
-        docid_lst = [x['docid'] for x in batch]
-        # `labels` contain pointers to the samples in the batch (i.e indices)
-        # It's saying "hey for this qid, the docs in these rows are the relevant ones"
-        labels = [[j for j in range(len(docid_lst)) if docid_lst[j] in x['rel_docs']] for x in batch]
-        data['labels'] = pack_tensor_2D(labels, default=-1, dtype=torch.int64, length=len(batch))
-
-        return data

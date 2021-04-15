@@ -130,7 +130,6 @@ class PooledBertPassage(BertPassage):
         pos_bert_masks = []
         pos_bert_segs = []
 
-        # N.B: The passages in self.docid2passages are not bert tokenized
         pos_passages = self._get_passages(posid)
         for tokenized_passage in pos_passages:
             inp, mask, seg = self._prepare_bert_input(query_toks, tokenized_passage)
