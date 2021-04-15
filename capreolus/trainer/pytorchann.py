@@ -99,10 +99,11 @@ class PytorchANNTrainer(Trainer):
     def train(self, encoder, train_dataset, dev_dataset, output_path, qrels, metric="map", relevance_level=1):
         # Prepare optimizer and schedule (linear warmup and decay)
         no_decay = ['bias', 'LayerNorm.weight']
+        # TODO: Do not hard-code pool_layer here
         optimizer_grouped_parameters = [
-            {'params': [p for n, p in encoder.model.named_parameters() if not any(nd in n for nd in no_decay)],
+            {'params': [p for n, p in encoder.model.named_parameters() if 'pool_layer' not in n and not any(nd in n for nd in no_decay)],
              'weight_decay': 0.01},
-            {'params': [p for n, p in encoder.model.named_parameters() if any(nd in n for nd in no_decay)], 'weight_decay': 0.0},
+            {'params': [p for n, p in encoder.model.named_parameters() if 'pool_layer' not in n and any(nd in n for nd in no_decay)], 'weight_decay': 0.0},
         ]
 
         # TODO: Clean this. Hack for RepBERTTripletPooled
