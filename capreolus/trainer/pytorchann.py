@@ -107,7 +107,7 @@ class PytorchANNTrainer(Trainer):
         ]
 
         # TODO: Clean this. Hack for RepBERTTripletPooled
-        if hasattr(encoder.model.module, "pool_layer"):
+        if hasattr(encoder.model.module, "pool_layer") and encoder.config["poolmethod"] != "mean":
             logger.info("Setting a different learning rate for the pool layer")
             optimizer_grouped_parameters += [
                 {'params': encoder.model.module.pool_layer.parameters(), 'lr': self.config["lr"]}
