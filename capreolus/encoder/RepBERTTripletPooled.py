@@ -35,7 +35,7 @@ class RepBERTTripletPooled_Class(BertPreTrainedModel):
         doc_mask = doc_mask.reshape(batch_size * num_passages, seq_len)
         doc_lengths = torch.sum((doc_mask != 0), dim=1, keepdim=True)
 
-        doc_output = self.bert(doc, attention_mask=doc_mask)
+        doc_output = self.bert(doc, attention_mask=doc_mask)[0]
         doc_embedding = torch.sum(doc_output, dim=1) / doc_lengths
         doc_embedding = doc_embedding.reshape(batch_size, num_passages, self.hidden_size)
         if self.pool_method == "conv":
