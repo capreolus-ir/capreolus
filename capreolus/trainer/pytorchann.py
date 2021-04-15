@@ -61,7 +61,7 @@ class PytorchANNTrainer(Trainer):
             batch = {k: v.to(self.device) if not isinstance(v, list) else v for k, v in batch.items()}
 
             output = encoder.score(batch)
-            loss = self.loss(*output)
+            loss = self.loss(output)
             iter_loss.append(loss)
             loss.backward()
 

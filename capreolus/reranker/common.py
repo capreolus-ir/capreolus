@@ -63,7 +63,9 @@ def pair_hinge_loss(pos_neg_scores, *args, **kwargs):
     return _hinge_loss(pos_neg_scores[0], pos_neg_scores[1], label)
 
 
-def multi_label_margin_loss(similarities, labels):
+def multi_label_margin_loss(similarities_labels):
+    similarities = similarities_labels[0]
+    labels = similarities_labels[1]
     return _mlmargin_loss(similarities, labels)
 
 
