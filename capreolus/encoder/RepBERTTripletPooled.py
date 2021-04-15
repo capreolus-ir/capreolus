@@ -17,11 +17,13 @@ class RepBERTTripletPooled_Class(BertPreTrainedModel):
         super(RepBERTTripletPooled_Class, self).__init__(config)
         self.bert = BertModel(config)
         self.hidden_size = self.bert.config.hidden_size
-        self.pool_method = config.pool_method
         self.init_weights()
 
+    def set_config(self, num_passages, pool_method):
+        self.num_passages = num_passages
+        self.pool_method = pool_method
         if self.pool_method == "conv":
-            self.pool_layer = nn.Conv2d(1, self.hidden_size, (config.num_passages, self.hidden_size))
+            self.pool_layer = nn.Conv2d(1, self.hidden_size, (num_passages, self.hidden_size))
         elif self.pool_method == "linear":
             self.pool_layer = nn.Linear(self.num_passages * self.hidden_size, self.hidden_size)
         else:
@@ -102,6 +104,7 @@ class RepBERTTripletPooled(Encoder):
             config = BertConfig.from_pretrained(self.config["pretrainedweights"])
             config.pool_method = self.config["poolmethod"]
             self.model = torch.nn.DataParallel(RepBERTTripletPooled_Class.from_pretrained(self.config["pretrainedweights"], config=config))
+            self.model.module.set_config(self.extractor.config["numpassages"], self.config["poolmethod"])
             self.hidden_size = self.model.module.hidden_size
 
     def encode_doc(self, numericalized_text, mask):
