@@ -26,8 +26,20 @@ class RepBERTTripletPooled_Class(BertPreTrainedModel):
             self.pool_layer = nn.Conv2d(1, self.hidden_size, (num_passages, self.hidden_size))
         elif self.pool_method == "linear":
             self.pool_layer = nn.Linear(self.num_passages * self.hidden_size, self.hidden_size)
+        elif self.pool_method == "mean":
+            self.pool_layer = self.manual_mean
         else:
             raise ValueError("Invalid pool method")
+
+    def manual_mean(self, embeddings):
+        """
+        :param embeddings: has shape (batch_size, num_passages, hidden_size)
+        :return:
+        """
+        batch_size, num_passages, hidden_size = embeddings.shape[0], embeddings.shape[1], embeddings.shape[2]
+        embeddings = torch.sum(embeddings, dim=1) / num_passages
+
+        return embeddings
 
     def get_doc_embedding(self, doc, doc_mask):
         batch_size, num_passages, seq_len = doc.shape
@@ -42,6 +54,8 @@ class RepBERTTripletPooled_Class(BertPreTrainedModel):
             doc_embedding = doc_embedding.reshape((batch_size, 1, num_passages, self.hidden_size))
         elif self.pool_method == "linear":
             doc_embedding = doc_embedding.reshape((batch_size, num_passages * self.hidden_size))
+        elif self.pool_method == "mean":
+            pass
         else:
             raise ValueError("Unknown pool method")
 
