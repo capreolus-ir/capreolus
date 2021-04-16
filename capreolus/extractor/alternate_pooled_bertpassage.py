@@ -42,7 +42,7 @@ class AlternatePooledBertPassage(PooledBertPassage):
         inp = self.tokenizer.convert_tokens_to_ids(padded_input_line)
         mask = [1] * len(input_line) + [0] * (len(padded_input_line) - len(input_line))
         seg = [0] * len(input_line) + [1] * (len(padded_input_line) - len(input_line) - 2)
-        pos = padlist(list(range(len(input_line))), padlen=maxseqlen, pad_token=self.pad_tok)
+        pos = padlist(list(range(len(input_line))), padlen=maxseqlen, pad_token=0)
 
         return inp, mask, seg, pos
 
