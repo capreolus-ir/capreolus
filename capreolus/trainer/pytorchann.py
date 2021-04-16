@@ -210,7 +210,7 @@ class PytorchANNTrainer(Trainer):
                 with torch.cuda.amp.autocast():
                     doc_emb = encoder.encode_doc(batch["posdoc"], batch["posdoc_mask"])
 
-                doc_emb = doc_emb.cpu().numpy().astype(np.float32)
+                doc_emb = doc_emb.cpu().numpy()
                 faiss_ids_for_batch = np.array(faiss_ids_for_batch, dtype=np.long).reshape(-1, )
                 faiss_index.add_with_ids(doc_emb, faiss_ids_for_batch)
 
