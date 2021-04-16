@@ -41,12 +41,13 @@ class RepBERTTripletPooled_Class(BertPreTrainedModel):
 
         return embeddings
 
-    def get_doc_embedding(self, doc, doc_mask, doc_seg, position_ids):
+    def get_doc_embedding(self, doc, doc_mask, doc_seg, position_ids=None):
         batch_size, num_passages, seq_len = doc.shape
         doc = doc.reshape(batch_size * num_passages, seq_len)
         doc_mask = doc_mask.reshape(batch_size * num_passages, seq_len)
         doc_seg = doc_seg.reshape((batch_size * num_passages, seq_len))
-        position_ids = position_ids.reshape((batch_size * num_passages, seq_len))
+        if position_ids is not None:
+            position_ids = position_ids.reshape((batch_size * num_passages, seq_len))
 
         doc_lengths = torch.sum((doc_mask != 0), dim=1, keepdim=True)
 
@@ -83,8 +84,8 @@ class RepBERTTripletPooled_Class(BertPreTrainedModel):
         query_embedding = torch.sum(query_output, dim=1) / query_lengths
         assert query_embedding.shape == (batch_size, self.hidden_size)
 
-        posdoc_embedding = self.get_doc_embedding(posdoc, posdoc_mask, posdoc_seg, posdoc_pos)
-        negdoc_embedding = self.get_doc_embedding(negdoc, negdoc_mask, negdoc_seg, negdoc_pos)
+        posdoc_embedding = self.get_doc_embedding(posdoc, posdoc_mask, posdoc_seg, position_ids=posdoc_pos)
+        negdoc_embedding = self.get_doc_embedding(negdoc, negdoc_mask, negdoc_seg, position_ids=negdoc_pos)
 
         posdoc_score = F.cosine_similarity(query_embedding, posdoc_embedding, dim=1)
         negdoc_score = F.cosine_similarity(query_embedding, negdoc_embedding, dim=1)
@@ -92,12 +93,13 @@ class RepBERTTripletPooled_Class(BertPreTrainedModel):
         return posdoc_score, negdoc_score
 
     def predict(self, input_ids, valid_mask, is_query=False):
+        token_type_ids = torch.zeros_like(input_ids)
         if is_query:
             query_lengths = (valid_mask != 0).sum(dim=1, keepdim=True)
-            sequence_output = self.bert(input_ids, attention_mask=valid_mask)[0]
+            sequence_output = self.bert(input_ids, attention_mask=valid_mask, token_type_ids=token_type_ids)[0]
             sequence_output = torch.sum(sequence_output, dim=1) / query_lengths
         else:
-            sequence_output = self.get_doc_embedding(input_ids, valid_mask)
+            sequence_output = self.get_doc_embedding(input_ids, valid_mask, token_type_ids)
 
         return sequence_output
 
