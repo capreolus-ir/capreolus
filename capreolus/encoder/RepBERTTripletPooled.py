@@ -41,13 +41,16 @@ class RepBERTTripletPooled_Class(BertPreTrainedModel):
 
         return embeddings
 
-    def get_doc_embedding(self, doc, doc_mask):
+    def get_doc_embedding(self, doc, doc_mask, doc_seg, position_ids):
         batch_size, num_passages, seq_len = doc.shape
         doc = doc.reshape(batch_size * num_passages, seq_len)
         doc_mask = doc_mask.reshape(batch_size * num_passages, seq_len)
+        doc_seg = doc_seg.reshape((batch_size * num_passages, seq_len))
+        position_ids = position_ids.reshape((batch_size * num_passages, seq_len))
+
         doc_lengths = torch.sum((doc_mask != 0), dim=1, keepdim=True)
 
-        doc_output = self.bert(doc, attention_mask=doc_mask)[0]
+        doc_output = self.bert(doc, attention_mask=doc_mask, token_type_ids=doc_seg, position_ids=position_ids)[0]
         doc_embedding = torch.sum(doc_output, dim=1) / doc_lengths
         doc_embedding = doc_embedding.reshape(batch_size, num_passages, self.hidden_size)
         if self.pool_method == "conv":
@@ -64,7 +67,7 @@ class RepBERTTripletPooled_Class(BertPreTrainedModel):
 
         return doc_embedding
 
-    def forward(self, query, posdoc, negdoc, query_mask, posdoc_mask, negdoc_mask):
+    def forward(self, query, posdoc, negdoc, query_mask, posdoc_mask, negdoc_mask, query_seg, posdoc_seg, negdoc_seg, query_pos, posdoc_pos, negdoc_pos):
         """
         :param query: has shape (batch_size, seq_length)
         :param everything else: has shape (batch_size, num_passages, seq_len)
@@ -76,12 +79,12 @@ class RepBERTTripletPooled_Class(BertPreTrainedModel):
 
         # These lengths are required for averaging
         query_lengths = (query_mask != 0).sum(dim=1, keepdim=True)
-        query_output = self.bert(query, attention_mask=query_mask)[0]
+        query_output = self.bert(query, attention_mask=query_mask, token_type_ids=query_seg, position_ids=query_pos)[0]
         query_embedding = torch.sum(query_output, dim=1) / query_lengths
         assert query_embedding.shape == (batch_size, self.hidden_size)
 
-        posdoc_embedding = self.get_doc_embedding(posdoc, posdoc_mask)
-        negdoc_embedding = self.get_doc_embedding(negdoc, negdoc_mask)
+        posdoc_embedding = self.get_doc_embedding(posdoc, posdoc_mask, posdoc_seg, posdoc_pos)
+        negdoc_embedding = self.get_doc_embedding(negdoc, negdoc_mask, negdoc_seg, negdoc_pos)
 
         posdoc_score = F.cosine_similarity(query_embedding, posdoc_embedding, dim=1)
         negdoc_score = F.cosine_similarity(query_embedding, negdoc_embedding, dim=1)
@@ -128,5 +131,5 @@ class RepBERTTripletPooled(Encoder):
         return self.model.module.predict(numericalized_text, mask, is_query=True)
 
     def score(self, batch):
-        return self.model(batch["query"], batch["posdoc"], batch["negdoc"], batch["query_mask"], batch["posdoc_mask"], batch["negdoc_mask"])
+        return self.model(batch["query"], batch["posdoc"], batch["negdoc"], batch["query_mask"], batch["posdoc_mask"], batch["negdoc_mask"], batch["query_seg"], batch["posdoc_seg"], batch["negdoc_seg"], batch["query_position_ids"], batch["posdoc_position_ids"], batch["negdoc_position_ids"])
 

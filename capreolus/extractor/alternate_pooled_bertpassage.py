@@ -41,8 +41,10 @@ class AlternatePooledBertPassage(PooledBertPassage):
         padded_input_line = padlist(input_line, padlen=maxseqlen, pad_token=self.pad_tok)
         inp = self.tokenizer.convert_tokens_to_ids(padded_input_line)
         mask = [1] * len(input_line) + [0] * (len(padded_input_line) - len(input_line))
+        seg = [0] * len(input_line) + [1] * (len(padded_input_line) - len(input_line) - 2)
+        pos = padlist(list(range(len(input_line))), padlen=maxseqlen, pad_token=self.pad_tok)
 
-        return inp, mask
+        return inp, mask, seg, pos
 
     def id2vec(self, qid, posid, negid=None, label=None):
         """
@@ -52,36 +54,50 @@ class AlternatePooledBertPassage(PooledBertPassage):
 
         pos_bert_inputs = []
         pos_bert_masks = []
+        pos_bert_segs = []
+        pos_bert_pos = []
 
         pos_passages = self._get_passages(posid)
         for tokenized_passage in pos_passages:
-            inp, mask = self.convert_to_bert_input(tokenized_passage)
+            inp, mask, seg, pos_ids = self.convert_to_bert_input(tokenized_passage)
             pos_bert_inputs.append(inp)
             pos_bert_masks.append(mask)
+            pos_bert_segs.append(seg)
+            pos_bert_pos.append(pos_ids)
 
         data = {
             "posdocid": posid,
             "posdoc": np.array(pos_bert_inputs, dtype=np.long),
             "posdoc_mask": np.array(pos_bert_masks, dtype=np.long),
+            "posdoc_seg": np.array(pos_bert_segs, dtype=np.long),
+            "posdoc_position_ids": np.array(pos_bert_pos, dtype=np.long)
         }
+
         if qid:
             query_toks = self.qid2toks[qid]
-            query, query_mask = self.convert_to_bert_input(query_toks)
+            query, query_mask, query_seg, query_pos = self.convert_to_bert_input(query_toks)
             data["qid"] = qid
             data["query"] = np.array(query, dtype=np.long)
             data["query_mask"] = np.array(query_mask, dtype=np.long)
+            data["query_seg"] = np.array(query_seg, dtype=np.long)
+            data["query_position_ids"] = np.array(query_pos, dtype=np.long)
 
         if negid:
-            neg_bert_inputs, neg_bert_masks = [], []
+            neg_bert_inputs, neg_bert_masks, neg_bert_segs, neg_bert_pos = [], [], [], []
             neg_passages = self._get_passages(negid)
+
             for tokenized_passage in neg_passages:
-                inp, mask = self.convert_to_bert_input(tokenized_passage)
+                inp, mask, seg, pos_ids = self.convert_to_bert_input(tokenized_passage)
                 neg_bert_inputs.append(inp)
                 neg_bert_masks.append(mask)
+                neg_bert_segs.append(seg)
+                neg_bert_pos.append(pos_ids)
 
             data["negdocid"] = negid
             data["negdoc"] = np.array(neg_bert_inputs, dtype=np.long)
             data["negdoc_mask"] = np.array(neg_bert_masks, dtype=np.long)
+            data["negdoc_seg"] = np.array(neg_bert_segs, dtype=np.long)
+            data["negdoc_position_ids"] = np.array(neg_bert_pos, dtype=np.long)
 
         return data
 
