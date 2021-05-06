@@ -1,3 +1,4 @@
+import pymagnitude # temporary ugly magic hack: import pymagnitude before transformers to avoid the segmentation fault on CC
 from transformers import AutoTokenizer
 
 from capreolus import ConfigOption
