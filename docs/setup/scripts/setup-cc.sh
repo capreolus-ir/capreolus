@@ -78,3 +78,6 @@ conda install -c conda-forge --file ./scripts/cc-requirements.conda.txt -y
 pip install -r ./scripts/cc-requirements.pip.txt 
 pip install --no-deps -r ./scripts/cc-requirements-no-deps.txt
 
+env_path=$(dirname $(dirname $(which conda)))
+cp $lib_home/pytrec_eval_ext.cpython-37m-x86_64-linux-gnu.so $env_path/envs/$env_name/lib/python3.7/site-packages/pytrec_eval_ext.cpython-37m-x86_64-linux-gnu.so
+
