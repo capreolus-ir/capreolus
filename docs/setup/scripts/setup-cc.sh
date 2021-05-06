@@ -7,7 +7,7 @@ if [ -z $setup_dir ]; then
 	exit
 fi
 
-env_name=capreolus_test
+env_name=capreolus
 config_file="$setup_dir/setup_capreolus_on_cc.bash"
 
 source ~/.bashrc
@@ -60,12 +60,12 @@ model_dir=hugginface_models
 mkdir -p $model_dir
 rm -rf $model_dir/*
 
-# hugginface_models=("bert-base-uncased" "bert-large-uncased" "Capreolus/bert-base-msmarco")
-# for model in "${hugginface_models[@]}"
-# do
-#         sh ./scripts/download_models.sh $model
-#         mv $model $model_dir
-# done
+hugginface_models=("bert-base-uncased" "bert-large-uncased" "Capreolus/bert-base-msmarco")
+for model in "${hugginface_models[@]}"
+do
+	sh ./scripts/download_models.sh $model
+	mv $model $model_dir
+done
 
 
 ################################
