@@ -3,7 +3,8 @@
 ################################
 setup_dir=$1
 if [ -z $setup_dir ]; then
-	echo "Error: Setup directory required"
+	echo "Error: Setup directory required. Example:"
+	echo "$ sh scripts/setup-cc.sh /path/to/setup/dir"
 	exit
 fi
 
