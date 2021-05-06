@@ -2,12 +2,17 @@
 # Environment
 ################################
 setup_dir=$1
-env_name=capreolus
+if [ -z $setup_dir ]; then
+	echo "Error: Setup directory required"
+	exit
+fi
+
+env_name=capreolus_test
 config_file="$setup_dir/setup_capreolus_on_cc.bash"
 
 source ~/.bashrc
 eval "$(conda shell.bash hook)"
-conda create --name $env_name python=3.7 numpy nomkl scipy scikit-learn numexpr
+conda create --name $env_name python=3.7.9 -y
 conda activate $env_name
 
 # Java
@@ -22,6 +27,7 @@ echo "----------"
 conda env list
 echo "----------"
 pip install gdown
+conda install gdown
 gdown "https://drive.google.com/uc?id=1iUhEnCwO9SDCCbNrA9dc6fe5phtcfLU9" -O "$download_path/jdk-11.0.9_linux-x64_bin.tar.gz"
 gdown "https://drive.google.com/uc?id=1gLiwlxq8YhJeCth-y6O_bAT49ATLRw-a" -O "$download_path/libs.tar.gz"
 tar -xzf "$download_path/jdk-11.0.9_linux-x64_bin.tar.gz" -C "$setup_path"
@@ -54,12 +60,12 @@ model_dir=hugginface_models
 mkdir -p $model_dir
 rm -rf $model_dir/*
 
-hugginface_models=("bert-base-uncased" "bert-large-uncased" "Capreolus/bert-base-msmarco")
-for model in "${hugginface_models[@]}"
-do
-        sh ./scripts/download_models.sh $model
-        mv $model $model_dir
-done
+# hugginface_models=("bert-base-uncased" "bert-large-uncased" "Capreolus/bert-base-msmarco")
+# for model in "${hugginface_models[@]}"
+# do
+#         sh ./scripts/download_models.sh $model
+#         mv $model $model_dir
+# done
 
 
 ################################
@@ -67,7 +73,8 @@ done
 ################################
 source $config_file
 
+conda install -c conda-forge tensorflow=2.3.0 -y
+conda install -c conda-forge --file ./scripts/cc-requirements.conda.txt -y
+pip install -r ./scripts/cc-requirements.pip.txt 
 pip install --no-deps -r ./scripts/cc-requirements-no-deps.txt
-pip install -r ./scripts/cc-requirements.txt
-pip install torch==1.7.0+cu110 torchvision==0.8.1+cu110 torchaudio===0.7.0 -f https://download.pytorch.org/whl/torch_stable.html
-# pip install --no-deps git+https://github.com/crystina-z/capreolus-1.git@feature/msmarco_psg
+
