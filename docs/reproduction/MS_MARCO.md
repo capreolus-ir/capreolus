@@ -32,7 +32,7 @@ This requires GPU(s) with 48GB memory (e.g. 4 V100 or a RTX 8000) or a TPU.
     bertlr=2e-5   
     itersize=30000
     warmupsteps=3000
-    decaystep=3000
+    decaystep=$itersize  # either same with $itersize or 0
     decaytype=linear
    
     python -m capreolus.run rerank.train with \
@@ -40,8 +40,8 @@ This requires GPU(s) with 48GB memory (e.g. 4 V100 or a RTX 8000) or a TPU.
         reranker.trainer.lr=$lr \
         reranker.trainer.bertlr=$bertlr \
         reranker.trainer.itersize=$itersize \
-        reranker.trainer.warmupsteps=warmupsteps \
-        reranker.trainer.decaystep=decaystep \
+        reranker.trainer.warmupsteps=$warmupsteps \
+        reranker.trainer.decaystep=$decaystep \
         reranker.trainer.decaytype="linear" \
         fold=s1
     ```
