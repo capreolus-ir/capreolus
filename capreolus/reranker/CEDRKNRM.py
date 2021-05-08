@@ -247,7 +247,7 @@ class CEDRKNRM(Reranker):
         return self.model(d["pos_bert_input"], d["pos_mask"], d["pos_seg"]).view(-1)
 
     def extract_weights(self, d):
-        return self.model.diffir_weights(d["pos_bert_input"], d["pos_mask"], d["pos_seg"])
+        return self.model.extract_weights(d["pos_bert_input"], d["pos_mask"], d["pos_seg"])
 
     def weights_to_weighted_char_ranges(self, docid, simmat, passage_doc_mask):
         char_ranges_to_weights = defaultdict(lambda: -np.inf)
