@@ -49,7 +49,7 @@ class Collection(ModuleBase):
                     yield (parsed.get("id"), parsed.get("title"), parsed.get("contents"))
 
     def get_path_and_types(self):
-        """ Returns a ``(path, collection_type, generator_type)`` tuple. """
+        """Returns a ``(path, collection_type, generator_type)`` tuple."""
         if not self.validate_document_path(self._path):
             self._path = self.find_document_path()
 
@@ -107,14 +107,14 @@ class Collection(ModuleBase):
         return self.download_if_missing()
 
     def download_if_missing(self):
-        """ Download the collection and return its path. Subclasses should override this. """
+        """Download the collection and return its path. Subclasses should override this."""
         raise IOError(
             f"a download URL is not configured for collection={self.module_name} and the collection path does not exist; you must manually place the document collection at this path in order to use this collection"
         )
 
 
 class IRDCollection(Collection):
-    """ Base class for collections supported by ir_datasets """
+    """Base class for collections supported by ir_datasets"""
 
     ird_dataset_name = None
     generator_type = "DefaultLuceneDocumentGenerator"

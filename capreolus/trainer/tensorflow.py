@@ -322,7 +322,7 @@ class TensorflowTrainer(Trainer):
         for i, (qid, docid) in tqdm(enumerate(pred_data.get_qid_docid_pairs()), desc="parse diffir weights"):
             if is_tuple:
                 batch_idx = i // batch_size
-                batch_offset = (i % batch_size)
+                batch_offset = i % batch_size
                 the_tuple = pred_list[batch_idx]
                 args_to_pass = []
                 for k in range(len(the_tuple)):

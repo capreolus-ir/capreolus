@@ -90,8 +90,10 @@ class BertPassage(Extractor):
         os.makedirs(self.get_cache_path(), exist_ok=True)
         with open(self.get_state_cache_file_path(qids, docids), "wb") as f:
             state_dict = {
-                "qid2toks": self.qid2toks, "docid2passages": self.docid2passages, "docid_to_passage_begin_token_obj": self.docid_to_passage_begin_token_obj,
-                "docid_to_doc_offset_obj": self.docid_to_doc_offsets_obj
+                "qid2toks": self.qid2toks,
+                "docid2passages": self.docid2passages,
+                "docid_to_passage_begin_token_obj": self.docid_to_passage_begin_token_obj,
+                "docid_to_doc_offset_obj": self.docid_to_doc_offsets_obj,
             }
             pickle.dump(state_dict, f, protocol=-1)
 

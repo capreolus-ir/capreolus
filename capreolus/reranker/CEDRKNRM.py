@@ -153,7 +153,9 @@ class CEDRKNRM_Class(nn.Module):
             all_layer_output[self.config["simmat_layers"][0]][:, 1:], bert_mask[:, 1:], bert_segments[:, 1:]
         )
 
-        assert passage_simmats.shape == (self.num_passages, self.maxqlen, self.maxdoclen), "shape: {}".format(passage_simmats.shape)
+        assert passage_simmats.shape == (self.num_passages, self.maxqlen, self.maxdoclen), "shape: {}".format(
+            passage_simmats.shape
+        )
 
         passage_doc_mask = passage_doc_mask.view(batch_size, self.num_passages, 1, -1)
 
@@ -280,12 +282,10 @@ class CEDRKNRM(Reranker):
                 except IndexError:
                     logger.error("The mask is {}".format(passage_doc_mask[0][passage_id][0][doc_term_idx]))
                     logger.error("Max term weight was: {}".format(max_term_weight))
-                    logger.error(
-                        "passage_id: {}, passage_begin_token_idx: {}".format(passage_id, passage_begin_token_idx))
+                    logger.error("passage_id: {}, passage_begin_token_idx: {}".format(passage_id, passage_begin_token_idx))
                     logger.error("doc_term_idx: {}".format(doc_term_idx))
                     logger.error("Doc position of term: {}".format(passage_begin_token_idx + doc_term_idx))
-                    logger.error(
-                        "Total number of tokens in original doc (i.e doc_offsets): {}".format(len(doc_offsets)))
+                    logger.error("Total number of tokens in original doc (i.e doc_offsets): {}".format(len(doc_offsets)))
                     raise
 
                 if max_term_weight and max_term_weight > char_ranges_to_weights[char_range_in_original_doc]:

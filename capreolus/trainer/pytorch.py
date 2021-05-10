@@ -294,8 +294,7 @@ class PytorchTrainer(Trainer):
 
         evalbatch = 1
         num_workers = 1 if self.config["multithread"] else 0
-        pred_dataloader = torch.utils.data.DataLoader(pred_data, batch_size=evalbatch, pin_memory=True,
-                                                      num_workers=num_workers)
+        pred_dataloader = torch.utils.data.DataLoader(pred_data, batch_size=evalbatch, pin_memory=True, num_workers=num_workers)
 
         diffir_weights = defaultdict(lambda: defaultdict(dict))
         with torch.autograd.no_grad():

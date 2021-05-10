@@ -287,12 +287,10 @@ class TFCEDRKNRM(Reranker):
                 except IndexError:
                     logger.error("The mask is {}".format(passage_doc_mask[0][passage_id][0][doc_term_idx]))
                     logger.error("Max term weight was: {}".format(max_term_weight))
-                    logger.error(
-                        "passage_id: {}, passage_begin_token_idx: {}".format(passage_id, passage_begin_token_idx))
+                    logger.error("passage_id: {}, passage_begin_token_idx: {}".format(passage_id, passage_begin_token_idx))
                     logger.error("doc_term_idx: {}".format(doc_term_idx))
                     logger.error("Doc position of term: {}".format(passage_begin_token_idx + doc_term_idx))
-                    logger.error(
-                        "Total number of tokens in original doc (i.e doc_offsets): {}".format(len(doc_offsets)))
+                    logger.error("Total number of tokens in original doc (i.e doc_offsets): {}".format(len(doc_offsets)))
                     raise
 
                 if max_term_weight and max_term_weight > char_ranges_to_weights[char_range_in_original_doc]:
@@ -301,4 +299,3 @@ class TFCEDRKNRM(Reranker):
         weights = [[start, end, weight] for (start, end), weight in char_ranges_to_weights.items()]
 
         return weights
-

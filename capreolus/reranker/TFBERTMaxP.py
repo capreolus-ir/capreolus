@@ -7,7 +7,7 @@ from capreolus.reranker import Reranker
 
 
 class TFElectraRelevanceHead(tf.keras.layers.Layer):
-    """ BERT-style ClassificationHead (i.e., out_proj only -- no dense). See transformers.TFElectraClassificationHead """
+    """BERT-style ClassificationHead (i.e., out_proj only -- no dense). See transformers.TFElectraClassificationHead"""
 
     def __init__(self, dropout, out_proj, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -144,7 +144,9 @@ class TFBERTMaxP(Reranker):
         return self.model
 
     def weights_to_weighted_char_ranges(self, docid, passage_scores):
-        assert passage_scores.shape == (self.extractor.config["numpassages"], ), "passage scores shape is {}".format(passage_scores.shape)
+        assert passage_scores.shape == (self.extractor.config["numpassages"],), "passage scores shape is {}".format(
+            passage_scores.shape
+        )
         diffir_weights = []
         doc_offsets = self.extractor.docid_to_doc_offsets_obj[docid]
 
