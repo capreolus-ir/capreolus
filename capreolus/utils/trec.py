@@ -29,10 +29,9 @@ def load_trec_topics(queryfn):
             unwanted_tokens = [unwanted_tokens]
         assert isinstance(unwanted_tokens, list) or isinstance(unwanted_tokens, set)
 
-        line = line.strip(f"<{tag_name}>").strip(f"</{tag_name}>").strip().split() # remove_tag
+        line = line.strip(f"<{tag_name}>").strip(f"</{tag_name}>").strip().split()  # remove_tag
         line = [token for token in line if token not in unwanted_tokens]
         return line
-
 
     block = None
     if str(queryfn).endswith(".gz"):
