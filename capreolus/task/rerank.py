@@ -19,6 +19,7 @@ class RerankTask(Task):
     config_spec = [
         ConfigOption("fold", "s1", "fold to run"),
         ConfigOption("optimize", "map", "metric to maximize on the dev set"),  # affects train() because we check to save weights
+        ConfigOption("metrics", "default", "metrics reported for evaluation", value_type="strlist"),
         ConfigOption("threshold", 100, "Number of docids per query to evaluate during prediction"),
         ConfigOption("testthreshold", 1000, "Number of docids per query to evaluate on test data"),
     ]
@@ -198,6 +199,7 @@ class RerankTask(Task):
         fold = self.config["fold"]
         train_output_path = self.get_results_path()
         logger.debug("results path: %s", train_output_path)
+        metrics = self.config["metrics"] if list(self.config["metrics"]) != ["default"] else evaluator.DEFAULT_METRICS
 
         searcher_runs, reranker_runs = self.find_crossvalidated_results()
 
@@ -206,13 +208,13 @@ class RerankTask(Task):
             raise ValueError("could not find predictions; run the train command first")
 
         fold_dev_metrics = evaluator.eval_runs(
-            reranker_runs[fold]["dev"], self.benchmark.qrels, evaluator.DEFAULT_METRICS, self.benchmark.relevance_level
+            reranker_runs[fold]["dev"], self.benchmark.qrels, metrics, self.benchmark.relevance_level
         )
         pretty_fold_dev_metrics = " ".join([f"{metric}={v:0.3f}" for metric, v in sorted(fold_dev_metrics.items())])
         logger.info("rerank: fold=%s dev metrics: %s", fold, pretty_fold_dev_metrics)
 
         fold_test_metrics = evaluator.eval_runs(
-            reranker_runs[fold]["test"], self.benchmark.qrels, evaluator.DEFAULT_METRICS, self.benchmark.relevance_level
+            reranker_runs[fold]["test"], self.benchmark.qrels, metrics, self.benchmark.relevance_level
         )
         pretty_fold_test_metrics = " ".join([f"{metric}={v:0.3f}" for metric, v in sorted(fold_test_metrics.items())])
         logger.info("rerank: fold=%s test metrics: %s", fold, pretty_fold_test_metrics)
@@ -238,11 +240,9 @@ class RerankTask(Task):
                 for docid, score in docscores.items():
                     all_preds[qid][docid] = score
 
-        cv_metrics = evaluator.eval_runs(
-            all_preds, self.benchmark.qrels, evaluator.DEFAULT_METRICS, self.benchmark.relevance_level
-        )
+        cv_metrics = evaluator.eval_runs(all_preds, self.benchmark.qrels, metrics, self.benchmark.relevance_level)
         interpolated_results = evaluator.interpolated_eval(
-            searcher_runs, reranker_runs, self.benchmark, self.config["optimize"], evaluator.DEFAULT_METRICS
+            searcher_runs, reranker_runs, self.benchmark, self.config["optimize"], metrics
         )
 
         for metric, score in sorted(cv_metrics.items()):
