@@ -11,7 +11,7 @@ PACKAGE_PATH = constants["PACKAGE_PATH"]
 
 @Collection.register
 class Highwire(IRDCollection):
-    """ Highire collection used by TREC Genomics 2006 and 2007 """
+    """Highire collection used by TREC Genomics 2006 and 2007"""
 
     module_name = "highwire"
     ird_dataset_name = "highwire"

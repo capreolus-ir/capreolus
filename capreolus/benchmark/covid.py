@@ -17,7 +17,7 @@ PACKAGE_PATH = constants["PACKAGE_PATH"]
 
 @Benchmark.register
 class COVID(Benchmark):
-    """ Ongoing TREC-COVID bechmark from https://ir.nist.gov/covidSubmit that uses documents from CORD, the COVID-19 Open Research Dataset (https://www.semanticscholar.org/cord19). """
+    """Ongoing TREC-COVID bechmark from https://ir.nist.gov/covidSubmit that uses documents from CORD, the COVID-19 Open Research Dataset (https://www.semanticscholar.org/cord19)."""
 
     module_name = "covid"
     dependencies = [Dependency(key="collection", module="collection", name="covid")]

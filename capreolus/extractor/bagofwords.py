@@ -14,7 +14,7 @@ logger = get_logger(__name__)  # pylint: disable=invalid-name
 
 @Extractor.register
 class BagOfWords(Extractor):
-    """ Bag of Words (or bag of trigrams when `datamode=trigram`) extractor. Used with the DSSM reranker. """
+    """Bag of Words (or bag of trigrams when `datamode=trigram`) extractor. Used with the DSSM reranker."""
 
     module_name = "bagofwords"
     dependencies = [
