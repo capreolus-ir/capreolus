@@ -23,8 +23,8 @@ sphinxcontrib-apidoc
 recommonmark
 google-api-python-client
 oauth2client
-tensorflow>=2.4,<2.5
-transformers==3.1.0
+tensorflow>=2.3,<2.5
+transformers==4.6.0
 tensorflow-ranking
 Pillow
 # required for TREC COVID
