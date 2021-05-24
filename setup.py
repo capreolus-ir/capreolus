@@ -66,7 +66,7 @@ setuptools.setup(
         "nltk==3.4.5",
         "pytest-mock",
         "mock",
-        "pyserini==0.9.3.0",
+        "pyserini==0.12.0",
         "numpy",
         "scipy",
         "google-api-python-client",
