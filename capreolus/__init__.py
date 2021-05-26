@@ -54,6 +54,6 @@ from capreolus.utils.irds import get_irds
 
 
 def parse_config_string(s):
-    """ Convert a config string to a config dict """
+    """Convert a config string to a config dict"""
     s = " ".join(s.split())  # remove consecutive whitespace
     return config_list_to_dict(s.split())

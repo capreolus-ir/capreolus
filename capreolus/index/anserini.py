@@ -91,7 +91,7 @@ class AnseriniIndex(Index):
         return self.reader.docFreq(jterm)
 
     def get_idf(self, term):
-        """ BM25's IDF with a floor of 0 """
+        """BM25's IDF with a floor of 0"""
         df = self.get_df(term)
         idf = (self.numdocs - df + 0.5) / (df + 0.5)
         idf = math.log(1 + idf)

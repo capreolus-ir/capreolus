@@ -31,7 +31,7 @@ class Anserini:
 
     @classmethod
     def filter_and_log_anserini_output(cls, line, logger):
-        """ Ignore DEBUG lines and require other lines pass our logging level """
+        """Ignore DEBUG lines and require other lines pass our logging level"""
         fields = line.strip().split()
 
         # is this a log line?
@@ -83,7 +83,7 @@ def download_file(url, outfn, expected_hash=None):
 
 
 def hash_file(fn):
-    """ Compute a SHA-256 hash for the file fn and return a hexdigest of the hash """
+    """Compute a SHA-256 hash for the file fn and return a hexdigest of the hash"""
     sha = hashlib.sha256()
 
     with open(fn, "rb") as f:

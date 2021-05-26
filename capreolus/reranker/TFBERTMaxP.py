@@ -6,7 +6,7 @@ from capreolus.reranker import Reranker
 
 
 class TFElectraRelevanceHead(tf.keras.layers.Layer):
-    """ BERT-style ClassificationHead (i.e., out_proj only -- no dense). See transformers.TFElectraClassificationHead """
+    """BERT-style ClassificationHead (i.e., out_proj only -- no dense). See transformers.TFElectraClassificationHead"""
 
     def __init__(self, dropout, out_proj, *args, **kwargs):
         super().__init__(*args, **kwargs)
