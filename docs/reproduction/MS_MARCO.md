@@ -6,24 +6,9 @@ first follow [this](../setup/setup-cc.md) guide to set up the environment on CC 
 
 Once the environment is set, you can verify the installation with [these instructions](./PARADE.md#testing-installation).
 
-## Explore LR Scheduler Setting
-Below are the possible lr scheduler values (combination) you can pick up and run: <br/> 
-
-| No.         |   | bertlr | lr   | itersize | warmupsteps | decaystep | decaytype | Expected |
-|-------------|---|--------|------|----------|-------------|-----------|-----------|----------|
-| 0 (default) |   | 2e-5   | 1e-3 |    30000 |           0 |         0 | None      | 0.33+    | 
-| 1           |   | 2e-5   | 2e-5 |    30000 |           0 |         0 | None      ||
-| 2           |   | 2e-5   | 1e-3 |    30000 |        3000 |         0 | None      ||
-| 3           |   | 2e-5   | 2e-5 |    30000 |        3000 |         0 | None      ||
-| 4           |   | 2e-5   | 1e-3 |    30000 |           0 |     30000 | linear    ||
-| 5           |   | 2e-5   | 2e-5 |    30000 |           0 |     30000 | linear    ||
-| 6           |   | 2e-5   | 1e-3 |    30000 |        3000 |     30000 | linear    | 0.35+    |
-| 7           |   | 2e-5   | 2e-5 |    30000 |        3000 |     30000 | linear    ||
-| 8           |   | 3e-5   | 1e-3 |    30000 |        3000 |     30000 | linear    ||
-| 9           |   | 3e-5   | 3e-5 |    30000 |        3000 |     30000 | linear    ||
 
 ## Running MS MARCO 
-This requires GPU(s) with 48GB memory (e.g. 4 V100 or a RTX 8000) or a TPU. 
+This requires GPU(s) with 48GB memory (e.g. 3 V100 or a RTX 8000) or a TPU. 
 1. Make sure you are in the top-level `capreolus` directory; 
 2. Train on MS MARCO Passage using the following scripts, 
     while replacing the lr scheduler variables with the one you picked up <br/> 
