@@ -12,7 +12,7 @@ dependencies:
   - jupyter
   - jupyterlab
   - h5py==2.10.0
-  - pytorch::pytorch==1.8.1
+  - pytorch::pytorch>=1.6.0<=1.8.1
   - pytorch::torchvision
   - cudatoolkit=10.1
   - conda-forge::openjdk>=11,<12
