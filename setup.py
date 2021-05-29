@@ -48,7 +48,7 @@ setuptools.setup(
     url="https://capreolus.ai",
     packages=setuptools.find_packages(),
     install_requires=[
-        "torch>=1.6.0<=1.8.1",
+        "torch>=1.6.0,<=1.8.1",
         "torchvision",
         "cython",
         "pre-commit",
