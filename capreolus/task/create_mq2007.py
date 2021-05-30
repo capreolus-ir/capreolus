@@ -1,4 +1,5 @@
 from collections import defaultdict
+import pickle
 import json
 from capreolus import Dependency, ConfigOption
 from capreolus.task import Task
@@ -11,9 +12,10 @@ logger = get_logger(__name__)  # pylint: disable=invalid-name
 
 
 @Task.register
-class Robust04DescQueries(Task):
+class MQ2007(Task):
     """
-    We use DocT5 to generate queries for robust04passages and remove the stopwords
+    Creates the MQ2007 collection topics, qrels and folds. The test fold of MQ2007 here is designed to be the same as
+    that of GOV2 - only the train fold differs.
     """
     module_name = "mq2007"
     requires_random_seed = True
@@ -21,8 +23,6 @@ class Robust04DescQueries(Task):
         ConfigOption("queryoutput", "/home/kjose/capreolus/capreolus/data/topics.mq2007.txt"),
         ConfigOption("qrelsoutput", "/home/kjose/capreolus/capreolus/data/qrels.mq2007.txt"),
         ConfigOption("foldsoutput", "/home/kjose/capreolus/capreolus/data/mq2007.folds.json"),
-        ConfigOption("gov2queryoutput", "/home/kjose/capreolus/capreolus/data/topics.gov2.txt"),
-        ConfigOption("gov2foldsoutput", "/home/kjose/capreolus/capreolus/data/gov2.folds.json"),
     ]
 
     dependencies = [
@@ -74,6 +74,12 @@ class Robust04DescQueries(Task):
 
             mq2007_qid_to_query[query.query_id] = query.text.lower()
 
+        gov2_qid_to_mq_qid = {}
+        for mq_qid, query_text in mq2007_qid_to_query.items():
+            gov2_qid = gov2_query_to_qid.get(query_text)
+            if gov2_qid:
+                gov2_qid_to_mq_qid[gov2_qid] = mq_qid
+
         assert len(duplicate_queries) == 150
         duplicate_qrels = 0
         deeper_qrels = 0
@@ -99,36 +105,21 @@ class Robust04DescQueries(Task):
                 new_qrels += 1
                 new_qrel_qids.add(qrel.query_id)
 
-
+        mq_qids_with_qrels = duplicate_qrel_qids.union(deeper_qrel_qids).union(new_qrel_qids)
+        logger.info("There are {} MQ qids with qrels".format(len(mq_qids_with_qrels)))
         logger.info("There are {} duplicate judgements, {} deeper judgements, and {} new judgements".format(duplicate_qrels, deeper_qrels, new_qrels))
         logger.info("There are {} qids with duplicate judgements, {} qids with deeper judgements, and {} with new judgements".format(len(duplicate_qrel_qids), len(deeper_qrel_qids), len(new_qrel_qids)))
         logger.info("There are {} query duplicates and {} new queries".format(len(duplicate_queries), len(new_queries)))
 
-        new_query_ids = [query.query_id for query in new_queries]
-        old_set_1 = [query.query_id for query in duplicate_queries[:50]]
-        old_set_2 = [query.query_id for query in duplicate_queries[50:100]]
-        old_set_3 = [query.query_id for query in duplicate_queries[100: 150]]
+        new_query_ids = [query.query_id for query in new_queries if query.query_id in mq_qids_with_qrels]
+        gov2_query_ids = [query.query_id for query in list(duplicate_queries)]
 
         folds = {
             "s1": {
-                "train_qids": new_query_ids + old_set_1,
+                "train_qids": new_query_ids,
                 "predict": {
-                    "dev": old_set_2,
-                    "test": old_set_3
-                }
-            },
-            "s2": {
-                "train_qids": new_query_ids + old_set_2,
-                "predict": {
-                    "dev": old_set_3,
-                    "test": old_set_1
-                }
-            },
-            "s3": {
-                "train_qids": new_query_ids + old_set_3,
-                "predict": {
-                    "dev": old_set_1,
-                    "test": old_set_2
+                    "dev": gov2_query_ids,
+                    "test": gov2_query_ids,
                 }
             }
         }
@@ -137,48 +128,30 @@ class Robust04DescQueries(Task):
 
         with open(self.config["queryoutput"], "w") as out_f:
             for query in new_queries + duplicate_queries:
-                out_f.write(topic_to_trectxt(query.query_id, query.text.lower()))
+                if query.query_id in mq_qids_with_qrels:
+                    out_f.write(topic_to_trectxt(query.query_id, query.text.lower()))
 
+        duplicate_query_ids_set = set([query.query_id for query in duplicate_queries])
+        query_ids_that_should_be_copied = []
         with open(self.config["qrelsoutput"], "w") as out_f:
             for qrel in mq2007_dataset.qrels_iter():
-                out_f.write("{} 0 {} {}\n".format(qrel.query_id, qrel.doc_id, qrel.relevance))
+                mq_query_id = qrel.query_id
+                if mq_query_id in duplicate_query_ids_set:
+                    query_ids_that_should_be_copied.append(mq_query_id)
+                else:
+                    out_f.write("{} 0 {} {}\n".format(qrel.query_id, qrel.doc_id, qrel.relevance))
 
-        gov2_set_1 = [query.query_id for query in gov2_queries[:50]]
-        gov2_set_2 = [query.query_id for query in gov2_queries[50:100]]
-        gov2_set_3 = [query.query_id for query in gov2_queries[100:150]]
+            # For those queries that exist in gov2, copy over the qrels from gov2 instead of using mq2007's qrels
+            for gov2_qid, docid_to_relevance in old_qrels.items():
+                mq_qid = gov2_qid_to_mq_qid[gov2_qid]
+                for docid, relevance in docid_to_relevance.items():
+                    out_f.write("{} 0 {} {}\n".format(mq_qid, docid, relevance))
 
-        gov2_folds = {
-            "s1": {
-                "train_qids": gov2_set_1,
-                "predict": {
-                    "dev": gov2_set_2,
-                    "test": gov2_set_3
-                }
-            },
-            "s2": {
-                "train_qids": gov2_set_2,
-                "predict": {
-                    "dev": gov2_set_3,
-                    "test": gov2_set_1
-                }
-            },
-            "s3": {
-                "train_qids": gov2_set_3,
-                "predict": {
-                    "dev": gov2_set_1,
-                    "test": gov2_set_2
-                }
-            }
-        }
+            # Qrels for gov2 - download it from here: https://lintool.github.io/Ivory/data/gov2/qrels.gov2.all
 
-        with open(self.config["gov2foldsoutput"], "w") as out_f:
-            json.dump(gov2_folds, out_f)
-
-        with open(self.config["gov2queryoutput"], "w") as out_f:
-            for query in gov2_queries:
-                out_f.write(topic_to_trectxt(query.query_id, query.title.lower()))
-
-        # Qrels for gov2 - download it from here: https://lintool.github.io/Ivory/data/gov2/qrels.gov2.all
+        pickle.dump(gov2_qid_to_mq_qid, open("/home/kjose/gov2_qid_to_mq_qid.dump", "wb"), protocol=-1)
+        pickle.dump(old_qrels, open("/home/kjose/old_qrels.dump", "wb"), protocol=-1)
+        pickle.dump(gov2_queries, open("/home/kjose/gov2_queries.dump", "wb"), protocol=-1)
 
     def update_qrels(self, qrels_dict, dataset):
         for qrel in dataset.qrels_iter():

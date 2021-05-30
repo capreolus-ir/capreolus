@@ -15,7 +15,8 @@ from capreolus.tests.common_fixtures import dummy_index, tmpdir_as_cache
 def test_tf_get_tf_dataset(monkeypatch):
     benchmark = DummyBenchmark()
     extractor = SlowEmbedText(
-        {"maxdoclen": 4, "maxqlen": 4, "tokenizer": {"keepstops": True}}, provide={"collection": benchmark.collection}
+        {"maxdoclen": 4, "maxqlen": 4, "tokenizer": {"keepstops": True}},
+        provide={"collection": benchmark.collection, "benchmark": benchmark},
     )
     training_judgments = benchmark.qrels.copy()
     train_dataset = TrainTripletSampler()
@@ -47,7 +48,8 @@ def test_tf_get_tf_dataset(monkeypatch):
             "tpuname": None,
             "tpuzone": None,
             "storage": None,
-        }
+        },
+        benchmark,
     )
 
     tf_record_filenames = trainer.convert_to_tf_train_record(reranker, train_dataset)
@@ -73,12 +75,12 @@ def test_tf_find_cached_tf_records(monkeypatch, dummy_index):
 
     monkeypatch.setattr(SlowEmbedText, "_load_pretrained_embeddings", fake_magnitude_embedding)
 
+    benchmark = DummyBenchmark()
     reranker = TFKNRM(
         {"gradkernels": True, "finetune": False, "trainer": {"niters": 1, "itersize": 8, "batch": 2}},
-        provide={"index": dummy_index},
+        provide={"index": dummy_index, "benchmark": benchmark},
     )
     extractor = reranker.extractor
-    benchmark = DummyBenchmark()
 
     extractor.preprocess(["301"], ["LA010189-0001", "LA010189-0002"], benchmark.topics[benchmark.query_type])
 
@@ -94,7 +96,7 @@ def test_tf_find_cached_tf_records(monkeypatch, dummy_index):
 
     reranker = TFKNRM(
         {"gradkernels": True, "finetune": False, "trainer": {"niters": 1, "itersize": 24, "batch": 6}},
-        provide={"index": dummy_index},
+        provide={"index": dummy_index, "benchmark": benchmark},
     )
     reranker.extractor.preprocess(["301"], ["LA010189-0001", "LA010189-0002"], benchmark.topics[benchmark.query_type])
     train_dataset.prepare(train_run, benchmark.qrels, extractor)

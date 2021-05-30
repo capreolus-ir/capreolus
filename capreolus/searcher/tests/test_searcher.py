@@ -7,15 +7,15 @@ from capreolus import module_registry
 from capreolus.benchmark import DummyBenchmark
 from capreolus.searcher.anserini import BM25, BM25Grid, Searcher
 from capreolus.tests.common_fixtures import dummy_index, tmpdir_as_cache
-from capreolus.utils.trec import load_trec_topics
 
 skip_searchers = {"bm25staticrob04yang19", "BM25Grid", "BM25Postprocess", "axiomatic"}
 searchers = set(module_registry.get_module_names("searcher")) - skip_searchers
+searchers = [x for x in searchers if "static" not in x]
 
 
 @pytest.mark.parametrize("searcher_name", searchers)
 def test_searcher_runnable(tmpdir_as_cache, tmpdir, dummy_index, searcher_name):
-    topics_fn = DummyBenchmark.topic_file
+    topics_fn = DummyBenchmark().get_topics_file()
     searcher = Searcher.create(searcher_name, provide={"index": dummy_index})
     output_dir = searcher.query_from_file(topics_fn, os.path.join(searcher.get_cache_path(), DummyBenchmark.module_name))
     assert os.path.exists(os.path.join(output_dir, "done"))
@@ -23,8 +23,9 @@ def test_searcher_runnable(tmpdir_as_cache, tmpdir, dummy_index, searcher_name):
 
 @pytest.mark.parametrize("searcher_name", searchers)
 def test_searcher_query(tmpdir_as_cache, tmpdir, dummy_index, searcher_name):
-    topics_fn = DummyBenchmark.topic_file
-    query = list(load_trec_topics(topics_fn)["title"].values())[0]
+    topics_fn = DummyBenchmark().get_topics_file()
+    query = list([line.strip().split("\t")[1] for line in open(topics_fn)])[0]
+
     nhits = 1
     searcher = Searcher.create(searcher_name, config={"hits": nhits}, provide={"index": dummy_index})
     results = searcher.query(query)
@@ -41,7 +42,7 @@ def test_searcher_query(tmpdir_as_cache, tmpdir, dummy_index, searcher_name):
 
 def test_searcher_bm25(tmpdir_as_cache, tmpdir, dummy_index):
     searcher = BM25(provide={"index": dummy_index})
-    topics_fn = DummyBenchmark.topic_file
+    topics_fn = DummyBenchmark().get_topics_file()
 
     output_dir = searcher.query_from_file(topics_fn, os.path.join(searcher.get_cache_path(), DummyBenchmark.module_name))
 
@@ -57,7 +58,7 @@ def test_searcher_bm25_grid(tmpdir_as_cache, tmpdir, dummy_index):
     searcher = BM25Grid(provide={"index": dummy_index})
     bs = np.around(np.arange(0.1, 1 + 0.1, 0.1), 1)
     k1s = np.around(np.arange(0.1, 1 + 0.1, 0.1), 1)
-    topics_fn = DummyBenchmark.topic_file
+    topics_fn = DummyBenchmark().get_topics_file()
 
     output_dir = searcher.query_from_file(topics_fn, os.path.join(searcher.get_cache_path(), DummyBenchmark.module_name))
     assert output_dir == os.path.join(searcher.get_cache_path(), DummyBenchmark.module_name)

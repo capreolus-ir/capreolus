@@ -3,6 +3,7 @@ from collections import defaultdict
 import pickle
 import torch.nn.functional as F
 import time
+from lru import LRU
 from tqdm import tqdm
 import torch
 import os
@@ -12,7 +13,7 @@ from capreolus.sampler import CollectionSampler
 from capreolus.searcher import Searcher
 
 from . import Index
-from capreolus.utils.trec import max_pool_trec_passage_run
+from capreolus.utils.trec import pool_trec_passage_run
 
 logger = get_logger(__name__)
 faiss_logger = get_logger("faiss")
@@ -117,11 +118,14 @@ class FAISSIndex(Index):
 
         return distances
 
-    def faiss_search(self, topic_vectors, k, qid_query, numshards, docs_per_shard, fold, output_path):
+    def faiss_search(self, topic_vectors, k, docs_in_bm25_run, numshards, docs_per_shard, fold, output_path):
+        start_time = time.time()
         aggregated_faiss_id_to_doc_id = {}
         aggregated_doc_id_to_faiss_id = {}
         count_map = defaultdict(lambda: 0)
         aggregated_distances, aggregated_ids = np.zeros((len(topic_vectors), numshards * k)), np.zeros((len(topic_vectors), numshards * k))
+        bm25_sub_index = faiss.IndexFlatIP(768)
+        bm25_faiss_index = faiss.IndexIDMap2(bm25_sub_index)
 
         for shard_id in range(numshards):
             offset = shard_id * docs_per_shard
@@ -136,6 +140,10 @@ class FAISSIndex(Index):
             doc_id_to_faiss_id = pickle.load(open(os.path.join(output_path, "shard_{}_doc_id_to_faiss_id_{}.dump".format(shard_id, fold)), "rb"))
 
             for faiss_id, doc_id in faiss_id_to_doc_id.items():
+                if doc_id in docs_in_bm25_run:
+                    doc_emb = faiss_shard.reconstruct(faiss_id).reshape(1, 768)
+                    bm25_faiss_index.add_with_ids(doc_emb, np.array([faiss_id]))
+
                 assert faiss_id >= offset, "faiss_id {} for shard: {} not greater than the offset: {} (docs_per_shard is: {})".format(faiss_id, shard_id, offset, docs_per_shard)
                 # assert faiss_id <= (shard_id + 1) * docs_per_shard, "faiss_id {} for shard: {} is greater than the next offset: {} (docs_per_shard is: {})".format(faiss_id, shard_id, (shard_id + 1) * docs_per_shard, docs_per_shard)
                 count_map[faiss_id] += 1
@@ -143,11 +151,14 @@ class FAISSIndex(Index):
             aggregated_faiss_id_to_doc_id.update(faiss_id_to_doc_id)
             aggregated_doc_id_to_faiss_id.update(doc_id_to_faiss_id)
 
+        faiss.write_index(bm25_faiss_index, os.path.join(output_path, "bm25_faiss_{}.index".format(fold)))
+
         # result_heap.finalize()
         pickle.dump(aggregated_faiss_id_to_doc_id, open(os.path.join(output_path, "faiss_id_to_doc_id_{}.dump".format(fold)), "wb"), protocol=-1)
         pickle.dump(aggregated_doc_id_to_faiss_id, open(os.path.join(output_path, "doc_id_to_faiss_id_{}.dump".format(fold)), "wb"), protocol=-1)
 
         indices = np.argsort(aggregated_distances, axis=1)
+        # Cosine similarity. Higher is better
         aggregated_distances = np.take_along_axis(aggregated_distances, indices, 1)
         aggregated_distances = aggregated_distances[:, (numshards - 1) * k: numshards * k]
         aggregated_ids = np.take_along_axis(aggregated_ids, indices, 1)
@@ -164,6 +175,7 @@ class FAISSIndex(Index):
         logger.info("temp is {}".format(temp))
         assert temp == 0
 
+        faiss_logger.info("Faiss search took {}".format(time.time() - start_time))
         return aggregated_distances, aggregated_ids
 
     def get_docs(self, doc_ids):
@@ -198,8 +210,8 @@ class FAISSIndex(Index):
         This helps in debugging - the scores should be the same as the final validation scored obtained while training the encoder
         A "real" FAISS search would calculate the cosine score by comparing a qid with _every_ other document in the index - not just the docs retrieved for the query by BM25
         """
-        # Load some dicts that will allow us to map faiss index ids to docids
-        shard_hash = {}
+        start_time = time.time()
+        bm25_faiss_index = faiss.read_index(os.path.join(output_path, "bm25_faiss_{}.index".format(fold)))
         doc_id_to_faiss_id_fn = os.path.join(output_path, "doc_id_to_faiss_id_{}.dump".format(fold))
         doc_id_to_faiss_id = pickle.load(open(doc_id_to_faiss_id_fn, "rb"))
 
@@ -214,12 +226,7 @@ class FAISSIndex(Index):
             query_emb = topic_vectors[i].reshape(768)
             for doc_id in bm25_run[qid].keys():
                 faiss_id = doc_id_to_faiss_id[doc_id]
-                shard_id = faiss_id // docs_per_shard
-                if shard_id not in shard_hash:
-                    shard_hash[shard_id] = faiss.read_index(os.path.join(output_path, "shard_{}_faiss_{}.index".format(shard_id, fold)))
-
-                shard = shard_hash[shard_id]
-                doc_emb = shard.reconstruct(faiss_id).reshape(768)
+                doc_emb = bm25_faiss_index.reconstruct(faiss_id).reshape(768)
                 score = np.dot(query_emb, doc_emb)
                 score = score.astype(np.float16).item()
                 results[qid].append((score, doc_id))
@@ -230,10 +237,11 @@ class FAISSIndex(Index):
                 run.setdefault(qid, {})[doc_id] = score
 
         if hasattr(self.benchmark, "need_pooling") and self.benchmark.need_pooling:
-            run = max_pool_trec_passage_run(run)
+            run = pool_trec_passage_run(run, strategy=self.benchmark.config["pool"])
 
         metrics = evaluator.eval_runs(run, self.benchmark.qrels, evaluator.DEFAULT_METRICS,
                                       self.benchmark.relevance_level)
 
+        faiss_logger.info("Manual search took".format(time.time() - start_time))
         return metrics
 

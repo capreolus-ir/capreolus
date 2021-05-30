@@ -34,7 +34,7 @@ class RankTask(Task):
         self.evaluate()
 
     def search(self):
-        topics_fn = self.benchmark.topic_file
+        topics_fn = self.benchmark.get_topics_file()
         output_dir = self.get_results_path()
 
         if hasattr(self.searcher, "index"):
@@ -69,23 +69,3 @@ class RankTask(Task):
             logger.info("%25s: %0.4f", metric, score)
 
         return best_results
-
-    def checklist(self):
-        self.searcheval()
-        topics_fn = "hard_coded_path_to_checklist_topics"
-        checklist_collection, checklist_benchmark = self.get_checklist_collection_and_benchmark()
-        checklist_index = self.create_checklist_index()  # Create an anserini index from the CheckList documents (if required)
-        checklist_searcher = self.searcher()  # Manually initialize, and provide the CheckList collection and benchmark during initialization
-        checklist_searcher.index = checklist_index
-        checklist_index.collection = checklist_collection
-        checklist_index.build()
-
-        output_dir = self.get_checklist_results_path()
-        
-        search_results_folder = checklist_searcher.query_from_file(topics_fn, output_dir)
-        self.create_checklist_report(search_results_folder)
-        
-    def create_checklist_report(results_folder):
-        # This will probably be moved to a common location, since all tasks can use the exact same method
-        raise NotImplementedError        
-

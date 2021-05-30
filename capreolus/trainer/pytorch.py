@@ -53,6 +53,12 @@ class PytorchTrainer(Trainer):
         if self.config["evalbatch"] < 0:
             raise ValueError("evalbatch must be 0 (to use the training batch size) or  >= 1")
 
+        if self.config["niters"] <= 0:
+            raise ValueError("niters must be > 0")
+
+        if self.config["niters"] < self.config["validatefreq"]:
+            raise ValueError("niters must be equal or greater than validatefreq")
+
         if self.config["itersize"] < self.config["batch"]:
             raise ValueError("itersize must be >= batch")
 
@@ -159,6 +165,25 @@ class PytorchTrainer(Trainer):
         except:  # lgtm [py/catch-base-exception]
             logger.info("attempted to load weights from %s but failed, starting at iteration 0", weights_fn)
             return default_return_values
+
+    def get_validation_schedule_msg(self, initial_iter=0):
+        """Describe validation schedule considering `niters` and `validatefreq`
+
+        Args:
+            initial_iter (int): starting point of iteration. defined by train method.
+
+        Example:
+            Assuming self.config["niters"] = 20 and self.config["validatefreq"] = 3, this method will return:
+            `Validation is scheduled on iterations: [3, 6, 9, 12, 15, 18]` given initial_iter in [0, 1, 2]
+            `Validation is scheduled on iterations: [6, 9, 12, 15, 18]` given initial_iter == 3
+        """
+        validation_schedule = [
+            validate
+            for validate in range(initial_iter + 1, self.config["niters"] + 1)
+            if validate % self.config["validatefreq"] == 0
+        ]
+        msg = f"Validation is scheduled on iterations: {validation_schedule}"
+        return msg
 
     def train(self, reranker, train_dataset, train_output_path, dev_data, dev_output_path, qrels, metric, relevance_level=1):
         """Train a model following the trainer's config (specifying batch size, number of iterations, etc).

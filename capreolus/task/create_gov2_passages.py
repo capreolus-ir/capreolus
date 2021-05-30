@@ -13,6 +13,11 @@ logger = get_logger(__name__)  # pylint: disable=invalid-name
 
 @Task.register
 class Gov2Passages(Task):
+    """
+    Creates the "gov2passages" benchmark/collection by splitting each doc in the GOV2 collection into passages.
+    WARNING: Takes a lot of disk space. With the default settings, the 25 million docs in the original GOV2 collection
+    ends up being 125 million docs (i.e passages) in gov2passages collection.
+    """
     module_name = "gov2passages"
     requires_random_seed = False
     config_spec = [

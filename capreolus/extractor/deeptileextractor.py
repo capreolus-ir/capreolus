@@ -38,6 +38,7 @@ class DeepTileExtractor(Extractor):
 
     requires_random_seed = True
     dependencies = [
+        Dependency(key="benchmark", module="benchmark", name=None),
         Dependency(
             key="index", module="index", name="anserini", default_config_overrides={"indexstops": True, "stemmer": "none"}
         ),

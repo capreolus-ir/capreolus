@@ -9,7 +9,7 @@ import subprocess
 import os
 import numpy as np
 from capreolus import ConfigOption, Dependency, constants, evaluator, Anserini
-from capreolus.utils.trec import load_trec_topics, max_pool_trec_passage_run
+from capreolus.utils.trec import load_trec_topics, pool_trec_passage_run
 from capreolus import get_logger
 
 from . import Searcher
@@ -44,40 +44,47 @@ class FAISSSearcher(Searcher):
         best_search_run_path = best_bm25_results["path"][fold]
         bm25_run = Searcher.load_trec_run(best_search_run_path)
 
+        docs_in_bm25_run = []
+        for qid, docid_to_score in bm25_run.items():
+            docs_in_bm25_run.extend(list(docid_to_score.keys()))
+        docs_in_bm25_run = set(docs_in_bm25_run)
+
         # self.index.manual_search_train_set(topic_vectors, qid_query, fold)
-        distances, results = self.index.faiss_search(topic_vectors, 1000, qid_query, numshards, docs_per_shard, fold, output_path)
+        distances, results = self.index.faiss_search(topic_vectors, 2000, docs_in_bm25_run, numshards, docs_per_shard, fold, output_path)
         # self.calc_faiss_search_metrics_for_train_set(distances, results, qid_query, fold)
         self.calc_faiss_search_metrics_for_dev_set(distances, results, qid_query, fold, tag, output_path)
         self.calc_faiss_search_metrics_for_test_set(distances, results, qid_query, fold, tag, output_path)
         distances = distances.astype(np.float16)
         self.write_results_in_trec_format(results, distances, qid_query, output_path, fold, filename=filename)
-        self.index.manual_search_dev_set(bm25_run, topic_vectors, qid_query, fold, docs_per_shard, output_path, tag)
-        self.index.manual_search_test_set(bm25_run, topic_vectors, qid_query, fold, docs_per_shard, output_path, tag)
 
+        # Don't calculate re-rank metrics for PRF
+        if not "topdoc" in tag:
+            self.index.manual_search_dev_set(bm25_run, topic_vectors, qid_query, fold, docs_per_shard, output_path, tag)
+            self.index.manual_search_test_set(bm25_run, topic_vectors, qid_query, fold, docs_per_shard, output_path, tag)
 
         return distances, results
 
-    def _query_from_file(self, encoder, topicsfn, output_path, numshards, docs_per_shard, fold=None):
+    def _query_from_file(self, encoder, topics, output_path, numshards, docs_per_shard, fold=None):
         assert fold is not None
-        topics = load_trec_topics(topicsfn)
 
         # `qid_query` contains (qid, query) tuples in the order they were encoded
         topic_vectors, qid_query = self.create_topic_vectors(encoder, topics, fold, topicfield=self.config["field"])
         normal_distances, normal_results = self.do_search(topic_vectors, qid_query, numshards, docs_per_shard, fold, output_path, "faiss_{}.run".format(fold), "normal")
-        # self.interpolate(self.index.get_results_path(), os.path.join(output_path, "faiss_{}.run".format(fold)), fold, "normal")
+        # self.combine_top1000(output_path, os.path.join(output_path, "faiss_{}.run".format(fold)), fold, "normal")
+        self.interpolate(output_path, os.path.join(output_path, "faiss_{}.run".format(fold)), fold, "normal")
 
         # rm3_expanded_topics = self.rm3_expand_queries(os.path.join(output_path, "faiss.run"), topicfield="title")
         # rm3_expanded_topic_vectors, rm3_qid_query = self.create_topic_vectors(rm3_expanded_topics, fold, topicfield="title")
         # self.do_search(rm3_expanded_topic_vectors, rm3_qid_query, fold, output_path, "faiss_rm3_expanded.run", "rm3")
 
-        # topdoc_expanded_topic_vectors, topdoc_qid_query = self.topdoc_expand_queries(qid_query, topic_vectors, normal_results, fold, k=1)
-        # self.do_search(topdoc_expanded_topic_vectors, topdoc_qid_query, fold, output_path, "faiss_topdoc_expanded_{}.run".format(fold), "topdoc-1:")
-        # topdoc_expanded_topic_vectors, topdoc_qid_query = self.topdoc_expand_queries(qid_query, topic_vectors, normal_results, fold, k=3)
-        # self.do_search(topdoc_expanded_topic_vectors, topdoc_qid_query, fold, output_path, "faiss_topdoc_expanded_{}.run".format(fold), "topdoc-3:")
-        # topdoc_expanded_topic_vectors, topdoc_qid_query = self.topdoc_expand_queries(qid_query, topic_vectors, normal_results, fold, k=5)
-        # self.do_search(topdoc_expanded_topic_vectors, topdoc_qid_query, fold, output_path, "faiss_topdoc_expanded_{}.run".format(fold), "topdoc-5:")
-        # topdoc_expanded_topic_vectors, topdoc_qid_query = self.topdoc_expand_queries(qid_query, topic_vectors, normal_results, fold, k=10)
-        # self.do_search(topdoc_expanded_topic_vectors, topdoc_qid_query, fold, output_path, "faiss_topdoc_expanded_{}.run".format(fold), "topdoc-10:")
+        topdoc_expanded_topic_vectors, topdoc_qid_query = self.topdoc_expand_queries(qid_query, topic_vectors, normal_results, fold, output_path, docs_per_shard, k=1)
+        self.do_search(topdoc_expanded_topic_vectors, topdoc_qid_query, numshards, docs_per_shard, fold, output_path, "faiss_topdoc_expanded_{}_top1.run".format(fold), "topdoc-1:")
+        topdoc_expanded_topic_vectors, topdoc_qid_query = self.topdoc_expand_queries(qid_query, topic_vectors, normal_results, fold, output_path, docs_per_shard, k=3)
+        self.do_search(topdoc_expanded_topic_vectors, topdoc_qid_query, numshards, docs_per_shard, fold, output_path, "faiss_topdoc_expanded_{}_top3.run".format(fold), "topdoc-3:")
+        topdoc_expanded_topic_vectors, topdoc_qid_query = self.topdoc_expand_queries(qid_query, topic_vectors, normal_results, fold, output_path, docs_per_shard, k=5)
+        self.do_search(topdoc_expanded_topic_vectors, topdoc_qid_query, numshards, docs_per_shard, fold, output_path, "faiss_topdoc_expanded_{}_top5.run".format(fold), "topdoc-5:")
+        # topdoc_expanded_topic_vectors, topdoc_qid_query = self.topdoc_expand_queries(qid_query, topic_vectors, normal_results, fold, k=7)
+        # self.do_search(topdoc_expanded_topic_vectors, topdoc_qid_query, fold, output_path, "faiss_topdoc_expanded_{}.run".format(fold), "topdoc-7:")
         #
         # self.interpolate(self.index.get_results_path(), os.path.join(output_path, "faiss_topdoc_expanded.run"), fold, "topdoc")
         # # Deleting the results obtained using the expanded queries
@@ -145,19 +152,21 @@ class FAISSSearcher(Searcher):
                 
         return np.concatenate(topic_vectors, axis=0), qid_query
 
-    def topdoc_expand_queries(self, qid_query, original_topic_vectors, results, fold, k=1):
+    def topdoc_expand_queries(self, qid_query, original_topic_vectors, results, fold, output_path, docs_per_shard, k=1):
         topic_vectors = []
-        faiss_id_to_doc_id_fn = os.path.join(self.index.get_cache_path(), "faiss_id_to_doc_id_{}.dump".format(fold))
-        faiss_id_to_doc_id = pickle.load(open(faiss_id_to_doc_id_fn, "rb"))
-        faiss_index = faiss.read_index(os.path.join(self.index.get_index_path(), "faiss_{}.index".format(fold)))
 
         for i, (qid, query) in enumerate(qid_query):
-            topdocs = results[i][results[i] > -1][:k]
+            # topdocs are stored according to increasing cosine similarity. So the top-doc is at the very end
+            # reverse the array so that the best doc is the first doc
+            topdocs = results[i][results[i] > -1]
 
             averaged_topdoc_emb = [original_topic_vectors[i]]
-            for j in range(k):
-                topdoc = int(topdocs[j])
-                topdoc_emb = faiss_index.reconstruct(topdoc)
+            for j in range(1, k+1):
+                topdoc_id = int(topdocs[-j])
+                shard_id = topdoc_id // docs_per_shard
+                shard = faiss.read_index(os.path.join(output_path, "shard_{}_faiss_{}.index".format(shard_id, fold)))
+
+                topdoc_emb = shard.reconstruct(topdoc_id)
                 averaged_topdoc_emb.append(topdoc_emb)
 
             averaged_topdoc_emb = np.array(averaged_topdoc_emb)
@@ -166,13 +175,12 @@ class FAISSSearcher(Searcher):
             topic_vectors.append(averaged_topdoc_emb)
 
         topic_vectors = np.array(topic_vectors)
-        logger.debug("topdoc_expanded topics have shape {}".format(topic_vectors.shape))
 
         return topic_vectors, qid_query
 
     def rm3_expand_queries(self, faiss_run_file, topicfield="title"):
         index_path = self.index.index.get_index_path()
-        topicsfn = self.benchmark.topic_file
+        topicsfn = self.benchmark.get_topics_file()
         os.makedirs(self.get_cache_path(), exist_ok=True)
         output_path = os.path.join(self.get_cache_path(), "expanded_queries.txt")
 
@@ -272,33 +280,88 @@ class FAISSSearcher(Searcher):
                 run.setdefault(qid, {})[doc_id] = distances[i][j].item()
 
         if hasattr(self.benchmark, "need_pooling") and self.benchmark.need_pooling:
-             run = max_pool_trec_passage_run(run)
+             run = pool_trec_passage_run(run, strategy=self.benchmark.config["pool"])
 
         metrics = evaluator.eval_runs(run, self.benchmark.qrels, evaluator.DEFAULT_METRICS, self.benchmark.relevance_level)
 
         return metrics
 
-    def interpolate(self, bm25_run_folder, faiss_run_fn, fold, tag):
-        best_run = evaluator.search_best_run(bm25_run_folder, self.benchmark, "map", metrics=evaluator.DEFAULT_METRICS, folds=fold)
-        bm25_run = Searcher.load_trec_run(best_run["path"][fold])
+    def combine_top1000(self, output_path, faiss_run_fn, fold, tag):
+        logger.info("combining top 1000")
+        search_results_folder = os.path.join(output_path, "rank")
+        best_bm25_results = evaluator.search_best_run(
+            search_results_folder, self.benchmark, primary_metric="map", metrics=evaluator.DEFAULT_METRICS, folds=fold
+        )
+        best_search_run_path = best_bm25_results["path"][fold]
+        # BM25 contains the top-1000 docs
+        bm25_run = Searcher.load_trec_run(best_search_run_path)
         faiss_run = Searcher.load_trec_run(faiss_run_fn)
+
+        faiss_qid_to_doc_scores = defaultdict(list)
+        for qid, docid_to_score in faiss_run.items():
+            for docid, score in docid_to_score.items():
+                faiss_qid_to_doc_scores[qid].append((docid, score))
+
+        combined_run = defaultdict(dict)
+
+        # FAISS run has 2000 docs. Get the top 1000
+        for qid, docid_scores in faiss_qid_to_doc_scores.items():
+            sorted_doc_scores = sorted(docid_scores, key=lambda x: x[1], reverse=True)
+            for docid, score in sorted_doc_scores[:1000]:
+                combined_run[qid][docid] = score
+
+        for qid, docid_to_score in bm25_run.items():
+            for docid, score in docid_to_score.items():
+                # We are only interested in recall. So it's okay to overwrite existing score from FAISS run
+                combined_run[qid][docid] = score
+
+        if hasattr(self.benchmark, "need_pooling") and self.benchmark.need_pooling:
+            combined_run = pool_trec_passage_run(combined_run, strategy=self.benchmark.config["pool"])
+
+        metrics = evaluator.eval_runs(combined_run, self.benchmark.qrels, evaluator.DEFAULT_METRICS,
+                                      self.benchmark.relevance_level)
+        faiss_logger.info("%s: Combined runs test Fold %s metrics: %s", tag, fold,
+                          " ".join([f"{metric}={v:0.3f}" for metric, v in sorted(metrics.items())]))
+
+    def interpolate(self, output_path, faiss_run_fn, fold, tag):
+        search_results_folder = os.path.join(output_path, "rank")
+        best_bm25_results = evaluator.search_best_run(
+            search_results_folder, self.benchmark, primary_metric="map", metrics=evaluator.DEFAULT_METRICS, folds=fold
+        )
+        best_search_run_path = best_bm25_results["path"][fold]
+        bm25_run = Searcher.load_trec_run(best_search_run_path)
+
+        old_faiss_run = Searcher.load_trec_run(faiss_run_fn)
         qids = self.benchmark.folds[fold]["predict"]["test"]
 
-        faiss_favor = 0
-        bm25_favor = 0
+        faiss_qid_to_doc_scores = defaultdict(list)
+        for qid, docid_to_score in old_faiss_run.items():
+            for docid, score in docid_to_score.items():
+                faiss_qid_to_doc_scores[qid].append((docid, score))
 
-        for qid in qids:
-            if qid not in self.benchmark.qrels:
-                continue
+        faiss_run = defaultdict(dict)
 
-            qrels = self.benchmark.qrels[qid]
-            bm25_retrieved = set([docid for docid in bm25_run[qid].keys() if docid in qrels and qrels[docid] >= 1])
-            faiss_retrieved = set([docid for docid in faiss_run[qid].keys() if docid in qrels and qrels[docid] >= 1])
-            faiss_favor += len(faiss_retrieved - bm25_retrieved)
-            bm25_favor += len(bm25_retrieved - faiss_retrieved)
+        # FAISS run has 2000 docs. Get the top 1000
+        for qid, docid_scores in faiss_qid_to_doc_scores.items():
+            sorted_doc_scores = sorted(docid_scores, key=lambda x: x[1], reverse=True)
+            for docid, score in sorted_doc_scores[:1000]:
+                faiss_run[qid][docid] = score
 
-        faiss_logger.info("{}: FAISS retrieved {} reldocs that BM25 did not".format(tag, faiss_favor))
-        faiss_logger.info("{}: BM25 retrieved {} reldocs that FAISS did not".format(tag, bm25_favor))
+        # faiss_favor = 0
+        # bm25_favor = 0
+        #
+        # for qid in qids:
+        #     if qid not in self.benchmark.qrels:
+        #         continue
+        #
+        #     qrels = self.benchmark.qrels[qid]
+        #     bm25_retrieved = set([docid for docid in bm25_run[qid].keys() if docid in qrels and qrels[docid] >= 1])
+        #     faiss_retrieved = set([docid for docid in faiss_run[qid].keys() if docid in qrels and qrels[docid] >= 1])
+        #     faiss_favor += len(faiss_retrieved - bm25_retrieved)
+        #     bm25_favor += len(bm25_retrieved - faiss_retrieved)
+        #
+        # faiss_logger.info("{}: FAISS retrieved {} reldocs that BM25 did not".format(tag, faiss_favor))
+        # faiss_logger.info("{}: BM25 retrieved {} reldocs that FAISS did not".format(tag, bm25_favor))
 
         bm25_max = 0
         bm25_min = np.inf
@@ -336,7 +399,7 @@ class FAISSSearcher(Searcher):
                     interpolated_run.setdefault(qid, {})[docid] = (faiss_run[qid][docid] - faiss_min) / (faiss_max - faiss_min)
 
         if hasattr(self.benchmark, "need_pooling") and self.benchmark.need_pooling:
-            interpolated_run = max_pool_trec_passage_run(interpolated_run)
+            interpolated_run = pool_trec_passage_run(interpolated_run, strategy=self.benchmark.config["pool"])
 
         metrics = evaluator.eval_runs(interpolated_run, self.benchmark.qrels, evaluator.DEFAULT_METRICS, self.benchmark.relevance_level)
-        faiss_logger.info("%s: Interpolated Test Fold %s metrics: %s", tag, fold, " ".join([f"{metric}={v:0.3f}" for metric, v in sorted(metrics.items())]))
+        faiss_logger.info("%s: interpolated Test Fold %s metrics: %s", tag, fold, " ".join([f"{metric}={v:0.3f}" for metric, v in sorted(metrics.items())]))
