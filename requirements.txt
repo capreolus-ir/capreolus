@@ -2,8 +2,8 @@
 cython
 pre-commit
 profane>=0.2.0
-SQLAlchemy>=1.3.5
-sqlalchemy-utils
+sqlalchemy~=1.3.19 # needed until new sqlalchemy-utils release
+sqlalchemy-utils~=0.36.8
 psycopg2-binary
 matplotlib
 colorlog>=4.0.2
@@ -40,4 +40,5 @@ lz4
 xxhash
 annoy
 fasteners
+ir_datasets
 faiss-cpu

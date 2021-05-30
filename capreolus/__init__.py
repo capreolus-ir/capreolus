@@ -40,15 +40,17 @@ jnius_config.set_classpath(Anserini.get_fat_jar())
 ### convenience imports
 # note: order is important to avoid circular imports
 from capreolus.utils.loginit import get_logger
+from capreolus.trecrun import TrecRun
 from capreolus.benchmark import Benchmark
 from capreolus.collection import Collection
-from capreolus.index import Index
+from capreolus.index import Index, AnseriniIndex
 from capreolus.searcher import Searcher
 from capreolus.extractor import Extractor
 from capreolus.reranker import Reranker
 from capreolus.tokenizer import Tokenizer
 from capreolus.trainer import Trainer
 from capreolus.task import Task
+from capreolus.utils.irds import get_irds
 
 
 def parse_config_string(s):

@@ -1,4 +1,4 @@
-from collections import defaultdict
+from collections import defaultdict, Counter
 
 import numpy as np
 import tensorflow as tf
@@ -18,6 +18,7 @@ class EmbedText(Extractor):
     module_name = "embedtext"
     requires_random_seed = True
     dependencies = [
+        Dependency(key="benchmark", module="benchmark", name=None),
         Dependency(
             key="index", module="index", name="anserini", default_config_overrides={"indexstops": True, "stemmer": "none"}
         ),
@@ -98,6 +99,14 @@ class EmbedText(Extractor):
             if qid not in self.qid2toks:
                 self.qid2toks[qid] = self.tokenizer.tokenize(topics[qid])
                 self._add_oov_to_vocab(self.qid2toks[qid])
+
+        query_lengths = Counter(len(toks) for toks in self.qid2toks.values())
+        if any(qlen > self.config["maxqlen"] for qlen in query_lengths):
+            logger.warning(
+                "Some queries are longer than maxqlen; longest: %s; counter: %s",
+                max(query_lengths),
+                sorted(query_lengths.items()),
+            )
 
     def get_doc_tokens(self, docid):
         if docid not in self.docid2toks:

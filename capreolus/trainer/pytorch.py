@@ -43,7 +43,7 @@ class PytorchTrainer(Trainer):
         ConfigOption("decaytype", None),
         ConfigOption("amp", None, "Automatic mixed precision mode; one of: None, train, pred, both"),
     ]
-    config_keys_not_in_path = ["fastforward", "boardname"]
+    config_keys_not_in_path = ["boardname"]
 
     def build(self):
         # sanity checks
@@ -52,6 +52,12 @@ class PytorchTrainer(Trainer):
 
         if self.config["evalbatch"] < 0:
             raise ValueError("evalbatch must be 0 (to use the training batch size) or  >= 1")
+
+        if self.config["niters"] <= 0:
+            raise ValueError("niters must be > 0")
+
+        if self.config["niters"] < self.config["validatefreq"]:
+            raise ValueError("niters must be equal or greater than validatefreq")
 
         if self.config["itersize"] < self.config["batch"]:
             raise ValueError("itersize must be >= batch")
@@ -82,7 +88,6 @@ class PytorchTrainer(Trainer):
 
         iter_loss = []
         batches_since_update = 0
-        batches_per_epoch = (self.config["itersize"] // self.config["batch"]) or 1
         batches_per_step = self.config["gradacc"]
 
         for bi, batch in tqdm(enumerate(train_dataloader), desc="Training iteration", total=self.n_batch_per_iter):
@@ -160,6 +165,25 @@ class PytorchTrainer(Trainer):
             logger.info("attempted to load weights from %s but failed, starting at iteration 0", weights_fn)
             return default_return_values
 
+    def get_validation_schedule_msg(self, initial_iter=0):
+        """Describe validation schedule considering `niters` and `validatefreq`
+
+        Args:
+            initial_iter (int): starting point of iteration. defined by train method.
+
+        Example:
+            Assuming self.config["niters"] = 20 and self.config["validatefreq"] = 3, this method will return:
+            `Validation is scheduled on iterations: [3, 6, 9, 12, 15, 18]` given initial_iter in [0, 1, 2]
+            `Validation is scheduled on iterations: [6, 9, 12, 15, 18]` given initial_iter == 3
+        """
+        validation_schedule = [
+            validate
+            for validate in range(initial_iter + 1, self.config["niters"] + 1)
+            if validate % self.config["validatefreq"] == 0
+        ]
+        msg = f"Validation is scheduled on iterations: {validation_schedule}"
+        return msg
+
     def train(self, reranker, train_dataset, train_output_path, dev_data, dev_output_path, qrels, metric, relevance_level=1):
         """Train a model following the trainer's config (specifying batch size, number of iterations, etc).
 
@@ -224,6 +248,8 @@ class PytorchTrainer(Trainer):
                 logger.debug("fastforwarding train_dataloader to iteration %s", initial_iter)
                 self.exhaust_used_train_data(train_dataloader, n_batch_to_exhaust=initial_iter * self.n_batch_per_iter)
 
+        logger.info(self.get_validation_schedule_msg(initial_iter))
+
         if self.config["niters"] == 0:
             reranker.save_weights(dev_best_weight_fn, self.optimizer)
         else:
@@ -270,7 +296,6 @@ class PytorchTrainer(Trainer):
                 summary_writer.flush()
             logger.info("training loss: %s", train_loss)
             logger.info("Training took {}".format(time.time() - train_start_time))
-
         summary_writer.close()
 
         # TODO should we write a /done so that training can be skipped if possible when fastforward=False? or in Task?

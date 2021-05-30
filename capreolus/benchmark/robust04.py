@@ -39,6 +39,12 @@ class Robust04Yang19(Benchmark):
 
 
 @Benchmark.register
+class Robust04Yang19Desc(Robust04Yang19, Benchmark):
+    module_name = "robust04.yang19.desc"
+    query_type = "desc"
+
+
+@Benchmark.register
 class Robust04Passages(Benchmark):
     """
     Split robust04 into passages

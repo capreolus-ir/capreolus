@@ -101,6 +101,8 @@ class TensorflowTrainer(Trainer):
             raise ValueError("storage, tpuname and tpuzone configs must be provided when training on TPU")
         if self.tpu and self.config["storage"] and not self.config["storage"].startswith("gs://"):
             raise ValueError("For TPU utilization, the storage config should start with 'gs://'")
+        if self.config["niters"] < self.config["validatefreq"]:
+            raise ValueError("niters must be equal or greater than validatefreq")
 
     def train(self, reranker, train_dataset, train_output_path, dev_data, dev_output_path, qrels, metric, relevance_level=1):
         if self.tpu:
