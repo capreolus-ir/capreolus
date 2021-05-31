@@ -47,6 +47,7 @@ def get_irds(dataset, query_type, fields):
     @Benchmark.register
     class DynamicIRDBenchmark(IRDBenchmark):
         module_name = ",".join(dataset)
+        ird_dataset_names = dataset
         config_spec = [ConfigOption("query_type", "title")]
 
         @property
