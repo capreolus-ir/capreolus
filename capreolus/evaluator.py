@@ -7,7 +7,6 @@ import pytrec_eval
 
 from capreolus.searcher import Searcher
 from capreolus.utils.loginit import get_logger
-from capreolus.eval.msmarco_eval import compute_metrics_from_files
 from capreolus.utils.trec import max_pool_trec_passage_run
 
 logger = get_logger(__name__)
@@ -51,11 +50,6 @@ def judged(qrels, runs, n):
     return sum(scores) / len(scores)
 
 
-def mrr_10(qrels, runs):
-    qrels = {k: v for k, v in qrels.items() if k in runs}
-    return list(compute_metrics_from_files(trec_qrels=qrels, trec_runs=runs).values())[0]
-
-
 def _eval_runs(runs, qrels, metrics, relevance_level):
     start = time.time()
     overlap_qids = set(qrels) & set(runs)
@@ -84,8 +78,6 @@ def _eval_runs(runs, qrels, metrics, relevance_level):
 
     for n in calc_judged:
         scores[f"judged_{n}"] = judged(qrels, runs, n)
-    if MRR_10 in metrics:
-        scores[MRR_10] = mrr_10(qrels, runs)
 
     logger.debug("_eval_runs took {}".format(time.time() - start))
 
