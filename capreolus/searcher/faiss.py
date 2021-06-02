@@ -57,9 +57,8 @@ class FAISSSearcher(Searcher):
 
         return distances, results
 
-    def _query_from_file(self, encoder, topicsfn, output_path, numshards, docs_per_shard, fold=None):
+    def _query_from_file(self, encoder, topics, output_path, numshards, docs_per_shard, fold=None):
         assert fold is not None
-        topics = load_trec_topics(topicsfn)
 
         # `qid_query` contains (qid, query) tuples in the order they were encoded
         topic_vectors, qid_query = self.create_topic_vectors(encoder, topics, fold, topicfield=self.config["field"])

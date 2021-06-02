@@ -104,10 +104,10 @@ class DenseRankTask(Task):
             assert os.path.isfile(os.path.join(output_path, "shard_{}_faiss_{}.index".format(shard_id, fold))), "Shard {} does not exist".format(shard_id)
 
         self.encoder.trainer.load_trained_weights(self.encoder, output_path)
-        topics_fn = self.benchmark.get_topics_file()
+        topics = self.benchmark.topics
         index_reader = self.searcher.index.get_anserini_index_reader()
         num_docs = index_reader.maxDoc()
         docs_per_shard = math.ceil(num_docs / self.config["numshards"])
-        search_results_folder = self.annsearcher._query_from_file(self.encoder, topics_fn, output_path, self.config["numshards"], docs_per_shard, fold=fold)
+        search_results_folder = self.annsearcher._query_from_file(self.encoder, topics, output_path, self.config["numshards"], docs_per_shard, fold=fold)
 
         # do faiss search
