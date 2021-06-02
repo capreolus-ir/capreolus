@@ -154,8 +154,8 @@ class TutorialTask(Task):
         output_dir = self.get_results_path()
 
         # read the title queries from the chosen benchmark's topic file
-        results1 = self.searcher1.query_from_file(self.benchmark.topic_file, output_dir / "searcher1")
-        results2 = self.searcher2.query_from_file(self.benchmark.topic_file, output_dir / "searcher2")
+        results1 = self.searcher1.query_from_file(self.benchmark.get_topics_file(), output_dir / "searcher1")
+        results2 = self.searcher2.query_from_file(self.benchmark.get_topics_file(), output_dir / "searcher2")
         searcher_results = [results1, results2]
 
         # using the benchmark's folds, which each contain train/validation/test queries,

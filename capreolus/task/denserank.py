@@ -38,7 +38,7 @@ class DenseRankTask(Task):
     default_command = "describe"
 
     def do_bm25_search(self, fold):
-        topics_fn = self.benchmark.topic_file
+        topics_fn = self.benchmark.get_topics_file()
         output_dir = os.path.join(self.get_results_path(), "rank")
 
         if hasattr(self.searcher, "index"):
@@ -104,7 +104,7 @@ class DenseRankTask(Task):
             assert os.path.isfile(os.path.join(output_path, "shard_{}_faiss_{}.index".format(shard_id, fold))), "Shard {} does not exist".format(shard_id)
 
         self.encoder.trainer.load_trained_weights(self.encoder, output_path)
-        topics_fn = self.benchmark.topic_file
+        topics_fn = self.benchmark.get_topics_file()
         index_reader = self.searcher.index.get_anserini_index_reader()
         num_docs = index_reader.maxDoc()
         docs_per_shard = math.ceil(num_docs / self.config["numshards"])

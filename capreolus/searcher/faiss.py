@@ -172,7 +172,7 @@ class FAISSSearcher(Searcher):
 
     def rm3_expand_queries(self, faiss_run_file, topicfield="title"):
         index_path = self.index.index.get_index_path()
-        topicsfn = self.benchmark.topic_file
+        topicsfn = self.benchmark.get_topics_file()
         os.makedirs(self.get_cache_path(), exist_ok=True)
         output_path = os.path.join(self.get_cache_path(), "expanded_queries.txt")
 

@@ -157,7 +157,7 @@ class Robust04Queries(Task):
         self.write_to_file(topics, qrels, folds)
 
     def search(self):
-        topics_fn = self.benchmark.topic_file
+        topics_fn = self.benchmark.get_topics_file()
         output_dir = self.get_results_path()
 
         if hasattr(self.searcher, "index"):
