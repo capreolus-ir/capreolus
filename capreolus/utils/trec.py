@@ -179,6 +179,8 @@ def sum_pool_trec_passage_run(run, separator):
 
             docid_to_score[qid][docid] += score
 
+    return docid_to_score
+
 
 def mean_pool_trec_passage_run(run, separator):
     docid_to_scores_dict = defaultdict(lambda: defaultdict(list))
