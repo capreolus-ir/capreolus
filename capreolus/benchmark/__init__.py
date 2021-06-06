@@ -29,6 +29,9 @@ class Benchmark(ModuleBase):
     use_train_as_dev = False
     """ Whether to use training set as validate set when there is no training needed, 
     e.g. for traditional IR algorithms like BM25 """
+    need_pooling = False
+    """Some benchmarks consists of documents that are really passages, and the final score will have to aggregate 
+    scores from all passages belonging to the same document. This property indicates if such pooling is required"""
 
     @property
     def qrels(self):

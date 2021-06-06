@@ -7,7 +7,7 @@ import pytrec_eval
 
 from capreolus.searcher import Searcher
 from capreolus.utils.loginit import get_logger
-from capreolus.utils.trec import max_pool_trec_passage_run
+from capreolus.utils.trec import pool_trec_passage_run
 
 logger = get_logger(__name__)
 
@@ -151,7 +151,7 @@ def search_best_run(runfile_dirs, benchmark, primary_metric, metrics=None, folds
     for runfile in runfiles:
         runs = Searcher.load_trec_run(runfile)
         if hasattr(benchmark, "need_pooling") and benchmark.need_pooling:
-            runs = max_pool_trec_passage_run(runs)
+            runs = pool_trec_passage_run(runs, strategy=benchmark.config["pool"])
 
         for fold_name in folds:
             dev_qrels = {qid: benchmark.qrels[qid] for qid in benchmark.non_nn_dev[fold_name] if qid in benchmark.qrels}
@@ -171,7 +171,7 @@ def search_best_run(runfile_dirs, benchmark, primary_metric, metrics=None, folds
         test_runs.update({qid: docids_to_score for qid, docids_to_score in Searcher.load_trec_run(score_dict["path"]).items() if qid in test_qids})
 
     if hasattr(benchmark, "need_pooling") and benchmark.need_pooling:
-        test_runs = max_pool_trec_passage_run(test_runs)
+        test_runs = pool_trec_passage_run(test_runs, strategy=benchmark.config["pool"])
     scores = eval_runs(test_runs, benchmark.qrels, metrics, benchmark.relevance_level)
     logger.info("calculated test_run scores for folds: {}".format(best_scores.keys()))
 

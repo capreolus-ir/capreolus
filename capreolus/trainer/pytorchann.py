@@ -17,7 +17,7 @@ from capreolus.reranker.common import pair_hinge_loss, pair_softmax_loss, multi_
 
 from . import Trainer
 from capreolus.utils.common import pack_tensor_2D
-from capreolus.utils.trec import max_pool_trec_passage_run
+from capreolus.utils.trec import pool_trec_passage_run
 
 logger = get_logger(__name__)  # pylint: disable=invalid-name
 faiss_logger = get_logger("faiss")
@@ -165,7 +165,7 @@ class PytorchANNTrainer(Trainer):
                 if (niter + 1) % validation_frequency == 0:
                     val_preds = self.validate(encoder, dev_dataset)
                     # TODO: This is a wasteful step for all non-passage datasets. Put it behind an if-condition maybe?
-                    val_preds = max_pool_trec_passage_run(val_preds)
+                    val_preds = pool_trec_passage_run(val_preds, strategy=encoder.benchmark.config["pool"])
                     metrics = evaluator.eval_runs(val_preds, qrels, evaluator.DEFAULT_METRICS, relevance_level)
                     logger.info("dev metrics: %s", " ".join([f"{metric}={v:0.3f}" for metric, v in sorted(metrics.items())]))
                     faiss_logger.info("pytorch train dev metrics: %s", " ".join([f"{metric}={v:0.3f}" for metric, v in sorted(metrics.items())]))

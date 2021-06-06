@@ -9,7 +9,7 @@ import subprocess
 import os
 import numpy as np
 from capreolus import ConfigOption, Dependency, constants, evaluator, Anserini
-from capreolus.utils.trec import load_trec_topics, max_pool_trec_passage_run
+from capreolus.utils.trec import load_trec_topics, pool_trec_passage_run
 from capreolus import get_logger
 
 from . import Searcher
@@ -271,7 +271,7 @@ class FAISSSearcher(Searcher):
                 run.setdefault(qid, {})[doc_id] = distances[i][j].item()
 
         if hasattr(self.benchmark, "need_pooling") and self.benchmark.need_pooling:
-             run = max_pool_trec_passage_run(run)
+             run = pool_trec_passage_run(run, strategy=self.benchmark.config["pool"])
 
         metrics = evaluator.eval_runs(run, self.benchmark.qrels, evaluator.DEFAULT_METRICS, self.benchmark.relevance_level)
 
@@ -335,7 +335,7 @@ class FAISSSearcher(Searcher):
                     interpolated_run.setdefault(qid, {})[docid] = (faiss_run[qid][docid] - faiss_min) / (faiss_max - faiss_min)
 
         if hasattr(self.benchmark, "need_pooling") and self.benchmark.need_pooling:
-            interpolated_run = max_pool_trec_passage_run(interpolated_run)
+            interpolated_run = pool_trec_passage_run(interpolated_run, strategy=self.benchmark.config["pool"])
 
         metrics = evaluator.eval_runs(interpolated_run, self.benchmark.qrels, evaluator.DEFAULT_METRICS, self.benchmark.relevance_level)
         faiss_logger.info("%s: Interpolated Test Fold %s metrics: %s", tag, fold, " ".join([f"{metric}={v:0.3f}" for metric, v in sorted(metrics.items())]))

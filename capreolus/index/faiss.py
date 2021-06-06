@@ -12,7 +12,7 @@ from capreolus.sampler import CollectionSampler
 from capreolus.searcher import Searcher
 
 from . import Index
-from capreolus.utils.trec import max_pool_trec_passage_run
+from capreolus.utils.trec import pool_trec_passage_run
 
 logger = get_logger(__name__)
 faiss_logger = get_logger("faiss")
@@ -230,7 +230,7 @@ class FAISSIndex(Index):
                 run.setdefault(qid, {})[doc_id] = score
 
         if hasattr(self.benchmark, "need_pooling") and self.benchmark.need_pooling:
-            run = max_pool_trec_passage_run(run)
+            run = pool_trec_passage_run(run, strategy=self.benchmark.config["pool"])
 
         metrics = evaluator.eval_runs(run, self.benchmark.qrels, evaluator.DEFAULT_METRICS,
                                       self.benchmark.relevance_level)
