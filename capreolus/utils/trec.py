@@ -161,7 +161,7 @@ def pool_trec_passage_run(run, strategy="max", separator="_"):
         return max_pool_trec_passage_run(run, separator)
     elif strategy == "sum":
         return sum_pool_trec_passage_run(run, separator)
-    elif strategy == "avg":
+    elif strategy == "mean":
         return mean_pool_trec_passage_run(run, separator)
     else:
         raise ValueError("Unknown strategy: {}".format(strategy))
