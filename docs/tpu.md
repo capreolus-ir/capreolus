@@ -8,10 +8,12 @@ All Tensorflow-compatible rerankers support training and inference on [Google TP
 ```
 
 To use a TPU with a Tensorflow-compatible `Reranker` (i.e., a reranker that depends on the `tensorflow` <a href="autoapi/capreolus/trainer/index.html">Trainer</a> module), set the following config options:
-- `tpuname`: the name of your TPU, such as *mytpu1*
-- `tpuzone`: the cloud zone your TPU is in, such as *us-central1-f*
-- `storage`: path to a GCS bucket where data should be stored, such as *gs://your-bucket/abc/*
-- recommended: set `usecache=True` with the trainer and extractor
+<ul>
+<li> `tpuname`: the name of your TPU, such as *mytpu1*. If you are using a TPU VM, set this to *LOCAL* </li>
+<li> `tpuzone`: the cloud zone your TPU is in, such as *us-central1-f* </li>
+<li> `storage`: path to a GCS bucket where data should be stored, such as *gs://your-bucket/abc/* </li>
+<li> recommended: set `usecache=True` with the trainer and extractor </li>
+</ul>
 
 After setting these options, you can run Capreolus as normal. Watch for INFO logging messages at the beginning of training to confirm the TPU is being used.
 
