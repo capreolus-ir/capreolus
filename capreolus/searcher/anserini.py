@@ -290,6 +290,18 @@ class StaticBM25RM3Rob04Yang19Desc(StaticRun):
 
 
 @Searcher.register
+class StaticBM25Rob04Huston14Title(StaticRun):
+    module_name = "bm25staticrob04huston14title"
+    run_fn = "rob04_huston14_title_rm3.run"
+
+
+@Searcher.register
+class StaticBM25Rob04Huston14Desc(StaticRun):
+    module_name = "bm25staticrob04huston14desc"
+    run_fn = "rob04_huston14_desc_rm3.run"
+
+
+@Searcher.register
 class StaticBM25Gov2(StaticRun):
     module_name = "bm25staticgov2"
     run_fn = "gov2_bm25.run"
@@ -319,6 +331,18 @@ class StaticBM25CDS(StaticRun):
 class StaticCovidUdelAbstract(StaticRun):
     module_name = "qdelstaticcovidabstract"
     run_fn = "anserini.covid-r5.abstract.qdel.bm25-top1k.txt"
+
+
+@Searcher.register
+class StaticRM3TitleCore18(StaticRun):
+    module_name = "rm3staticcore18title"
+    run_fn = "core18_title_rm3.run"
+
+
+@Searcher.register
+class StaticRM3DescCore18(StaticRun):
+    module_name = "rm3staticcore18desc"
+    run_fn = "core18_desc_rm3.run"
 
 
 @Searcher.register
