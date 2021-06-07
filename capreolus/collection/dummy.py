@@ -10,7 +10,7 @@ PACKAGE_PATH = constants["PACKAGE_PATH"]
 
 @Collection.register
 class DummyCollection(Collection):
-    """ Tiny collection for testing """
+    """Tiny collection for testing"""
 
     module_name = "dummy"
     _path = (PACKAGE_PATH / "data" / "dummy" / "data").as_posix()
@@ -18,5 +18,5 @@ class DummyCollection(Collection):
     generator_type = "DefaultLuceneDocumentGenerator"
 
     def _validate_document_path(self, path):
-        """ Validate that the document path contains `dummy_trec_doc` """
+        """Validate that the document path contains `dummy_trec_doc`"""
         return "dummy_trec_doc" in os.listdir(path)

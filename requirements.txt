@@ -15,7 +15,7 @@ nltk>=3.4.5
 pymagnitude>=0.1.143
 pytest-mock
 mock
-pyserini==0.9.3.0
+pyserini==0.12.0
 numpy
 scipy
 sphinx
@@ -23,8 +23,8 @@ sphinxcontrib-apidoc
 recommonmark
 google-api-python-client
 oauth2client
-tensorflow>=2.4,<2.5
-transformers==3.1.0
+tensorflow>=2.3,<2.5
+transformers==4.6.0
 tensorflow-ranking
 Pillow
 # required for TREC COVID

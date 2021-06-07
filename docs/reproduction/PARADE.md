@@ -27,14 +27,28 @@ This section describes how to run PARADE on a GPU with 16GB RAM. This is substan
 4. Compare your *fold=s1* results to those shown here. Do they match? If so, we can move on to reproducing the full PARADE model.
 
 ## Running PARADE (full model with normal memory usage)
-This requires a 48GB GPU, a TPU, or porting PARADE to Pytorch so we can iterate over passages rather than loading all of them in memory at once (see issue #86). It has been tested on NVIDIA Quadro RTX 8000s and Google Cloud TPUs.
+This requires a 48GB GPU or a TPU. It has been tested on NVIDIA Quadro RTX 8000s and Google Cloud TPUs.
 
 1. Make sure you have an available GPU and are in the top-level `capreolus` directory.
 2. Train and evaluate PARADE on each of the five robust04 folds (splits *s1-s5*): <br/>
+  This can be done with TensorFlow: <br/>
 `python -m capreolus.run rerank.traineval with file=docs/reproduction/config_parade.txt fold=s1` <br/>
 `python -m capreolus.run rerank.traineval with file=docs/reproduction/config_parade.txt fold=s2` <br/>
 `python -m capreolus.run rerank.traineval with file=docs/reproduction/config_parade.txt fold=s3` <br/>
 `python -m capreolus.run rerank.traineval with file=docs/reproduction/config_parade.txt fold=s4` <br/>
-`python -m capreolus.run rerank.traineval with file=docs/reproduction/config_parade.txt fold=s5`
+`python -m capreolus.run rerank.traineval with file=docs/reproduction/config_parade.txt fold=s5` <br/>
+  Or PyTorch: <br/>
+`python -m capreolus.run rerank.traineval with file=docs/reproduction/config_paradept.txt fold=s1` <br/>
+`python -m capreolus.run rerank.traineval with file=docs/reproduction/config_paradept.txt fold=s2` <br/>
+`python -m capreolus.run rerank.traineval with file=docs/reproduction/config_paradept.txt fold=s3` <br/>
+`python -m capreolus.run rerank.traineval with file=docs/reproduction/config_paradept.txt fold=s4` <br/>
+`python -m capreolus.run rerank.traineval with file=docs/reproduction/config_paradept.txt fold=s5`
 3. Each command will take a long time; approximately 36 hours on a Quadro 8000 (much faster on TPU). As above, per-fold metrics are displayed after each fold completes.
 4. When the final fold completes, cross-validated metrics are also displayed.
+
+Heads-up: while the above PyTorch commands works for PyTorch versions from `1.6` to `1.8`, we observed the score is a bit lower with `1.8`:
+`torch` version | mAP | P@20 | NDCG@20
+-- | -- | -- | --
+1.6 | 0.3687 | 0.4851 | 0.5533
+1.7 | 0.3687 | 0.4851 | 0.5533
+1.8 | 0.3666 | 0.4783 | 0.5478

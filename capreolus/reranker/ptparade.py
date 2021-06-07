@@ -1,7 +1,7 @@
 import torch
 from torch import nn
 from transformers import BertModel, ElectraModel
-from transformers.modeling_bert import BertLayer
+from transformers.models.bert.modeling_bert import BertLayer
 
 from capreolus import ConfigOption, Dependency
 from capreolus.reranker import Reranker
