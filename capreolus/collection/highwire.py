@@ -6,7 +6,6 @@ from capreolus.utils.loginit import get_logger
 from . import Collection, IRDCollection
 
 logger = get_logger(__name__)
-PACKAGE_PATH = constants["PACKAGE_PATH"]
 
 
 @Collection.register

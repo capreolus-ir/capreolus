@@ -11,7 +11,7 @@ PACKAGE_PATH = constants["PACKAGE_PATH"]
 
 @Collection.register
 class WaPo(IRDCollection):
-    """ TREC WashingtonPost v2 collection. See https://trec.nist.gov/data/wapost/ """
+    """TREC WashingtonPost v2 collection. See https://trec.nist.gov/data/wapost/"""
 
     module_name = "wapo"
     ird_dataset_name = "wapo/v2"

@@ -11,7 +11,7 @@ PACKAGE_PATH = constants["PACKAGE_PATH"]
 
 @Collection.register
 class NYT(IRDCollection):
-    """ New York Times collection. See https://catalog.ldc.upenn.edu/LDC2008T19 """
+    """New York Times collection. See https://catalog.ldc.upenn.edu/LDC2008T19"""
 
     module_name = "nyt"
     ird_dataset_name = "nyt"
