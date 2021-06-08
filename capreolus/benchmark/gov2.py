@@ -13,6 +13,14 @@ class Gov2(IRDBenchmark):
     dependencies = [Dependency(key="collection", module="collection", name="gov2")]
     fold_file = PACKAGE_PATH / "data" / "gov2_maxp_folds.json"
 
+@Benchmark.register
+class Gov2(IRDBenchmark):
+    module_name = "gov2passages"
+    query_type = "title"
+    dependencies = [Dependency(key="collection", module="collection", name="gov2passages")]
+    config_spec = [ConfigOption("pool", "max", "Strategy used to aggregate passage level scores")]
+    fold_file = PACKAGE_PATH / "data" / "gov2_maxp_folds.json"
+
 
 @Benchmark.register
 class Gov2Desc(Gov2):
