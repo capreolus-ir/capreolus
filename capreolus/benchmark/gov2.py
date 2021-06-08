@@ -1,4 +1,4 @@
-from capreolus import Dependency, constants
+from capreolus import Dependency, constants, ConfigOption
 
 from . import Benchmark, IRDBenchmark
 
