@@ -43,4 +43,5 @@ Note that results will vary slightly with your environment.
 Pytorch 1.6 (GPU) | 0.3687 | 0.4851 | 0.5533
 Pytorch 1.7 (GPU) | 0.3687 | 0.4851 | 0.5533
 Pytorch 1.8 (GPU) | 0.3666 | 0.4783 | 0.5478
-Tensorflow 2.5 (TPU) | 0.3722 | 0.4783 | 0.5528
+Tensorflow 2.4 (TPU) | 0.3722 | 0.4783 | 0.5528
+Tensorflow 2.5 (TPU) | 0.3626 | 0.4739 | 0.5449
