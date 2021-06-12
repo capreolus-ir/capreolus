@@ -3,6 +3,7 @@ from collections import defaultdict
 import pickle
 import torch.nn.functional as F
 import time
+from lru import LRU
 from tqdm import tqdm
 import torch
 import os
@@ -199,7 +200,9 @@ class FAISSIndex(Index):
         A "real" FAISS search would calculate the cosine score by comparing a qid with _every_ other document in the index - not just the docs retrieved for the query by BM25
         """
         # Load some dicts that will allow us to map faiss index ids to docids
-        shard_hash = {}
+        # We are using an LRU here because the shards for gov2passages are too big to fit in memory
+        # Arbitrarily choosing 20 keys (i.e 20 shards) to keep in memory at a time. Boy this is going to slow things down.
+        shard_hash = LRU(20)
         doc_id_to_faiss_id_fn = os.path.join(output_path, "doc_id_to_faiss_id_{}.dump".format(fold))
         doc_id_to_faiss_id = pickle.load(open(doc_id_to_faiss_id_fn, "rb"))
 
