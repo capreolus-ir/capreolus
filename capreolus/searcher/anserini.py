@@ -19,7 +19,7 @@ def list2str(l, delimiter="-"):
 
 
 class AnseriniSearcherMixIn:
-    """ MixIn for searchers that use Anserini's SearchCollection script """
+    """MixIn for searchers that use Anserini's SearchCollection script"""
 
     dependencies = [Dependency(key="index", module="index", name="anserini")]
 
@@ -149,7 +149,7 @@ class PostprocessMixin:
 
 @Searcher.register
 class BM25(AnseriniSearcherMixIn, Searcher):
-    """ Anserini BM25. This searcher's parameters can also be specified as lists indicating parameters to grid search (e.g., ``"0.4,0.6,0.8,1.0"`` or ``"0.4..1,0.2"``). """
+    """Anserini BM25. This searcher's parameters can also be specified as lists indicating parameters to grid search (e.g., ``"0.4,0.6,0.8,1.0"`` or ``"0.4..1,0.2"``)."""
 
     module_name = "BM25"
     config_spec = [
@@ -178,7 +178,7 @@ class BM25(AnseriniSearcherMixIn, Searcher):
 
 @Searcher.register
 class BM25Grid(AnseriniSearcherMixIn, Searcher):
-    """ Deprecated. BM25 with a grid search for k1 and b. Search is from 0.1 to bmax/k1max in 0.1 increments """
+    """Deprecated. BM25 with a grid search for k1 and b. Search is from 0.1 to bmax/k1max in 0.1 increments"""
 
     module_name = "BM25Grid"
     config_spec = [
@@ -202,7 +202,7 @@ class BM25Grid(AnseriniSearcherMixIn, Searcher):
 
 @Searcher.register
 class BM25RM3(AnseriniSearcherMixIn, Searcher):
-    """ Anserini BM25 with RM3 expansion. This searcher's parameters can also be specified as lists indicating parameters to grid search (e.g., ``"0.4,0.6,0.8,1.0"`` or ``"0.4..1,0.2"``). """
+    """Anserini BM25 with RM3 expansion. This searcher's parameters can also be specified as lists indicating parameters to grid search (e.g., ``"0.4,0.6,0.8,1.0"`` or ``"0.4..1,0.2"``)."""
 
     module_name = "BM25RM3"
     config_spec = [
@@ -290,6 +290,18 @@ class StaticBM25RM3Rob04Yang19Desc(StaticRun):
 
 
 @Searcher.register
+class StaticBM25Rob04Huston14Title(StaticRun):
+    module_name = "bm25staticrob04huston14title"
+    run_fn = "rob04_huston14_title_rm3.run"
+
+
+@Searcher.register
+class StaticBM25Rob04Huston14Desc(StaticRun):
+    module_name = "bm25staticrob04huston14desc"
+    run_fn = "rob04_huston14_desc_rm3.run"
+
+
+@Searcher.register
 class StaticBM25Gov2(StaticRun):
     module_name = "bm25staticgov2"
     run_fn = "gov2_bm25.run"
@@ -309,7 +321,7 @@ class StaticBM25Genomics(StaticRun):
 
 @Searcher.register
 class StaticBM25CDS(StaticRun):
-    """ CDS BM25 run with k1=4.0, b=0.6 and new CDS 2016 documents removed from the 2014 and 2015 queries """
+    """CDS BM25 run with k1=4.0, b=0.6 and new CDS 2016 documents removed from the 2014 and 2015 queries"""
 
     module_name = "bm25staticcds"
     run_fn = "cds_bm25.run"
@@ -322,8 +334,20 @@ class StaticCovidUdelAbstract(StaticRun):
 
 
 @Searcher.register
+class StaticRM3TitleCore18(StaticRun):
+    module_name = "rm3staticcore18title"
+    run_fn = "core18_title_rm3.run"
+
+
+@Searcher.register
+class StaticRM3DescCore18(StaticRun):
+    module_name = "rm3staticcore18desc"
+    run_fn = "core18_desc_rm3.run"
+
+
+@Searcher.register
 class BM25PRF(AnseriniSearcherMixIn, Searcher):
-    """ Anserini BM25 PRF. This searcher's parameters can also be specified as lists indicating parameters to grid search (e.g., ``"0.4,0.6,0.8,1.0"`` or ``"0.4..1,0.2"``). """
+    """Anserini BM25 PRF. This searcher's parameters can also be specified as lists indicating parameters to grid search (e.g., ``"0.4,0.6,0.8,1.0"`` or ``"0.4..1,0.2"``)."""
 
     module_name = "BM25PRF"
     config_spec = [
@@ -353,7 +377,7 @@ class BM25PRF(AnseriniSearcherMixIn, Searcher):
 
 @Searcher.register
 class AxiomaticSemanticMatching(AnseriniSearcherMixIn, Searcher):
-    """ Anserini BM25 with Axiomatic query expansion. This searcher's parameters can also be specified as lists indicating parameters to grid search (e.g., ``"0.4,0.6,0.8,1.0"`` or ``"0.4..1,0.2"``). """
+    """Anserini BM25 with Axiomatic query expansion. This searcher's parameters can also be specified as lists indicating parameters to grid search (e.g., ``"0.4,0.6,0.8,1.0"`` or ``"0.4..1,0.2"``)."""
 
     module_name = "axiomatic"
     config_spec = [
@@ -381,7 +405,7 @@ class AxiomaticSemanticMatching(AnseriniSearcherMixIn, Searcher):
 
 @Searcher.register
 class DirichletQL(AnseriniSearcherMixIn, Searcher):
-    """ Anserini QL with Dirichlet smoothing. This searcher's parameters can also be specified as lists indicating parameters to grid search (e.g., ``"0.4,0.6,0.8,1.0"`` or ``"0.4..1,0.2"``). """
+    """Anserini QL with Dirichlet smoothing. This searcher's parameters can also be specified as lists indicating parameters to grid search (e.g., ``"0.4,0.6,0.8,1.0"`` or ``"0.4..1,0.2"``)."""
 
     module_name = "DirichletQL"
     config_spec = [
@@ -409,7 +433,7 @@ class DirichletQL(AnseriniSearcherMixIn, Searcher):
 
 @Searcher.register
 class QLJM(AnseriniSearcherMixIn, Searcher):
-    """ Anserini QL with Jelinek-Mercer smoothing. This searcher's parameters can also be specified as lists indicating parameters to grid search (e.g., ``"0.4,0.6,0.8,1.0"`` or ``"0.4..1,0.2"``). """
+    """Anserini QL with Jelinek-Mercer smoothing. This searcher's parameters can also be specified as lists indicating parameters to grid search (e.g., ``"0.4,0.6,0.8,1.0"`` or ``"0.4..1,0.2"``)."""
 
     module_name = "QLJM"
     config_spec = [ConfigOption("lam", 0.1, value_type="floatlist"), ConfigOption("hits", 1000, "number of results to return")]
@@ -424,7 +448,7 @@ class QLJM(AnseriniSearcherMixIn, Searcher):
 
 @Searcher.register
 class INL2(AnseriniSearcherMixIn, Searcher):
-    """ Anserini I(n)L2 scoring model. This searcher does not support list parameters. """
+    """Anserini I(n)L2 scoring model. This searcher does not support list parameters."""
 
     module_name = "INL2"
     config_spec = [

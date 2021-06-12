@@ -244,7 +244,8 @@ class BertPassage(Extractor):
         # If we have a more passages than required, keep the first and last, and sample from the rest
         if n_actual_passages > numpassages:
             if numpassages > 1:
-                passages = [passages[0]] + list(self.rng.choice(passages[1:-1], numpassages - 2, replace=False)) + [passages[-1]]
+                # passages = [passages[0]] + list(self.rng.choice(passages[1:-1], numpassages - 2, replace=False)) + [passages[-1]]
+                passages = passages[:numpassages]
             else:
                 passages = [passages[0]]
         else:

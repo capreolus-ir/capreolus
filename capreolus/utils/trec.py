@@ -4,6 +4,22 @@ import xml.etree.ElementTree as ET
 from collections import defaultdict
 
 
+def threshold_trec_run(run, fold, k):
+    """
+    Take a trec run, and keep only the top-k docs
+    """
+    filtered_run = defaultdict(dict)
+    # This is possible because best_search_run is an OrderedDict
+    for qid, docs in run.items():
+        if qid in fold["predict"]["test"]:
+            for idx, (docid, score) in enumerate(docs.items()):
+                if idx >= k:
+                    break
+                filtered_run[qid][docid] = score
+
+    return filtered_run
+
+
 def load_ntcir_topics(fn):
     topics = {}
 
@@ -122,8 +138,7 @@ def anserini_index_to_trec_docs(index_dir, output_dir, expected_doc_count):
     JFile = autoclass("java.io.File")
     JFSDirectory = autoclass("org.apache.lucene.store.FSDirectory")
     JIndexReaderUtils = autoclass("io.anserini.index.IndexReaderUtils")
-    JIndexUtils = autoclass("io.anserini.index.IndexUtils")
-    index_utils = JIndexUtils(index_dir)
+    RAW = autoclass("io.anserini.index.IndexArgs").RAW
 
     index_reader_utils = JIndexReaderUtils()
 
@@ -147,7 +162,13 @@ def anserini_index_to_trec_docs(index_dir, output_dir, expected_doc_count):
     output_handles = [gzip.open(os.path.join(output_dir, f"{i}.gz"), "wt", encoding="utf-8") for i in range(100, 200)]
 
     for docidx, docid in enumerate(sorted(docids)):
-        txt = document_to_trectxt(docid, index_utils.getRawDocument(docid))
+        # parse documents according to here: https://github.com/castorini/anserini/blob/anserini-0.9.3/src/main/java/io/anserini/index/IndexUtils.java#L345-L352
+        doc = index_reader_utils.document(reader, docid).getField(RAW)
+        if doc is None:
+            raise ValueError(f"{RAW} documents cannot be found in the index.")
+        doc = doc.stringValue().lstrip("<TEXT>").rstrip("</TEXT>").strip()
+
+        txt = document_to_trectxt(docid, doc)
         handleidx = docidx % len(output_handles)
         print(txt, file=output_handles[handleidx])
 

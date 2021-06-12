@@ -15,7 +15,7 @@ nltk>=3.4.5
 pymagnitude>=0.1.143
 pytest-mock
 mock
-pyserini==0.9.3.0
+pyserini==0.12.0
 numpy
 scipy
 sphinx

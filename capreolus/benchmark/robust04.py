@@ -42,3 +42,20 @@ class Robust04Yang19(Benchmark):
 class Robust04Yang19Desc(Robust04Yang19, Benchmark):
     module_name = "robust04.yang19.desc"
     query_type = "desc"
+
+
+@Benchmark.register
+class Robust04Huston14(Benchmark):
+    module_name = "robust04.huston14.title"
+    dependencies = [Dependency(key="collection", module="collection", name="robust04")]
+    qrel_file = PACKAGE_PATH / "data" / "qrels.robust2004.txt"
+    topic_file = PACKAGE_PATH / "data" / "topics.robust04.301-450.601-700.txt"
+    fold_file = PACKAGE_PATH / "data" / "rob04_huston14_title_folds.json"
+    query_type = "title"
+
+
+@Benchmark.register
+class Robust04Huston14Desc(Robust04Huston14, Benchmark):
+    module_name = "robust04.huston14.desc"
+    fold_file = PACKAGE_PATH / "data" / "rob04_huston14_desc_folds.json"
+    query_type = "desc"

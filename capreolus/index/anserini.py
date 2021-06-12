@@ -77,7 +77,7 @@ class AnseriniIndex(Index):
 
     def get_doc(self, docid):
         try:
-            if not hasattr(self, "index_utils") or self.index_utils is None:
+            if not hasattr(self, "index_reader_utils") or self.index_reader_utils is None:
                 self.open()
             return self.index_reader_utils.documentContents(self.reader, self.JString(docid))
         except Exception as e:
@@ -91,7 +91,7 @@ class AnseriniIndex(Index):
         return self.reader.docFreq(jterm)
 
     def get_idf(self, term):
-        """ BM25's IDF with a floor of 0 """
+        """BM25's IDF with a floor of 0"""
         df = self.get_df(term)
         idf = (self.numdocs - df + 0.5) / (df + 0.5)
         idf = math.log(1 + idf)
@@ -102,9 +102,7 @@ class AnseriniIndex(Index):
 
         index_path = self.get_index_path().as_posix()
 
-        JIndexUtils = autoclass("io.anserini.index.IndexUtils")
         JIndexReaderUtils = autoclass("io.anserini.index.IndexReaderUtils")
-        self.index_utils = JIndexUtils(index_path)
         self.index_reader_utils = JIndexReaderUtils()
 
         JFile = autoclass("java.io.File")
