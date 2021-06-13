@@ -207,7 +207,7 @@ class FAISSIndex(Index):
         This helps in debugging - the scores should be the same as the final validation scored obtained while training the encoder
         A "real" FAISS search would calculate the cosine score by comparing a qid with _every_ other document in the index - not just the docs retrieved for the query by BM25
         """
-        bm25_faiss_index = faiss.read_index(os.paht.join(output_path, "bm25_faiss_{}.index".format(fold)))
+        bm25_faiss_index = faiss.read_index(os.path.join(output_path, "bm25_faiss_{}.index".format(fold)))
         doc_id_to_faiss_id_fn = os.path.join(output_path, "doc_id_to_faiss_id_{}.dump".format(fold))
         doc_id_to_faiss_id = pickle.load(open(doc_id_to_faiss_id_fn, "rb"))
 
