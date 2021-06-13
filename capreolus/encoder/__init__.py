@@ -84,13 +84,8 @@ class Encoder(ModuleBase):
             qids=qids, docids=docids, topics=self.benchmark.topics[self.benchmark.query_type]
         )
 
-        if self.benchmark.module_name in ["robust04passagesqueriestitle", "robust04passagesquerieskeepstops", "robust04passagesqueriesdesc"]:
-            # These benchmarks use generated queries to train - for each query, the only reldoc is the passage it was
-            # generated from. We supply a different qrels to the sample to reflect this
-            train_dataset.prepare(train_run, self.benchmark.generated_qrels, self.extractor,
-                                  relevance_level=self.benchmark.relevance_level)
-        else:
-            train_dataset.prepare(train_run, self.benchmark.qrels, self.extractor, relevance_level=self.benchmark.relevance_level)
+
+        train_dataset.prepare(train_run, self.benchmark.qrels, self.extractor, relevance_level=self.benchmark.relevance_level)
 
         dev_dataset = PredSampler()
         dev_dataset.prepare(dev_run, self.benchmark.qrels, self.extractor, relevance_level=self.benchmark.relevance_level)

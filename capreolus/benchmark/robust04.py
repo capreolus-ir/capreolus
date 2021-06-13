@@ -67,8 +67,7 @@ class Robust04PassagesDocT5Queries(Benchmark):
     module_name = "robust04passagesqueriestitle"
     dependencies = [Dependency(key="collection", module="collection", name="robust04passages")]
     config_spec = [ConfigOption("pool", "max", "Strategy used to aggregate passage level scores")]
-    qrel_file = PACKAGE_PATH / "data" / "qrels.robust2004.txt"
-    generated_qrel_file = PACKAGE_PATH / "data" / "qrels.robust04doct5title.txt"
+    qrel_file = PACKAGE_PATH / "data" / "qrels.robust04doct5title.txt"
     topic_file = PACKAGE_PATH / "data" / "topics.robust04doct5title.txt"
     fold_file = PACKAGE_PATH / "data" / "robust04doct5title.folds.json"
     query_type = "title"
