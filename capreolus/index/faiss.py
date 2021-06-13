@@ -141,7 +141,7 @@ class FAISSIndex(Index):
             for faiss_id, doc_id in faiss_id_to_doc_id.items():
                 if doc_id in docs_in_bm25_run:
                     doc_emb = faiss_shard.reconstruct(faiss_id).reshape(1, 768)
-                    bm25_faiss_index.add_with_ids(doc_emb, [faiss_id])
+                    bm25_faiss_index.add_with_ids(doc_emb, np.array([faiss_id]))
 
                 assert faiss_id >= offset, "faiss_id {} for shard: {} not greater than the offset: {} (docs_per_shard is: {})".format(faiss_id, shard_id, offset, docs_per_shard)
                 # assert faiss_id <= (shard_id + 1) * docs_per_shard, "faiss_id {} for shard: {} is greater than the next offset: {} (docs_per_shard is: {})".format(faiss_id, shard_id, (shard_id + 1) * docs_per_shard, docs_per_shard)
