@@ -354,8 +354,11 @@ class QrelTrainPairSampler(Sampler, TrainingSamplerMixin, torch.utils.data.Itera
 
 
 @Sampler.register
-class QrelTrainPairSamplerRobust04Passages(Sampler, TrainingSamplerMixin, torch.utils.data.IterableDataset):
-    module_name = "qrelpairrobust04passages"
+class QrelTrainPairSamplerRobust04PassagesDocT5(Sampler, TrainingSamplerMixin, torch.utils.data.IterableDataset):
+    """
+    WARNING: Works only with the qrels in qrels.robust04doct5title.txt
+    """
+    module_name = "qrelpairrobust04passagesdoct5"
     dependencies = []
 
     def prepare(self, bm25_run, qrels, extractor, relevance_level=1, separator="_", **kwargs):
@@ -363,19 +366,23 @@ class QrelTrainPairSamplerRobust04Passages(Sampler, TrainingSamplerMixin, torch.
         self.qid_to_docids = bm25_run
 
         self.qid_to_reldocs = defaultdict(list)
-        for qid, docid_to_label in qrels.items():
+        for qid, passageid_to_label in qrels.items():
             if qid not in bm25_run:
                 continue
-            for docid, label in docid_to_label.items():
-                # Assume there are 10 passages per doc
-                for passage_no in range(10):
-                    self.qid_to_reldocs[qid].append("{}_{}".format(docid, passage_no))
+            for passageid, label in passageid_to_label.items():
+                self.qid_to_reldocs[qid].append(passageid)
 
         # TODO option to include only negdocs in a top k
-        self.qid_to_negdocs = {
-            qid: [docid for docid in docid_to_score if qid in qrels and qrels[qid].get(docid.split(separator)[0], 0) < relevance_level]
-            for qid, docid_to_score in bm25_run.items()
-        }
+        self.qid_to_negdocs = defaultdict(list)
+        for qid, passageid_to_score in bm25_run.items():
+            passage_id_score_list = []
+            for passage_id, score in passageid_to_score.items():
+                if qrels[qid].get(passage_id, 0) < relevance_level:
+                    passage_id_score_list.append((passage_id, score))
+
+            sorted_according_to_score = sorted(passage_id_score_list, key=lambda x: x[1], reverse=True)
+            # Arbitrarily choosing the top 20 non-relevand docs.
+            self.qid_to_negdocs[qid] = sorted_according_to_score[:20]
 
         self.total_samples = 0
         self.clean()
