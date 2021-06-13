@@ -119,6 +119,7 @@ class FAISSIndex(Index):
         return distances
 
     def faiss_search(self, topic_vectors, k, docs_in_bm25_run, numshards, docs_per_shard, fold, output_path):
+        start_time = time.time()
         aggregated_faiss_id_to_doc_id = {}
         aggregated_doc_id_to_faiss_id = {}
         count_map = defaultdict(lambda: 0)
@@ -173,6 +174,7 @@ class FAISSIndex(Index):
         logger.info("temp is {}".format(temp))
         assert temp == 0
 
+        faiss_logger.info("Faiss search took {}".format(time.time() - start_time))
         return aggregated_distances, aggregated_ids
 
     def get_docs(self, doc_ids):
@@ -207,6 +209,7 @@ class FAISSIndex(Index):
         This helps in debugging - the scores should be the same as the final validation scored obtained while training the encoder
         A "real" FAISS search would calculate the cosine score by comparing a qid with _every_ other document in the index - not just the docs retrieved for the query by BM25
         """
+        start_time = time.time()
         bm25_faiss_index = faiss.read_index(os.path.join(output_path, "bm25_faiss_{}.index".format(fold)))
         doc_id_to_faiss_id_fn = os.path.join(output_path, "doc_id_to_faiss_id_{}.dump".format(fold))
         doc_id_to_faiss_id = pickle.load(open(doc_id_to_faiss_id_fn, "rb"))
@@ -238,5 +241,6 @@ class FAISSIndex(Index):
         metrics = evaluator.eval_runs(run, self.benchmark.qrels, evaluator.DEFAULT_METRICS,
                                       self.benchmark.relevance_level)
 
+        faiss_logger.info("Manual search took".format(time.time() - start_time))
         return metrics
 

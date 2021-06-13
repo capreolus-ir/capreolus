@@ -73,11 +73,11 @@ class FAISSSearcher(Searcher):
         # rm3_expanded_topic_vectors, rm3_qid_query = self.create_topic_vectors(rm3_expanded_topics, fold, topicfield="title")
         # self.do_search(rm3_expanded_topic_vectors, rm3_qid_query, fold, output_path, "faiss_rm3_expanded.run", "rm3")
 
-        topdoc_expanded_topic_vectors, topdoc_qid_query = self.topdoc_expand_queries(qid_query, topic_vectors, normal_results, fold, k=1)
+        topdoc_expanded_topic_vectors, topdoc_qid_query = self.topdoc_expand_queries(qid_query, topic_vectors, normal_results, fold, output_path, docs_per_shard, k=1)
         self.do_search(topdoc_expanded_topic_vectors, topdoc_qid_query, fold, output_path, "faiss_topdoc_expanded_{}_top1.run".format(fold), "topdoc-1:")
-        topdoc_expanded_topic_vectors, topdoc_qid_query = self.topdoc_expand_queries(qid_query, topic_vectors, normal_results, fold, k=3)
+        topdoc_expanded_topic_vectors, topdoc_qid_query = self.topdoc_expand_queries(qid_query, topic_vectors, normal_results, fold, output_path, docs_per_shard, k=3)
         self.do_search(topdoc_expanded_topic_vectors, topdoc_qid_query, fold, output_path, "faiss_topdoc_expanded_{}_top3.run".format(fold), "topdoc-3:")
-        topdoc_expanded_topic_vectors, topdoc_qid_query = self.topdoc_expand_queries(qid_query, topic_vectors, normal_results, fold, k=5)
+        topdoc_expanded_topic_vectors, topdoc_qid_query = self.topdoc_expand_queries(qid_query, topic_vectors, normal_results, fold, output_path, docs_per_shard, k=5)
         self.do_search(topdoc_expanded_topic_vectors, topdoc_qid_query, fold, output_path, "faiss_topdoc_expanded_{}_top5.run".format(fold), "topdoc-5:")
         # topdoc_expanded_topic_vectors, topdoc_qid_query = self.topdoc_expand_queries(qid_query, topic_vectors, normal_results, fold, k=7)
         # self.do_search(topdoc_expanded_topic_vectors, topdoc_qid_query, fold, output_path, "faiss_topdoc_expanded_{}.run".format(fold), "topdoc-7:")
@@ -148,19 +148,19 @@ class FAISSSearcher(Searcher):
                 
         return np.concatenate(topic_vectors, axis=0), qid_query
 
-    def topdoc_expand_queries(self, qid_query, original_topic_vectors, results, fold, k=1):
+    def topdoc_expand_queries(self, qid_query, original_topic_vectors, results, fold, output_path, docs_per_shard, k=1):
         topic_vectors = []
-        faiss_id_to_doc_id_fn = os.path.join(self.index.get_cache_path(), "faiss_id_to_doc_id_{}.dump".format(fold))
-        faiss_id_to_doc_id = pickle.load(open(faiss_id_to_doc_id_fn, "rb"))
-        faiss_index = faiss.read_index(os.path.join(self.index.get_index_path(), "faiss_{}.index".format(fold)))
 
         for i, (qid, query) in enumerate(qid_query):
             topdocs = results[i][results[i] > -1][:k]
 
             averaged_topdoc_emb = [original_topic_vectors[i]]
             for j in range(k):
-                topdoc = int(topdocs[j])
-                topdoc_emb = faiss_index.reconstruct(topdoc)
+                topdoc_id = int(topdocs[j])
+                shard_id = topdoc_id // docs_per_shard
+                shard = faiss.read_index(os.path.join(output_path, "shard_{}_faiss_{}.index".format(shard_id, fold)))
+
+                topdoc_emb = shard.reconstruct(topdoc_id)
                 averaged_topdoc_emb.append(topdoc_emb)
 
             averaged_topdoc_emb = np.array(averaged_topdoc_emb)
@@ -169,7 +169,6 @@ class FAISSSearcher(Searcher):
             topic_vectors.append(averaged_topdoc_emb)
 
         topic_vectors = np.array(topic_vectors)
-        logger.debug("topdoc_expanded topics have shape {}".format(topic_vectors.shape))
 
         return topic_vectors, qid_query
 
