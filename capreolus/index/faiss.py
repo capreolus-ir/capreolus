@@ -123,7 +123,7 @@ class FAISSIndex(Index):
         aggregated_doc_id_to_faiss_id = {}
         count_map = defaultdict(lambda: 0)
         aggregated_distances, aggregated_ids = np.zeros((len(topic_vectors), numshards * k)), np.zeros((len(topic_vectors), numshards * k))
-        bm25_sub_index = faiss.IndexFlatIP(encoder.hidden_size)
+        bm25_sub_index = faiss.IndexFlatIP(768)
         bm25_faiss_index = faiss.IndexIDMap2(bm25_sub_index)
 
         for shard_id in range(numshards):
