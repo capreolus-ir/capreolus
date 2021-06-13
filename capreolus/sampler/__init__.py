@@ -320,12 +320,14 @@ class QrelTrainPairSampler(Sampler, TrainingSamplerMixin, torch.utils.data.Itera
         # TODO option to include only negdocs in a top k
         self.qid_to_negdocs = defaultdict(list)
         for qid, docid_to_score in bm25_run.items():
-            if qid not in qrels:
-                continue
+            doc_id_score_list = []
             for docid, score in docid_to_score.items():
-                # Skip the relevant docs
                 if qrels[qid].get(docid, 0) < relevance_level:
-                    self.qid_to_negdocs[qid].append(docid)
+                    doc_id_score_list.append((docid, score))
+
+            sorted_according_to_score = sorted(doc_id_score_list, key=lambda x: x[1], reverse=True)
+            # Arbitrarily choosing the top 20 non-relevand docs.
+            self.qid_to_negdocs[qid] = sorted_according_to_score[:20]
 
         self.total_samples = 0
         self.clean()
