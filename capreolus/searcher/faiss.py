@@ -56,8 +56,11 @@ class FAISSSearcher(Searcher):
         self.calc_faiss_search_metrics_for_test_set(distances, results, qid_query, fold, tag, output_path)
         distances = distances.astype(np.float16)
         self.write_results_in_trec_format(results, distances, qid_query, output_path, fold, filename=filename)
-        self.index.manual_search_dev_set(bm25_run, topic_vectors, qid_query, fold, docs_per_shard, output_path, tag)
-        self.index.manual_search_test_set(bm25_run, topic_vectors, qid_query, fold, docs_per_shard, output_path, tag)
+
+        # Don't calculate re-rank metrics for PRF
+        if not "topdoc" in tag:
+            self.index.manual_search_dev_set(bm25_run, topic_vectors, qid_query, fold, docs_per_shard, output_path, tag)
+            self.index.manual_search_test_set(bm25_run, topic_vectors, qid_query, fold, docs_per_shard, output_path, tag)
 
         return distances, results
 
