@@ -1,4 +1,5 @@
 import math
+import shutil
 import time
 import os
 from collections import defaultdict
@@ -34,7 +35,7 @@ class DenseRankTask(Task):
         Dependency(key="encoder", module="encoder", name="repbertpretrained")
     ]
 
-    commands = ["run", "evaluate", "createshard", "trainencoder", "outputpath"] + Task.help_commands
+    commands = ["run", "evaluate", "createshard", "trainencoder", "outputpath", "deleteresults"] + Task.help_commands
     default_command = "describe"
 
     def do_bm25_search(self, fold):
@@ -110,4 +111,8 @@ class DenseRankTask(Task):
         docs_per_shard = math.ceil(num_docs / self.config["numshards"])
         search_results_folder = self.annsearcher._query_from_file(self.encoder, topics, output_path, self.config["numshards"], docs_per_shard, fold=fold)
 
-        # do faiss search
+    def deleteresults(self):
+        output_path = self.get_results_path()
+        logger.info("The output path is: ")
+        logger.info(output_path)
+        shutil.rmtree(output_path)
