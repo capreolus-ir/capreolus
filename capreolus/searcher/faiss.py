@@ -44,8 +44,13 @@ class FAISSSearcher(Searcher):
         best_search_run_path = best_bm25_results["path"][fold]
         bm25_run = Searcher.load_trec_run(best_search_run_path)
 
+        docs_in_bm25_run = []
+        for qid, docid_to_score in bm25_run.items():
+            docs_in_bm25_run.extend(list(docid_to_score.keys()))
+        docs_in_bm25_run = set(docs_in_bm25_run)
+
         # self.index.manual_search_train_set(topic_vectors, qid_query, fold)
-        distances, results = self.index.faiss_search(topic_vectors, 1000, qid_query, numshards, docs_per_shard, fold, output_path)
+        distances, results = self.index.faiss_search(topic_vectors, 1000, docs_in_bm25_run, numshards, docs_per_shard, fold, output_path)
         # self.calc_faiss_search_metrics_for_train_set(distances, results, qid_query, fold)
         self.calc_faiss_search_metrics_for_dev_set(distances, results, qid_query, fold, tag, output_path)
         self.calc_faiss_search_metrics_for_test_set(distances, results, qid_query, fold, tag, output_path)

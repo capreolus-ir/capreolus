@@ -118,11 +118,13 @@ class FAISSIndex(Index):
 
         return distances
 
-    def faiss_search(self, topic_vectors, k, qid_query, numshards, docs_per_shard, fold, output_path):
+    def faiss_search(self, topic_vectors, k, docs_in_bm25_run, numshards, docs_per_shard, fold, output_path):
         aggregated_faiss_id_to_doc_id = {}
         aggregated_doc_id_to_faiss_id = {}
         count_map = defaultdict(lambda: 0)
         aggregated_distances, aggregated_ids = np.zeros((len(topic_vectors), numshards * k)), np.zeros((len(topic_vectors), numshards * k))
+        bm25_sub_index = faiss.IndexFlatIP(encoder.hidden_size)
+        bm25_faiss_index = faiss.IndexIDMap2(bm25_sub_index)
 
         for shard_id in range(numshards):
             offset = shard_id * docs_per_shard
@@ -137,12 +139,18 @@ class FAISSIndex(Index):
             doc_id_to_faiss_id = pickle.load(open(os.path.join(output_path, "shard_{}_doc_id_to_faiss_id_{}.dump".format(shard_id, fold)), "rb"))
 
             for faiss_id, doc_id in faiss_id_to_doc_id.items():
+                if doc_id in docs_in_bm25_run:
+                    doc_emb = faiss_shard.reconstruct(faiss_id)
+                    bm25_faiss_index.add_with_ids(doc_emb, [faiss_id])
+
                 assert faiss_id >= offset, "faiss_id {} for shard: {} not greater than the offset: {} (docs_per_shard is: {})".format(faiss_id, shard_id, offset, docs_per_shard)
                 # assert faiss_id <= (shard_id + 1) * docs_per_shard, "faiss_id {} for shard: {} is greater than the next offset: {} (docs_per_shard is: {})".format(faiss_id, shard_id, (shard_id + 1) * docs_per_shard, docs_per_shard)
                 count_map[faiss_id] += 1
 
             aggregated_faiss_id_to_doc_id.update(faiss_id_to_doc_id)
             aggregated_doc_id_to_faiss_id.update(doc_id_to_faiss_id)
+
+        faiss.write_index(bm25_faiss_index, os.path.join(output_path, "bm25_faiss_{}.index".format(fold)))
 
         # result_heap.finalize()
         pickle.dump(aggregated_faiss_id_to_doc_id, open(os.path.join(output_path, "faiss_id_to_doc_id_{}.dump".format(fold)), "wb"), protocol=-1)
@@ -199,10 +207,7 @@ class FAISSIndex(Index):
         This helps in debugging - the scores should be the same as the final validation scored obtained while training the encoder
         A "real" FAISS search would calculate the cosine score by comparing a qid with _every_ other document in the index - not just the docs retrieved for the query by BM25
         """
-        # Load some dicts that will allow us to map faiss index ids to docids
-        # We are using an LRU here because the shards for gov2passages are too big to fit in memory
-        # Arbitrarily choosing 20 keys (i.e 20 shards) to keep in memory at a time. Boy this is going to slow things down.
-        shard_hash = LRU(20)
+        bm25_faiss_index = faiss.read_index(os.paht.join(output_path, "bm25_faiss_{}.index".format(fold)))
         doc_id_to_faiss_id_fn = os.path.join(output_path, "doc_id_to_faiss_id_{}.dump".format(fold))
         doc_id_to_faiss_id = pickle.load(open(doc_id_to_faiss_id_fn, "rb"))
 
@@ -217,12 +222,7 @@ class FAISSIndex(Index):
             query_emb = topic_vectors[i].reshape(768)
             for doc_id in bm25_run[qid].keys():
                 faiss_id = doc_id_to_faiss_id[doc_id]
-                shard_id = faiss_id // docs_per_shard
-                if shard_id not in shard_hash:
-                    shard_hash[shard_id] = faiss.read_index(os.path.join(output_path, "shard_{}_faiss_{}.index".format(shard_id, fold)))
-
-                shard = shard_hash[shard_id]
-                doc_emb = shard.reconstruct(faiss_id).reshape(768)
+                doc_emb = bm25_faiss_index.reconstruct(faiss_id).reshape(768)
                 score = np.dot(query_emb, doc_emb)
                 score = score.astype(np.float16).item()
                 results[qid].append((score, doc_id))
