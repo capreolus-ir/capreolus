@@ -95,6 +95,8 @@ class Benchmark(ModuleBase):
             with cached_file(fn) as tmp_fn:
                 with open(tmp_fn, "wt") as outf:
                     for qid, query in self.topics[self.query_type].items():
+                        if not query.strip():
+                            continue
                         if query_sets == "all" or qid in valid_qids:
                             print(f"{qid}\t{query}", file=outf)
         except TargetFileExists as e:
