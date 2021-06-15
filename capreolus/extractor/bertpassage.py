@@ -1,8 +1,11 @@
 import pickle
+import ir_datasets
+import torch
 import os
 import tensorflow as tf
 import numpy as np
 from collections import defaultdict
+from transformers import BertTokenizerFast
 from tqdm import tqdm
 
 
@@ -59,6 +62,20 @@ class BertPassage(Extractor):
         self.cls_tok = self.tokenizer.bert_tokenizer.cls_token
         self.sep_tok = self.tokenizer.bert_tokenizer.sep_token
 
+        if self.index.collection.module_name == "robust04":
+            self.docs_store = ir_datasets.load("trec-robust04").docs_store()
+        elif self.index.collection.module_name == "covidabstract":
+            self.docs_store = ir_datasets.load("cord19/trec-covid").docs_store()
+
+    def get_doc(self, doc_id):
+        if hasattr(self, "docs_store"):
+            if self.index.collection.module_name == "covidabstract":
+                return self.docs_store.get(doc_id).abstract
+            else:
+                return self.docs_store.get(doc_id).text
+
+        return self.index.get_doc(doc_id)
+
     def load_state(self, qids, docids):
         cache_fn = self.get_state_cache_file_path(qids, docids)
         logger.debug("loading state from: %s", cache_fn)
@@ -66,11 +83,18 @@ class BertPassage(Extractor):
             state_dict = pickle.load(f)
             self.qid2toks = state_dict["qid2toks"]
             self.docid2passages = state_dict["docid2passages"]
+            self.docid_to_passage_begin_token_obj = state_dict["docid_to_passage_begin_token_obj"]
+            self.docid_to_doc_offsets_obj = state_dict["docid_to_doc_offset_obj"]
 
     def cache_state(self, qids, docids):
         os.makedirs(self.get_cache_path(), exist_ok=True)
         with open(self.get_state_cache_file_path(qids, docids), "wb") as f:
-            state_dict = {"qid2toks": self.qid2toks, "docid2passages": self.docid2passages}
+            state_dict = {
+                "qid2toks": self.qid2toks,
+                "docid2passages": self.docid2passages,
+                "docid_to_passage_begin_token_obj": self.docid_to_passage_begin_token_obj,
+                "docid_to_doc_offset_obj": self.docid_to_doc_offsets_obj,
+            }
             pickle.dump(state_dict, f, protocol=-1)
 
     def get_tf_feature_description(self):
@@ -232,12 +256,26 @@ class BertPassage(Extractor):
         """
         passages = []
         numpassages = self.config["numpassages"]
-        doc = self.tokenizer.tokenize(doc)
+        tokenizer = self.tokenizer.bert_tokenizer.backend_tokenizer
+        encoded_doc = tokenizer.encode(doc)
+        doc = encoded_doc.tokens[1:-1]
+
+        # For each wordpiece token, the beginning and end of the characters in the original doc
+        doc_offsets = encoded_doc.offsets[1:-1]
+        # doc = self.tokenizer.tokenize(doc)
+
+        # To get the word in the doc corresponding to a word in the passage:
+        # doc_offsets[passage_to_offsets[passage_id] + position of word in passage]
+        passage_to_begin_token = {}
 
         for i in range(0, len(doc), self.config["stride"]):
             if i >= len(doc):
                 assert len(passages) > 0, f"no passage can be built from empty document {doc}"
                 break
+
+            # Store the offset of the first character in the passage
+            passage_to_begin_token[len(passages)] = i
+
             passages.append(doc[i : i + self.config["passagelen"]])
 
         n_actual_passages = len(passages)
@@ -253,7 +291,8 @@ class BertPassage(Extractor):
             passages.extend([[self.pad_tok] for _ in range(numpassages - n_actual_passages)])
 
         assert len(passages) == self.config["numpassages"]
-        return passages
+
+        return passages, passage_to_begin_token, doc_offsets
 
     # from https://github.com/castorini/birch/blob/2dd0401ebb388a1c96f8f3357a064164a5db3f0e/src/utils/doc_utils.py#L73
     def _chunk_sent(self, sent, max_len):
@@ -275,7 +314,7 @@ class BertPassage(Extractor):
         for docid in tqdm(docids, "extract passages"):
             passages = []
             numpassages = self.config["numpassages"]
-            for sentence in punkt.tokenize(self.index.get_doc(docid)):
+            for sentence in punkt.tokenize(self.get_doc(docid)):
                 if len(passages) >= numpassages:
                     break
 
@@ -310,9 +349,23 @@ class BertPassage(Extractor):
             logger.info("Building bertpassage vocabulary")
 
             self.qid2toks = {qid: self.tokenizer.tokenize(topics[qid]) for qid in tqdm(qids, desc="querytoks")}
-            self.docid2passages = {
-                docid: self._prepare_doc_psgs(self.index.get_doc(docid)) for docid in tqdm(sorted(docids), "extract passages")
-            }
+            self.docid2passages = {}
+
+            # Keeps track of the token index (relative to the original tokenized doc) where each passage begins
+            self.docid_to_passage_begin_token_obj = {}
+            # Maps each token in the tokenized doc to character ranges in the original doc
+            self.docid_to_doc_offsets_obj = {}
+
+            # To get the character range corresponding to a token in a passage:
+            # self.doci_id_to_doc_offsets_obj[doc_id][self.doc_id_to_passage_begin_token_obj[docid][passage_id] + position of word in passage]
+            # Yes, it's that verbose.
+
+            for docid in tqdm(sorted(docids), desc="extract passages"):
+                passages, passage_to_begin_token, doc_offsets = self._prepare_doc_psgs(self.get_doc(docid))
+                self.docid2passages[docid] = passages
+                self.docid_to_passage_begin_token_obj[docid] = passage_to_begin_token
+                self.docid_to_doc_offsets_obj[docid] = doc_offsets
+
             self.cache_state(qids, docids)
 
     def exist(self):

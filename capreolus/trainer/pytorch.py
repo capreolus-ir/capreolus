@@ -1,4 +1,5 @@
 import contextlib
+from collections import defaultdict
 import math
 import os
 import time
@@ -302,6 +303,33 @@ class PytorchTrainer(Trainer):
 
         dev_best_weight_fn = train_output_path / "dev.best"
         reranker.load_weights(dev_best_weight_fn, self.optimizer)
+
+    def generate_diffir_weights(self, reranker, pred_data):
+        if self.config["amp"] in ("both", "pred"):
+            self.amp_pred_autocast = torch.cuda.amp.autocast
+        else:
+            self.amp_pred_autocast = contextlib.nullcontext
+
+        self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+        # save to pred_fn
+        model = reranker.model.to(self.device)
+        model.eval()
+
+        evalbatch = 1
+        num_workers = 1 if self.config["multithread"] else 0
+        pred_dataloader = torch.utils.data.DataLoader(pred_data, batch_size=evalbatch, pin_memory=True, num_workers=num_workers)
+
+        diffir_weights = defaultdict(lambda: defaultdict(dict))
+        with torch.autograd.no_grad():
+            for batch in tqdm(pred_dataloader, desc="diffir weights", total=len(pred_data) // evalbatch):
+                batch = {k: v.to(self.device) if not isinstance(v, list) else v for k, v in batch.items()}
+                qid = batch["qid"][0]
+                docid = batch["posdocid"][0]
+                with self.amp_pred_autocast():
+                    weights = reranker.weights_to_weighted_char_ranges(docid, *reranker.extract_weights(batch))
+                diffir_weights[qid][docid]["text"] = weights
+
+        return diffir_weights
 
     def predict(self, reranker, pred_data, pred_fn):
         """Predict query-document scores on `pred_data` using `model` and write a corresponding run file to `pred_fn`

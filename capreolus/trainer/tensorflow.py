@@ -298,13 +298,74 @@ class TensorflowTrainer(Trainer):
                         logger.info("new best dev metric: %0.4f", dev_best_metric)
 
                         self.write_to_metric_file(metric_fn, metrics)
-                        wrapped_model.save_weights(dev_best_weight_fn)
+                        wrapped_model.save_weights(dev_best_weight_fn.as_posix())
                         Searcher.write_trec_run(trec_preds, outfn=(dev_output_path / "best").as_posix())
 
             if cur_step >= self.config["niters"] * self.n_batch_per_iter:
                 break
 
         return trec_preds
+
+    def generate_diffir_weights(self, reranker, pred_data):
+        pred_records = self.get_tf_dev_records(reranker, pred_data)
+        pred_dist_dataset = self.strategy.experimental_distribute_dataset(pred_records)
+
+        strategy_scope = self.strategy.scope()
+
+        with strategy_scope:
+            wrapped_model = self.get_wrapped_model(reranker.model)
+
+        def test_step(inputs):
+            data, labels = inputs
+            return wrapped_model.model.extract_weights(data)
+
+        @tf.function
+        def distributed_test_step(dataset_inputs):
+            result = self.strategy.run(test_step, args=(dataset_inputs,))
+            return result
+
+        pred_list = []
+        is_tuple = False
+        for x in tqdm(pred_dist_dataset, desc="validation"):
+            if self.strategy.num_replicas_in_sync > 1:
+                pred_batch = []
+                distributed_batch = distributed_test_step(x)
+                pred_batch.append(distributed_batch)
+            else:
+                pred_batch = distributed_test_step(x)
+
+            # assert passage_scores_batch.shape == (self.config["evalbatch"], reranker.extractor.config["numpasages"]), "This has shape {}".format(passage_scores_batch)
+            for p in pred_batch:
+                if isinstance(p, tuple):
+                    if self.strategy.num_replicas_in_sync > 1:
+                        pred_list.append((tf.concat(p[0].values, 0), tf.concat(p[1].values, 0)))
+                    else:
+                        pred_list.append(p)
+                    is_tuple = True
+                else:
+                    if self.strategy.num_replicas_in_sync > 1:
+                        pred_list.extend(tf.concat(p.values, 0))
+                    else:
+                        pred_list.extend(p)
+
+        diffir_weights = defaultdict(lambda: defaultdict(dict))
+        batch_size = self.config["evalbatch"]
+
+        for i, (qid, docid) in tqdm(enumerate(pred_data.get_qid_docid_pairs()), desc="parse diffir weights"):
+            if is_tuple:
+                batch_idx = i // batch_size
+                batch_offset = i % batch_size
+                the_tuple = pred_list[batch_idx]
+                args_to_pass = []
+                for k in range(len(the_tuple)):
+                    args_to_pass.append(the_tuple[k][batch_offset].numpy())
+
+                diffir_weights[qid][docid]["text"] = reranker.weights_to_weighted_char_ranges(docid, *args_to_pass)
+            else:
+                extracted_weights = pred_list[i]
+                diffir_weights[qid][docid]["text"] = reranker.weights_to_weighted_char_ranges(docid, extracted_weights)
+
+        return diffir_weights
 
     def predict(self, reranker, pred_data, pred_fn):
         pred_records = self.get_tf_dev_records(reranker, pred_data)
