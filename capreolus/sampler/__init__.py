@@ -327,7 +327,7 @@ class QrelTrainPairSampler(Sampler, TrainingSamplerMixin, torch.utils.data.Itera
 
             sorted_according_to_score = sorted(doc_id_score_list, key=lambda x: x[1], reverse=True)
             # Arbitrarily choosing the top 20 non-relevand docs.
-            self.qid_to_negdocs[qid] = sorted_according_to_score[:20]
+            self.qid_to_negdocs[qid] = [x[0] for x in sorted_according_to_score[:20]]
 
         self.total_samples = 0
         self.clean()
@@ -382,7 +382,7 @@ class QrelTrainPairSamplerRobust04PassagesDocT5(Sampler, TrainingSamplerMixin, t
 
             sorted_according_to_score = sorted(passage_id_score_list, key=lambda x: x[1], reverse=True)
             # Arbitrarily choosing the top 20 non-relevand docs.
-            self.qid_to_negdocs[qid] = sorted_according_to_score[:20]
+            self.qid_to_negdocs[qid] = [x[0] for x in sorted_according_to_score[:20]]
 
         self.total_samples = 0
         self.clean()
