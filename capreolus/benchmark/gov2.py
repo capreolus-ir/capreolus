@@ -29,3 +29,15 @@ class Gov2Passages(IRDBenchmark):
 class Gov2Desc(Gov2):
     module_name = "gov2.desc"
     query_type = "desc"
+
+
+@Benchmark.register
+class MQ2007Passages(Benchmark):
+    module_name = "mq2007passages"
+    dependencies = [Dependency(key="collection", module="collection", name="gov2passages")]
+    config_spec = [ConfigOption("pool", "max", "Strategy used to aggregate passage level scores")]
+    qrel_file = PACKAGE_PATH / "data" / "qrels.mq2007.txt"
+    topic_file = PACKAGE_PATH / "data" / "topics.mq2007.txt"
+    fold_file = PACKAGE_PATH / "data" / "mq2007.folds.json"
+    query_type = "title"
+    need_pooling = True
