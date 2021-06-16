@@ -124,7 +124,7 @@ class MQ2007(Task):
             for query in new_queries + duplicate_queries:
                 out_f.write(topic_to_trectxt(query.query_id, query.text.lower()))
 
-        duplicate_query_ids_set = set[query.query_id for query in duplicate_queries]
+        duplicate_query_ids_set = set([query.query_id for query in duplicate_queries])
         query_ids_that_should_be_copied = []
         with open(self.config["qrelsoutput"], "w") as out_f:
             for qrel in mq2007_dataset.qrels_iter():
