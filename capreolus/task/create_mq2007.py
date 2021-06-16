@@ -101,11 +101,13 @@ class MQ2007(Task):
                 new_qrels += 1
                 new_qrel_qids.add(qrel.query_id)
 
+        mq_qids_with_qrels = duplicate_qrel_qids.union(deeper_qrel_qids).union(new_qrel_qids)
+        logger.info("There are {} MQ qids with qrels".format(mq_qids_with_qrels))
         logger.info("There are {} duplicate judgements, {} deeper judgements, and {} new judgements".format(duplicate_qrels, deeper_qrels, new_qrels))
         logger.info("There are {} qids with duplicate judgements, {} qids with deeper judgements, and {} with new judgements".format(len(duplicate_qrel_qids), len(deeper_qrel_qids), len(new_qrel_qids)))
         logger.info("There are {} query duplicates and {} new queries".format(len(duplicate_queries), len(new_queries)))
 
-        new_query_ids = [query.query_id for query in new_queries]
+        new_query_ids = [query.query_id for query in new_queries if query.query_id in mq_qids_with_qrels]
         gov2_query_ids = [query.query_id for query in list(duplicate_queries)]
 
         folds = {
@@ -122,7 +124,8 @@ class MQ2007(Task):
 
         with open(self.config["queryoutput"], "w") as out_f:
             for query in new_queries + duplicate_queries:
-                out_f.write(topic_to_trectxt(query.query_id, query.text.lower()))
+                if query.query_id in mq_qids_with_qrels:
+                    out_f.write(topic_to_trectxt(query.query_id, query.text.lower()))
 
         duplicate_query_ids_set = set([query.query_id for query in duplicate_queries])
         query_ids_that_should_be_copied = []
