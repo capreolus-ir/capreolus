@@ -102,7 +102,7 @@ class MQ2007(Task):
                 new_qrel_qids.add(qrel.query_id)
 
         mq_qids_with_qrels = duplicate_qrel_qids.union(deeper_qrel_qids).union(new_qrel_qids)
-        logger.info("There are {} MQ qids with qrels".format(mq_qids_with_qrels))
+        logger.info("There are {} MQ qids with qrels".format(len(mq_qids_with_qrels)))
         logger.info("There are {} duplicate judgements, {} deeper judgements, and {} new judgements".format(duplicate_qrels, deeper_qrels, new_qrels))
         logger.info("There are {} qids with duplicate judgements, {} qids with deeper judgements, and {} with new judgements".format(len(duplicate_qrel_qids), len(deeper_qrel_qids), len(new_qrel_qids)))
         logger.info("There are {} query duplicates and {} new queries".format(len(duplicate_queries), len(new_queries)))
