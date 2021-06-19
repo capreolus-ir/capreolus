@@ -55,8 +55,17 @@ class Robust04Passages(Benchmark):
     qrel_file = PACKAGE_PATH / "data" / "qrels.robust2004.txt"
     topic_file = PACKAGE_PATH / "data" / "topics.robust04.301-450.601-700.txt"
     fold_file = PACKAGE_PATH / "data" / "rob04_cedr_folds.json"
-    query_type = "desc"
+    query_type = "title"
     need_pooling = True
+
+
+@Benchmark.register
+class Robust04PassagesDesc(Robust04Passages, Benchmark):
+    """
+    Split robust04 into passages
+    """
+    module_name = "robust04passagesdesc"
+    query_type = "desc"
 
 
 @Benchmark.register
@@ -71,21 +80,4 @@ class Robust04PassagesDocT5Queries(Benchmark):
     topic_file = PACKAGE_PATH / "data" / "topics.robust04doct5title.txt"
     fold_file = PACKAGE_PATH / "data" / "robust04doct5title.folds.json"
     query_type = "title"
-    need_pooling = True
-
-
-@Benchmark.register
-class Robust04PassagesDocT5QueriesKeepStops(Benchmark):
-    """
-    More queries generated using DocT5. See task.create_robust04_title_queries.py
-    """
-    module_name = "robust04passagesquerieskeepstops"
-    dependencies = [Dependency(key="collection", module="collection", name="robust04passages")]
-    config_spec = [ConfigOption("pool", "max", "Strategy used to aggregate passage level scores")]
-
-    qrel_file = PACKAGE_PATH / "data" / "qrels.robust2004.txt"
-    generated_qrel_file = PACKAGE_PATH / "data" / "qrels.robust04doct5keepstops.txt"
-    topic_file = PACKAGE_PATH / "data" / "topics.robust04doct5keepstops.txt"
-    fold_file = PACKAGE_PATH / "data" / "robust04doct5keepstops.folds.json"
-    query_type = "desc"
     need_pooling = True
