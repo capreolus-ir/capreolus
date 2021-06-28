@@ -158,6 +158,7 @@ class FAISSIndex(Index):
         pickle.dump(aggregated_doc_id_to_faiss_id, open(os.path.join(output_path, "doc_id_to_faiss_id_{}.dump".format(fold)), "wb"), protocol=-1)
 
         indices = np.argsort(aggregated_distances, axis=1)
+        # Cosine similarity. Higher is better
         aggregated_distances = np.take_along_axis(aggregated_distances, indices, 1)
         aggregated_distances = aggregated_distances[:, (numshards - 1) * k: numshards * k]
         aggregated_ids = np.take_along_axis(aggregated_ids, indices, 1)

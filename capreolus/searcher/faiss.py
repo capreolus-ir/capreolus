@@ -155,7 +155,10 @@ class FAISSSearcher(Searcher):
         topic_vectors = []
 
         for i, (qid, query) in enumerate(qid_query):
+            # topdocs are stored according to increasing cosine similarity. So the top-doc is at the very end
+            # reverse the array so that the best doc is the first doc
             topdocs = results[i][results[i] > -1][:k]
+            topdocs = np.flip(topdocs)
 
             averaged_topdoc_emb = [original_topic_vectors[i]]
             for j in range(k):
