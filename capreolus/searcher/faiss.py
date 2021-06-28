@@ -158,11 +158,10 @@ class FAISSSearcher(Searcher):
             # topdocs are stored according to increasing cosine similarity. So the top-doc is at the very end
             # reverse the array so that the best doc is the first doc
             topdocs = results[i][results[i] > -1][:k]
-            topdocs = np.flip(topdocs)
 
             averaged_topdoc_emb = [original_topic_vectors[i]]
-            for j in range(k):
-                topdoc_id = int(topdocs[j])
+            for j in range(1, k+1):
+                topdoc_id = int(topdocs[-j])
                 shard_id = topdoc_id // docs_per_shard
                 shard = faiss.read_index(os.path.join(output_path, "shard_{}_faiss_{}.index".format(shard_id, fold)))
 
