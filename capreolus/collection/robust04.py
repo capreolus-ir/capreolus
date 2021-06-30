@@ -15,7 +15,7 @@ PACKAGE_PATH = constants["PACKAGE_PATH"]
 
 @Collection.register
 class Robust04(Collection):
-    """ TREC Robust04 (TREC disks 4 and 5 without the Congressional Record documents) """
+    """TREC Robust04 (TREC disks 4 and 5 without the Congressional Record documents)"""
 
     module_name = "robust04"
     collection_type = "TrecCollection"

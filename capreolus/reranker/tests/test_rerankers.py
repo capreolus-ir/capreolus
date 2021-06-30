@@ -35,7 +35,8 @@ rerankers = set(module_registry.get_module_names("reranker"))
 
 @pytest.mark.parametrize("reranker_name", rerankers)
 def test_reranker_creatable(tmpdir_as_cache, dummy_index, reranker_name):
-    provide = {"collection": dummy_index.collection, "index": dummy_index}
+    benchmark = DummyBenchmark()
+    provide = {"collection": dummy_index.collection, "index": dummy_index, "benchmark": benchmark}
     reranker = Reranker.create(reranker_name, provide=provide)
 
 
@@ -47,6 +48,7 @@ def test_knrm_pytorch(dummy_index, tmpdir, tmpdir_as_cache, monkeypatch):
 
     monkeypatch.setattr(EmbedText, "_load_pretrained_embeddings", fake_load_embeddings)
 
+    benchmark = DummyBenchmark()
     reranker = KNRM(
         {
             "gradkernels": True,
@@ -55,11 +57,10 @@ def test_knrm_pytorch(dummy_index, tmpdir, tmpdir_as_cache, monkeypatch):
             "finetune": False,
             "trainer": {"niters": 1, "itersize": 4, "batch": 2},
         },
-        provide={"index": dummy_index},
+        provide={"index": dummy_index, "benchmark": benchmark},
     )
     extractor = reranker.extractor
     metric = "map"
-    benchmark = DummyBenchmark()
 
     extractor.preprocess(["301"], ["LA010189-0001", "LA010189-0002"], benchmark.topics[benchmark.query_type])
     reranker.build_model()
@@ -87,13 +88,13 @@ def test_knrm_tf(dummy_index, tmpdir, tmpdir_as_cache, monkeypatch):
 
     monkeypatch.setattr(SlowEmbedText, "_load_pretrained_embeddings", fake_magnitude_embedding)
 
+    benchmark = DummyBenchmark()
     reranker = TFKNRM(
         {"gradkernels": True, "finetune": False, "trainer": {"niters": 1, "itersize": 4, "batch": 2}},
-        provide={"index": dummy_index},
+        provide={"index": dummy_index, "benchmark": benchmark},
     )
     extractor = reranker.extractor
     metric = "map"
-    benchmark = DummyBenchmark()
 
     extractor.preprocess(["301"], ["LA010189-0001", "LA010189-0002"], benchmark.topics[benchmark.query_type])
     reranker.build_model()
@@ -125,17 +126,17 @@ def test_knrm_tf_ce(dummy_index, tmpdir, tmpdir_as_cache, monkeypatch):
 
     monkeypatch.setattr(capreolus.extractor.common, "load_pretrained_embeddings", fake_magnitude_embedding)
     monkeypatch.setattr(SlowEmbedText, "_load_pretrained_embeddings", fake_magnitude_embedding)
+    benchmark = DummyBenchmark()
     reranker = TFKNRM(
         {
             "gradkernels": True,
             "finetune": False,
             "trainer": {"niters": 1, "itersize": 4, "batch": 2, "loss": "binary_crossentropy"},
         },
-        provide={"index": dummy_index},
+        provide={"index": dummy_index, "benchmark": benchmark},
     )
     extractor = reranker.extractor
     metric = "map"
-    benchmark = DummyBenchmark()
 
     extractor.preprocess(["301"], ["LA010189-0001", "LA010189-0002"], benchmark.topics[benchmark.query_type])
     reranker.build_model()
@@ -165,6 +166,7 @@ def test_pacrr(dummy_index, tmpdir, tmpdir_as_cache, monkeypatch):
 
     monkeypatch.setattr(EmbedText, "_load_pretrained_embeddings", fake_load_embeddings)
 
+    benchmark = DummyBenchmark()
     reranker = PACRR(
         {
             "nfilters": 32,
@@ -174,11 +176,10 @@ def test_pacrr(dummy_index, tmpdir, tmpdir_as_cache, monkeypatch):
             "nonlinearity": "relu",
             "trainer": {"niters": 1, "itersize": 4, "batch": 2},
         },
-        provide={"index": dummy_index},
+        provide={"index": dummy_index, "benchmark": benchmark},
     )
     extractor = reranker.extractor
     metric = "map"
-    benchmark = DummyBenchmark()
 
     extractor.preprocess(["301"], ["LA010189-0001", "LA010189-0002"], benchmark.topics[benchmark.query_type])
     reranker.build_model()
@@ -201,10 +202,13 @@ def test_pacrr(dummy_index, tmpdir, tmpdir_as_cache, monkeypatch):
 
 
 def test_dssm_unigram(dummy_index, tmpdir, tmpdir_as_cache, monkeypatch):
-    reranker = DSSM({"nhiddens": "56", "trainer": {"niters": 1, "itersize": 4, "batch": 2}}, provide={"index": dummy_index})
+    benchmark = DummyBenchmark()
+    reranker = DSSM(
+        {"nhiddens": "56", "trainer": {"niters": 1, "itersize": 4, "batch": 2}},
+        provide={"index": dummy_index, "benchmark": benchmark},
+    )
     extractor = reranker.extractor
     metric = "map"
-    benchmark = DummyBenchmark()
 
     extractor.preprocess(["301"], ["LA010189-0001", "LA010189-0002"], benchmark.topics[benchmark.query_type])
     reranker.build_model()
@@ -232,6 +236,7 @@ def test_tk(dummy_index, tmpdir, tmpdir_as_cache, monkeypatch):
 
     monkeypatch.setattr(SlowEmbedText, "_load_pretrained_embeddings", fake_magnitude_embedding)
 
+    benchmark = DummyBenchmark()
     reranker = TK(
         {
             "gradkernels": True,
@@ -247,11 +252,10 @@ def test_tk(dummy_index, tmpdir, tmpdir_as_cache, monkeypatch):
             "finetune": True,
             "trainer": {"niters": 1, "itersize": 4, "batch": 2},
         },
-        provide={"index": dummy_index},
+        provide={"index": dummy_index, "benchmark": benchmark},
     )
     extractor = reranker.extractor
     metric = "map"
-    benchmark = DummyBenchmark()
 
     extractor.preprocess(["301"], ["LA010189-0001", "LA010189-0002"], benchmark.topics[benchmark.query_type])
     reranker.build_model()
@@ -279,6 +283,7 @@ def test_tk_get_mask(tmpdir, dummy_index, monkeypatch):
 
     monkeypatch.setattr(SlowEmbedText, "_load_pretrained_embeddings", fake_magnitude_embedding)
 
+    benchmark = DummyBenchmark()
     reranker = TK(
         {
             "gradkernels": True,
@@ -294,10 +299,9 @@ def test_tk_get_mask(tmpdir, dummy_index, monkeypatch):
             "finetune": True,
             "trainer": {"niters": 1, "itersize": 4, "batch": 2},
         },
-        provide={"index": dummy_index},
+        provide={"index": dummy_index, "benchmark": benchmark},
     )
     extractor = reranker.extractor
-    benchmark = DummyBenchmark()
 
     extractor.preprocess(["301"], ["LA010189-0001", "LA010189-0002"], benchmark.topics[benchmark.query_type])
     reranker.build_model()
@@ -348,6 +352,7 @@ def test_deeptilebars(dummy_index, tmpdir, tmpdir_as_cache, monkeypatch):
         return Magnitude(None)
 
     monkeypatch.setattr(DeepTileExtractor, "_get_pretrained_emb", fake_magnitude_embedding)
+    benchmark = DummyBenchmark()
     reranker = DeepTileBar(
         {
             "name": "DeepTileBar",
@@ -358,11 +363,10 @@ def test_deeptilebars(dummy_index, tmpdir, tmpdir_as_cache, monkeypatch):
             "linearhiddendim2": 16,
             "trainer": {"niters": 1, "itersize": 4, "batch": 2},
         },
-        provide={"index": dummy_index},
+        provide={"index": dummy_index, "benchmark": benchmark},
     )
     extractor = reranker.extractor
     metric = "map"
-    benchmark = DummyBenchmark()
 
     extractor.preprocess(["301"], ["LA010189-0001", "LA010189-0002"], benchmark.topics[benchmark.query_type])
     reranker.build_model()
@@ -390,13 +394,13 @@ def test_HINT(dummy_index, tmpdir, tmpdir_as_cache, monkeypatch):
 
     monkeypatch.setattr(SlowEmbedText, "_load_pretrained_embeddings", fake_magnitude_embedding)
 
+    benchmark = DummyBenchmark()
     reranker = HINT(
         {"spatialGRU": 2, "LSTMdim": 6, "kmax": 10, "trainer": {"niters": 1, "itersize": 2, "batch": 1}},
-        provide={"index": dummy_index},
+        provide={"index": dummy_index, "benchmark": benchmark},
     )
     extractor = reranker.extractor
     metric = "map"
-    benchmark = DummyBenchmark()
 
     extractor.preprocess(["301"], ["LA010189-0001", "LA010189-0002"], benchmark.topics[benchmark.query_type])
     reranker.build_model()
@@ -424,10 +428,12 @@ def test_POSITDRMM(dummy_index, tmpdir, tmpdir_as_cache, monkeypatch):
 
     monkeypatch.setattr(SlowEmbedText, "_load_pretrained_embeddings", fake_magnitude_embedding)
 
-    reranker = POSITDRMM({"trainer": {"niters": 1, "itersize": 4, "batch": 2}}, provide={"index": dummy_index})
+    benchmark = DummyBenchmark()
+    reranker = POSITDRMM(
+        {"trainer": {"niters": 1, "itersize": 4, "batch": 2}}, provide={"index": dummy_index, "benchmark": benchmark}
+    )
     extractor = reranker.extractor
     metric = "map"
-    benchmark = DummyBenchmark()
 
     extractor.preprocess(["301"], ["LA010189-0001", "LA010189-0002"], benchmark.topics[benchmark.query_type])
     reranker.build_model()
@@ -455,6 +461,7 @@ def test_CDSSM(dummy_index, tmpdir, tmpdir_as_cache, monkeypatch):
 
     monkeypatch.setattr(SlowEmbedText, "_load_pretrained_embeddings", fake_magnitude_embedding)
 
+    benchmark = DummyBenchmark()
     reranker = CDSSM(
         {
             "nkernel": 3,
@@ -464,11 +471,10 @@ def test_CDSSM(dummy_index, tmpdir, tmpdir_as_cache, monkeypatch):
             "dropoutrate": 0,
             "trainer": {"niters": 1, "itersize": 2, "batch": 1},
         },
-        provide={"index": dummy_index},
+        provide={"index": dummy_index, "benchmark": benchmark},
     )
     extractor = reranker.extractor
     metric = "map"
-    benchmark = DummyBenchmark()
 
     extractor.preprocess(["301"], ["LA010189-0001", "LA010189-0002"], benchmark.topics[benchmark.query_type])
     reranker.build_model()
@@ -539,6 +545,7 @@ def test_tfvanillabert(dummy_index, tmpdir, tmpdir_as_cache, monkeypatch):
 
 
 def test_bertmaxp(dummy_index, tmpdir, tmpdir_as_cache, monkeypatch):
+    benchmark = DummyBenchmark({"collection": {"name": "dummy"}})
     reranker = TFBERTMaxP(
         {
             "pretrained": "bert-base-uncased",
@@ -565,10 +572,9 @@ def test_bertmaxp(dummy_index, tmpdir, tmpdir_as_cache, monkeypatch):
                 "boardname": "default",
                 "loss": "pairwise_hinge_loss",
             },
-        }
+        },
+        provide=benchmark,
     )
-
-    benchmark = DummyBenchmark({"collection": {"name": "dummy"}})
 
     reranker.extractor.preprocess(["301"], ["LA010189-0001", "LA010189-0002"], benchmark.topics[benchmark.query_type])
     reranker.build_model()
@@ -589,6 +595,7 @@ def test_bertmaxp(dummy_index, tmpdir, tmpdir_as_cache, monkeypatch):
 
 
 def test_bertmaxp_ce(dummy_index, tmpdir, tmpdir_as_cache, monkeypatch):
+    benchmark = DummyBenchmark({"collection": {"name": "dummy"}})
     reranker = TFBERTMaxP(
         {
             "pretrained": "bert-base-uncased",
@@ -616,10 +623,9 @@ def test_bertmaxp_ce(dummy_index, tmpdir, tmpdir_as_cache, monkeypatch):
                 "loss": "crossentropy",
                 "eager": False,
             },
-        }
+        },
+        provide=benchmark,
     )
-
-    benchmark = DummyBenchmark({"collection": {"name": "dummy"}})
 
     reranker.extractor.preprocess(["301"], ["LA010189-0001", "LA010189-0002"], benchmark.topics[benchmark.query_type])
     reranker.build_model()
@@ -640,10 +646,12 @@ def test_bertmaxp_ce(dummy_index, tmpdir, tmpdir_as_cache, monkeypatch):
 
 
 def test_birch(dummy_index, tmpdir, tmpdir_as_cache, monkeypatch):
-    reranker = Birch({"trainer": {"niters": 1, "itersize": 2, "batch": 2}}, provide={"index": dummy_index})
+    benchmark = DummyBenchmark()
+    reranker = Birch(
+        {"trainer": {"niters": 1, "itersize": 2, "batch": 2}}, provide={"index": dummy_index, "benchmark": benchmark}
+    )
     extractor = reranker.extractor
     metric = "map"
-    benchmark = DummyBenchmark()
 
     extractor.preprocess(["301"], ["LA010189-0001", "LA010189-0002"], benchmark.topics[benchmark.query_type])
     reranker.build_model()
@@ -664,13 +672,13 @@ def test_birch(dummy_index, tmpdir, tmpdir_as_cache, monkeypatch):
 
 
 def test_parade_maxp(dummy_index, tmpdir, tmpdir_as_cache, monkeypatch):
+    benchmark = DummyBenchmark()
     reranker = TFParade(
         {"extractor": {"numpassages": 2, "passagelen": 15, "stride": 5}, "trainer": {"niters": 1, "itersize": 2, "batch": 2}},
-        provide={"index": dummy_index},
+        provide={"index": dummy_index, "benchmark": benchmark},
     )
     extractor = reranker.extractor
     metric = "map"
-    benchmark = DummyBenchmark()
 
     extractor.preprocess(["301"], ["LA010189-0001", "LA010189-0002"], benchmark.topics[benchmark.query_type])
     reranker.build_model()
@@ -691,17 +699,17 @@ def test_parade_maxp(dummy_index, tmpdir, tmpdir_as_cache, monkeypatch):
 
 
 def test_parade_transformer(dummy_index, tmpdir, tmpdir_as_cache, monkeypatch):
+    benchmark = DummyBenchmark()
     reranker = TFParade(
         {
             "aggregation": "transformer",
             "extractor": {"numpassages": 2, "passagelen": 15, "stride": 5},
             "trainer": {"niters": 1, "itersize": 2, "batch": 2},
         },
-        provide={"index": dummy_index},
+        provide={"index": dummy_index, "benchmark": benchmark},
     )
     extractor = reranker.extractor
     metric = "map"
-    benchmark = DummyBenchmark()
 
     extractor.preprocess(["301"], ["LA010189-0001", "LA010189-0002"], benchmark.topics[benchmark.query_type])
     reranker.build_model()
@@ -722,6 +730,7 @@ def test_parade_transformer(dummy_index, tmpdir, tmpdir_as_cache, monkeypatch):
 
 
 def test_tfvanillabert(dummy_index, tmpdir, tmpdir_as_cache, monkeypatch):
+    benchmark = DummyBenchmark({"collection": {"name": "dummy"}})
     reranker = TFVanillaBERT(
         {
             "pretrained": "bert-base-uncased",
@@ -748,10 +757,9 @@ def test_tfvanillabert(dummy_index, tmpdir, tmpdir_as_cache, monkeypatch):
                 "boardname": "default",
                 "loss": "pairwise_hinge_loss",
             },
-        }
+        },
+        provide=benchmark,
     )
-
-    benchmark = DummyBenchmark({"collection": {"name": "dummy"}})
 
     reranker.extractor.preprocess(["301"], ["LA010189-0001", "LA010189-0002"], benchmark.topics[benchmark.query_type])
     reranker.build_model()

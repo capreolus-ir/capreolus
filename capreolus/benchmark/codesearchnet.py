@@ -103,7 +103,7 @@ class CodeSearchNetCorpus(Benchmark):
         qrel_file = open(self.qrel_file, "w", encoding="utf-8")
 
         def gen_doc_from_gzdir(dir):
-            """ generate parsed dict-format doc from all jsonl.gz files under given directory """
+            """generate parsed dict-format doc from all jsonl.gz files under given directory"""
             for fn in sorted(dir.glob("*.jsonl.gz")):
                 f = gzip.open(fn, "rb")
                 for doc in f:
@@ -167,12 +167,12 @@ class CodeSearchNetCorpus(Benchmark):
         return url2docid
 
     def _get_n_docid(self):
-        """ calculate the number of document ids contained in the nested docid map """
+        """calculate the number of document ids contained in the nested docid map"""
         lens = [len(docs) for url, docs in self._docid_map.items()]
         return sum(lens)
 
     def get_docid(self, url, code_tokens):
-        """ retrieve the doc id according to the doc dict """
+        """retrieve the doc id according to the doc dict"""
         docids = self.docid_map[url]
         return docids[0] if len(docids) == 1 else docids[code_tokens]
 
@@ -197,7 +197,7 @@ class CodeSearchNetChallenge(Benchmark):
     qid_map_file = file_fn / "qidmap.json"
 
     def download_if_missing(self):
-        """ download query.csv and prepare queryid - query mapping file """
+        """download query.csv and prepare queryid - query mapping file"""
         if self.topic_file.exists() and self.qid_map_file.exists():
             return
 

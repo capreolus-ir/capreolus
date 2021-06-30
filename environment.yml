@@ -12,15 +12,15 @@ dependencies:
   - jupyter
   - jupyterlab
   - h5py==2.10.0
-  - pytorch::pytorch>=1.6,<1.7
+  - pytorch::pytorch>=1.6.0,<=1.8.1
   - pytorch::torchvision
   - cudatoolkit=10.1
   - conda-forge::openjdk>=11,<12
   - pip  # dependency, not package list
   - pip:
     - profane>=0.2.0
-    - SQLAlchemy>=1.3.5
-    - sqlalchemy-utils
+    - sqlalchemy~=1.3.19
+    - sqlalchemy-utils~=0.36.8
     - psycopg2-binary
     - colorlog>=4.0.2
     - pytrec_eval>=0.5
@@ -30,21 +30,23 @@ dependencies:
     - pymagnitude>=0.1.143
     - pytest-mock
     - mock
-    - pyserini==0.9.3.0
+    - pyserini==0.12.0
     - sphinx
     - sphinxcontrib-apidoc
     - recommonmark
     - google-api-python-client
     - oauth2client
-    - tensorflow>=2.3,<2.4
-    - transformers>=3.1.0,<3.2
+    - tensorflow>=2.3,<2.5
+    - transformers==4.6.1
     - tensorflow-ranking
     - Pillow
     - beautifulsoup4
     - lxml
-    - scispacy
+    - scispacy<0.4.0
     - https://s3-us-west-2.amazonaws.com/ai2-s2-scispacy/releases/v0.2.4/en_core_sci_lg-0.2.4.tar.gz
     - lz4
     - xxhash
     - annoy
     - fasteners
+    - smart_open
+    - ir_datasets

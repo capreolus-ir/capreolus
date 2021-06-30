@@ -28,7 +28,8 @@ extractors = set(module_registry.get_module_names("extractor"))
 
 @pytest.mark.parametrize("extractor_name", extractors)
 def test_extractor_creatable(tmpdir_as_cache, dummy_index, extractor_name):
-    provide = {"index": dummy_index, "collection": dummy_index.collection}
+    benchmark = DummyBenchmark()
+    provide = {"index": dummy_index, "collection": dummy_index.collection, "benchmark": benchmark}
     extractor = Extractor.create(extractor_name, provide=provide)
 
 
@@ -42,9 +43,9 @@ def test_embedtext_id2vec(monkeypatch):
 
     monkeypatch.setattr(EmbedText, "_load_pretrained_embeddings", fake_load_embeddings)
 
-    extractor_cfg = {"name": "embedtext", "embeddings": "glove6b", "calcidf": True, "maxqlen": MAXQLEN, "maxdoclen": MAXDOCLEN}
-    extractor = EmbedText(extractor_cfg, provide={"collection": DummyCollection()})
     benchmark = DummyBenchmark()
+    extractor_cfg = {"name": "embedtext", "embeddings": "glove6b", "calcidf": True, "maxqlen": MAXQLEN, "maxdoclen": MAXDOCLEN}
+    extractor = EmbedText(extractor_cfg, provide={"collection": DummyCollection(), "benchmark": benchmark})
 
     qids = list(benchmark.qrels.keys())  # ["301"]
     qid = qids[0]
@@ -91,6 +92,7 @@ def test_slowembedtext_creation(monkeypatch):
     index_cfg = {"name": "anserini", "indexstops": False, "stemmer": "porter", "collection": {"name": "dummy"}}
     index = AnseriniIndex(index_cfg)
 
+    benchmark = DummyBenchmark()
     extractor_cfg = {
         "name": "slowembedtext",
         "embeddings": "glove6b",
@@ -100,8 +102,7 @@ def test_slowembedtext_creation(monkeypatch):
         "maxdoclen": MAXDOCLEN,
         "usecache": False,
     }
-    extractor = SlowEmbedText(extractor_cfg, provide={"index": index})
-    benchmark = DummyBenchmark()
+    extractor = SlowEmbedText(extractor_cfg, provide={"index": index, "benchmark": benchmark})
 
     qids = list(benchmark.qrels.keys())  # ["301"]
     qid = qids[0]
@@ -127,6 +128,7 @@ def test_slowembedtext_id2vec(monkeypatch):
 
     monkeypatch.setattr(SlowEmbedText, "_load_pretrained_embeddings", fake_magnitude_embedding)
 
+    benchmark = DummyBenchmark()
     extractor_cfg = {
         "name": "slowembedtext",
         "embeddings": "glove6b",
@@ -136,8 +138,7 @@ def test_slowembedtext_id2vec(monkeypatch):
         "maxdoclen": MAXDOCLEN,
         "usecache": False,
     }
-    extractor = SlowEmbedText(extractor_cfg, provide={"collection": DummyCollection()})
-    benchmark = DummyBenchmark()
+    extractor = SlowEmbedText(extractor_cfg, provide={"collection": DummyCollection(), "benchmark": benchmark})
 
     qids = list(benchmark.qrels.keys())  # ["301"]
     qid = qids[0]
@@ -181,6 +182,7 @@ def test_slowembedtext_caching(dummy_index, monkeypatch):
 
     monkeypatch.setattr(SlowEmbedText, "_load_pretrained_embeddings", fake_magnitude_embedding)
 
+    benchmark = DummyBenchmark()
     extractor_cfg = {
         "name": "slowembedtext",
         "embeddings": "glove6b",
@@ -190,8 +192,7 @@ def test_slowembedtext_caching(dummy_index, monkeypatch):
         "maxdoclen": MAXDOCLEN,
         "usecache": True,
     }
-    extractor = SlowEmbedText(extractor_cfg, provide={"index": dummy_index})
-    benchmark = DummyBenchmark()
+    extractor = SlowEmbedText(extractor_cfg, provide={"index": dummy_index, "benchmark": benchmark})
 
     qids = list(benchmark.qrels.keys())  # ["301"]
     qid = qids[0]
@@ -203,7 +204,7 @@ def test_slowembedtext_caching(dummy_index, monkeypatch):
 
     assert extractor.is_state_cached(qids, docids)
 
-    new_extractor = SlowEmbedText(extractor_cfg, provide={"index": dummy_index})
+    new_extractor = SlowEmbedText(extractor_cfg, provide={"index": dummy_index, "benchmark": benchmark})
 
     assert new_extractor.is_state_cached(qids, docids)
     new_extractor._build_vocab(qids, docids, benchmark.topics[benchmark.query_type])
@@ -213,7 +214,7 @@ def test_bagofwords_create(monkeypatch, tmpdir, dummy_index):
     benchmark = DummyBenchmark({})
     extractor = BagOfWords(
         {"name": "bagofwords", "datamode": "unigram", "maxqlen": 4, "maxdoclen": 800, "usecache": False},
-        provide={"index": dummy_index},
+        provide={"index": dummy_index, "benchmark": benchmark},
     )
     extractor.preprocess(["301"], ["LA010189-0001", "LA010189-0002"], benchmark.topics["title"])
     assert extractor.stoi == {
@@ -250,7 +251,7 @@ def test_bagofwords_create_trigrams(monkeypatch, tmpdir, dummy_index):
     tokenizer = AnseriniTokenizer(tok_cfg)
     extractor = BagOfWords(
         {"name": "bagofwords", "datamode": "trigram", "maxqlen": 4, "maxdoclen": 800, "usecache": False},
-        provide={"index": dummy_index, "tokenizer": tokenizer},
+        provide={"index": dummy_index, "tokenizer": tokenizer, "benchmark": benchmark},
     )
     extractor.preprocess(["301"], ["LA010189-0001", "LA010189-0002"], benchmark.topics["title"])
     assert extractor.stoi == {
@@ -312,7 +313,7 @@ def test_bagofwords_id2vec(tmpdir, dummy_index):
     tokenizer = AnseriniTokenizer(tok_cfg)
     extractor = BagOfWords(
         {"name": "bagofwords", "datamode": "unigram", "maxqlen": 4, "maxdoclen": 800, "usecache": False},
-        provide={"index": dummy_index, "tokenizer": tokenizer},
+        provide={"index": dummy_index, "tokenizer": tokenizer, "benchmark": benchmark},
     )
     extractor.stoi = {extractor.pad_tok: extractor.pad}
     extractor.itos = {extractor.pad: extractor.pad_tok}
@@ -346,7 +347,7 @@ def test_bagofwords_id2vec_trigram(tmpdir, dummy_index):
     tokenizer = AnseriniTokenizer(tok_cfg)
     extractor = BagOfWords(
         {"name": "bagofwords", "datamode": "trigram", "maxqlen": 4, "maxdoclen": 800, "usecache": False},
-        provide={"index": dummy_index, "tokenizer": tokenizer},
+        provide={"index": dummy_index, "tokenizer": tokenizer, "benchmark": benchmark},
     )
     extractor.stoi = {extractor.pad_tok: extractor.pad}
     extractor.itos = {extractor.pad: extractor.pad_tok}
@@ -397,10 +398,9 @@ def test_bagofwords_caching(dummy_index, monkeypatch):
 
     monkeypatch.setattr(SlowEmbedText, "_load_pretrained_embeddings", fake_magnitude_embedding)
 
-    extractor_cfg = {"name": "bagofwords", "datamode": "trigram", "maxqlen": 4, "maxdoclen": 800, "usecache": True}
-    extractor = BagOfWords(extractor_cfg, provide={"index": dummy_index})
-
     benchmark = DummyBenchmark()
+    extractor_cfg = {"name": "bagofwords", "datamode": "trigram", "maxqlen": 4, "maxdoclen": 800, "usecache": True}
+    extractor = BagOfWords(extractor_cfg, provide={"index": dummy_index, "benchmark": benchmark})
 
     qids = list(benchmark.qrels.keys())  # ["301"]
     qid = qids[0]
@@ -412,7 +412,7 @@ def test_bagofwords_caching(dummy_index, monkeypatch):
 
     assert extractor.is_state_cached(qids, docids)
 
-    new_extractor = BagOfWords(extractor_cfg, provide={"index": dummy_index})
+    new_extractor = BagOfWords(extractor_cfg, provide={"index": dummy_index, "benchmark": benchmark})
 
     assert new_extractor.is_state_cached(qids, docids)
     new_extractor._build_vocab(qids, docids, benchmark.topics[benchmark.query_type])
@@ -426,6 +426,7 @@ def test_deeptiles_extract_segment_long_text(tmpdir, monkeypatch, dummy_index):
         return Magnitude(None)
 
     monkeypatch.setattr(DeepTileExtractor, "_get_pretrained_emb", fake_magnitude_embedding)
+    benchmark = DummyBenchmark()
     # nltk.TextTilingTokenizer only works with large blobs of text
     ttt = TextTilingTokenizer(k=6)
     extractor_config = {
@@ -436,7 +437,7 @@ def test_deeptiles_extract_segment_long_text(tmpdir, monkeypatch, dummy_index):
         "slicelen": 20,
         "tfchannel": True,
     }
-    extractor = DeepTileExtractor(extractor_config, provide={"index": dummy_index})
+    extractor = DeepTileExtractor(extractor_config, provide={"index": dummy_index, "benchmark": benchmark})
 
     # blob of text with Shakespeare and Shangri La. Should split into two topics
     s = (
@@ -465,6 +466,7 @@ def test_deeptiles_extract_segment_short_text(tmpdir, monkeypatch, dummy_index):
         return Magnitude(None)
 
     monkeypatch.setattr(DeepTileExtractor, "_get_pretrained_emb", fake_magnitude_embedding)
+    benchmark = DummyBenchmark()
     # The text is too short for TextTilingTokenizer. Test if the fallback works
     ttt = TextTilingTokenizer(k=6)
     pipeline_config = {
@@ -475,7 +477,7 @@ def test_deeptiles_extract_segment_short_text(tmpdir, monkeypatch, dummy_index):
         "tilechannels": 3,
         "index": {"collection": {"name": "dummy"}},
     }
-    extractor = DeepTileExtractor(pipeline_config, provide={"index": dummy_index})
+    extractor = DeepTileExtractor(pipeline_config, provide={"index": dummy_index, "benchmark": benchmark})
     s = "But we in it shall be rememberèd We few, we happy few, we band of brothers"
     doc_toks = s.split(" ")
     segments = extractor.extract_segment(doc_toks, ttt)
@@ -498,8 +500,9 @@ def test_deeptiles_extract_segment_short_text(tmpdir, monkeypatch, dummy_index):
 
 
 def test_deeptiles_clean_segments(tmpdir, dummy_index):
+    benchmark = DummyBenchmark()
     pipeline_config = {"name": "deeptiles", "passagelen": 30, "slicelen": 20, "tfchannel": True, "tilechannels": 3}
-    extractor = DeepTileExtractor(pipeline_config, provide={"index": dummy_index})
+    extractor = DeepTileExtractor(pipeline_config, provide={"index": dummy_index, "benchmark": benchmark})
     assert extractor.clean_segments(["hello world", "foo bar"], p_len=4) == [
         "hello world",
         "foo bar",
@@ -514,8 +517,9 @@ def test_deeptiles_create_visualization_matrix(monkeypatch, tmpdir, dummy_index)
         return Magnitude(None)
 
     monkeypatch.setattr(DeepTileExtractor, "_get_pretrained_emb", fake_magnitude_embedding)
+    benchmark = DummyBenchmark()
     pipeline_config = {"name": "deeptiles", "tilechannels": 3, "maxqlen": 5, "passagelen": 3, "slicelen": 20, "tfchannel": True}
-    extractor = DeepTileExtractor(pipeline_config, provide={"index": dummy_index})
+    extractor = DeepTileExtractor(pipeline_config, provide={"index": dummy_index, "benchmark": benchmark})
     extractor.stoi = {"<pad>": 0, "hello": 1, "world": 2, "foo": 3, "bar": 4, "alice": 5, "bob": 6}
     extractor.idf = defaultdict(lambda: 0)
 
@@ -545,7 +549,7 @@ def test_deeptiles_create(monkeypatch, tmpdir, dummy_index):
         "embeddings": "glove6b",
         "usecache": False,
     }
-    extractor = DeepTileExtractor(extractor_config, provide={"index": dummy_index})
+    extractor = DeepTileExtractor(extractor_config, provide={"index": dummy_index, "benchmark": benchmark})
 
     print("BT:", benchmark.topics["title"])
     extractor.preprocess(["301"], ["LA010189-0001", "LA010189-0002"], benchmark.topics["title"])
@@ -578,7 +582,10 @@ def test_deeptiles_create(monkeypatch, tmpdir, dummy_index):
 
 
 def test_bertpassage_build_vocab(monkeypatch):
-    extractor = BertPassage({"numpassages": 5, "passagelen": 5, "stride": 3, "index": {"collection": {"name": "dummy"}}})
+    benchmark = DummyBenchmark()
+    extractor = BertPassage(
+        {"numpassages": 5, "passagelen": 5, "stride": 3, "index": {"collection": {"name": "dummy"}}}, provide=benchmark
+    )
 
     def get_doc(*args, **kwargs):
         return "O that we now had here but one ten thousand of those men in"
@@ -603,8 +610,10 @@ def test_bertpassage_build_vocab(monkeypatch):
 
 
 def test_bertpassage_id2vec(monkeypatch):
+    benchmark = DummyBenchmark()
     extractor = BertPassage(
-        {"numpassages": 5, "passagelen": 5, "maxseqlen": 15, "stride": 3, "index": {"collection": {"name": "dummy"}}}
+        {"numpassages": 5, "passagelen": 5, "maxseqlen": 15, "stride": 3, "index": {"collection": {"name": "dummy"}}},
+        provide=benchmark,
     )
 
     def get_doc(*args, **kwargs):
@@ -758,8 +767,10 @@ def test_bertpassage_id2vec(monkeypatch):
 
 
 def test_bertpassage_id2vec_with_pad(monkeypatch):
+    benchmark = DummyBenchmark()
     extractor = BertPassage(
-        {"numpassages": 5, "passagelen": 5, "maxseqlen": 20, "stride": 3, "index": {"collection": {"name": "dummy"}}}
+        {"numpassages": 5, "passagelen": 5, "maxseqlen": 20, "stride": 3, "index": {"collection": {"name": "dummy"}}},
+        provide=benchmark,
     )
 
     def get_doc(*args, **kwargs):

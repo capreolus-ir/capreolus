@@ -10,7 +10,9 @@ from capreolus.sampler import TrainTripletSampler, PredSampler
 
 def test_train_sampler(monkeypatch, tmpdir):
     benchmark = DummyBenchmark()
-    extractor = EmbedText({"tokenizer": {"keepstops": True}}, provide={"collection": benchmark.collection})
+    extractor = EmbedText(
+        {"tokenizer": {"keepstops": True}}, provide={"collection": benchmark.collection, "benchmark": benchmark}
+    )
     training_judgments = benchmark.qrels.copy()
     train_dataset = TrainTripletSampler()
     train_dataset.prepare(training_judgments, training_judgments, extractor)
@@ -38,7 +40,9 @@ def test_train_sampler(monkeypatch, tmpdir):
 
 def test_pred_sampler(monkeypatch, tmpdir):
     benchmark = DummyBenchmark()
-    extractor = EmbedText({"tokenizer": {"keepstops": True}}, provide={"collection": benchmark.collection})
+    extractor = EmbedText(
+        {"tokenizer": {"keepstops": True}}, provide={"collection": benchmark.collection, "benchmark": benchmark}
+    )
     search_run = {"301": {"LA010189-0001": 50, "LA010189-0002": 100}}
     pred_dataset = PredSampler()
     pred_dataset.prepare(benchmark.qrels, search_run, extractor)

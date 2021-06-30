@@ -3,10 +3,12 @@ import os
 import uuid
 from collections import defaultdict
 from copy import copy
+from pathlib import Path
+
 import tensorflow as tf
-from tensorflow.python.keras import backend as K
 import tensorflow_ranking as tfr
 import numpy as np
+from tensorflow.python.keras import backend as K
 from tqdm import tqdm
 
 from capreolus.searcher import Searcher
@@ -14,6 +16,8 @@ from capreolus import ConfigOption
 from capreolus.trainer import Trainer
 from capreolus.utils.loginit import get_logger
 from capreolus.reranker.common import TFPairwiseHingeLoss, TFCategoricalCrossEntropyLoss, KerasPairModel, KerasTripletModel
+from tensorflow.keras.mixed_precision import experimental as mixed_precision
+
 
 logger = get_logger(__name__)
 
@@ -23,6 +27,29 @@ from tensorflow.python.client import device_lib
 def get_available_gpus():
     local_device_protos = device_lib.list_local_devices()
     return [x.name for x in local_device_protos if x.device_type == "GPU"]
+
+
+class LocalTPUClusterResolver(tf.distribute.cluster_resolver.TPUClusterResolver):
+    """LocalTPUClusterResolver."""
+
+    def __init__(self):
+        self._tpu = ""
+        self.task_type = "worker"
+        self.task_id = 0
+
+    def master(self, task_type=None, task_id=None, rpc_layer=None):
+        return None
+
+    def cluster_spec(self):
+        return tf.train.ClusterSpec({})
+
+    def get_tpu_system_metadata(self):
+        return tf.tpu.experimental.TPUSystemMetadata(
+            num_cores=8, num_hosts=1, num_of_cores_per_host=8, topology=None, devices=tf.config.list_logical_devices()
+        )
+
+    def num_accelerators(self, task_type=None, task_id=None, config_proto=None):
+        return {"TPU": 8}
 
 
 @Trainer.register
@@ -39,13 +66,14 @@ class TensorflowTrainer(Trainer):
     module_name = "tensorflow"
     config_spec = [
         ConfigOption("batch", 32, "batch size"),
-        ConfigOption("evalbatch", 256, "batch size on evaluation"),
+        ConfigOption("evalbatch", 0, "batch size at inference time (or 0 to use training batch size)"),
         ConfigOption("niters", 20, "number of iterations to train for"),
         ConfigOption("itersize", 512, "number of training instances in one iteration"),
         ConfigOption("bertlr", 2e-5, "learning rate for bert parameters"),
         ConfigOption("lr", 0.001, "learning rate"),
-        ConfigOption("warmupsteps", 0),
+        ConfigOption("warmupiters", 0),
         ConfigOption("loss", "pairwise_hinge_loss", "must be one of tfr.losses.RankingLossKey"),
+        ConfigOption("fastforward", False),
         ConfigOption("validatefreq", 1),
         ConfigOption("boardname", "default"),
         ConfigOption("usecache", False),
@@ -54,26 +82,32 @@ class TensorflowTrainer(Trainer):
         ConfigOption("storage", None),
         ConfigOption("eager", False),
         ConfigOption("decay", 0.0, "learning rate decay"),
-        ConfigOption("decaystep", 3),
+        ConfigOption("decayiters", 3),
         ConfigOption("decaytype", None),
-        ConfigOption("endlr", 0.0, "Learning rate at the end of decay, used for linear decay"),
-        ConfigOption(
-            "earlystop",
-            True,
-            "If False, will save checkpoint each `validatefreq` steps, otherwise will only save the best performanced checkpoint",
-        ),
+        ConfigOption("amp", False, "use automatic mixed precision"),
     ]
     config_keys_not_in_path = ["fastforward", "boardname", "usecache", "tpuname", "tpuzone", "storage", "earlystop"]
 
     def build(self):
         tf.random.set_seed(self.config["seed"])
 
+        self.evalbatch = self.config["evalbatch"] if self.config["evalbatch"] > 0 else self.config["batch"]
+
+        if os.environ.get("CAPR_QUEUE_SKIP_TPU") == "YES":
+            return
+
         # Use TPU if available, otherwise resort to GPU/CPU
-        try:
-            self.tpu = tf.distribute.cluster_resolver.TPUClusterResolver(tpu=self.config["tpuname"], zone=self.config["tpuzone"])
-        except ValueError:
+        if self.config["tpuname"]:
+            if self.config["tpuname"] == "LOCAL":
+                logger.debug("using TPU VM with LocalTPUClusterResolver")
+                self.tpu = LocalTPUClusterResolver()
+            else:
+                logger.debug("using TPU with TPUClusterResolver")
+                self.tpu = tf.distribute.cluster_resolver.TPUClusterResolver(
+                    tpu=self.config["tpuname"], zone=self.config["tpuzone"]
+                )
+        else:
             self.tpu = None
-            logger.info("Could not find the tpu")
 
         # TPUStrategy for distributed training
         if self.tpu:
@@ -86,22 +120,32 @@ class TensorflowTrainer(Trainer):
         else:  # default strategy that works on CPU and single GPU
             self.strategy = tf.distribute.get_strategy()
 
+        self.amp = self.config["amp"]
+        if self.amp:
+            policy = mixed_precision.Policy("mixed_bfloat16" if self.tpu else "mixed_float16")
+            mixed_precision.set_policy(policy)
+
         # Defining some props that we will later initialize
         self.validate()
 
     def validate(self):
-        if self.tpu and any([self.config["storage"] is None, self.config["tpuname"] is None, self.config["tpuzone"] is None]):
+        if self.tpu and not all([self.config["storage"], self.config["tpuname"], self.config["tpuzone"]]):
             raise ValueError("storage, tpuname and tpuzone configs must be provided when training on TPU")
-        if self.tpu and self.config["storage"] and not self.config["storage"].startswith("gs://"):
+        if self.tpu and self.config["tpuname"] != "LOCAL" and not self.config["storage"].startswith("gs://"):
             raise ValueError("For TPU utilization, the storage config should start with 'gs://'")
 
     def train(self, reranker, train_dataset, train_output_path, dev_data, dev_output_path, metric, evaluate_fn):
         if self.tpu:
-            train_output_path = "{0}/{1}/{2}".format(
-                self.config["storage"], "train_output", hashlib.md5(str(train_output_path).encode("utf-8")).hexdigest()
+            # WARNING: not sure if pathlib is compatible with gs://
+            train_output_path = Path(
+                "{0}/{1}/{2}".format(
+                    self.config["storage"], "train_output", hashlib.md5(str(train_output_path).encode("utf-8")).hexdigest()
+                )
             )
 
-        os.makedirs(dev_output_path, exist_ok=True)
+        dev_best_weight_fn, weights_output_path, info_output_path, loss_fn, metric_fn = self.get_paths_for_early_stopping(
+            train_output_path, dev_output_path
+        )
 
         train_records = self.get_tf_train_records(reranker, train_dataset)
         dev_records = self.get_tf_dev_records(reranker, dev_data)
@@ -116,9 +160,20 @@ class TensorflowTrainer(Trainer):
             optimizer_1 = tf.keras.optimizers.Adam(learning_rate=self.config["lr"])
             optimizer_2 = tf.keras.optimizers.Adam(learning_rate=self.config["bertlr"])
 
+            # "You should remove the use of the LossScaleOptimizer when TPUs are used."
+            if self.amp and not self.tpu:
+                optimizer_2 = mixed_precision.LossScaleOptimizer(optimizer_2, loss_scale="dynamic")
+
             def compute_loss(labels, predictions):
                 per_example_loss = loss_object(labels, predictions)
                 return tf.nn.compute_average_loss(per_example_loss, global_batch_size=self.config["batch"])
+
+        def is_bert_variable(name):
+            if "bert" in name:
+                return True
+            if "electra" in name:
+                return True
+            return False
 
         def train_step(inputs):
             data, labels = inputs
@@ -126,15 +181,17 @@ class TensorflowTrainer(Trainer):
             with tf.GradientTape() as tape:
                 train_predictions = wrapped_model(data, training=True)
                 loss = compute_loss(labels, train_predictions)
+                if self.amp and not self.tpu:
+                    loss = optimizer_2.get_scaled_loss(loss)
 
             gradients = tape.gradient(loss, wrapped_model.trainable_variables)
+            if self.amp and not self.tpu:
+                optimizer_2.get_unscaled_gradients(gradients)
 
-            # TODO: Expose the layer names to lookout for as a ConfigOption?
-            # TODO: Crystina mentioned that hugging face models have 'bert' in all the layers (including classifiers). Handle this case
             bert_variables = [
                 (gradients[i], variable)
                 for i, variable in enumerate(wrapped_model.trainable_variables)
-                if "bert" in variable.name and "classifier" not in variable.name
+                if is_bert_variable(variable.name) and "classifier" not in variable.name
             ]
             classifier_vars = [
                 (gradients[i], variable)
@@ -144,7 +201,7 @@ class TensorflowTrainer(Trainer):
             other_vars = [
                 (gradients[i], variable)
                 for i, variable in enumerate(wrapped_model.trainable_variables)
-                if "bert" not in variable.name and "classifier" not in variable.name
+                if not is_bert_variable(variable.name) and "classifier" not in variable.name
             ]
 
             assert len(bert_variables) + len(classifier_vars) + len(other_vars) == len(wrapped_model.trainable_variables)
@@ -173,45 +230,57 @@ class TensorflowTrainer(Trainer):
         def distributed_test_step(dataset_inputs):
             return self.strategy.run(test_step, args=(dataset_inputs,))
 
-        best_metric = -np.inf
-        epoch = 0
-        num_batches = 0
-        total_loss = 0
-        iter_bar = tqdm(total=self.config["itersize"])
-
-        best_trec_preds = {}
-        initial_lr = self.change_lr(epoch, self.config["bertlr"])
-        K.set_value(optimizer_2.lr, K.get_value(initial_lr))
-        train_records = train_records.shuffle(100000)
+        train_records = train_records.shuffle(100_000)
         train_dist_dataset = self.strategy.experimental_distribute_dataset(train_records)
 
-        # Goes through the dataset ONCE (i.e niters * itersize * batch samples). However, the dataset may already contain multiple instances of the same sample,
-        # depending upon what Sampler was used. If you want multiple epochs, achieve it by tweaking the niters and
-        # itersize values.
+        initial_iter, metrics = (
+            self.fastforward_training(wrapped_model, weights_output_path, loss_fn, metric_fn)
+            if self.config["fastforward"]
+            else (0, {})
+        )
+        dev_best_metric = metrics.get(metric, -np.inf)
+        logger.info("starting training from iteration %s/%s", initial_iter + 1, self.config["niters"])
+        logger.info(f"Best metric loaded: {metric}={dev_best_metric}")
+
+        best_trec_preds = {}
+        cur_step = initial_iter * self.n_batch_per_iter
+        initial_lr = self.change_lr(step=cur_step, lr=self.config["bertlr"])
+        K.set_value(optimizer_2.lr, K.get_value(initial_lr))
+        train_loss = self.load_loss_file(loss_fn) if initial_iter > 0 else []
+        if 0 < initial_iter < self.config["niters"]:
+            self.exhaust_used_train_data(train_dist_dataset, n_batch_to_exhaust=initial_iter * self.n_batch_per_iter)
+
+        niter = initial_iter
+        total_loss = 0
+        trec_preds = {}
+        iter_bar = tqdm(desc="Training iteration", total=self.n_batch_per_iter)
+        # Goes through the dataset ONCE (i.e niters * itersize).
+        # However, the dataset may already contain multiple instances of the same sample,
+        # depending upon what Sampler was used.
+        # If you want multiple epochs, achieve it by tweaking the niters and itersize values.
         for x in train_dist_dataset:
             total_loss += distributed_train_step(x)
-            train_loss = total_loss / num_batches
-            num_batches += 1
+            cur_step += 1
             iter_bar.update(1)
 
             # Do warmup and decay
-            new_lr = self.change_lr(global_steps=num_batches, lr=self.config["bertlr"])
+            new_lr = self.change_lr(step=cur_step, lr=self.config["bertlr"])
             K.set_value(optimizer_2.lr, K.get_value(new_lr))
 
-            if num_batches % self.config["itersize"] == 0:
-                epoch += 1
+            if cur_step % self.n_batch_per_iter == 0:
+                niter += 1
+
                 iter_bar.close()
-                logger.info("train_loss for epoch {} is {}".format(epoch, train_loss))
-                train_loss = 0
+                iter_bar = tqdm(total=self.n_batch_per_iter)
+                train_loss.append(total_loss / self.n_batch_per_iter)
+                logger.info("iter={} loss = {}".format(niter, train_loss[-1]))
+                self.write_to_loss_file(loss_fn, train_loss)
                 total_loss = 0
 
-                if epoch % self.config["validatefreq"] == 0:
-                    if not self.config["earlystop"]:
-                        # save the ckpt ahead so don't need to wait for the evaluation to finish to use the ckpt
-                        # (eval on large dataset like MS MARCO takes > 1 days)
-                        wrapped_model.save_weights("{0}/dev.best".format(train_output_path))
-                        logger.info(f"Saved the ckpt at {epoch} step to directory {train_output_path}")
+                if self.config["fastforward"]:
+                    wrapped_model.save_weights(f"{weights_output_path}/{niter}")
 
+                if niter % self.config["validatefreq"] == 0:
                     dev_predictions = []
                     for x in tqdm(dev_dist_dataset, desc="validation"):
                         pred_batch = (
@@ -225,18 +294,20 @@ class TensorflowTrainer(Trainer):
                     trec_preds = self.get_preds_in_trec_format(dev_predictions, dev_data)
                     metrics = evaluate_fn(trec_preds)
                     logger.info("dev metrics: %s", " ".join([f"{metric}={v:0.3f}" for metric, v in sorted(metrics.items())]))
-                    if metrics[metric] > best_metric:
-                        best_metric = metrics[metric]
-                        logger.info("new best dev metric: %0.4f", best_metric)
-                        wrapped_model.save_weights("{0}/dev.best".format(train_output_path))
-                        Searcher.write_trec_run(trec_preds, dev_output_path / "best")
+                    if metrics[metric] > dev_best_metric:
+                        dev_best_metric = metrics[metric]
+                        logger.info("new best dev metric: %0.4f", dev_best_metric)
+
+                        self.write_to_metric_file(metric_fn, metrics)
+                        wrapped_model.save_weights(dev_best_weight_fn)
+                        Searcher.write_trec_run(trec_preds, outfn=(dev_output_path / "best").as_posix())
                         best_trec_preds = trec_preds
 
-                iter_bar = tqdm(total=self.config["itersize"])
-
-            if num_batches >= self.config["niters"] * self.config["itersize"]:
+            if cur_step >= self.config["niters"] * self.n_batch_per_iter:
                 break
         return best_trec_preds
+
+        return trec_preds
 
     def predict(self, reranker, pred_data, pred_fn):
         pred_records = self.get_tf_dev_records(reranker, pred_data)
@@ -274,7 +345,7 @@ class TensorflowTrainer(Trainer):
         Get the path to the directory where tf records are written to.
         If using TPUs, this will be a gcs path.
         """
-        total_samples = self.config["niters"] * self.config["itersize"] * self.config["batch"]
+        total_samples = self.config["niters"] * self.config["itersize"]
         if self.tpu:
             return "{0}/capreolus_tfrecords/{1}_{2}".format(self.config["storage"], dataset.get_hash(), total_samples)
         else:
@@ -315,16 +386,15 @@ class TensorflowTrainer(Trainer):
         1. Returns tf records from cache (disk) if applicable
         2. Else, converts the dataset into tf records, writes them to disk, and returns them
         """
-        required_samples = self.config["niters"] * self.config["itersize"] * self.config["batch"]
+        required_samples = self.config["niters"] * self.config["itersize"]
         cached_tf_record_dir = self.find_cached_tf_records(dataset, required_samples)
 
         if self.config["usecache"] and cached_tf_record_dir is not None:
             filenames = tf.io.gfile.listdir(cached_tf_record_dir)
             filenames = ["{0}/{1}".format(cached_tf_record_dir.rstrip("/"), name) for name in filenames]
-            return self.load_tf_train_records_from_file(reranker, filenames, self.config["batch"])
         else:
-            tf_record_filenames = self.convert_to_tf_train_record(reranker, dataset)
-            return self.load_tf_train_records_from_file(reranker, tf_record_filenames, self.config["batch"])
+            filenames = self.convert_to_tf_train_record(reranker, dataset)
+        return self.load_tf_train_records_from_file(reranker, filenames, self.config["batch"])
 
     def load_tf_train_records_from_file(self, reranker, filenames, batch_size):
         raw_dataset = tf.data.TFRecordDataset(filenames)
@@ -338,7 +408,7 @@ class TensorflowTrainer(Trainer):
         """
         Tensorflow works better if the input data is fed in as tfrecords
         Takes in a dataset,  iterates through it, and creates multiple tf records from it.
-        Creates exactly niters * itersize * batch_size samples.
+        Creates exactly niters * itersize samples.
         The exact structure of the tfrecords is defined by reranker.extractor. For example, see BertPassage.get_tf_train_feature()
         params:
         reranker - A capreolus.reranker.Reranker instance
@@ -348,7 +418,7 @@ class TensorflowTrainer(Trainer):
 
         tf_features = []
         tf_record_filenames = []
-        required_sample_count = self.config["niters"] * self.config["itersize"] * self.config["batch"]
+        required_sample_count = self.config["niters"] * self.config["itersize"]
         sample_count = 0
 
         iter_bar = tqdm(total=required_sample_count)
@@ -379,12 +449,9 @@ class TensorflowTrainer(Trainer):
         if self.config["usecache"] and tf.io.gfile.exists(cached_tf_record_dir):
             filenames = sorted(tf.io.gfile.listdir(cached_tf_record_dir), key=lambda x: int(x.replace(".tfrecord", "")))
             filenames = ["{0}/{1}".format(cached_tf_record_dir, name) for name in filenames]
-
-            return self.load_tf_dev_records_from_file(reranker, filenames, self.config["evalbatch"])
         else:
-            tf_record_filenames = self.convert_to_tf_dev_record(reranker, dataset)
-            # TODO use actual batch size here. see issue #52
-            return self.load_tf_dev_records_from_file(reranker, tf_record_filenames, self.config["evalbatch"])
+            filenames = self.convert_to_tf_dev_record(reranker, dataset)
+        return self.load_tf_dev_records_from_file(reranker, filenames, self.evalbatch)
 
     def load_tf_dev_records_from_file(self, reranker, filenames, batch_size):
         raw_dataset = tf.data.TFRecordDataset(filenames)
@@ -394,13 +461,17 @@ class TensorflowTrainer(Trainer):
         return tf_records_dataset
 
     def convert_to_tf_dev_record(self, reranker, dataset):
+        evalbatch = self.evalbatch
         dir_name = self.form_tf_record_cache_path(dataset)
         tf_features = []
         tf_record_filenames = []
 
         tf_file_id = 0
+        element_to_copy = None
         for sample in dataset:
             tf_features.extend(reranker.extractor.create_tf_dev_feature(sample))
+            if element_to_copy is None:
+                element_to_copy = tf_features[0]
             if len(tf_features) > 20000:
                 tf_record_filenames.append(self.write_tf_record_to_file(dir_name, tf_features, file_name=str(tf_file_id)))
                 tf_features = []
@@ -408,11 +479,9 @@ class TensorflowTrainer(Trainer):
 
         # TPU's require drop_remainder = True. But we cannot drop things from validation dataset
         # As a workaroud, we pad the dataset with the last sample until it reaches the batch size.
-        if len(tf_features) > 0:
-            element_to_copy = tf_features[-1]
-            for i in range(self.config["evalbatch"]):
-                tf_features.append(copy(element_to_copy))
-            tf_record_filenames.append(self.write_tf_record_to_file(dir_name, tf_features, file_name=str(tf_file_id)))
+        for i in range(evalbatch):
+            tf_features.append(copy(element_to_copy))
+        tf_record_filenames.append(self.write_tf_record_to_file(dir_name, tf_features, file_name=str(tf_file_id)))
         return tf_record_filenames
 
     def write_tf_record_to_file(self, dir_name, tf_features, file_name=None):
@@ -450,22 +519,6 @@ class TensorflowTrainer(Trainer):
 
         return dict(pred_dict)
 
-    def change_lr(self, global_steps, lr):
-        """
-        Apply warm up or decay depending on the current epoch
-        """
-        warmup_steps = self.config["warmupsteps"]
-        if warmup_steps and global_steps <= warmup_steps:
-            return min(lr * ((global_steps + 1) / warmup_steps), lr)
-        elif self.config["decaytype"] == "exponential":
-            return lr * self.config["decay"] ** ((global_steps - warmup_steps) / self.config["decaystep"])
-        elif self.config["decaytype"] == "linear":
-            # return lr * (1 / (1 + self.config["decay"] * epoch))
-            end_lr = self.config["endlr"]
-            return end_lr + (lr - end_lr) * (1 - global_steps / self.config["decaystep"])
-
-        return lr
-
     def get_loss(self, loss_name):
         try:
             if loss_name == "pairwise_hinge_loss":
@@ -494,9 +547,51 @@ class TensorflowTrainer(Trainer):
 
         return KerasTripletModel(model)
 
-    def fastforward_training(self, reranker, weights_path, loss_fn):
-        # TODO: Fix fast forwarding
-        return 0
+    def fastforward_training(self, model, weights_path, loss_fn, best_metric_fn):
+        """Skip to the last training iteration whose weights were saved.
+
+        If saved model and optimizer weights are available, this method will load those weights into model
+        and optimizer, and then return the next iteration to be run. For example, if weights are available for
+        iterations 0-10 (11 zero-indexed iterations), the weights from iteration index 10 will be loaded, and
+        this method will return 11.
+
+        If an error or inconsistency is encountered when checking for weights, this method returns 0.
+
+        This method checks several files to determine if weights "are available". First, loss_fn is read to
+        determine the last recorded iteration. (If a path is missing or loss_fn is malformed, 0 is returned.)
+        Second, the weights from the last recorded iteration in loss_fn are loaded into the model and optimizer.
+        If this is successful, the method returns `1 + last recorded iteration`. If not, it returns 0.
+        (We consider loss_fn because it is written at the end of every training iteration.)
+
+        Args:
+           model (Reranker): a PyTorch Reranker whose state should be loaded
+           weights_path (Path): directory containing model and optimizer weights
+           loss_fn (Path): file containing loss history
+
+        Returns:
+            int: the next training iteration after fastforwarding. If successful, this is > 0.
+                 If no weights are available or they cannot be loaded, 0 is returned.
+
+        """
+        default_return_values = (0, {})
+        if not (weights_path.exists() and loss_fn.exists()):
+            return default_return_values
+
+        try:
+            loss = self.load_loss_file(loss_fn)
+            metrics = self.load_metric(best_metric_fn)
+        except IOError:
+            return default_return_values
+
+        last_loss_iteration = len(loss) - 1
+        weights_fn = weights_path / f"{last_loss_iteration}"
+
+        try:
+            model.load_weights(weights_fn)
+            return last_loss_iteration + 1, metrics
+        except:  # lgtm [py/catch-base-exception]
+            logger.info("attempted to load weights from %s but failed, starting at iteration 0", weights_fn)
+            return default_return_values
 
     def load_best_model(self, reranker, train_output_path):
         # TODO: Do the train_output_path modification at one place?

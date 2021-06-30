@@ -23,7 +23,7 @@ class Anserini:
         for path in sys.path:
             jar_path = "{0}/pyserini/resources/jars/".format(path)
             if os.path.exists(jar_path):
-                fat_jar_path = glob(os.path.join(jar_path, "anserini-0.9*-fatjar.jar"))
+                fat_jar_path = glob(os.path.join(jar_path, "anserini-0.12*-fatjar.jar"))
                 if fat_jar_path:
                     return max(fat_jar_path, key=os.path.getctime)
 
@@ -31,7 +31,7 @@ class Anserini:
 
     @classmethod
     def filter_and_log_anserini_output(cls, line, logger):
-        """ Ignore DEBUG lines and require other lines pass our logging level """
+        """Ignore DEBUG lines and require other lines pass our logging level"""
         fields = line.strip().split()
 
         # is this a log line?
@@ -83,7 +83,7 @@ def download_file(url, outfn, expected_hash=None):
 
 
 def hash_file(fn):
-    """ Compute a SHA-256 hash for the file fn and return a hexdigest of the hash """
+    """Compute a SHA-256 hash for the file fn and return a hexdigest of the hash"""
     sha = hashlib.sha256()
 
     with open(fn, "rb") as f:
