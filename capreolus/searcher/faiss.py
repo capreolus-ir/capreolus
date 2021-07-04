@@ -286,6 +286,7 @@ class FAISSSearcher(Searcher):
         return metrics
 
     def combine_top1000(self, output_path, faiss_run_fn, fold, tag):
+        logger.info("combining top 1000")
         search_results_folder = os.path.join(output_path, "rank")
         best_bm25_results = evaluator.search_best_run(
             search_results_folder, self.benchmark, primary_metric="map", metrics=evaluator.DEFAULT_METRICS, folds=fold
