@@ -70,7 +70,8 @@ class FAISSSearcher(Searcher):
         # `qid_query` contains (qid, query) tuples in the order they were encoded
         topic_vectors, qid_query = self.create_topic_vectors(encoder, topics, fold, topicfield=self.config["field"])
         normal_distances, normal_results = self.do_search(topic_vectors, qid_query, numshards, docs_per_shard, fold, output_path, "faiss_{}.run".format(fold), "normal")
-        self.combine_top1000(output_path, os.path.join(output_path, "faiss_{}.run".format(fold)), fold, "normal")
+        # self.combine_top1000(output_path, os.path.join(output_path, "faiss_{}.run".format(fold)), fold, "normal")
+        self.interpolate(output_path, os.path.join(output_path, "faiss_{}.run".format(fold)), fold, "normal")
 
         # rm3_expanded_topics = self.rm3_expand_queries(os.path.join(output_path, "faiss.run"), topicfield="title")
         # rm3_expanded_topic_vectors, rm3_qid_query = self.create_topic_vectors(rm3_expanded_topics, fold, topicfield="title")
@@ -322,70 +323,83 @@ class FAISSSearcher(Searcher):
         faiss_logger.info("%s: Combined runs test Fold %s metrics: %s", tag, fold,
                           " ".join([f"{metric}={v:0.3f}" for metric, v in sorted(metrics.items())]))
 
-    # def interpolate(self, output_path, faiss_run_fn, fold, tag):
-    #     search_results_folder = os.path.join(output_path, "rank")
-    #     best_bm25_results = evaluator.search_best_run(
-    #         search_results_folder, self.benchmark, primary_metric="map", metrics=evaluator.DEFAULT_METRICS, folds=fold
-    #     )
-    #     best_search_run_path = best_bm25_results["path"][fold]
-    #     bm25_run = Searcher.load_trec_run(best_search_run_path)
-    #
-    #     faiss_run = Searcher.load_trec_run(faiss_run_fn)
-    #     qids = self.benchmark.folds[fold]["predict"]["test"]
-    #
-    #     faiss_favor = 0
-    #     bm25_favor = 0
-    #
-    #     for qid in qids:
-    #         if qid not in self.benchmark.qrels:
-    #             continue
-    #
-    #         qrels = self.benchmark.qrels[qid]
-    #         bm25_retrieved = set([docid for docid in bm25_run[qid].keys() if docid in qrels and qrels[docid] >= 1])
-    #         faiss_retrieved = set([docid for docid in faiss_run[qid].keys() if docid in qrels and qrels[docid] >= 1])
-    #         faiss_favor += len(faiss_retrieved - bm25_retrieved)
-    #         bm25_favor += len(bm25_retrieved - faiss_retrieved)
-    #
-    #     faiss_logger.info("{}: FAISS retrieved {} reldocs that BM25 did not".format(tag, faiss_favor))
-    #     faiss_logger.info("{}: BM25 retrieved {} reldocs that FAISS did not".format(tag, bm25_favor))
-    #
-    #     bm25_max = 0
-    #     bm25_min = np.inf
-    #     for qid, docid_to_score in bm25_run.items():
-    #         max_, min_ = max(docid_to_score.values()), min(docid_to_score.values())
-    #         if max_ > bm25_max:
-    #             bm25_max = max_
-    #         if min_ < bm25_min:
-    #             bm25_min = min_
-    #
-    #     faiss_max = 0
-    #     faiss_min = np.inf
-    #     for qid, docid_to_score in faiss_run.items():
-    #         max_, min_ = max(docid_to_score.values()), min(docid_to_score.values())
-    #         if max_ > faiss_max:
-    #             faiss_max = max_
-    #         if min_ < faiss_min:
-    #             faiss_min = min_
-    #
-    #     interpolated_run = {}
-    #     # Interpolate the scores
-    #     for qid in qids:
-    #         if qid not in self.benchmark.qrels:
-    #             continue
-    #
-    #         docids = set(bm25_run[qid].keys()).union(set(faiss_run[qid].keys()))
-    #         for docid in docids:
-    #             if docid in bm25_run[qid] and docid in faiss_run[qid]:
-    #                 normalized_bm25 = (bm25_run[qid][docid] - bm25_min) / (bm25_max - bm25_min)
-    #                 normalized_faiss = (faiss_run[qid][docid] - faiss_min) / (faiss_max - faiss_min)
-    #                 interpolated_run.setdefault(qid, {})[docid] = (normalized_faiss + normalized_bm25) / 2
-    #             elif docid in bm25_run[qid] and docid not in faiss_run[qid]:
-    #                 interpolated_run.setdefault(qid, {})[docid] = (bm25_run[qid][docid] - bm25_min) / (bm25_max - bm25_min)
-    #             elif docid not in bm25_run[qid] and docid in faiss_run[qid]:
-    #                 interpolated_run.setdefault(qid, {})[docid] = (faiss_run[qid][docid] - faiss_min) / (faiss_max - faiss_min)
-    #
-    #     if hasattr(self.benchmark, "need_pooling") and self.benchmark.need_pooling:
-    #         interpolated_run = pool_trec_passage_run(interpolated_run, strategy=self.benchmark.config["pool"])
-    #
-    #     metrics = evaluator.eval_runs(interpolated_run, self.benchmark.qrels, evaluator.DEFAULT_METRICS, self.benchmark.relevance_level)
-    #     faiss_logger.info("%s: Interpolated Test Fold %s metrics: %s", tag, fold, " ".join([f"{metric}={v:0.3f}" for metric, v in sorted(metrics.items())]))
+    def interpolate(self, output_path, faiss_run_fn, fold, tag):
+        search_results_folder = os.path.join(output_path, "rank")
+        best_bm25_results = evaluator.search_best_run(
+            search_results_folder, self.benchmark, primary_metric="map", metrics=evaluator.DEFAULT_METRICS, folds=fold
+        )
+        best_search_run_path = best_bm25_results["path"][fold]
+        bm25_run = Searcher.load_trec_run(best_search_run_path)
+
+        old_faiss_run = Searcher.load_trec_run(faiss_run_fn)
+        qids = self.benchmark.folds[fold]["predict"]["test"]
+
+        faiss_qid_to_doc_scores = defaultdict(list)
+        for qid, docid_to_score in old_faiss_run.items():
+            for docid, score in docid_to_score.items():
+                faiss_qid_to_doc_scores[qid].append((docid, score))
+
+        faiss_run = defaultdict(dict)
+
+        # FAISS run has 2000 docs. Get the top 1000
+        for qid, docid_scores in faiss_qid_to_doc_scores.items():
+            sorted_doc_scores = sorted(docid_scores, key=lambda x: x[1], reverse=True)
+            for docid, score in sorted_doc_scores[:1000]:
+                faiss_run[qid][docid] = score
+
+        # faiss_favor = 0
+        # bm25_favor = 0
+        #
+        # for qid in qids:
+        #     if qid not in self.benchmark.qrels:
+        #         continue
+        #
+        #     qrels = self.benchmark.qrels[qid]
+        #     bm25_retrieved = set([docid for docid in bm25_run[qid].keys() if docid in qrels and qrels[docid] >= 1])
+        #     faiss_retrieved = set([docid for docid in faiss_run[qid].keys() if docid in qrels and qrels[docid] >= 1])
+        #     faiss_favor += len(faiss_retrieved - bm25_retrieved)
+        #     bm25_favor += len(bm25_retrieved - faiss_retrieved)
+        #
+        # faiss_logger.info("{}: FAISS retrieved {} reldocs that BM25 did not".format(tag, faiss_favor))
+        # faiss_logger.info("{}: BM25 retrieved {} reldocs that FAISS did not".format(tag, bm25_favor))
+
+        bm25_max = 0
+        bm25_min = np.inf
+        for qid, docid_to_score in bm25_run.items():
+            max_, min_ = max(docid_to_score.values()), min(docid_to_score.values())
+            if max_ > bm25_max:
+                bm25_max = max_
+            if min_ < bm25_min:
+                bm25_min = min_
+
+        faiss_max = 0
+        faiss_min = np.inf
+        for qid, docid_to_score in faiss_run.items():
+            max_, min_ = max(docid_to_score.values()), min(docid_to_score.values())
+            if max_ > faiss_max:
+                faiss_max = max_
+            if min_ < faiss_min:
+                faiss_min = min_
+
+        interpolated_run = {}
+        # Interpolate the scores
+        for qid in qids:
+            if qid not in self.benchmark.qrels:
+                continue
+
+            docids = set(bm25_run[qid].keys()).union(set(faiss_run[qid].keys()))
+            for docid in docids:
+                if docid in bm25_run[qid] and docid in faiss_run[qid]:
+                    normalized_bm25 = (bm25_run[qid][docid] - bm25_min) / (bm25_max - bm25_min)
+                    normalized_faiss = (faiss_run[qid][docid] - faiss_min) / (faiss_max - faiss_min)
+                    interpolated_run.setdefault(qid, {})[docid] = (normalized_faiss + normalized_bm25) / 2
+                elif docid in bm25_run[qid] and docid not in faiss_run[qid]:
+                    interpolated_run.setdefault(qid, {})[docid] = (bm25_run[qid][docid] - bm25_min) / (bm25_max - bm25_min)
+                elif docid not in bm25_run[qid] and docid in faiss_run[qid]:
+                    interpolated_run.setdefault(qid, {})[docid] = (faiss_run[qid][docid] - faiss_min) / (faiss_max - faiss_min)
+
+        if hasattr(self.benchmark, "need_pooling") and self.benchmark.need_pooling:
+            interpolated_run = pool_trec_passage_run(interpolated_run, strategy=self.benchmark.config["pool"])
+
+        metrics = evaluator.eval_runs(interpolated_run, self.benchmark.qrels, evaluator.DEFAULT_METRICS, self.benchmark.relevance_level)
+        faiss_logger.info("%s: interpolated Test Fold %s metrics: %s", tag, fold, " ".join([f"{metric}={v:0.3f}" for metric, v in sorted(metrics.items())]))
