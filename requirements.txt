@@ -21,6 +21,7 @@ scipy
 sphinx
 sphinxcontrib-apidoc
 recommonmark
+gdown
 google-api-python-client
 oauth2client
 tensorflow>=2.3,<2.5

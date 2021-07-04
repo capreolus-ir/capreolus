@@ -183,7 +183,7 @@ class PytorchTrainer(Trainer):
         msg = f"Validation is scheduled on iterations: {validation_schedule}"
         return msg
 
-    def train(self, reranker, train_dataset, train_output_path, dev_data, dev_output_path, metric, evaluate_fn):
+    def train(self, reranker, train_dataset, train_output_path, dev_data, dev_output_path, qrels, metric, relevance_level=1):
         """Train a model following the trainer's config (specifying batch size, number of iterations, etc).
 
         Args:
@@ -270,7 +270,7 @@ class PytorchTrainer(Trainer):
                 preds = self.predict(reranker, dev_data, pred_fn)
 
                 # log dev metrics
-                metrics = evaluate_fn(preds)
+                metrics = evaluator.eval_runs(preds, qrels, evaluator.DEFAULT_METRICS, relevance_level)
                 logger.info("dev metrics: %s", " ".join([f"{metric}={v:0.3f}" for metric, v in sorted(metrics.items())]))
                 summary_writer.add_scalar("ndcg_cut_20", metrics["ndcg_cut_20"], niter)
                 summary_writer.add_scalar("map", metrics["map"], niter)
