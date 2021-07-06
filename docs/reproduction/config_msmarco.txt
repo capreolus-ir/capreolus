@@ -14,13 +14,12 @@ reranker.extractor.maxqlen=50
 reranker.extractor.tokenizer.pretrained=bert-base-uncased
 
 reranker.trainer.usecache=True
-reranker.trainer.niters=1
+reranker.trainer.niters=10
 reranker.trainer.batch=16
 reranker.trainer.evalbatch=256
-reranker.trainer.itersize=40000
-reranker.trainer.warmupsteps=4000
-reranker.trainer.decaystep=4000
+reranker.trainer.itersize=48000
+reranker.trainer.warmupiters=1
+reranker.trainer.decayiters=10
 reranker.trainer.decaytype=linear
-reranker.trainer.earlystop=False
 
 reranker.trainer.loss=pairwise_hinge_loss
