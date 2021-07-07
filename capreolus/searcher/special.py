@@ -8,6 +8,7 @@ from tqdm import tqdm
 
 from capreolus import ConfigOption, Dependency, constants
 from capreolus.utils.loginit import get_logger
+
 # from capreolus.utils.trec import load_trec_topics, topic_to_trectxt
 
 from . import Searcher
@@ -86,7 +87,7 @@ class MsmarcoPsg(Searcher, MsmarcoPsgSearcherMixin):
     ]
 
     def _query_from_file(self, topicsfn, output_path, cfg):
-        """ only query results in dev and test set are saved """
+        """only query results in dev and test set are saved"""
         final_runfn = output_path / "searcher"
         final_donefn = output_path / "done"
         if os.path.exists(final_donefn):
@@ -164,7 +165,6 @@ class MsmarcoPsgBm25(BM25, MsmarcoPsgSearcherMixin):
         return output_path
 
 
-
 # todo: make this another type of "Module" (e.g. DPR Module)
 @Searcher.register
 class StaticTctColBertDev(Searcher, MsmarcoPsgSearcherMixin):
@@ -200,4 +200,3 @@ class StaticTctColBertDev(Searcher, MsmarcoPsgSearcherMixin):
                 qid, docid, rank, score = line.strip().split("\t")
                 fout.write(f"{qid} Q0 {docid} {rank} {score} tct_colbert\n")
         return outfn
-
