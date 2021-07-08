@@ -84,13 +84,14 @@ class RerankTask(Task):
             dev_run, self.benchmark.qrels, self.reranker.extractor, relevance_level=self.benchmark.relevance_level
         )
 
+        dev_qrels = {qid: self.benchmark.qrels[qid] for qid in self.benchmark.non_nn_dev[fold] if qid in self.benchmark.qrels}
         dev_preds = self.reranker.trainer.train(
             self.reranker,
             train_dataset,
             train_output_path,
             dev_dataset,
             dev_output_path,
-            self.benchmark.qrels,
+            dev_qrels,
             self.config["optimize"],
             self.benchmark.relevance_level,
         )
