@@ -1,12 +1,9 @@
 import os
 import gdown
-import random
 from pathlib import Path
 from collections import defaultdict
 
-from tqdm import tqdm
-
-from capreolus import ConfigOption, Dependency, constants
+from capreolus import ConfigOption, Dependency
 from capreolus.utils.loginit import get_logger
 
 # from capreolus.utils.trec import load_trec_topics, topic_to_trectxt
@@ -61,7 +58,6 @@ class MsmarcoPsgSearcherMixin:
     def download_and_prepare_train_set(self, tmp_dir):
         tmp_dir.mkdir(exist_ok=True, parents=True)
         triple_version = self.config["tripleversion"]
-        data_dir = Path(__file__).parent.parent / "data"
 
         url = self.get_url()
         if triple_version.startswith("large"):
