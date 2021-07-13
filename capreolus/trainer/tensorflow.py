@@ -308,7 +308,6 @@ class TensorflowTrainer(Trainer):
 
         return best_trec_preds
 
-
     def predict(self, reranker, pred_data, pred_fn):
         pred_records = self.get_tf_dev_records(reranker, pred_data)
         pred_dist_dataset = self.strategy.experimental_distribute_dataset(pred_records)
