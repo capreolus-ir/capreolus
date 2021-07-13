@@ -12,7 +12,7 @@ from tensorflow.python.keras import backend as K
 from tqdm import tqdm
 
 from capreolus.searcher import Searcher
-from capreolus import evaluator, ConfigOption
+from capreolus import ConfigOption, evaluator
 from capreolus.trainer import Trainer
 from capreolus.utils.loginit import get_logger
 from capreolus.reranker.common import TFPairwiseHingeLoss, TFCategoricalCrossEntropyLoss, KerasPairModel, KerasTripletModel
@@ -86,7 +86,7 @@ class TensorflowTrainer(Trainer):
         ConfigOption("decaytype", None),
         ConfigOption("amp", False, "use automatic mixed precision"),
     ]
-    config_keys_not_in_path = ["fastforward", "boardname", "usecache", "tpuname", "tpuzone", "storage", "earlystop"]
+    config_keys_not_in_path = ["fastforward", "boardname", "usecache", "tpuname", "tpuzone", "storage"]
 
     def build(self):
         tf.random.set_seed(self.config["seed"])
@@ -305,9 +305,9 @@ class TensorflowTrainer(Trainer):
 
             if cur_step >= self.config["niters"] * self.n_batch_per_iter:
                 break
+
         return best_trec_preds
 
-        return trec_preds
 
     def predict(self, reranker, pred_data, pred_fn):
         pred_records = self.get_tf_dev_records(reranker, pred_data)

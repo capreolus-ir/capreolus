@@ -260,6 +260,7 @@ class BertPassage(Extractor):
         passages = []
         numpassages = self.config["numpassages"]
         doc = self.tokenizer.tokenize(doc)
+
         for i in range(0, len(doc), self.config["stride"]):
             if i >= len(doc):
                 assert len(passages) > 0, f"no passage can be built from empty document {doc}"

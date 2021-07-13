@@ -24,12 +24,6 @@ class Sampler(ModuleBase):
         """
         self.extractor = extractor
 
-        # remove qids from qid_to_docids that do not have relevance labels in the qrels
-        # self.qid_to_docids = {qid: docids for qid, docids in qid_to_docids.items() if qid in qrels}
-        # if len(self.qid_to_docids) != len(qid_to_docids):
-        #     logger.warning(
-        #         f"skipping qids that were missing from the qrels: {len(qid_to_docids.keys() - self.qid_to_docids.keys())} in total."
-        #     )
         self.qid_to_docids = qid_to_docids
         n_unfound_queries = len([qid for qid in qid_to_docids if qid not in qrels])
         if n_unfound_queries > 0:

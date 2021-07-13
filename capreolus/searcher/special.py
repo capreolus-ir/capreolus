@@ -6,8 +6,6 @@ from collections import defaultdict
 from capreolus import ConfigOption, Dependency
 from capreolus.utils.loginit import get_logger
 
-# from capreolus.utils.trec import load_trec_topics, topic_to_trectxt
-
 from . import Searcher
 from .anserini import BM25
 
