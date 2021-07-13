@@ -59,16 +59,16 @@ class BertPassage(Extractor):
         self.cls_tok = self.tokenizer.bert_tokenizer.cls_token
         self.sep_tok = self.tokenizer.bert_tokenizer.sep_token
 
-    def load_state(self, qids, docids=None):
-        cache_fn = self.get_state_cache_file_path(qids, qids)
+    def load_state(self, qids, docids):
+        cache_fn = self.get_state_cache_file_path(qids, docids)
         logger.debug("loading state from: %s", cache_fn)
         with open(cache_fn, "rb") as f:
             state_dict = pickle.load(f)
             self.qid2toks = state_dict["qid2toks"]
 
-    def cache_state(self, qids, docids=None):
+    def cache_state(self, qids, docids):
         os.makedirs(self.get_cache_path(), exist_ok=True)
-        with open(self.get_state_cache_file_path(qids, qids), "wb") as f:
+        with open(self.get_state_cache_file_path(qids, docids), "wb") as f:
             state_dict = {"qid2toks": self.qid2toks}
             pickle.dump(state_dict, f, protocol=-1)
 
@@ -296,12 +296,14 @@ class BertPassage(Extractor):
         return chunked_sents
 
     def _build_vocab(self, qids, docids, topics):
+        """only build vocab for queries as the size of docidid2document would be large for some of the document retrieval collection."""
         if self.is_state_cached(qids, docids) and self.config["usecache"]:
             logger.info("Vocabulary loaded from cache")
-            self.load_state(qids)
+            self.load_state(qids, docids)
         else:
             logger.info("Building BertPassage vocabulary")
             self.qid2toks = {qid: self.tokenizer.tokenize(topics[qid]) for qid in tqdm(qids, desc="querytoks")}
+            self.cache_state(qids, docids)
 
     def exist(self):
         return hasattr(self, "qid2toks") and len(self.qid2toks)
