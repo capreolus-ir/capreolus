@@ -185,7 +185,7 @@ class MSMARCO_V2_SearcherMixin:
 class MSMARCO_V2_Bm25(BM25, MSMARCO_V2_SearcherMixin):
     module_name = "msv2bm25"
     dependencies = [
-        Dependency(key="benchmark", module="benchmark", name="msdoc_v2"),
+        Dependency(key="benchmark", module="benchmark", name="ms_v2"),
         Dependency(key="index", module="index", name="anserini"),
     ]
     config_spec = BM25.config_spec
