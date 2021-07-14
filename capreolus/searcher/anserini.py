@@ -445,7 +445,7 @@ class QLJM(AnseriniSearcherMixIn, Searcher):
 
     module_name = "QLJM"
     config_spec = [
-        ConfigOption("lam", 0.1, value_type="floatlist"), 
+        ConfigOption("lam", 0.1, value_type="floatlist"),
         ConfigOption("hits", 1000, "number of results to return"),
         ConfigOption("topicreader", "TsvString", "which topicreader to use in anserini"),
     ]

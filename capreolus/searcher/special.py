@@ -17,6 +17,7 @@ SUPPORTED_TRIPLE_FILE = ["small", "large.v1", "large.v2"]
 # def get_file_line_number(fn):
 #     return int(os.popen(f"wc -l {fn}").readline().split()[0])
 
+
 class MsmarcoPsgSearcherMixin:
     @staticmethod
     def convert_to_trec_runs(msmarco_top1k_fn, style="eval"):
@@ -190,7 +191,7 @@ class MSMARCO_V2_Bm25(BM25, MSMARCO_V2_SearcherMixin):
     config_spec = BM25.config_spec
 
     def get_train_runfile(self):
-        basename = f"{self.benchmark.dataset_type}v2_train_top100.txt" 
+        basename = f"{self.benchmark.dataset_type}v2_train_top100.txt"
         return self.benchmark.data_dir / basename
 
     def _query_from_file(self, topicsfn, output_path, config):
@@ -211,7 +212,7 @@ class MSMARCO_V2_Bm25(BM25, MSMARCO_V2_SearcherMixin):
             with open(tmp_topicsfn, "wt") as f:
                 # i, n_expected = 0, 326748 if self.benchmark.config["type"] == "doc" else 281047
                 logger.info("Preparing tmp topic file for bm25")
-                for line in open(topicsfn): 
+                for line in open(topicsfn):
                     qid, title = line.strip().split("\t")
                     if qid not in self.benchmark.folds["s1"]["train_qids"]:
                         f.write(f"{qid}\t{title}\n")

@@ -85,8 +85,8 @@ class MSMARCO_V2(Benchmark):
     module_name = "ms_v2"
     query_type = "title"
 
-    dependencies = [Dependency(key="collection", module="collection")]  
-    # could depends on 
+    dependencies = [Dependency(key="collection", module="collection")]
+    # could depends on
     # dependencies = [Dependency(key="collection", module="collection", name="ms_v2"),]
     # config_spec = [ConfigOption("datasettype", "doc", "doc or pass, indicating which")]
     use_train_as_dev = False
@@ -99,7 +99,7 @@ class MSMARCO_V2(Benchmark):
                 self.query_type: {qid: topic for qid, topic in qid_topic},
             }
         return self._topics
-    
+
     @property
     def dataset_type(self):
         if self.collection.module_name == "msdoc_v2":
@@ -118,15 +118,16 @@ class MSMARCO_V2(Benchmark):
         self.download_if_missing()
 
     def download_if_missing(self):
-        """ 
-        This function only prepare folds.json from the existing topic files,  
+        """
+        This function only prepare folds.json from the existing topic files,
         and assume both topic and qrels file are existing under the self.data_dir;
 
-        """ 
+        """
         if all([f.exists() for f in [self.qrel_file, self.topic_file, self.fold_file]]):
             return
 
         assert all([f.exists() for f in [self.qrel_file, self.topic_file]])
+
         def load_qid_from_topic_tsv(topic_fn):
             return [line.strip().split("\t")[0] for line in open(topic_fn)]
 
@@ -139,9 +140,11 @@ class MSMARCO_V2(Benchmark):
         assert len(set(train_qids) & set(dev_qids)) == 0
         folds = {
             "s1": {
-                "train_qids": train_qids, 
+                "train_qids": train_qids,
                 "predict": {
-                    "dev": dev_qids, 
-                    "test": dev_qids, 
-        }}}
+                    "dev": dev_qids,
+                    "test": dev_qids,
+                },
+            }
+        }
         json.dump(folds, open(self.fold_file, "w"))
