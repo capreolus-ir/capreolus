@@ -4,12 +4,14 @@ import shutil
 import tarfile
 from time import time
 
+from capreolus import constants
 from capreolus.utils.common import download_file
 from capreolus.utils.loginit import get_logger
 from capreolus.utils.trec import document_to_trectxt
 from . import Collection
 
 logger = get_logger(__name__)
+PACKAGE_PATH = constants["PACKAGE_PATH"]
 
 
 class MSMarcoMixin:
@@ -89,3 +91,23 @@ class MSMarcoPsg(Collection, MSMarcoMixin):
                 fout.write(document_to_trectxt(docid, doc))
 
         return coll_dir
+
+
+@Collection.register
+class MSMARCO_DOC_V2(Collection):
+    module_name = "msdoc_v2"
+    collection_type = "MsMarcoDocV2Collection"
+    generator_type = "DefaultLuceneDocumentGenerator"
+    data_dir = PACKAGE_PATH / "data" / "msdoc_v2"
+    _path = data_dir / "msmarco_v2_doc"
+    # is_large_collection = True
+
+
+@Collection.register
+class MSMARCO_PSG_V2(Collection):
+    module_name = "mspsg_v2"
+    collection_type = "MsMarcoPassageV2Collection"
+    generator_type = "DefaultLuceneDocumentGenerator"
+    data_dir = PACKAGE_PATH / "data" / "mspass_v2"
+    _path = data_dir / "msmarco_v2_passage"
+    # is_large_collection = True

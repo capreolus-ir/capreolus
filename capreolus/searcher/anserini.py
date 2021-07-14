@@ -40,6 +40,7 @@ class AnseriniSearcherMixIn:
 
         index_path = self.index.get_index_path()
         anserini_fat_jar = Anserini.get_fat_jar()
+        topic_reader = self.config["topicreader"]
         cmd = [
             "java",
             "-classpath",
@@ -49,7 +50,7 @@ class AnseriniSearcherMixIn:
             "-Dapp.name=SearchCollection",
             "io.anserini.search.SearchCollection",
             "-topicreader",
-            "TsvString",
+            topic_reader,
             "-index",
             index_path,
             "-topics",
@@ -156,6 +157,7 @@ class BM25(AnseriniSearcherMixIn, Searcher):
         ConfigOption("k1", 0.9, "controls term saturation", value_type="floatlist"),
         ConfigOption("b", 0.4, "controls document length normalization", value_type="floatlist"),
         ConfigOption("hits", 1000, "number of results to return"),
+        ConfigOption("topicreader", "TsvString", "which topicreader to use in anserini"),
     ]
 
     def _query_from_file(self, topicsfn, output_path, config):
@@ -185,6 +187,7 @@ class BM25Grid(AnseriniSearcherMixIn, Searcher):
         ConfigOption("k1max", 1.0, "maximum k1 value to include in grid search (starting at 0.1)"),
         ConfigOption("bmax", 1.0, "maximum b value to include in grid search (starting at 0.1)"),
         ConfigOption("hits", 1000, "number of results to return"),
+        ConfigOption("topicreader", "TsvString", "which topicreader to use in anserini"),
     ]
 
     def _query_from_file(self, topicsfn, output_path, config):
@@ -212,6 +215,7 @@ class BM25RM3(AnseriniSearcherMixIn, Searcher):
         ConfigOption("fbDocs", [5, 10], "number of documents used for feedback", value_type="intlist"),
         ConfigOption("originalQueryWeight", [0.5], "the weight of unexpended query", value_type="floatlist"),
         ConfigOption("hits", 1000, "number of results to return"),
+        ConfigOption("topicreader", "TsvString", "which topicreader to use in anserini"),
     ]
 
     def _query_from_file(self, topicsfn, output_path, config):
@@ -239,6 +243,7 @@ class BM25PostProcess(BM25, PostprocessMixin):
         ConfigOption("hits", 1000, "number of results expected from the core searcher"),
         ConfigOption("topn", 1000, "number of results expected after the filtering (if any)"),
         ConfigOption("dedup", False),
+        ConfigOption("topicreader", "TsvString", "which topicreader to use in anserini"),
     ]
 
     def query_from_file(self, topicsfn, output_path, docs_to_remove=None):
@@ -357,6 +362,7 @@ class BM25PRF(AnseriniSearcherMixIn, Searcher):
         ConfigOption("fbDocs", [5, 10, 15], "number of documents used for feedback", value_type="intlist"),
         ConfigOption("newTermWeight", [0.2, 0.25], value_type="floatlist"),
         ConfigOption("hits", 1000, "number of results to return"),
+        ConfigOption("topicreader", "TsvString", "which topicreader to use in anserini"),
     ]
 
     def _query_from_file(self, topicsfn, output_path, config):
@@ -388,6 +394,7 @@ class AxiomaticSemanticMatching(AnseriniSearcherMixIn, Searcher):
         ConfigOption("beta", 0.4, value_type="floatlist"),
         ConfigOption("top", 20, value_type="intlist"),
         ConfigOption("hits", 1000, "number of results to return"),
+        ConfigOption("topicreader", "TsvString", "which topicreader to use in anserini"),
     ]
 
     def _query_from_file(self, topicsfn, output_path, config):
@@ -411,6 +418,7 @@ class DirichletQL(AnseriniSearcherMixIn, Searcher):
     config_spec = [
         ConfigOption("mu", 1000, "smoothing parameter", value_type="intlist"),
         ConfigOption("hits", 1000, "number of results to return"),
+        ConfigOption("topicreader", "TsvString", "which topicreader to use in anserini"),
     ]
 
     def _query_from_file(self, topicsfn, output_path, config):
@@ -436,7 +444,11 @@ class QLJM(AnseriniSearcherMixIn, Searcher):
     """Anserini QL with Jelinek-Mercer smoothing. This searcher's parameters can also be specified as lists indicating parameters to grid search (e.g., ``"0.4,0.6,0.8,1.0"`` or ``"0.4..1,0.2"``)."""
 
     module_name = "QLJM"
-    config_spec = [ConfigOption("lam", 0.1, value_type="floatlist"), ConfigOption("hits", 1000, "number of results to return")]
+    config_spec = [
+        ConfigOption("lam", 0.1, value_type="floatlist"), 
+        ConfigOption("hits", 1000, "number of results to return"),
+        ConfigOption("topicreader", "TsvString", "which topicreader to use in anserini"),
+    ]
 
     def _query_from_file(self, topicsfn, output_path, config):
         anserini_param_str = "-qljm -qljm.lambda {0} -hits {1}".format(list2str(config["lam"], delimiter=" "), config["hits"])
@@ -454,6 +466,7 @@ class INL2(AnseriniSearcherMixIn, Searcher):
     config_spec = [
         ConfigOption("c", 0.1),  # array input of this parameter is not support by anserini.SearchCollection
         ConfigOption("hits", 1000, "number of results to return"),
+        ConfigOption("topicreader", "TsvString", "which topicreader to use in anserini"),
     ]
 
     def _query_from_file(self, topicsfn, output_path, config):
@@ -472,6 +485,7 @@ class SPL(AnseriniSearcherMixIn, Searcher):
     config_spec = [
         ConfigOption("c", 0.1),  # array input of this parameter is not support by anserini.SearchCollection
         ConfigOption("hits", 1000, "number of results to return"),
+        ConfigOption("topicreader", "TsvString", "which topicreader to use in anserini"),
     ]
 
     def _query_from_file(self, topicsfn, output_path, config):
@@ -492,6 +506,7 @@ class F2Exp(AnseriniSearcherMixIn, Searcher):
     config_spec = [
         ConfigOption("s", 0.5),  # array input of this parameter is not support by anserini.SearchCollection
         ConfigOption("hits", 1000, "number of results to return"),
+        ConfigOption("topicreader", "TsvString", "which topicreader to use in anserini"),
     ]
 
     def _query_from_file(self, topicsfn, output_path, config):
@@ -512,6 +527,7 @@ class F2Log(AnseriniSearcherMixIn, Searcher):
     config_spec = [
         ConfigOption("s", 0.5),  # array input of this parameter is not support by anserini.SearchCollection
         ConfigOption("hits", 1000, "number of results to return"),
+        ConfigOption("topicreader", "TsvString", "which topicreader to use in anserini"),
     ]
 
     def _query_from_file(self, topicsfn, output_path, config):
@@ -537,6 +553,7 @@ class SDM(AnseriniSearcherMixIn, Searcher):
         ConfigOption("ow", 0.15, "ordered window weight"),
         ConfigOption("uw", 0.05, "unordered window weight"),
         ConfigOption("hits", 1000, "number of results to return"),
+        ConfigOption("topicreader", "TsvString", "which topicreader to use in anserini"),
     ]
 
     def _query_from_file(self, topicsfn, output_path, config):

@@ -3,8 +3,8 @@ threshold=1000
 
 benchmark.name=msmarcopsg
 rank.searcher.name=msmarcopsgbm25
-reranker.name=TFBERTMaxP
 
+reranker.name=TFBERTMaxP
 reranker.pretrained=bert-base-uncased
 
 reranker.extractor.usecache=True

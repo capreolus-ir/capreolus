@@ -14,9 +14,8 @@ logger = get_logger(__name__)
 SUPPORTED_TRIPLE_FILE = ["small", "large.v1", "large.v2"]
 
 
-def get_file_line_number(fn):
-    return int(os.popen(f"wc -l {fn}").readline().split()[0])
-
+# def get_file_line_number(fn):
+#     return int(os.popen(f"wc -l {fn}").readline().split()[0])
 
 class MsmarcoPsgSearcherMixin:
     @staticmethod
@@ -159,38 +158,71 @@ class MsmarcoPsgBm25(BM25, MsmarcoPsgSearcherMixin):
         return output_path
 
 
-# todo: make this another type of "Module" (e.g. DPR Module)
+class MSMARCO_V2_SearcherMixin:
+    def get_train_runfile(self):
+        raise NotImplementedError
+
+    def combine_train_and_dev_runfile(self, dev_test_runfile, final_runfile, final_donefn):
+        train_runfile = self.get_train_runfile()
+        assert os.path.exists(dev_test_runfile)
+
+        # write train and dev, test runs into final searcher file
+        with open(final_runfile, "w") as fout:
+            with open(train_runfile) as fin:
+                for line in fin:
+                    fout.write(line)
+
+            with open(dev_test_runfile) as fin:
+                for line in fin:
+                    fout.write(line)
+
+        with open(final_donefn, "w") as f:
+            f.write("done")
+
+
 @Searcher.register
-class StaticTctColBertDev(Searcher, MsmarcoPsgSearcherMixin):
-    module_name = "static_tct_colbert"
-    dependencies = [Dependency(key="benchmark", module="benchmark", name="msmarcopsg")]
-    config_spec = [
-        ConfigOption("tripleversion", "small", "version of triplet.qid file, small, large.v1 or large.v2"),
+class MSMARCO_V2_Bm25(BM25, MSMARCO_V2_SearcherMixin):
+    module_name = "msv2bm25"
+    dependencies = [
+        Dependency(key="benchmark", module="benchmark", name="msdoc_v2"),
+        Dependency(key="index", module="index", name="anserini"),
     ]
+    config_spec = BM25.config_spec
 
-    def _query_from_file(self, topicsfn, output_path, cfg):
-        outfn = output_path / "static.run"
-        if outfn.exists():
-            return outfn
+    def get_train_runfile(self):
+        basename = f"{self.benchmark.dataset_type}v2_train_top100.txt" 
+        return self.benchmark.data_dir / basename
 
-        tmp_dir = self.get_cache_path() / "tmp"
+    def _query_from_file(self, topicsfn, output_path, config):
+        final_runfn = os.path.join(output_path, "searcher")
+        final_donefn = os.path.join(output_path, "done")
+        if os.path.exists(final_donefn):
+            return output_path
+
         output_path.mkdir(exist_ok=True, parents=True)
+        tmp_dir = self.get_cache_path() / "tmp"
+        tmp_topicsfn = tmp_dir / os.path.basename(topicsfn)
+        tmp_output_dir = tmp_dir / "BM25_results"
+        tmp_output_dir.mkdir(exist_ok=True, parents=True)
+        print(tmp_output_dir)
 
-        # train
-        train_runs = self.download_and_prepare_train_set(tmp_dir=tmp_dir)
-        self.write_trec_run(preds=train_runs, outfn=outfn, mode="wt")
-        logger.info(f"prepared runs from train set")
+        # run bm25 on dev set
+        if not os.path.exists(tmp_topicsfn):
+            with open(tmp_topicsfn, "wt") as f:
+                # i, n_expected = 0, 326748 if self.benchmark.config["type"] == "doc" else 281047
+                logger.info("Preparing tmp topic file for bm25")
+                for line in open(topicsfn): 
+                    qid, title = line.strip().split("\t")
+                    if qid not in self.benchmark.folds["s1"]["train_qids"]:
+                        f.write(f"{qid}\t{title}\n")
+                    # i += 1
+                # assert i == n_expected
 
-        # dev
-        tmp_dev = tmp_dir / "tct_colbert_v1_wo_neg.tsv"
-        if not tmp_dev.exists():
-            tmp_dir.mkdir(exist_ok=True, parents=True)
-            url = "http://drive.google.com/uc?id=1jOVL3DIya6qDiwM_Dnqc81FT5ZB43csP"
-            gdown.download(url, tmp_dev.as_posix(), quiet=False)
+        super()._query_from_file(topicsfn=tmp_topicsfn, output_path=tmp_output_dir, config=config)
+        self.combine_train_and_dev_runfile(
+            tmp_output_dir / "searcher",
+            final_runfn,
+            final_donefn,
+        )
 
-        assert tmp_dev.exists()
-        with open(tmp_dev, "rt") as f, open(outfn, "at") as fout:
-            for line in f:
-                qid, docid, rank, score = line.strip().split("\t")
-                fout.write(f"{qid} Q0 {docid} {rank} {score} tct_colbert\n")
-        return outfn
+        return output_path
