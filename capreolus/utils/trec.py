@@ -38,6 +38,17 @@ def load_ntcir_topics(fn):
 def load_trec_topics(queryfn):
     title, desc, narr = defaultdict(list), defaultdict(list), defaultdict(list)
 
+    def clean_line(line, tag_name, unwanted_tokens=None):
+        if unwanted_tokens is None:
+            unwanted_tokens = []
+        elif isinstance(unwanted_tokens, str):
+            unwanted_tokens = [unwanted_tokens]
+        assert isinstance(unwanted_tokens, list) or isinstance(unwanted_tokens, set)
+
+        line = line.strip(f"<{tag_name}>").strip(f"</{tag_name}>").strip().split()  # remove_tag
+        line = [token for token in line if token not in unwanted_tokens]
+        return line
+
     block = None
     if str(queryfn).endswith(".gz"):
         openf = gzip.open
@@ -49,25 +60,31 @@ def load_trec_topics(queryfn):
             line = line.strip()
 
             if line.startswith("<num>"):
-                # <num> Number: 700
-                qid = line.split()[-1]
+                # <num> Number: 700, or
+                # <num>700
+                qid = line.split()[-1].strip("<num>")
                 # no longer an int
                 # assert qid > 0
                 block = None
             elif line.startswith("<title>"):
-                # <title>  query here
-                title[qid].extend(line.strip().split()[1:])
+                # <title>  query here, or
+                # <title>query here</title>
                 block = "title"
+                line = clean_line(line, tag_name=block, unwanted_tokens="Topic:")
+                title[qid].extend(line)
                 # TODO does this sometimes start with Topic: ?
                 assert "Topic:" not in line
             elif line.startswith("<desc>"):
-                # <desc> description \n description
-                desc[qid].extend(line.strip().split()[1:])
+                # <desc> description \n description, or
+                # <desc>description</desc>
                 block = "desc"
+                line = clean_line(line, tag_name=block, unwanted_tokens="Description:")
+                desc[qid].extend(line)
             elif line.startswith("<narr>"):
                 # same format as <desc>
-                narr[qid].extend(line.strip().split()[1:])
                 block = "narr"
+                line = clean_line(line, tag_name=block, unwanted_tokens="Narrative:")
+                narr[qid].extend(line)
             elif line.startswith("</top>") or line.startswith("<top>"):
                 block = None
             elif block == "title":
