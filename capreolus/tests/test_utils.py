@@ -5,7 +5,7 @@ PACKAGE_PATH = constants["PACKAGE_PATH"]
 
 
 def test_trec_topic_loader():
-    dummy_topic = PACKAGE_PATH / "data" / "topics.dummy.style-2.txt"
+    dummy_topic = PACKAGE_PATH / "data" / "topics.dummy.for-style-testing.txt"
     topics = load_trec_topics(dummy_topic)
     print(topics)
 
