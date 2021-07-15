@@ -45,7 +45,7 @@ def load_trec_topics(queryfn):
             unwanted_tokens = [unwanted_tokens]
         assert isinstance(unwanted_tokens, list) or isinstance(unwanted_tokens, set)
 
-        line = line.strip(f"<{tag_name}>").strip(f"</{tag_name}>").strip().split()  # remove_tag
+        line = line.replace(f"<{tag_name}>", "").replace(f"</{tag_name}>", "").strip().split()  # remove_tag
         line = [token for token in line if token not in unwanted_tokens]
         return line
 
@@ -62,7 +62,8 @@ def load_trec_topics(queryfn):
             if line.startswith("<num>"):
                 # <num> Number: 700, or
                 # <num>700
-                qid = line.split()[-1].strip("<num>")
+                # <num>700</num>
+                qid = line.split()[-1].replace("<num>", "").replace("</num>", "")
                 # no longer an int
                 # assert qid > 0
                 block = None
