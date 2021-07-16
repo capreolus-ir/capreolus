@@ -12,7 +12,7 @@ from capreolus.utils.loginit import get_logger
 logger = get_logger(__name__)
 
 PACKAGE_PATH = constants["PACKAGE_PATH"]
-from . import Benchmark
+from . import Benchmark, validate
 
 
 @Benchmark.register
@@ -29,6 +29,7 @@ class MSMarcoPassage(Benchmark):
     topic_file = data_dir / "topics.txt"
     fold_file = data_dir / "folds.json"
 
+    @validate
     def build(self):
         self.download_if_missing()
 
