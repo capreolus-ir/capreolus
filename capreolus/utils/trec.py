@@ -133,6 +133,17 @@ def load_qrels(qrelfile, qids=None, include_spam=True):
     return labels
 
 
+def write_qrels(labels, qrelfile):
+    qreldir = os.path.dirname(qrelfile)
+    if qreldir != "":
+        os.makedirs(qreldir, exist_ok=True)
+
+    with open(qrelfile, "w") as fout:
+        for qid in labels:
+            for docid in labels[qid]:
+                fout.write(f"{qid} Q0 {docid} {labels[qid][docid]}\n")
+
+
 def document_to_trectxt(docno, txt):
     s = f"<DOC>\n<DOCNO> {docno} </DOCNO>\n"
     s += f"<TEXT>\n{txt}\n</TEXT>\n</DOC>\n"
