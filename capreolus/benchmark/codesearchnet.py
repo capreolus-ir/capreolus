@@ -12,7 +12,7 @@ from capreolus.utils.common import download_file, remove_newline
 from capreolus.utils.loginit import get_logger
 from capreolus.utils.trec import topic_to_trectxt
 
-from . import Benchmark
+from . import Benchmark, validate
 
 logger = get_logger(__name__)
 PACKAGE_PATH = constants["PACKAGE_PATH"]
@@ -41,6 +41,7 @@ class CodeSearchNetCorpus(Benchmark):
 
     config_spec = [ConfigOption("lang", "ruby", "CSN language dataset to use")]
 
+    @validate
     def build(self):
         lang = self.config["lang"]
 

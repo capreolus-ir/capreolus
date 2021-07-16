@@ -16,6 +16,10 @@ logger = get_logger(__name__)
 
 def validate(build_f):
     def validate_folds_file(self):
+        if not hasattr(self, "fold_file"):
+            logger.warning(f"Folds file is not found for Module {self.module_name}")
+            return
+
         if self.fold_file.suffix != ".json":
             raise ValueError(f"Expect folds file to be in .json format.")
 
@@ -31,6 +35,10 @@ def validate(build_f):
         logger.info("Folds file validation finishes.")
 
     def validate_qrels_file(self):
+        if not hasattr(self, "qrel_file"):
+            logger.warning(f"Qrel file is not found for Module {self.module_name}")
+            return
+
         n_dup, qrels = 0, defaultdict(dict)
         with open(self.qrel_file) as f:
             for line in f:
