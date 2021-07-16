@@ -19,7 +19,7 @@ PACKAGE_PATH = constants["PACKAGE_PATH"]
 
 @Collection.register
 class COVID(Collection):
-    """ The COVID-19 Open Research Dataset (https://www.semanticscholar.org/cord19) """
+    """The COVID-19 Open Research Dataset (https://www.semanticscholar.org/cord19)"""
 
     module_name = "covid"
     url = "https://ai2-semanticscholar-cord-19.s3-us-west-2.amazonaws.com/historical_releases/cord-19_%s.tar.gz"

@@ -16,14 +16,14 @@ reranker.extractor.stride=75
 reranker.extractor.prob=0.1
 
 reranker.trainer.niters=4
-reranker.trainer.itersize=256
+reranker.trainer.itersize=512
 reranker.trainer.validatefreq=2
 reranker.trainer.batch=2
 
 reranker.trainer.lr=0.000003
 reranker.trainer.bertlr=0.000003
 reranker.trainer.decay=0.1
-reranker.trainer.decaystep=10
+reranker.trainer.decayiters=10
 reranker.trainer.decaytype=linear
-reranker.trainer.warmupsteps=8
+reranker.trainer.warmupiters=8
 reranker.trainer.loss=pairwise_hinge_loss

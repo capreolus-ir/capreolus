@@ -23,7 +23,7 @@ Below are the possible lr scheduler values (combination) you can pick up and run
 | 9           |   | 3e-5   | 3e-5 |    30000 |        3000 |     30000 | linear    ||
 
 ## Running MS MARCO 
-This requires GPU(s) with 48GB memory (e.g. 4 V100 or a RTX 8000) or a TPU. 
+This requires GPU(s) with 48GB memory (e.g. 3 V100 or a RTX 8000) or a TPU. 
 1. Make sure you are in the top-level `capreolus` directory; 
 2. Train on MS MARCO Passage using the following scripts, 
     while replacing the lr scheduler variables with the one you picked up <br/> 
@@ -55,3 +55,4 @@ This requires GPU(s) with 48GB memory (e.g. 4 V100 or a RTX 8000) or a TPU.
 + Results (with hypperparameter-0) replicated by [@crystina-z](https://github.com/crystina-z) on 2020-12-06 (commit [`6c3759f`](https://github.com/crystina-z/capreolus-1/commit/6c3759fe620f18f8939670176a18c744752bc9240)) (Tesla V100 on Compute Canada)
 + Results (with hypperparameter-6) replicated by [@Dahlia-Chehata](https://github.com/Dahlia-Chehata) on 2021-03-29 (commit [`7915aad`](https://github.com/capreolus-ir/capreolus/commit/7915aad75406527a3b88498926cff85259808696)) (Tesla V100 on Compute Canada)
 + Results (with hypperparameter-7) replicated by [@larryli1999](https://github.com/larryli1999) on 2021-05-16 (commit [`6d1aed2`](https://github.com/capreolus-ir/capreolus/commit/6d1aed29de7828ceb94560a8bf7c87f1af5458b5)) (Tesla V100 on Compute Canada)
++ Results (MRR@10=0.356) replicated by [@andrewyguo](https://github.com/andrewyguo) on 2021-05-29 (commit [`1ce71d9`](https://github.com/capreolus-ir/capreolus/commit/1ce71d93ab5473b40d4ae02768fd053261b27320)) (Tesla V100 on Compute Canada)

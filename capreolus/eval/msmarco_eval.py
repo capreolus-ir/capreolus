@@ -6,9 +6,8 @@ Last Modified : 1/21/2019
 Authors : Daniel Campos <dacamp@microsoft.com>, Rutger van Haasteren <ruvanh@microsoft.com>
 """
 import sys
-import statistics
 
-from collections import Counter, defaultdict
+from collections import Counter
 
 MaxMRRRank = 10
 
@@ -33,10 +32,6 @@ def quality_checks_qids(qids_to_relevant_passageids, qids_to_ranked_candidate_pa
     """
     message = ""
     allowed = True
-
-    # Create sets of the QIDs for the submitted and reference queries
-    candidate_set = set(qids_to_ranked_candidate_passages.keys())
-    ref_set = set(qids_to_relevant_passageids.keys())
 
     # Check that we do not have multiple passages per query
     for qid in qids_to_ranked_candidate_passages:
@@ -63,7 +58,6 @@ def compute_metrics(qids_to_relevant_passageids, qids_to_ranked_candidate_passag
     """
     all_scores = {}
     MRR = 0
-    qids_with_relevant_passages = 0
     ranking = []
     for qid in qids_to_ranked_candidate_passages:
         if qid in qids_to_relevant_passageids:

@@ -61,7 +61,7 @@ class ANTIQUE(Collection):
         logger.debug(f"Converted file {os.path.basename(inp_path)} to TREC format, output to: {outp_path}")
 
     def _validate_document_path(self, path):
-        """ Checks that the sha256sum is correct """
+        """Checks that the sha256sum is correct"""
         return (
             hash_file(os.path.join(path, "antique-collection.txt"))
             == "409e0960f918970977ceab9e5b1d372f45395af25d53b95644bdc9ccbbf973da"

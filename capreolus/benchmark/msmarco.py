@@ -78,31 +78,3 @@ class MSMarcoPassage(Benchmark):
         folds = {k: list(v) for k, v in folds.items()}
         folds = {"s1": {"train_qids": folds["train"], "predict": {"dev": folds["dev"], "test": folds["eval"]}}}
         json.dump(folds, open(self.fold_file, "w"))
-
-
-@Benchmark.register
-class MSMarcoPassageKeywords(MSMarcoPassage):
-    module_name = "msmarcopsg_keywords"
-    dependencies = MSMarcoPassage.dependencies + [
-        Dependency(
-            key="tokenizer",
-            module="tokenizer",
-            name="anserini",
-            default_config_overrides={"keepstops": False, "stemmer": "none"},  # don't keepStops, don't stem
-        ),
-    ]
-
-    topic_file = MSMarcoPassage.data_dir / "topics.keyword.txt"
-
-    def download_if_missing(self):
-        super().download_if_missing()
-        full_topic_file = super().topic_file
-        assert full_topic_file.exists()
-        if self.topic_file.exists():
-            return
-
-        title = load_trec_topics(full_topic_file)["title"]
-        with open(self.topic_file, "w") as f:
-            for qid, full_topic in title:
-                kw_topic = self.tokenizer.tokenize(full_topic)
-                f.write(topic_to_trectxt(qid, kw_topic))

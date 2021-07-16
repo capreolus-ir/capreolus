@@ -4,6 +4,22 @@ import xml.etree.ElementTree as ET
 from collections import defaultdict
 
 
+def threshold_trec_run(run, fold, k):
+    """
+    Take a trec run, and keep only the top-k docs
+    """
+    filtered_run = defaultdict(dict)
+    # This is possible because best_search_run is an OrderedDict
+    for qid, docs in run.items():
+        if qid in fold["predict"]["test"]:
+            for idx, (docid, score) in enumerate(docs.items()):
+                if idx >= k:
+                    break
+                filtered_run[qid][docid] = score
+
+    return filtered_run
+
+
 def load_ntcir_topics(fn):
     topics = {}
 
@@ -22,6 +38,17 @@ def load_ntcir_topics(fn):
 def load_trec_topics(queryfn):
     title, desc, narr = defaultdict(list), defaultdict(list), defaultdict(list)
 
+    def clean_line(line, tag_name, unwanted_tokens=None):
+        if unwanted_tokens is None:
+            unwanted_tokens = []
+        elif isinstance(unwanted_tokens, str):
+            unwanted_tokens = [unwanted_tokens]
+        assert isinstance(unwanted_tokens, list) or isinstance(unwanted_tokens, set)
+
+        line = line.replace(f"<{tag_name}>", "").replace(f"</{tag_name}>", "").strip().split()  # remove_tag
+        line = [token for token in line if token not in unwanted_tokens]
+        return line
+
     block = None
     if str(queryfn).endswith(".gz"):
         openf = gzip.open
@@ -33,25 +60,32 @@ def load_trec_topics(queryfn):
             line = line.strip()
 
             if line.startswith("<num>"):
-                # <num> Number: 700
-                qid = line.split()[-1]
+                # <num> Number: 700, or
+                # <num>700
+                # <num>700</num>
+                qid = line.split()[-1].replace("<num>", "").replace("</num>", "")
                 # no longer an int
                 # assert qid > 0
                 block = None
             elif line.startswith("<title>"):
-                # <title>  query here
-                title[qid].extend(line.strip().split()[1:])
+                # <title>  query here, or
+                # <title>query here</title>
                 block = "title"
+                line = clean_line(line, tag_name=block, unwanted_tokens="Topic:")
+                title[qid].extend(line)
                 # TODO does this sometimes start with Topic: ?
                 assert "Topic:" not in line
             elif line.startswith("<desc>"):
-                # <desc> description \n description
-                desc[qid].extend(line.strip().split()[1:])
+                # <desc> description \n description, or
+                # <desc>description</desc>
                 block = "desc"
+                line = clean_line(line, tag_name=block, unwanted_tokens="Description:")
+                desc[qid].extend(line)
             elif line.startswith("<narr>"):
                 # same format as <desc>
-                narr[qid].extend(line.strip().split()[1:])
                 block = "narr"
+                line = clean_line(line, tag_name=block, unwanted_tokens="Narrative:")
+                narr[qid].extend(line)
             elif line.startswith("</top>") or line.startswith("<top>"):
                 block = None
             elif block == "title":
@@ -122,8 +156,7 @@ def anserini_index_to_trec_docs(index_dir, output_dir, expected_doc_count):
     JFile = autoclass("java.io.File")
     JFSDirectory = autoclass("org.apache.lucene.store.FSDirectory")
     JIndexReaderUtils = autoclass("io.anserini.index.IndexReaderUtils")
-    JIndexUtils = autoclass("io.anserini.index.IndexUtils")
-    index_utils = JIndexUtils(index_dir)
+    RAW = autoclass("io.anserini.index.IndexArgs").RAW
 
     index_reader_utils = JIndexReaderUtils()
 
@@ -147,7 +180,13 @@ def anserini_index_to_trec_docs(index_dir, output_dir, expected_doc_count):
     output_handles = [gzip.open(os.path.join(output_dir, f"{i}.gz"), "wt", encoding="utf-8") for i in range(100, 200)]
 
     for docidx, docid in enumerate(sorted(docids)):
-        txt = document_to_trectxt(docid, index_utils.getRawDocument(docid))
+        # parse documents according to here: https://github.com/castorini/anserini/blob/anserini-0.9.3/src/main/java/io/anserini/index/IndexUtils.java#L345-L352
+        doc = index_reader_utils.document(reader, docid).getField(RAW)
+        if doc is None:
+            raise ValueError(f"{RAW} documents cannot be found in the index.")
+        doc = doc.stringValue().lstrip("<TEXT>").rstrip("</TEXT>").strip()
+
+        txt = document_to_trectxt(docid, doc)
         handleidx = docidx % len(output_handles)
         print(txt, file=output_handles[handleidx])
 

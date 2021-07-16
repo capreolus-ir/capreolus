@@ -1,14 +1,10 @@
 import os
 import gdown
-import random
 from pathlib import Path
 from collections import defaultdict
 
-from tqdm import tqdm
-
-from capreolus import ConfigOption, Dependency, constants
+from capreolus import ConfigOption, Dependency
 from capreolus.utils.loginit import get_logger
-from capreolus.utils.trec import load_trec_topics, topic_to_trectxt
 
 from . import Searcher
 from .anserini import BM25
@@ -60,9 +56,6 @@ class MsmarcoPsgSearcherMixin:
     def download_and_prepare_train_set(self, tmp_dir):
         tmp_dir.mkdir(exist_ok=True, parents=True)
         triple_version = self.config["tripleversion"]
-        logger.debug(f"triple version, {triple_version}")
-        data_dir = Path(__file__).parent.parent / "data"
-        logger.info(f"debug: data_dir: {data_dir}")
 
         url = self.get_url()
         if triple_version.startswith("large"):
@@ -88,7 +81,7 @@ class MsmarcoPsg(Searcher, MsmarcoPsgSearcherMixin):
     ]
 
     def _query_from_file(self, topicsfn, output_path, cfg):
-        """ only query results in dev and test set are saved """
+        """only query results in dev and test set are saved"""
         final_runfn = output_path / "searcher"
         final_donefn = output_path / "done"
         if os.path.exists(final_donefn):
@@ -144,10 +137,12 @@ class MsmarcoPsgBm25(BM25, MsmarcoPsgSearcherMixin):
 
         train_runs = self.download_and_prepare_train_set(tmp_dir=tmp_dir)
         if not os.path.exists(tmp_topicsfn):
-            with open(tmp_topicsfn, "wt") as f:
-                for qid, title in tqdm(load_trec_topics(topicsfn)["title"].items(), desc="write qid to tmp topic file"):
-                    if qid not in self.benchmark.folds["s1"]["train_qids"]:
-                        f.write(topic_to_trectxt(qid, title))
+            with open(tmp_topicsfn, "wt") as fout:
+                with open(topicsfn) as f:
+                    for line in f:
+                        qid, title = line.strip().split("\t")
+                        if qid not in self.benchmark.folds["s1"]["train_qids"]:
+                            fout.write(line)
 
         super()._query_from_file(topicsfn=tmp_topicsfn, output_path=tmp_output_dir, config=config)
         dev_test_runfile = tmp_output_dir / "searcher"
@@ -162,7 +157,6 @@ class MsmarcoPsgBm25(BM25, MsmarcoPsgSearcherMixin):
         with open(final_donefn, "w") as f:
             f.write("done")
         return output_path
-
 
 
 # todo: make this another type of "Module" (e.g. DPR Module)
@@ -200,4 +194,3 @@ class StaticTctColBertDev(Searcher, MsmarcoPsgSearcherMixin):
                 qid, docid, rank, score = line.strip().split("\t")
                 fout.write(f"{qid} Q0 {docid} {rank} {score} tct_colbert\n")
         return outfn
-

@@ -32,7 +32,7 @@ class RankTask(Task):
         self.evaluate()
 
     def search(self):
-        topics_fn = self.benchmark.topic_file
+        topics_fn = self.benchmark.get_topics_file()
         output_dir = self.get_results_path()
 
         if hasattr(self.searcher, "index"):

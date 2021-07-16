@@ -23,7 +23,7 @@ CACHE_BASE_PATH = constants["CACHE_BASE_PATH"]
 
 @Extractor.register
 class DeepTileExtractor(Extractor):
-    """ Creates a text tiling matrix. Used by the DeepTileBars reranker. """
+    """Creates a text tiling matrix. Used by the DeepTileBars reranker."""
 
     module_name = "deeptiles"
     pad = 0
@@ -38,6 +38,7 @@ class DeepTileExtractor(Extractor):
 
     requires_random_seed = True
     dependencies = [
+        Dependency(key="benchmark", module="benchmark", name=None),
         Dependency(
             key="index", module="index", name="anserini", default_config_overrides={"indexstops": True, "stemmer": "none"}
         ),

@@ -21,6 +21,7 @@ class PooledBertPassage(BertPassage):
 
     module_name = "pooledbertpassage"
     dependencies = [
+        Dependency(key="benchmark", module="benchmark", name=None),
         Dependency(
             key="index", module="index", name="anserini", default_config_overrides={"indexstops": True, "stemmer": "none"}
         ),
@@ -35,6 +36,7 @@ class PooledBertPassage(BertPassage):
         ConfigOption("stride", 100, "Stride"),
         ConfigOption("sentences", False, "Use a sentence tokenizer to form passages"),
         ConfigOption("numpassages", 16, "Number of passages per document"),
+        # TODO remove prob here. unused.
         ConfigOption(
             "prob",
             0.1,
