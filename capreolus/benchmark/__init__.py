@@ -51,7 +51,7 @@ def validate(build_f):
 
         if n_dup > 0:
             qrel_file_no_ext, ext = os.path.splitext(self.qrel_file)
-            dup_qrel_file = qrel_file_no_ext + "contain-dup-entries" + ext
+            dup_qrel_file = qrel_file_no_ext + "-contain-dup-entries" + ext
             os.rename(self.qrel_file, dup_qrel_file)
             write_qrels(qrels, self.qrel_file)
             logger.warning(
