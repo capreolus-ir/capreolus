@@ -39,13 +39,8 @@ class MSMarcoPassage(Benchmark):
             return
 
         def match_size(fn):
-            if ".train." in fn:
-                return True
-
-            # if self.config["qrelsize"] == "small":
-            if True:
-                return ".small." in fn
-            return ".small." not in fn
+            # return True if the file is from training set, or the small version of dev and test set
+            return (".train." in fn) or (".small." in fn)
 
         gz_dir = self.collection.download_raw()
         queries_fn = [fn for fn in os.listdir(gz_dir) if "queries." in fn and match_size(fn)]
