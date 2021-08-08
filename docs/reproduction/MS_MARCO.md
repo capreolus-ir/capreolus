@@ -15,18 +15,18 @@ This requires GPU(s) with 48GB memory (e.g. 3 V100 or a RTX 8000) or a TPU.
     ```
     lr=1e-3
     bertlr=2e-5   
-    itersize=30000
-    warmupsteps=3000
-    decaystep=$itersize  # either same with $itersize or 0
+    niters=10
+    warmupiters=1
+    decayiters=$itersize  # either same with $itersize or 0
     decaytype=linear
-   
+    
     python -m capreolus.run rerank.train with \
         file=docs/reproduction/config_msmarco.txt  \
         reranker.trainer.lr=$lr \
         reranker.trainer.bertlr=$bertlr \
-        reranker.trainer.itersize=$itersize \
-        reranker.trainer.warmupsteps=$warmupsteps \
-        reranker.trainer.decaystep=$decaystep \
+        reranker.trainer.niters=$niters \
+        reranker.trainer.warmupiters=$warmupiters \
+        reranker.trainer.decayiters=$decayiters \
         reranker.trainer.decaytype="linear" \
         fold=s1
     ```
