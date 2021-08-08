@@ -9,30 +9,29 @@ Once the environment is set, you can verify the installation with [these instruc
 
 ## Running MS MARCO 
 This requires GPU(s) with 48GB memory (e.g. 3 V100 or a RTX 8000) or a TPU. 
-1. Make sure you are in the top-level `capreolus` directory; 
-2. Train on MS MARCO Passage using the following scripts, 
-    while replacing the lr scheduler variables with the one you picked up <br/> 
+1. Make sure you are in the top-level `capreolus` directory;
+2. Train on MS MARCO Passage using the following scripts, this should give a `MRR@10=0.35+` <br/> 
     ```
     lr=1e-3
-    bertlr=2e-5   
+    bertlr=2e-5
+    batch_size=16
     niters=10
     warmupiters=1
-    decayiters=$itersize  # either same with $itersize or 0
-    decaytype=linear
+    decayiters=$niters  # either same with $itersize or 0
     
     python -m capreolus.run rerank.train with \
         file=docs/reproduction/config_msmarco.txt  \
+        reranker.trainer.batch=$batch_size \
         reranker.trainer.lr=$lr \
         reranker.trainer.bertlr=$bertlr \
         reranker.trainer.niters=$niters \
         reranker.trainer.warmupiters=$warmupiters \
         reranker.trainer.decayiters=$decayiters \
-        reranker.trainer.decaytype="linear" \
         fold=s1
     ```
 3.  Without data preparation, it will take 4~6 hours to train and 8～10 hours to inference on *4 V100s* for BERT-base, 
-    and longer on for BERT-large. 
-    Per-fold metrics on dev set are displayed after completion, where `MRR@10` is the one to use for this task.
+    and longer on for BERT-large. Running on a single GPU would also work by reducing `batch_size` to 2 or 4, but longer training time would be expected.
+    Metrics on dev set are displayed after completion, where we use `MRR@10` for this task.
     (for CC users, BERT-large can only be run with batch size 16 on `graham` `cedar`, 
     as each node on `beluga` has 16GB memory at maximum) 
 
