@@ -50,3 +50,5 @@ dependencies:
     - fasteners
     - smart_open
     - ir_datasets
+    - gdown
+    - six==1.16.0
