@@ -5,7 +5,7 @@ from capreolus import ConfigOption, Dependency, constants
 from capreolus.utils.loginit import get_logger
 from capreolus.utils.trec import topic_to_trectxt
 
-from . import Benchmark
+from . import Benchmark, validate
 
 logger = get_logger(__name__)
 PACKAGE_PATH = constants["PACKAGE_PATH"]
@@ -34,6 +34,7 @@ class NF(Benchmark):
 
     query_type = "title"
 
+    @validate
     def build(self):
         fields, label_range = self.config["fields"], self.config["labelrange"]
         self.field2kws = {
