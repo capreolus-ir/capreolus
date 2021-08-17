@@ -1,6 +1,9 @@
 name: pytest
 
-on: [push]
+on:
+  push
+  pull_request:
+    types: [opened, edited, review_requested, synchronize, reopened]
 
 jobs:
   conda-build:
