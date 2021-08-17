@@ -1,7 +1,7 @@
 name: pytest
 
 on:
-  push
+  push:
   pull_request:
     types: [opened, edited, review_requested, synchronize, reopened]
 
