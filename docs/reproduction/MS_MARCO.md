@@ -17,6 +17,7 @@ This requires GPU(s) with 48GB memory (e.g. 3 V100 or a RTX 8000) or a TPU.
     batch_size=16
     niters=10
     warmupiters=1
+    validatefreq=$niters
     decayiters=$niters  # either same with $itersize or 0
     
     python -m capreolus.run rerank.train with \
@@ -25,6 +26,7 @@ This requires GPU(s) with 48GB memory (e.g. 3 V100 or a RTX 8000) or a TPU.
         reranker.trainer.lr=$lr \
         reranker.trainer.bertlr=$bertlr \
         reranker.trainer.niters=$niters \
+        reranker.trainer.validatefreq=$validatefreq \
         reranker.trainer.warmupiters=$warmupiters \
         reranker.trainer.decayiters=$decayiters \
         fold=s1
