@@ -32,17 +32,23 @@ class Searcher(ModuleBase):
         run = OrderedDefaultDict()
 
         with open(fn, "rt") as f:
-            for line in f:
+            for i, line in enumerate(f):
                 line = line.strip()
                 if len(line) > 0:
-                    qid, _, docid, rank, score, desc = line.split(" ")
+                    try:
+                        qid, _, docid, rank, score, desc = line.split()
+                    except ValueError as e:
+                        logger.error(
+                            f"Encountered malformated line when reading {fn} [Line #{i}], possibly because the writing to runfile was interruptded."
+                        )
+                        raise e
                     run[qid][docid] = float(score)
         return run
 
     @staticmethod
-    def write_trec_run(preds, outfn):
+    def write_trec_run(preds, outfn, mode="wt"):
         count = 0
-        with open(outfn, "wt") as outf:
+        with open(outfn, mode) as outf:
             qids = sorted(preds.keys(), key=lambda k: int(k))
             for qid in qids:
                 rank = 1
