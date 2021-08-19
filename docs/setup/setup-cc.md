@@ -5,7 +5,7 @@ Please follow [this guide](https://github.com/castorini/onboarding/blob/master/d
 
 This instruction assume the users have anaconda or miniconda installed.
 
-## Install Capreolus and its dependencies 
+## Capreolus Installation
 To setup, clone the repo and run the following scripts under the top-level capreolus: 
 ```bash
 git clone https://github.com/capreolus-ir/capreolus && cd capreolus
