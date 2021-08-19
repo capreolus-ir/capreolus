@@ -1,7 +1,7 @@
 #!/bin/bash
 #SBATCH --job-name=msmarcopsg
 #SBATCH --nodes=1
-#SBATCH --gres=gpu:v100l:1
+#SBATCH --gres=gpu:v100l:4
 #SBATCH --ntasks-per-node=1
 #SBATCH --mem=120GB
 #SBATCH --time=48:00:00
@@ -14,6 +14,7 @@ bertlr=2e-5
 batch_size=16
 niters=10
 warmupiters=1
+validatefreq=$niters
 decayiters=$niters  # either same with $itersize or 0
 
 python -m capreolus.run rerank.train with \
@@ -22,6 +23,7 @@ python -m capreolus.run rerank.train with \
     reranker.trainer.lr=$lr \
     reranker.trainer.bertlr=$bertlr \
     reranker.trainer.niters=$niters \
+    reranker.trainer.validatefreq=$validatefreq \
     reranker.trainer.warmupiters=$warmupiters \
     reranker.trainer.decayiters=$decayiters \
     fold=s1
