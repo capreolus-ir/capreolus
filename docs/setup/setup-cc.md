@@ -7,16 +7,36 @@ This instruction assume the users have anaconda or miniconda installed.
 
 ## Install Capreolus and its dependencies 
 To setup, clone the repo and run the following scripts under the top-level capreolus: 
-```
+```bash
 git clone https://github.com/capreolus-ir/capreolus && cd capreolus
-git checkout feature/msmarco_psg 
-cd docs/setup
+# git checkout feature/msmarco_psg 
 
-setup_dir="$HOME/setup_capr"  # don't remove this directory
-mkdir -p $setup_dir
-sh ./scripts/setup-cc.sh $setup_dir && cd ../..
-source $setup_dir/setup_capreolus_on_cc.bash  # this needs to be run each time a new shell is created
-python -m capreolus.run rank.print_config  # to check if the set-up is correct 
+module load java/11
+module load python/3.7
+module load scipy-stack
+
+ENVDIR=$HOME/venv/capreolus-env
+virtualenv --no-download $ENVDIR
+source $ENVDIR/bin/activate
+
+# cat requirements.txt | xargs -n 1 pip install
+pip install tf-models-official==2.5
+cat requirements.txt | cut -d '#' -f 1  | grep "\S" | xargs -n 1 -i sh -c 'pip install --no-index {} || pip install {}'
+pip install --no-index torch==1.9.0 spacy==2.2.2
+
+# pip install tensorflow-text tf-models-official==2.5 tensorflow-ranking --no-deps
+# pip install -r <( pip check | grep ^"tf-models-official\|tensorflow-ranking" | cut -d ' ' -f 4 | tr ',' ' ' | grep -v "tensorflow-text\|requirement" )
+# pip install --no-index tensorflow==2.4.1
+# pip install --no-index torch numpy==1.21.0 
+# pip install --no-index torch spacy==2.2.2
+
+# while read -r line; do echo $line | cut -d '#' -f 1 | grep "\S" |  xargs -n 1 pip install --no-index || pip install; done < requirements.txt
+# while read -r line; do echo $line | cut -d '#' -f 1 | grep "\S" |  xargs -n 1 pip install; done < requirements.txt
+# pip install tensorflow_ranking
+# pip install profane>=0.2.0 pyjnius>=1.2.1 colorlog pyserini==0.12.0 ir_datasets gdown pymagnitude tensorflow_ranking pytrec_eval pytest-mock scispacy transformers 
+
+# test
+
 ```
 
 ## Pre-download Huggingface models 
@@ -31,10 +51,8 @@ You can then pass the model directory to Capreolus (e.g. `task.reranker.pretrain
 **After** specifying the `$CAPREOLUS_CACHE` and `$CAPREOLUS_RESULT` 
 (For CC users, they should be set under `/scratch/your_user_name` since the cache and results can take a huge amount of space), 
 run `sh download_data.sh` to pre-download the needed data for MS MARCO Passage dataset.
-```
+```bash
 export CAPREOLUS_CACHE=/scratch/your_username/.capreolus/cache
 export CAPREOLUS_RESULTS=/scratch/your_username/.capreolus/results
 sh ./scripts/download_data.sh
 ``` 
-
-If you are using Slurm, a sample shell script is presented in `./scripts/sample_slurm_script.sh`. 
