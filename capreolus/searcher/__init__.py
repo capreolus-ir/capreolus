@@ -34,8 +34,6 @@ class Searcher(ModuleBase):
     def load_trec_run(fn):
         # Docids in the run file appear according to decreasing score, hence it makes sense to preserve this order
         # ^ Python 3.6+ dicts preserve insertion order. Hurray!
-        start = time.time()
-        logger.debug("Loading TREC run: {}".format(fn))
         run = defaultdict(dict)
 
         with open(fn, "rt") as f:
@@ -44,7 +42,6 @@ class Searcher(ModuleBase):
                 if len(line) > 0:
                     qid, _, docid, rank, score, desc = line.split(" ")
                     run[qid][docid] = float(score)
-        logger.debug("Loading trec run took {}".format(time.time() - start))
         return run
 
     @staticmethod

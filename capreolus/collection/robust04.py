@@ -104,7 +104,10 @@ class Robust04(Collection):
 
 @Collection.register
 class Robust04Passages(Collection):
-    """ TREC Robust04 (TREC disks 4 and 5 without the Congressional Record documents) """
+    """
+    TREC Robust04 (TREC disks 4 and 5 without the Congressional Record documents).
+    Splits each document in Robust04 into passages and indexes them separately.
+    """
 
     module_name = "robust04passages"
     collection_type = "TrecCollection"

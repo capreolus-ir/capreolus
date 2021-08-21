@@ -13,6 +13,9 @@ logger = get_logger(__name__)  # pylint: disable=invalid-name
 
 @Task.register
 class Robust04Passages(Task):
+    """
+    Creates the robust04passages dataset by splitting each doc in Robust04 into passages
+    """
     module_name = "robust04passages"
     requires_random_seed = False
     config_spec = [

@@ -40,13 +40,6 @@ class Benchmark(ModuleBase):
         return self._qrels
 
     @property
-    def generated_qrels(self):
-        if not hasattr(self, "_generated_qrels"):
-            self._generated_qrels = load_qrels(self.generated_qrel_file)
-
-        return self._generated_qrels
-
-    @property
     def topics(self):
         if not hasattr(self, "_topics"):
             self._topics = load_trec_topics(self.topic_file)

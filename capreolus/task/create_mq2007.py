@@ -13,6 +13,10 @@ logger = get_logger(__name__)  # pylint: disable=invalid-name
 
 @Task.register
 class MQ2007(Task):
+    """
+    Creates the MQ2007 collection topics, qrels and folds. The test fold of MQ2007 here is designed to be the same as
+    that of GOV2 - only the train fold differs.
+    """
     module_name = "mq2007"
     requires_random_seed = True
     config_spec = [

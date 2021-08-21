@@ -353,95 +353,6 @@ class QrelTrainPairSampler(Sampler, TrainingSamplerMixin, torch.utils.data.Itera
                                                   reldocs=set(self.qid_to_reldocs[qid]))
 
 
-@Sampler.register
-class QrelTrainPairSamplerRobust04PassagesDocT5(Sampler, TrainingSamplerMixin, torch.utils.data.IterableDataset):
-    """
-    WARNING: Works only with the qrels in qrels.robust04doct5title.txt
-    """
-    module_name = "qrelpairrobust04passagesdoct5"
-    dependencies = []
-
-    def prepare(self, bm25_run, qrels, extractor, relevance_level=1, separator="_", **kwargs):
-        self.extractor = extractor
-        self.qid_to_docids = bm25_run
-
-        self.qid_to_reldocs = defaultdict(list)
-        for qid, passageid_to_label in qrels.items():
-            if qid not in bm25_run:
-                continue
-            for passageid, label in passageid_to_label.items():
-                self.qid_to_reldocs[qid].append(passageid)
-
-        # TODO option to include only negdocs in a top k
-        self.qid_to_negdocs = defaultdict(list)
-        for qid, passageid_to_score in bm25_run.items():
-            passage_id_score_list = []
-            for passage_id, score in passageid_to_score.items():
-                if qrels[qid].get(passage_id, 0) < relevance_level:
-                    passage_id_score_list.append((passage_id, score))
-
-            sorted_according_to_score = sorted(passage_id_score_list, key=lambda x: x[1], reverse=True)
-            # Arbitrarily choosing the top 20 non-relevand docs.
-            self.qid_to_negdocs[qid] = [x[0] for x in sorted_according_to_score[:20]]
-
-        self.total_samples = 0
-        self.clean()
-
-    def get_hash(self):
-        sorted_rep = sorted([(qid, docids) for qid, docids in self.qid_to_docids.items()])
-        key_content = "{0}{1}".format(self.extractor.get_cache_path(), str(sorted_rep))
-        key = hashlib.md5(key_content.encode("utf-8")).hexdigest()
-        return "qrelpairrobust04passages_{0}".format(key)
-
-    def generate_samples(self):
-        all_qids = sorted(self.qid_to_reldocs)
-        if len(all_qids) == 0:
-            raise RuntimeError("TrainDataset has no valid training pairs")
-
-        while True:
-            qid = self.rng.choice(all_qids)
-            posdocid = self.rng.choice(self.qid_to_reldocs[qid])
-            negdocid = self.rng.choice(self.qid_to_negdocs[qid])
-            # The `posdocid` is of the format docid_passageid. This might not exist in the index - hence the try block
-            try:
-                yield self.extractor.id2vec_for_train(qid, posdocid, negid=None, label=[0, 1],
-                                                      reldocs=set(self.qid_to_reldocs[qid]))
-            except MissingDocError:
-                continue
-
-            yield self.extractor.id2vec_for_train(qid, negdocid, negid=None, label=[1, 0],
-                                                  reldocs=set(self.qid_to_reldocs[qid]))
-
-
-@Sampler.register
-class ReldocAsQuerySampler(Sampler, TrainingSamplerMixin, torch.utils.data.IterableDataset):
-    """
-    Same as TrainPairSampler, but relevant docs too can be queries
-    """
-    module_name = "reldocpair"
-    dependencies = []
-
-    def get_hash(self):
-        sorted_rep = sorted([(qid, docids) for qid, docids in self.qid_to_docids.items()])
-        key_content = "{0}{1}".format(self.extractor.get_cache_path(), str(sorted_rep))
-        key = hashlib.md5(key_content.encode("utf-8")).hexdigest()
-        return "reldocpair_{0}".format(key)
-
-    def generate_samples(self):
-        all_qids = sorted(self.qid_to_reldocs)
-        if len(all_qids) == 0:
-            raise RuntimeError("TrainDataset has no valid training pairs")
-
-        while True:
-            qid = self.rng.choice(all_qids)
-            reldocs = self.qid_to_reldocs[qid]
-            posdocid, another_posdocid = self.rng.choice(self.qid_to_reldocs[qid], 2, replace=False)
-            negdocid = self.rng.choice(self.qid_to_negdocs[qid])
-
-            yield self.extractor.id2vec_for_train_reldoc_as_query(qid, posdocid, another_posdocid, reldocs=reldocs)
-            yield self.extractor.id2vec_for_train_reldoc_as_query(qid, posdocid, negdocid, reldocs=reldocs)
-
-
 class PredSampler(Sampler, torch.utils.data.IterableDataset):
     """
     Creates a Dataset for evaluation (test) data to be used with a pytorch DataLoader
@@ -504,7 +415,7 @@ class PredSampler(Sampler, torch.utils.data.IterableDataset):
 @Sampler.register
 class CollectionSampler(Sampler, torch.utils.data.IterableDataset):
     """
-    Goes throw every document in the collection. One use case - allows you to encode every document in the collection for ANN search. Does not make use of queries
+    Goes through every document in the collection. One use case - allows you to encode every document in the collection for ANN search. Does not make use of queries
     """
     module_name = "collection"
     requires_random_seed = False

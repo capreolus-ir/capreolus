@@ -54,6 +54,8 @@ class AnseriniSearcherMixIn:
             index_path,
             "-topics",
             topicsfn,
+            "-topicfield",
+            "description",
             "-output",
             output_path,
             "-inmem",

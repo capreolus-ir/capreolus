@@ -146,30 +146,6 @@ class BertText(Extractor):
 
         return data
 
-    def id2vec_for_train_reldoc_as_query(self, qid, docid, posid, reldocs=None):
-        max_doc_length = 254
-        max_query_length = 254
-        tokenizer = self.tokenizer
-
-        posdoc_toks = self.get_tokenized_doc(posid)
-        posdoc = [101] + tokenizer.convert_tokens_to_ids(posdoc_toks)[:max_doc_length] + [102]
-
-        # faiss_logger.debug("Posdocid: {}, doctoks: {}".format(posid, posdoc_toks))
-        # faiss_logger.debug("Numericalized posdoc: {}".format(posdoc))
-        data = {
-            "posdocid": posid,
-            "posdoc": posdoc,
-            "rel_docs": reldocs
-        }
-
-        query_toks = self.get_tokenized_doc(docid)
-
-        query = [101] + tokenizer.convert_tokens_to_ids(query_toks)[:max_query_length] + [102]
-        data["qid"] = qid
-        data["query"] = query
-
-        return data
-
     def get_mask(self, numericalized_text):
         """
         Returns a mask where it is 1 for actual toks and 0 for pad toks
