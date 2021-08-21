@@ -209,10 +209,10 @@ class TrecRun:
         return TrecRun(results)
 
     def evaluate(self, qrels, metrics, relevance_level=1, average_only=True):
-        return eval_runs(self.results, qrels, metrics, relevance_level, average_only)
+        return _eval_runs(self.results, qrels, metrics, relevance_level, average_only)
 
 
-def eval_runs(runs, qrels, metrics, relevance_level, average_only=True):
+def _eval_runs(runs, qrels, metrics, relevance_level, average_only=True):
     import pytrec_eval
     import numpy as np
     from capreolus import evaluator

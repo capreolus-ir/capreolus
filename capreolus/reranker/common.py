@@ -86,7 +86,7 @@ def new_similarity_matrix_tf(query_embed, doc_embed, query_tok, doc_tok, padding
 
 
 def similarity_matrix_tf(query_embed, doc_embed, query_tok, doc_tok, padding):
-    """ Original TF similarity matrix. May have issues with mixed precision. Use new_similarity_matrix_tf instead """
+    """Original TF similarity matrix. May have issues with mixed precision. Use new_similarity_matrix_tf instead"""
     batch_size, qlen, doclen = tf.shape(query_embed)[0], tf.shape(query_embed)[1], tf.shape(doc_embed)[1]
     q_denom = tf.broadcast_to(tf.reshape(tf.norm(query_embed, axis=2), (batch_size, qlen, 1)), (batch_size, qlen, doclen)) + 1e-9
     doc_denom = (

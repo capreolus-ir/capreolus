@@ -2,7 +2,7 @@ import ir_datasets
 
 from capreolus import Dependency, constants
 
-from . import Benchmark, IRDBenchmark
+from . import Benchmark, IRDBenchmark, validate
 
 PACKAGE_PATH = constants["PACKAGE_PATH"]
 
@@ -16,6 +16,7 @@ class CDS(IRDBenchmark):
     query_type = "summary"
     query_types = {}  # diagnosis, treatment, or test
 
+    @validate
     def build(self):
         self.topics
 

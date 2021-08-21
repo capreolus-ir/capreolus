@@ -29,6 +29,29 @@ def get_available_gpus():
     return [x.name for x in local_device_protos if x.device_type == "GPU"]
 
 
+class LocalTPUClusterResolver(tf.distribute.cluster_resolver.TPUClusterResolver):
+    """LocalTPUClusterResolver."""
+
+    def __init__(self):
+        self._tpu = ""
+        self.task_type = "worker"
+        self.task_id = 0
+
+    def master(self, task_type=None, task_id=None, rpc_layer=None):
+        return None
+
+    def cluster_spec(self):
+        return tf.train.ClusterSpec({})
+
+    def get_tpu_system_metadata(self):
+        return tf.tpu.experimental.TPUSystemMetadata(
+            num_cores=8, num_hosts=1, num_of_cores_per_host=8, topology=None, devices=tf.config.list_logical_devices()
+        )
+
+    def num_accelerators(self, task_type=None, task_id=None, config_proto=None):
+        return {"TPU": 8}
+
+
 @Trainer.register
 class TensorflowTrainer(Trainer):
     """
@@ -70,12 +93,21 @@ class TensorflowTrainer(Trainer):
 
         self.evalbatch = self.config["evalbatch"] if self.config["evalbatch"] > 0 else self.config["batch"]
 
+        if os.environ.get("CAPR_QUEUE_SKIP_TPU") == "YES":
+            return
+
         # Use TPU if available, otherwise resort to GPU/CPU
-        try:
-            self.tpu = tf.distribute.cluster_resolver.TPUClusterResolver(tpu=self.config["tpuname"], zone=self.config["tpuzone"])
-        except ValueError:
+        if self.config["tpuname"]:
+            if self.config["tpuname"] == "LOCAL":
+                logger.debug("using TPU VM with LocalTPUClusterResolver")
+                self.tpu = LocalTPUClusterResolver()
+            else:
+                logger.debug("using TPU with TPUClusterResolver")
+                self.tpu = tf.distribute.cluster_resolver.TPUClusterResolver(
+                    tpu=self.config["tpuname"], zone=self.config["tpuzone"]
+                )
+        else:
             self.tpu = None
-            logger.info("Could not find the tpu")
 
         # TPUStrategy for distributed training
         if self.tpu:
@@ -97,12 +129,10 @@ class TensorflowTrainer(Trainer):
         self.validate()
 
     def validate(self):
-        if self.tpu and any([self.config["storage"] is None, self.config["tpuname"] is None, self.config["tpuzone"] is None]):
+        if self.tpu and not all([self.config["storage"], self.config["tpuname"], self.config["tpuzone"]]):
             raise ValueError("storage, tpuname and tpuzone configs must be provided when training on TPU")
-        if self.tpu and self.config["storage"] and not self.config["storage"].startswith("gs://"):
+        if self.tpu and self.config["tpuname"] != "LOCAL" and not self.config["storage"].startswith("gs://"):
             raise ValueError("For TPU utilization, the storage config should start with 'gs://'")
-        if self.config["niters"] < self.config["validatefreq"]:
-            raise ValueError("niters must be equal or greater than validatefreq")
 
     def train(self, reranker, train_dataset, train_output_path, dev_data, dev_output_path, qrels, metric, relevance_level=1):
         if self.tpu:
