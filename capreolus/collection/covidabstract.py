@@ -11,7 +11,7 @@ PACKAGE_PATH = constants["PACKAGE_PATH"]
 
 @Collection.register
 class CovidAbstract(IRDCollection):
-    """ TREC-COVID with only abstracts (no title or body) """
+    """TREC-COVID with only abstracts (no title or body)"""
 
     module_name = "covidabstract"
     ird_dataset_name = "cord19/trec-covid"

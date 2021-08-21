@@ -11,7 +11,7 @@ PACKAGE_PATH = constants["PACKAGE_PATH"]
 
 @Collection.register
 class CDS(IRDCollection):
-    """ PMC collection subset used by TREC CDS 2016 """
+    """PMC collection subset used by TREC CDS 2016"""
 
     module_name = "cds"
     ird_dataset_name = "pmc/v2"

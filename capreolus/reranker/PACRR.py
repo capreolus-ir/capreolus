@@ -84,7 +84,7 @@ class PACRRConvMax2dModule(torch.nn.Module):
 
 @Reranker.register
 class PACRR(Reranker):
-    """Kai Hui, Andrew Yates, Klaus Berberich, and Gerard de Melo. 2017. PACRR: A Position-Aware Neural IR Model for Relevance Matching. EMNLP 2017. """
+    """Kai Hui, Andrew Yates, Klaus Berberich, and Gerard de Melo. 2017. PACRR: A Position-Aware Neural IR Model for Relevance Matching. EMNLP 2017."""
 
     module_name = "PACRR"
 

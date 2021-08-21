@@ -23,7 +23,7 @@ CACHE_BASE_PATH = constants["CACHE_BASE_PATH"]
 
 @Extractor.register
 class DeepTileExtractor(Extractor):
-    """ Creates a text tiling matrix. Used by the DeepTileBars reranker. """
+    """Creates a text tiling matrix. Used by the DeepTileBars reranker."""
 
     module_name = "deeptiles"
     pad = 0

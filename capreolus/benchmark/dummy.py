@@ -7,7 +7,7 @@ PACKAGE_PATH = constants["PACKAGE_PATH"]
 
 @Benchmark.register
 class DummyBenchmark(Benchmark):
-    """ Tiny benchmark for testing """
+    """Tiny benchmark for testing"""
 
     module_name = "dummy"
     dependencies = [Dependency(key="collection", module="collection", name="dummy")]

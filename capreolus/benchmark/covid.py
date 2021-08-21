@@ -9,7 +9,7 @@ from capreolus.utils.common import download_file, get_udel_query_expander
 from capreolus.utils.loginit import get_logger
 from capreolus.utils.trec import load_qrels, topic_to_trectxt
 
-from . import Benchmark
+from . import Benchmark, validate
 
 logger = get_logger(__name__)
 PACKAGE_PATH = constants["PACKAGE_PATH"]
@@ -17,7 +17,7 @@ PACKAGE_PATH = constants["PACKAGE_PATH"]
 
 @Benchmark.register
 class COVID(Benchmark):
-    """ Ongoing TREC-COVID bechmark from https://ir.nist.gov/covidSubmit that uses documents from CORD, the COVID-19 Open Research Dataset (https://www.semanticscholar.org/cord19). """
+    """Ongoing TREC-COVID bechmark from https://ir.nist.gov/covidSubmit that uses documents from CORD, the COVID-19 Open Research Dataset (https://www.semanticscholar.org/cord19)."""
 
     module_name = "covid"
     dependencies = [Dependency(key="collection", module="collection", name="covid")]
@@ -30,6 +30,7 @@ class COVID(Benchmark):
 
     config_spec = [ConfigOption("udelqexpand", False), ConfigOption("useprevqrels", True)]
 
+    @validate
     def build(self):
         if self.collection.config["round"] == self.lastest_round and not self.config["useprevqrels"]:
             logger.warning(f"No evaluation can be done for the lastest round without using previous qrels")

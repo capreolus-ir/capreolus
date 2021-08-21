@@ -1,11 +1,114 @@
-import json
 import os
+import json
+from copy import deepcopy
+from collections import defaultdict
 
 import ir_datasets
 
 from capreolus import ModuleBase
 from capreolus.utils.caching import cached_file, TargetFileExists
-from capreolus.utils.trec import load_qrels, load_trec_topics
+from capreolus.utils.trec import write_qrels, load_qrels, load_trec_topics
+from capreolus.utils.loginit import get_logger
+
+
+logger = get_logger(__name__)
+
+
+def validate(build_f):
+    def validate_folds_file(self):
+        if not hasattr(self, "fold_file"):
+            logger.warning(f"Folds file is not found for Module {self.module_name}")
+            return
+
+        if self.fold_file.suffix != ".json":
+            raise ValueError(f"Expect folds file to be in .json format.")
+
+        raw_folds = json.load(open(self.fold_file))
+        # we actually don't need to verify the name of folds right?
+
+        for fold_name, fold_sets in raw_folds.items():
+            if set(fold_sets) != {"train_qids", "predict"}:
+                raise ValueError(f"Expect each fold to contain ['train_qids', 'predict'] fields.")
+
+            if set(fold_sets["predict"]) != {"dev", "test"}:
+                raise ValueError(f"Expect each fold to contain ['dev', 'test'] fields under 'predict'.")
+        logger.info("Folds file validation finishes.")
+
+    def validate_qrels_file(self):
+        if not hasattr(self, "qrel_file"):
+            logger.warning(f"Qrel file is not found for Module {self.module_name}")
+            return
+
+        n_dup, qrels = 0, defaultdict(dict)
+        with open(self.qrel_file) as f:
+            for line in f:
+                qid, _, docid, label = line.strip().split()
+                if docid in qrels[qid]:
+                    n_dup += 1
+                    if int(label) != qrels[qid][docid]:
+                        raise ValueError(f"Found conflicting label in {self.qrel_file} for query {qid} and document {docid}.")
+                qrels[qid][docid] = int(label)
+
+        if n_dup > 0:
+            qrel_file_no_ext, ext = os.path.splitext(self.qrel_file)
+            dup_qrel_file = qrel_file_no_ext + "-contain-dup-entries" + ext
+            os.rename(self.qrel_file, dup_qrel_file)
+            write_qrels(qrels, self.qrel_file)
+            logger.warning(
+                f"Removed {n_dup} entries from the file {self.qrel_file}. The original version could be found in {dup_qrel_file}."
+            )
+
+        logger.info("Qrel file validation finishes.")
+
+    def validate_query_alignment(self):
+        topic_qids = set(self.topics[self.query_type])
+        qrels_qids = set(self.qrels)
+
+        for fold_name, fold_sets in self.folds.items():
+            # check if there are overlap between training, dev, and test set
+            train_qids, dev_qids, test_qids = (
+                set(fold_sets["train_qids"]),
+                set(fold_sets["predict"]["dev"]),
+                set(fold_sets["predict"]["test"]),
+            )
+            if len(train_qids & dev_qids) > 0:
+                logger.warning(
+                    f"Found {len(train_qids & dev_qids)} overlap queries between training and dev set in fold {fold_name}."
+                )
+            if len(train_qids & test_qids) > 0:
+                logger.warning(
+                    f"Found {len(train_qids & dev_qids)} overlap queries between training and dev set in fold {fold_name}."
+                )
+            if len(dev_qids & test_qids) > 0:
+                logger.warning(
+                    f"Found {len(train_qids & dev_qids)} overlap queries between training and dev set in fold {fold_name}."
+                )
+
+            # check if the topics, qrels, and folds file share a reasonable set (if not all) of queries
+            folds_qids = train_qids | dev_qids | test_qids
+            n_overlap = len(set(topic_qids) & set(qrels_qids) & set(folds_qids))
+            if not len(topic_qids) == len(qrels_qids) == len(folds_qids) == n_overlap:
+                logger.warning(
+                    f"Number of queries are not aligned across topics, qrels and folds in fold {fold_name}: {len(topic_qids)} queries in topics file, {len(qrels_qids)} queries in qrels file, {len(folds_qids)} queries in folds file; {n_overlap} overlap queries found among the three."
+                )
+
+            # check if any topic in folds cannot be found in topics file
+            for set_name, set_qids in zip(["training", "dev", "test"], [train_qids, dev_qids, test_qids]):
+                if len(set_qids - topic_qids) > 0:
+                    raise ValueError(
+                        f"{len(set_qids - topic_qids)} queries in {set_name} set of fold {fold_name} cannot be found in topic file."
+                    )
+
+        logger.info("Query Alignment validation finishes.")
+
+    def _validate(self):
+        """Rewrite the files that contain invalid (duplicate) entries, and remove the currently loaded variables"""
+        build_f(self)
+        validate_folds_file(self)
+        validate_qrels_file(self)
+        validate_query_alignment(self)
+
+    return _validate
 
 
 class Benchmark(ModuleBase):
@@ -53,7 +156,7 @@ class Benchmark(ModuleBase):
 
     @property
     def non_nn_dev(self):
-        dev_per_fold = {fold_name: folds["predict"]["dev"] for fold_name, folds in self.folds.items()}
+        dev_per_fold = {fold_name: deepcopy(folds["predict"]["dev"]) for fold_name, folds in self.folds.items()}
         if self.use_train_as_dev:
             for fold_name, folds in self.folds.items():
                 dev_per_fold[fold_name].extend(folds["train_qids"])
@@ -96,6 +199,10 @@ class Benchmark(ModuleBase):
             pass
 
         return fn
+
+    @validate
+    def build(self):
+        return
 
 
 class IRDBenchmark(Benchmark):

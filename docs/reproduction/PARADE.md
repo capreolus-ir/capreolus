@@ -15,26 +15,33 @@ This section contains instructions for installing Capreolus. **Do not** install 
 2. Let's try one more command to ensure everything is setup correctly: `python -m capreolus.run rank.print_config`. This should print a description of the default ranking config.
 3. Briefly read about [configuring Capreolus](https://capreolus.ai/en/latest/installation.html#configuring-capreolus). The main thing to note is that results will be stored in `~/.capreolus` by default.
 
-## Running PARADE (reduced memory usage)
-This section describes how to run PARADE on a GPU with 16GB RAM. This is substantially less than used in the [paper](https://arxiv.org/abs/2008.09093), so we'll train on a single fold and change many hyperparameters to make this run smoothly. However, this won't reach the same effectiveness as the full PARADE model (see instructions below).
-
-1. Make sure you have an available GPU and are in the top-level `capreolus` directory.
-2. Train and evaluate PARADE on a single fold: `python -m capreolus.run rerank.traineval with file=docs/reproduction/config_parade_small.txt fold=s1`
-3. This command takes about 3.5 hours on a Titan Xp GPU. Once it finishes, metrics on the dev and test sets are shown:
-> 2020-10-20 12:39:37,265 - INFO - capreolus.task.rerank.evaluate - rerank: fold=s1 dev metrics: P_1=0.688 P_10=0.529 P_20=0.428 P_5=0.596 judged_10=0.998 judged_20=0.995 judged_200=0.947 map=0.271 ndcg_cut_10=0.545 ndcg_cut_20=0.504 ndcg_cut_5=0.577 recall_100=0.453 recall_1000=0.453 recip_rank=0.787
-
-> 2020-10-20 12:39:37,343 - INFO - capreolus.task.rerank.evaluate - rerank: fold=s1 test metrics: P_1=0.532 P_10=0.472 P_20=0.418 P_5=0.528 judged_10=0.989 judged_20=0.989 judged_200=0.931 map=0.285 ndcg_cut_10=0.470 ndcg_cut_20=0.471 ndcg_cut_5=0.485 recall_100=0.490 recall_1000=0.490 recip_rank=0.672
-4. Compare your *fold=s1* results to those shown here. Do they match? If so, we can move on to reproducing the full PARADE model.
-
-## Running PARADE (full model with normal memory usage)
-This requires a 48GB GPU, a TPU, or porting PARADE to Pytorch so we can iterate over passages rather than loading all of them in memory at once (see issue #86). It has been tested on NVIDIA Quadro RTX 8000s and Google Cloud TPUs.
+## Running PARADE
+This requires a 48GB GPU or a TPU. It has been tested on NVIDIA Quadro RTX 8000s and Google Cloud TPUs.
 
 1. Make sure you have an available GPU and are in the top-level `capreolus` directory.
 2. Train and evaluate PARADE on each of the five robust04 folds (splits *s1-s5*): <br/>
+  This can be done with TensorFlow: <br/>
 `python -m capreolus.run rerank.traineval with file=docs/reproduction/config_parade.txt fold=s1` <br/>
 `python -m capreolus.run rerank.traineval with file=docs/reproduction/config_parade.txt fold=s2` <br/>
 `python -m capreolus.run rerank.traineval with file=docs/reproduction/config_parade.txt fold=s3` <br/>
 `python -m capreolus.run rerank.traineval with file=docs/reproduction/config_parade.txt fold=s4` <br/>
-`python -m capreolus.run rerank.traineval with file=docs/reproduction/config_parade.txt fold=s5`
+`python -m capreolus.run rerank.traineval with file=docs/reproduction/config_parade.txt fold=s5` <br/>
+  Or PyTorch: <br/>
+`python -m capreolus.run rerank.traineval with file=docs/reproduction/config_paradept.txt fold=s1` <br/>
+`python -m capreolus.run rerank.traineval with file=docs/reproduction/config_paradept.txt fold=s2` <br/>
+`python -m capreolus.run rerank.traineval with file=docs/reproduction/config_paradept.txt fold=s3` <br/>
+`python -m capreolus.run rerank.traineval with file=docs/reproduction/config_paradept.txt fold=s4` <br/>
+`python -m capreolus.run rerank.traineval with file=docs/reproduction/config_paradept.txt fold=s5`
 3. Each command will take a long time; approximately 36 hours on a Quadro 8000 (much faster on TPU). As above, per-fold metrics are displayed after each fold completes.
 4. When the final fold completes, cross-validated metrics are also displayed.
+
+## Expected results
+Note that results will vary slightly with your environment. 
+
+ Environment | mAP | P@20 | NDCG@20
+-- | -- | -- | --
+Pytorch 1.6 (GPU) | 0.3687 | 0.4851 | 0.5533
+Pytorch 1.7 (GPU) | 0.3687 | 0.4851 | 0.5533
+Pytorch 1.8 (GPU) | 0.3666 | 0.4783 | 0.5478
+Tensorflow 2.4 (TPU) | 0.3722 | 0.4783 | 0.5528
+Tensorflow 2.5 (TPU) | 0.3626 | 0.4739 | 0.5449
