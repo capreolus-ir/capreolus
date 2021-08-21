@@ -18,7 +18,7 @@ ENVDIR=$HOME/venv/capreolus-env
 virtualenv --no-download $ENVDIR
 source $ENVDIR/bin/activate
 
-pip install tf-models-official==2.5
+pip install tf-models-official==2.5 tensorflow-ranking==0.4.2
 cat requirements.txt | cut -d '#' -f 1  | grep "\S" | xargs -n 1 -i sh -c 'pip install --no-index {} || pip install {}'
 pip install --no-index torch==1.9.0 spacy==2.2.2
 ```
