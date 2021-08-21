@@ -43,7 +43,7 @@ class PytorchTrainer(Trainer):
         ConfigOption("decaytype", None),
         ConfigOption("amp", None, "Automatic mixed precision mode; one of: None, train, pred, both"),
     ]
-    config_keys_not_in_path = ["fastforward", "boardname"]
+    config_keys_not_in_path = ["boardname"]
 
     def build(self):
         # sanity checks
@@ -88,7 +88,6 @@ class PytorchTrainer(Trainer):
 
         iter_loss = []
         batches_since_update = 0
-        batches_per_epoch = (self.config["itersize"] // self.config["batch"]) or 1
         batches_per_step = self.config["gradacc"]
 
         for bi, batch in tqdm(enumerate(train_dataloader), desc="Training iteration", total=self.n_batch_per_iter):
@@ -249,6 +248,8 @@ class PytorchTrainer(Trainer):
                 logger.debug("fastforwarding train_dataloader to iteration %s", initial_iter)
                 self.exhaust_used_train_data(train_dataloader, n_batch_to_exhaust=initial_iter * self.n_batch_per_iter)
 
+        logger.info(self.get_validation_schedule_msg(initial_iter))
+
         if self.config["niters"] == 0:
             reranker.save_weights(dev_best_weight_fn, self.optimizer)
         else:
@@ -295,7 +296,6 @@ class PytorchTrainer(Trainer):
                 summary_writer.flush()
             logger.info("training loss: %s", train_loss)
             logger.info("Training took {}".format(time.time() - train_start_time))
-
         summary_writer.close()
 
         # TODO should we write a /done so that training can be skipped if possible when fastforward=False? or in Task?
