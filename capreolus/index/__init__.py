@@ -19,11 +19,11 @@ class Index(ModuleBase):
     def get_index_path(self):
         return self.get_cache_path() / "index"
 
-    def exists(self):
+    def exists(self, **kwargs):
         donefn = self.get_index_path() / "done"
         return donefn.exists()
 
-    def create_index(self):
+    def create_index(self, *args, **kwargs):
         if self.exists():
             return
 

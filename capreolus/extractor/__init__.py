@@ -10,7 +10,7 @@ class Extractor(ModuleBase):
     """Base class for Extractor modules. The purpose of an Extractor is to convert queries and documents to a representation suitable for use with a :class:`~capreolus.reranker.Reranker` module.
 
     Modules should provide:
-        - an ``id2vec(qid, posid, negid=None)`` method that converts the given query and document ids to an appropriate representation
+        - an ``id2vec_for_triplets(qid, posid, negid=None)`` method that converts the given query and document ids to an appropriate representation
     """
 
     module_type = "extractor"
@@ -68,7 +68,7 @@ class Extractor(ModuleBase):
     def build_from_benchmark(self, *args, **kwargs):
         raise NotImplementedError
 
-    def id2vec(self, qid, posdocid, negdocid=None, label=None):
+    def id2vec_for_triplets(self, qid, posdocid, negdocid=None, label=None):
         """
         Creates a feature from the (qid, docid) pair.
         If negdocid is supplied, that's also included in the feature (needed for training with pairwise hinge loss)

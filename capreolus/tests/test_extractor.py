@@ -33,7 +33,7 @@ def test_extractor_creatable(tmpdir_as_cache, dummy_index, extractor_name):
     extractor = Extractor.create(extractor_name, provide=provide)
 
 
-def test_embedtext_id2vec(monkeypatch):
+def test_embedtext_id2vec_for_triplets(monkeypatch):
     def fake_load_embeddings(self):
         vocab = ["<pad>", "lessdummy", "dummy", "doc", "hello", "greetings", "world", "from", "outer", "space"]
         self.embeddings = np.random.random((len(vocab), 50))
@@ -54,7 +54,7 @@ def test_embedtext_id2vec(monkeypatch):
     extractor.preprocess(qids, docids, benchmark.topics[benchmark.query_type])
 
     docid1, docid2 = docids[0], docids[1]
-    data = extractor.id2vec(qid, docid1, docid2)
+    data = extractor.id2vec_for_triplets(qid, docid1, docid2)
     q, d1, d2, idf = [data[k] for k in ["query", "posdoc", "negdoc", "idfs"]]
 
     assert q.shape[0] == idf.shape[0]
@@ -74,7 +74,7 @@ def test_embedtext_id2vec(monkeypatch):
     # check MissDocError
     error_thrown = False
     try:
-        extractor.id2vec(qid, "0000000", "111111")
+        extractor.id2vec_for_triplets(qid, "0000000", "111111")
     except MissingDocError as err:
         error_thrown = True
         assert err.related_qid == qid
@@ -122,7 +122,7 @@ def test_slowembedtext_creation(monkeypatch):
     return extractor
 
 
-def test_slowembedtext_id2vec(monkeypatch):
+def test_slowembedtext_id2vec_for_triplets(monkeypatch):
     def fake_magnitude_embedding(*args, **kwargs):
         return np.zeros((1, 8), dtype=np.float32), {0: "<pad>"}, {"<pad>": 0}
 
@@ -147,7 +147,7 @@ def test_slowembedtext_id2vec(monkeypatch):
     extractor.preprocess(qids, docids, benchmark.topics[benchmark.query_type])
 
     docid1, docid2 = docids[0], docids[1]
-    data = extractor.id2vec(qid, docid1, docid2, label=[1, 0])
+    data = extractor.id2vec_for_triplets(qid, docid1, docid2, label=[1, 0])
     q, d1, d2, idf = [data[k] for k in ["query", "posdoc", "negdoc", "idfs"]]
 
     assert q.shape[0] == idf.shape[0]
@@ -167,7 +167,7 @@ def test_slowembedtext_id2vec(monkeypatch):
     # check MissDocError
     error_thrown = False
     try:
-        extractor.id2vec(qid, "0000000", "111111", label=[1, 0])
+        extractor.id2vec_for_triplets(qid, "0000000", "111111", label=[1, 0])
     except MissingDocError as err:
         error_thrown = True
         assert err.related_qid == qid
@@ -307,7 +307,7 @@ def test_bagofwords_create_trigrams(monkeypatch, tmpdir, dummy_index):
     assert extractor.itos == {v: k for k, v in extractor.stoi.items()}
 
 
-def test_bagofwords_id2vec(tmpdir, dummy_index):
+def test_bagofwords_id2vec_for_triplets(tmpdir, dummy_index):
     benchmark = DummyBenchmark({})
     tok_cfg = {"name": "anserini", "keepstops": True, "stemmer": "none"}
     tokenizer = AnseriniTokenizer(tok_cfg)
@@ -329,7 +329,7 @@ def test_bagofwords_id2vec(tmpdir, dummy_index):
         "LA010189-0001": ["dummy", "dummy", "dummy", "hello", "world", "greetings", "from", "outer", "space"],
         "LA010189-0002": ["dummy", "dummy", "dummy", "hello", "world", "greetings", "from", "outer", "space"],
     }
-    transformed = extractor.id2vec("301", "LA010189-0001", "LA010189-0001")
+    transformed = extractor.id2vec_for_triplets("301", "LA010189-0001", "LA010189-0001")
     # stoi only knows about the word 'dummy' and 'doc'. So the transformation of every other word is set as 0
 
     assert transformed["qid"] == "301"
@@ -365,7 +365,7 @@ def test_bagofwords_id2vec_trigram(tmpdir, dummy_index):
     extractor.itos[1] = "#du"
     extractor.itos[2] = "dum"
     extractor.itos[3] = "umm"
-    transformed = extractor.id2vec("301", "LA010189-0001")
+    transformed = extractor.id2vec_for_triplets("301", "LA010189-0001")
 
     # stoi only knows about the word 'dummy'. So the transformation of every other word is set as 0
     assert transformed["qid"] == "301"
@@ -387,7 +387,7 @@ def test_bagofwords_id2vec_trigram(tmpdir, dummy_index):
     extractor.itos[5] = "my#"
     extractor.itos[6] = "#he"
 
-    transformed = extractor.id2vec("301", "LA010189-0001")
+    transformed = extractor.id2vec_for_triplets("301", "LA010189-0001")
     # The posdoc transformation changes to reflect the new word
     assert np.array_equal(transformed["posdoc"], [32, 3, 3, 3, 3, 3, 1])
 
@@ -595,21 +595,10 @@ def test_bertpassage_build_vocab(monkeypatch):
 
     extractor._build_vocab(["301"], ["some_docid"], topics)
 
-    assert len(extractor.docid2passages["some_docid"]) == 5
-
-    print(extractor.docid2passages["some_docid"])
-    assert extractor.docid2passages["some_docid"] == [
-        ["o", "that", "we", "now", "had"],
-        ["now", "had", "here", "but", "one"],
-        ["but", "one", "ten", "thousand", "of"],
-        ["thousand", "of", "those", "men", "in"],
-        ["men", "in"],
-    ]
-
     assert extractor.qid2toks["301"] == ["sc", "##oo", "##by", "doo", "##by", "doo", "where", "are", "you"]
 
 
-def test_bertpassage_id2vec(monkeypatch):
+def test_bertpassage_id2vec_for_triplets(monkeypatch):
     benchmark = DummyBenchmark()
     extractor = BertPassage(
         {"numpassages": 5, "passagelen": 5, "maxseqlen": 15, "stride": 3, "index": {"collection": {"name": "dummy"}}},
@@ -623,7 +612,7 @@ def test_bertpassage_id2vec(monkeypatch):
     topics = {"301": "scooby dooby doo where are you"}
 
     extractor._build_vocab(["301"], ["some_docid"], topics)
-    data = extractor.id2vec("301", "some_docid", negid="some_docid", label=[1, 0])
+    data = extractor.id2vec_for_triplets("301", "some_docid", negid="some_docid", label=[1, 0])
 
     tokenizer = extractor.tokenizer.bert_tokenizer
 
@@ -780,7 +769,7 @@ def test_bertpassage_id2vec_with_pad(monkeypatch):
     topics = {"301": "scooby dooby doo where are you"}
 
     extractor._build_vocab(["301"], ["some_docid"], topics)
-    data = extractor.id2vec("301", "some_docid", negid="some_docid", label=[1, 0])
+    data = extractor.id2vec_for_triplets("301", "some_docid", negid="some_docid", label=[1, 0])
 
     tokenizer = extractor.tokenizer.bert_tokenizer
 

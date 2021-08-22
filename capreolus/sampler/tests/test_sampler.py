@@ -17,10 +17,10 @@ def test_train_sampler(monkeypatch, tmpdir):
     train_dataset = TrainTripletSampler()
     train_dataset.prepare(training_judgments, training_judgments, extractor)
 
-    def mock_id2vec(*args, **kwargs):
+    def mock_id2vec_for_triplets(*args, **kwargs):
         return {"query": np.array([1, 2, 3, 4]), "posdoc": np.array([1, 1, 1, 1]), "negdoc": np.array([2, 2, 2, 2])}
 
-    monkeypatch.setattr(EmbedText, "id2vec", mock_id2vec)
+    monkeypatch.setattr(EmbedText, "id2vec_for_triplets", mock_id2vec_for_triplets)
     dataloader = torch.utils.data.DataLoader(train_dataset, batch_size=32)
     for idx, batch in enumerate(dataloader):
         assert len(batch["query"]) == 32
@@ -47,10 +47,10 @@ def test_pred_sampler(monkeypatch, tmpdir):
     pred_dataset = PredSampler()
     pred_dataset.prepare(benchmark.qrels, search_run, extractor)
 
-    def mock_id2vec(*args, **kwargs):
+    def mock_id2vec_for_triplets(*args, **kwargs):
         return {"query": np.array([1, 2, 3, 4]), "posdoc": np.array([1, 1, 1, 1])}
 
-    monkeypatch.setattr(EmbedText, "id2vec", mock_id2vec)
+    monkeypatch.setattr(EmbedText, "id2vec_for_triplets", mock_id2vec_for_triplets)
     dataloader = torch.utils.data.DataLoader(pred_dataset, batch_size=2)
     for idx, batch in enumerate(dataloader):
         print(idx, batch)

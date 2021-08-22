@@ -1,10 +1,13 @@
 import os
+import time
+from tqdm import tqdm
 
 import numpy as np
 import pytrec_eval
 
 from capreolus.searcher import Searcher
 from capreolus.utils.loginit import get_logger
+from capreolus.utils.trec import pool_trec_passage_run
 
 logger = get_logger(__name__)
 
@@ -44,14 +47,27 @@ def judged(qrels, runs, n):
     return sum(scores) / len(scores)
 
 
-def _eval_runs(runs, qrels, metrics, dev_qids, relevance_level):
+def _eval_runs(runs, qrels, metrics, relevance_level):
+    start = time.time()
+    overlap_qids = set(qrels) & set(runs)
+    if len(overlap_qids) == 0:
+        logger.warning(f"No overlapping qids between qrels and runs. Skip the evaluation")
+        return {m: -1 for m in metrics}
+
+    if set(runs) != set(qrels):
+        logger.warning(
+            f"Queries mismatch in qrels and runs: "
+            + f"Number of queries in qrels: {len(qrels)}; "
+            + f"Number of queries in runs: {len(runs)}; "
+            + f"Number of overlap queries: {len(overlap_qids)}."
+        )
+
     assert isinstance(metrics, list)
     calc_judged = [int(metric.split("_")[1]) for metric in metrics if metric.startswith("judged_")]
     for n in calc_judged:
         metrics.remove(f"judged_{n}")
 
-    dev_qrels = {qid: labels for qid, labels in qrels.items() if qid in dev_qids}
-    evaluator = pytrec_eval.RelevanceEvaluator(dev_qrels, metrics, relevance_level=int(relevance_level))
+    evaluator = pytrec_eval.RelevanceEvaluator(qrels, metrics, relevance_level=int(relevance_level))
     scores = [[metrics_dict.get(m, -1) for m in metrics] for metrics_dict in evaluator.evaluate(runs).values()]
     scores = np.array(scores).mean(axis=0).tolist()
     scores = dict(zip(metrics, scores))
@@ -76,7 +92,7 @@ def eval_runs(runs, qrels, metrics, relevance_level=1):
            dict: a dict in the format ``{metric: score}`` containing the average score for each metric
     """
     metrics = [metrics] if isinstance(metrics, str) else list(metrics)
-    return _eval_runs(runs, qrels, metrics, list(qrels.keys()), relevance_level)
+    return _eval_runs(runs, qrels, metrics, relevance_level)
 
 
 def eval_runfile(runfile, qrels, metrics, relevance_level):
@@ -93,7 +109,7 @@ def eval_runfile(runfile, qrels, metrics, relevance_level):
     """
     metrics = [metrics] if isinstance(metrics, str) else list(metrics)
     runs = Searcher.load_trec_run(runfile)
-    return _eval_runs(runs, qrels, metrics, list(qrels.keys()), relevance_level)
+    return _eval_runs(runs, qrels, metrics, relevance_level)
 
 
 def search_best_run(runfile_dirs, benchmark, primary_metric, metrics=None, folds=None):
@@ -110,7 +126,6 @@ def search_best_run(runfile_dirs, benchmark, primary_metric, metrics=None, folds
     Returns:
        a dict storing specified metric score and path to the corresponding runfile
     """
-
     if not isinstance(runfile_dirs, (list, tuple)):
         runfile_dirs = [runfile_dirs]
 
@@ -129,25 +144,36 @@ def search_best_run(runfile_dirs, benchmark, primary_metric, metrics=None, folds
     best_scores = {s: {primary_metric: 0, "path": None} for s in folds}
     for runfile in runfiles:
         runs = Searcher.load_trec_run(runfile)
-        for s, v in folds.items():
-            score = _eval_runs(
-                runs,
-                benchmark.qrels,
-                [primary_metric],
-                (set(v["train_qids"]) | set(v["predict"]["dev"])),
-                benchmark.relevance_level,
-            )[primary_metric]
-            if score > best_scores[s][primary_metric]:
-                best_scores[s] = {primary_metric: score, "path": runfile}
+        if hasattr(benchmark, "need_pooling") and benchmark.need_pooling:
+            runs = pool_trec_passage_run(runs, strategy=benchmark.config["pool"])
+
+        for fold_name in folds:
+            dev_qrels = {qid: benchmark.qrels[qid] for qid in benchmark.non_nn_dev[fold_name] if qid in benchmark.qrels}
+            score = _eval_runs(runs, dev_qrels, [primary_metric], benchmark.relevance_level)[primary_metric]
+            if score > best_scores[fold_name][primary_metric]:
+                best_scores[fold_name] = {primary_metric: score, "path": runfile, "runs": runs}
+
+    for fold, scores in best_scores.items():
+        logger.info(f"Best dev score on fold {fold}: {primary_metric}={scores[primary_metric]}")
 
     test_runs = {}
     for s, score_dict in best_scores.items():
         test_qids = folds[s]["predict"]["test"]
-        # any empty (no results) queries need to be added so they contribute zeros to the average
-        test_runs.update({qid: {} for qid in test_qids})
-        test_runs.update({qid: v for qid, v in Searcher.load_trec_run(score_dict["path"]).items() if qid in test_qids})
 
+        # TODO: any empty (no results) queries need to be added so they contribute zeros to the average
+        # test_runs = {qid: docids_to_score for qid, docids_to_score in score_dict["runs"].items() if qid in test_qids}
+        test_runs.update(
+            {
+                qid: docids_to_score
+                for qid, docids_to_score in Searcher.load_trec_run(score_dict["path"]).items()
+                if qid in test_qids
+            }
+        )
+
+    if hasattr(benchmark, "need_pooling") and benchmark.need_pooling:
+        test_runs = pool_trec_passage_run(test_runs, strategy=benchmark.config["pool"])
     scores = eval_runs(test_runs, benchmark.qrels, metrics, benchmark.relevance_level)
+
     return {"score": scores, "path": {s: v["path"] for s, v in best_scores.items()}}
 
 

@@ -10,7 +10,7 @@ from capreolus.tests.common_fixtures import dummy_index, tmpdir_as_cache
 
 skip_searchers = {"bm25staticrob04yang19", "BM25Grid", "BM25Postprocess", "axiomatic"}
 searchers = set(module_registry.get_module_names("searcher")) - skip_searchers
-searchers = [x for x in searchers if "static" not in x]
+searchers = [x for x in searchers if "static" not in x and x != "faiss"]
 
 
 @pytest.mark.parametrize("searcher_name", searchers)

@@ -83,6 +83,52 @@ class AnseriniIndex(Index):
         except Exception as e:
             raise
 
+    def convert_lucene_ids_to_doc_ids(self, lucene_ids):
+        return [self.convert_lucene_id_to_doc_id(lucene_id) for lucene_id in lucene_ids]
+
+    def convert_lucene_id_to_doc_id(self, lucene_id):
+        if not hasattr(self, "index_utils") or self.index_utils is None or not hasattr(self, "reader") or self.reader is None:
+            self.open()
+
+        return self.index_reader_utils.convertLuceneDocidToDocid(self.reader, lucene_id)
+
+    def convert_doc_id_to_lucene_id(self, doc_id):
+        if not hasattr(self, "index_utils") or self.index_utils is None or not hasattr(self, "reader") or self.reader is None:
+            self.open()
+
+        return self.index_reader_utils.convertDocidToLuceneDocid(self.reader, doc_id)
+
+    def get_all_docids_in_collection(self):
+        from jnius import autoclass
+
+        self.create_index()
+
+        anserini_index_path = self.get_index_path().as_posix()
+
+        JFile = autoclass("java.io.File")
+        JFSDirectory = autoclass("org.apache.lucene.store.FSDirectory")
+        fsdir = JFSDirectory.open(JFile(anserini_index_path).toPath())
+        anserini_index_reader = autoclass("org.apache.lucene.index.DirectoryReader").open(fsdir)
+
+        # TODO: Add check for deleted rows in the index
+        all_doc_ids = [self.convert_lucene_id_to_doc_id(i) for i in range(0, anserini_index_reader.maxDoc())]
+
+        return all_doc_ids
+
+    def get_anserini_index_reader(self):
+        from jnius import autoclass
+
+        self.create_index()
+
+        anserini_index_path = self.get_index_path().as_posix()
+
+        JFile = autoclass("java.io.File")
+        JFSDirectory = autoclass("org.apache.lucene.store.FSDirectory")
+        fsdir = JFSDirectory.open(JFile(anserini_index_path).toPath())
+        anserini_index_reader = autoclass("org.apache.lucene.index.DirectoryReader").open(fsdir)
+
+        return anserini_index_reader
+
     def get_df(self, term):
         # returns 0 for missing terms
         if not hasattr(self, "reader") or self.reader is None:

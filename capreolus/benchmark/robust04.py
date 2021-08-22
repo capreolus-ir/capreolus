@@ -1,4 +1,4 @@
-from capreolus import Dependency, constants
+from capreolus import Dependency, constants, ConfigOption
 
 from . import Benchmark
 
@@ -41,6 +41,32 @@ class Robust04Yang19(Benchmark):
 @Benchmark.register
 class Robust04Yang19Desc(Robust04Yang19, Benchmark):
     module_name = "robust04.yang19.desc"
+    query_type = "desc"
+
+
+@Benchmark.register
+class Robust04Passages(Benchmark):
+    """
+    Split robust04 into passages
+    """
+
+    module_name = "robust04passages"
+    dependencies = [Dependency(key="collection", module="collection", name="robust04passages")]
+    config_spec = [ConfigOption("pool", "max", "Strategy used to aggregate passage level scores")]
+    qrel_file = PACKAGE_PATH / "data" / "qrels.robust2004.txt"
+    topic_file = PACKAGE_PATH / "data" / "topics.robust04.301-450.601-700.txt"
+    fold_file = PACKAGE_PATH / "data" / "rob04_cedr_folds.json"
+    query_type = "title"
+    need_pooling = True
+
+
+@Benchmark.register
+class Robust04PassagesDesc(Robust04Passages, Benchmark):
+    """
+    Split robust04 into passages
+    """
+
+    module_name = "robust04passagesdesc"
     query_type = "desc"
 
 

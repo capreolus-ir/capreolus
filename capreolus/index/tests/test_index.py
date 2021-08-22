@@ -1,11 +1,14 @@
 import pytest
 
 from capreolus import module_registry
+from capreolus.benchmark import DummyBenchmark
 from capreolus.collection import DummyCollection
 from capreolus.index import Index
 from capreolus.tests.common_fixtures import dummy_index, tmpdir_as_cache
 
 indexs = set(module_registry.get_module_names("index"))
+# Because the FAISS index doesn't implement the create_index API
+indexs.remove("faiss")
 
 
 @pytest.mark.parametrize("index_name", indexs)
