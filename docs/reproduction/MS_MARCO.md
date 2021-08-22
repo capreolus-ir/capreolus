@@ -10,7 +10,7 @@ Once the environment is set, you can verify the installation with [these instruc
 ## Running MS MARCO 
 This requires GPU(s) with 48GB memory (e.g. 3 V100 or a RTX 8000) or a TPU. 
 1. Make sure you are in the top-level `capreolus` directory;
-2. Use the following script to quickly test if everything is working. 
+2. Use the following script to run a "mini" version of the MS MARCO fine-tuning, testing if everything is working. 
     ```bash
     python -m capreolus.run rerank.train with file=docs/reproduction/config_msmarco.txt
     ``` 
@@ -20,14 +20,15 @@ This requires GPU(s) with 48GB memory (e.g. 3 V100 or a RTX 8000) or a TPU.
 
 3. Once the above is done, we can fine-tune a full version on MS MARCO Passage using the following scripts: 
     ```bash
-    # must change
     niters=10
     batch_size=16
     validatefreq=$niters # to ensure the validation is run only at the end of training
     decayiters=$niters   # either same with $itersize or 0
+    threshold=1000       # the top-k documents to rerank
 
     python -m capreolus.run rerank.train with \
         file=docs/reproduction/config_msmarco.txt  \
+        threshold=$threshold \
         reranker.trainer.niters=$niters \
         reranker.trainer.batch=$batch_size \
         reranker.trainer.decayiters=$decayiters \
@@ -37,6 +38,15 @@ This requires GPU(s) with 48GB memory (e.g. 3 V100 or a RTX 8000) or a TPU.
     The data preparation time may vary a lot on different machines.
     After data is prepared, it would take 4~6 hours to train and 6～10 hours to inference with *4 V100s* for BERT-base. 
     This should achieve `MRR@10=0.35+`.
+
+### For CC slurm users:
+In case you are new to [slurm](https://slurm.schedmd.com/documentation.html), a sample slurm script for the *full version* fine-tuning could be found under `docs/reproduction/sample_slurm_script.sh`.
+This should work on `cedar` directly via `sbatch sample_slurm_script.sh`.
+To adapt it to the `mini` version, simply change the GPU number and request time into:
+```
+#SBATCH --gres=gpu:v100l:1
+#SBATCH --time=24:00:00
+``` 
 
 ## Replication Logs
 + Results (with hypperparameter-0) replicated by [@crystina-z](https://github.com/crystina-z) on 2020-12-06 (commit [`6c3759f`](https://github.com/crystina-z/capreolus-1/commit/6c3759fe620f18f8939670176a18c744752bc9240)) (Tesla V100 on Compute Canada)
