@@ -1,10 +1,10 @@
 optimize=MRR@10
-threshold=1000
+threshold=100
 
 benchmark.name=msmarcopsg
 rank.searcher.name=msmarcopsgbm25
-reranker.name=TFBERTMaxP
 
+reranker.name=TFBERTMaxP
 reranker.pretrained=bert-base-uncased
 
 reranker.extractor.usecache=True
@@ -14,12 +14,12 @@ reranker.extractor.maxqlen=50
 reranker.extractor.tokenizer.pretrained=bert-base-uncased
 
 reranker.trainer.usecache=True
-reranker.trainer.niters=10
-reranker.trainer.batch=16
+reranker.trainer.niters=1
+reranker.trainer.batch=4
 reranker.trainer.evalbatch=256
 reranker.trainer.itersize=48000
 reranker.trainer.warmupiters=1
-reranker.trainer.decayiters=10
+reranker.trainer.decayiters=1
 reranker.trainer.decaytype=linear
 
 reranker.trainer.loss=pairwise_hinge_loss
