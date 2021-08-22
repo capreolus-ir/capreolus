@@ -9,7 +9,7 @@ from capreolus.utils.common import download_file, get_udel_query_expander
 from capreolus.utils.loginit import get_logger
 from capreolus.utils.trec import load_qrels, topic_to_trectxt
 
-from . import Benchmark
+from . import Benchmark, validate
 
 logger = get_logger(__name__)
 PACKAGE_PATH = constants["PACKAGE_PATH"]
@@ -30,6 +30,7 @@ class COVID(Benchmark):
 
     config_spec = [ConfigOption("udelqexpand", False), ConfigOption("useprevqrels", True)]
 
+    @validate
     def build(self):
         if self.collection.config["round"] == self.lastest_round and not self.config["useprevqrels"]:
             logger.warning(f"No evaluation can be done for the lastest round without using previous qrels")

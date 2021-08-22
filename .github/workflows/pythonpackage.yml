@@ -1,6 +1,9 @@
 name: pytest
 
-on: [push]
+on:
+  push:
+  pull_request:
+    types: [opened, edited, review_requested, synchronize, reopened]
 
 jobs:
   conda-build:
@@ -58,7 +61,7 @@ jobs:
         args: ". --check --config capreolus/pyproject.toml"
     - name: Install dependencies
       run: |
-        python -m pip install --upgrade pip
+        python -m pip install --upgrade pip==21.1.3
         # cython should be installed seperately due to a pip bug. For some reason, it tries to build pyjnius before building cython
         pip install cython
         pip install -r requirements.txt

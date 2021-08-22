@@ -32,10 +32,16 @@ class Searcher(ModuleBase):
         run = OrderedDefaultDict()
 
         with open(fn, "rt") as f:
-            for line in f:
+            for i, line in enumerate(f):
                 line = line.strip()
                 if len(line) > 0:
-                    qid, _, docid, rank, score, desc = line.split(" ")
+                    try:
+                        qid, _, docid, rank, score, desc = line.split()
+                    except ValueError as e:
+                        logger.error(
+                            f"Encountered malformated line when reading {fn} [Line #{i}], possibly because the writing to runfile was interruptded."
+                        )
+                        raise e
                     run[qid][docid] = float(score)
         return run
 

@@ -6,50 +6,46 @@ first follow [this](../setup/setup-cc.md) guide to set up the environment on CC 
 
 Once the environment is set, you can verify the installation with [these instructions](./PARADE.md#testing-installation).
 
-## Explore LR Scheduler Setting
-Below are the possible lr scheduler values (combination) you can pick up and run: <br/> 
-
-| No.         |   | bertlr | lr   | itersize | warmupsteps | decaystep | decaytype | Expected |
-|-------------|---|--------|------|----------|-------------|-----------|-----------|----------|
-| 0 (default) |   | 2e-5   | 1e-3 |    30000 |           0 |         0 | None      | 0.33+    | 
-| 1           |   | 2e-5   | 2e-5 |    30000 |           0 |         0 | None      ||
-| 2           |   | 2e-5   | 1e-3 |    30000 |        3000 |         0 | None      ||
-| 3           |   | 2e-5   | 2e-5 |    30000 |        3000 |         0 | None      ||
-| 4           |   | 2e-5   | 1e-3 |    30000 |           0 |     30000 | linear    ||
-| 5           |   | 2e-5   | 2e-5 |    30000 |           0 |     30000 | linear    ||
-| 6           |   | 2e-5   | 1e-3 |    30000 |        3000 |     30000 | linear    | 0.35+    |
-| 7           |   | 2e-5   | 2e-5 |    30000 |        3000 |     30000 | linear    | 0.35+    |
-| 8           |   | 3e-5   | 1e-3 |    30000 |        3000 |     30000 | linear    ||
-| 9           |   | 3e-5   | 3e-5 |    30000 |        3000 |     30000 | linear    ||
-
 ## Running MS MARCO 
 This requires GPU(s) with 48GB memory (e.g. 3 V100 or a RTX 8000) or a TPU. 
-1. Make sure you are in the top-level `capreolus` directory; 
-2. Train on MS MARCO Passage using the following scripts, 
-    while replacing the lr scheduler variables with the one you picked up <br/> 
-    ```
-    lr=1e-3
-    bertlr=2e-5   
-    itersize=30000
-    warmupsteps=3000
-    decaystep=$itersize  # either same with $itersize or 0
-    decaytype=linear
-   
+1. Make sure you are in the top-level `capreolus` directory;
+2. Use the following script to run a "mini" version of the MS MARCO fine-tuning, testing if everything is working. 
+    ```bash
+    python -m capreolus.run rerank.train with file=docs/reproduction/config_msmarco.txt
+    ``` 
+    This would train the monoBERT for only 3k steps with batch size to be 4, then rerank the *top100* documents per query. 
+    The script should take no more than 24 hours to finish, and could be fit into a single `v100l`.
+    At the end of execusion, it would display a bunch of metrics, where `MRR@10` should be around `0.295`.
+
+3. Once the above is done, we can fine-tune a full version on MS MARCO Passage using the following scripts: 
+    ```bash
+    niters=10
+    batch_size=16
+    validatefreq=$niters # to ensure the validation is run only at the end of training
+    decayiters=$niters   # either same with $itersize or 0
+    threshold=1000       # the top-k documents to rerank
+
     python -m capreolus.run rerank.train with \
         file=docs/reproduction/config_msmarco.txt  \
-        reranker.trainer.lr=$lr \
-        reranker.trainer.bertlr=$bertlr \
-        reranker.trainer.itersize=$itersize \
-        reranker.trainer.warmupsteps=$warmupsteps \
-        reranker.trainer.decaystep=$decaystep \
-        reranker.trainer.decaytype="linear" \
+        threshold=$threshold \
+        reranker.trainer.niters=$niters \
+        reranker.trainer.batch=$batch_size \
+        reranker.trainer.decayiters=$decayiters \
+        reranker.trainer.validatefreq=$validatefreq \
         fold=s1
     ```
-3.  Without data preparation, it will take 4~6 hours to train and 8～10 hours to inference on *4 V100s* for BERT-base, 
-    and longer on for BERT-large. 
-    Per-fold metrics on dev set are displayed after completion, where `MRR@10` is the one to use for this task.
-    (for CC users, BERT-large can only be run with batch size 16 on `graham` `cedar`, 
-    as each node on `beluga` has 16GB memory at maximum) 
+    The data preparation time may vary a lot on different machines.
+    After data is prepared, it would take 4~6 hours to train and 6～10 hours to inference with *4 V100s* for BERT-base. 
+    This should achieve `MRR@10=0.35+`.
+
+### For CC slurm users:
+In case you are new to [slurm](https://slurm.schedmd.com/documentation.html), a sample slurm script for the *full version* fine-tuning could be found under `docs/reproduction/sample_slurm_script.sh`.
+This should work on `cedar` directly via `sbatch sample_slurm_script.sh`.
+To adapt it to the `mini` version, simply change the GPU number and request time into:
+```
+#SBATCH --gres=gpu:v100l:1
+#SBATCH --time=24:00:00
+``` 
 
 ## Replication Logs
 + Results (with hypperparameter-0) replicated by [@crystina-z](https://github.com/crystina-z) on 2020-12-06 (commit [`6c3759f`](https://github.com/crystina-z/capreolus-1/commit/6c3759fe620f18f8939670176a18c744752bc9240)) (Tesla V100 on Compute Canada)
