@@ -74,6 +74,11 @@ class MsmarcoPsgSearcherMixin:
 
 @Searcher.register
 class MsmarcoPsg(Searcher, MsmarcoPsgSearcherMixin):
+    """
+    Skip the searching on training set by converting the official training triplet into a "fake" runfile.
+    Use the offical runfile for the development and the test set.
+    """
+
     module_name = "msmarcopsg"
     dependencies = [Dependency(key="benchmark", module="benchmark", name="msmarcopsg")]
     config_spec = [
@@ -114,6 +119,11 @@ class MsmarcoPsg(Searcher, MsmarcoPsgSearcherMixin):
 
 @Searcher.register
 class MsmarcoPsgBm25(BM25, MsmarcoPsgSearcherMixin):
+    """
+    Skip the searching on training set by converting the official training triplet into a "fake" runfile.
+    Conduct configurable BM25 search on the development and the test set.
+    """
+
     module_name = "msmarcopsgbm25"
     dependencies = [
         Dependency(key="benchmark", module="benchmark", name="msmarcopsg"),
@@ -162,6 +172,11 @@ class MsmarcoPsgBm25(BM25, MsmarcoPsgSearcherMixin):
 # todo: make this another type of "Module" (e.g. DPR Module)
 @Searcher.register
 class StaticTctColBertDev(Searcher, MsmarcoPsgSearcherMixin):
+    """
+    Skip the searching on training set by converting the official training triplet into a "fake" runfile.
+    Use the runfile pre-prepared using TCT-ColBERT (https://cs.uwaterloo.ca/~jimmylin/publications/Lin_etal_2021_RepL4NLP.pdf)
+    """
+
     module_name = "static_tct_colbert"
     dependencies = [Dependency(key="benchmark", module="benchmark", name="msmarcopsg")]
     config_spec = [
