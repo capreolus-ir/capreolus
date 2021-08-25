@@ -14,10 +14,6 @@ logger = get_logger(__name__)
 SUPPORTED_TRIPLE_FILE = ["small", "large.v1", "large.v2"]
 
 
-def get_file_line_number(fn):
-    return int(os.popen(f"wc -l {fn}").readline().split()[0])
-
-
 class MsmarcoPsgSearcherMixin:
     @staticmethod
     def convert_to_trec_runs(msmarco_top1k_fn, style="eval"):
