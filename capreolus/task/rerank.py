@@ -83,13 +83,14 @@ class RerankTask(Task):
             dev_run, self.benchmark.qrels, self.reranker.extractor, relevance_level=self.benchmark.relevance_level
         )
 
+        dev_qrels = {qid: self.benchmark.qrels[qid] for qid in self.benchmark.non_nn_dev[fold] if qid in self.benchmark.qrels}
         dev_preds = self.reranker.trainer.train(
             self.reranker,
             train_dataset,
             train_output_path,
             dev_dataset,
             dev_output_path,
-            self.benchmark.qrels,
+            dev_qrels,
             self.config["optimize"],
             self.benchmark.relevance_level,
         )
@@ -185,15 +186,13 @@ class RerankTask(Task):
             logger.error("could not find predictions; run the train command first")
             raise ValueError("could not find predictions; run the train command first")
 
-        fold_dev_metrics = evaluator.eval_runs(
-            reranker_runs[fold]["dev"], self.benchmark.qrels, metrics, self.benchmark.relevance_level
-        )
+        dev_qrels = {qid: self.benchmark.qrels.get(qid, {}) for qid in self.benchmark.folds[fold]["predict"]["dev"]}
+        fold_dev_metrics = evaluator.eval_runs(reranker_runs[fold]["dev"], dev_qrels, metrics, self.benchmark.relevance_level)
         pretty_fold_dev_metrics = " ".join([f"{metric}={v:0.3f}" for metric, v in sorted(fold_dev_metrics.items())])
         logger.info("rerank: fold=%s dev metrics: %s", fold, pretty_fold_dev_metrics)
 
-        fold_test_metrics = evaluator.eval_runs(
-            reranker_runs[fold]["test"], self.benchmark.qrels, metrics, self.benchmark.relevance_level
-        )
+        test_qrels = {qid: self.benchmark.qrels.get(qid, {}) for qid in self.benchmark.folds[fold]["predict"]["test"]}
+        fold_test_metrics = evaluator.eval_runs(reranker_runs[fold]["test"], test_qrels, metrics, self.benchmark.relevance_level)
         pretty_fold_test_metrics = " ".join([f"{metric}={v:0.3f}" for metric, v in sorted(fold_test_metrics.items())])
         logger.info("rerank: fold=%s test metrics: %s", fold, pretty_fold_test_metrics)
 

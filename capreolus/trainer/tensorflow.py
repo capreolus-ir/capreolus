@@ -242,6 +242,7 @@ class TensorflowTrainer(Trainer):
         logger.info("starting training from iteration %s/%s", initial_iter + 1, self.config["niters"])
         logger.info(f"Best metric loaded: {metric}={dev_best_metric}")
 
+        best_trec_preds = {}
         cur_step = initial_iter * self.n_batch_per_iter
         initial_lr = self.change_lr(step=cur_step, lr=self.config["bertlr"])
         K.set_value(optimizer_2.lr, K.get_value(initial_lr))
@@ -300,11 +301,12 @@ class TensorflowTrainer(Trainer):
                         self.write_to_metric_file(metric_fn, metrics)
                         wrapped_model.save_weights(dev_best_weight_fn)
                         Searcher.write_trec_run(trec_preds, outfn=(dev_output_path / "best").as_posix())
+                        best_trec_preds = trec_preds
 
             if cur_step >= self.config["niters"] * self.n_batch_per_iter:
                 break
 
-        return trec_preds
+        return best_trec_preds
 
     def predict(self, reranker, pred_data, pred_fn):
         pred_records = self.get_tf_dev_records(reranker, pred_data)
