@@ -52,3 +52,4 @@ dependencies:
     - ir_datasets
     - gdown
     - six==1.16.0
+    - faiss-cpu
