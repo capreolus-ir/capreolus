@@ -2,7 +2,6 @@ import pickle
 import os
 import tensorflow as tf
 import numpy as np
-from collections import defaultdict
 from tqdm import tqdm
 
 
@@ -297,12 +296,14 @@ class BertPassage(Extractor):
         return chunked_sents
 
     def _build_vocab(self, qids, docids, topics):
+        """only build vocab for queries as the size of docidid2document would be large for some of the document retrieval collection."""
         if self.is_state_cached(qids, docids) and self.config["usecache"]:
             logger.info("Vocabulary loaded from cache")
-            self.load_state(qids)
+            self.load_state(qids, docids)
         else:
             logger.info("Building BertPassage vocabulary")
             self.qid2toks = {qid: self.tokenizer.tokenize(topics[qid]) for qid in tqdm(qids, desc="querytoks")}
+            self.cache_state(qids, docids)
 
     def exist(self):
         return hasattr(self, "qid2toks") and len(self.qid2toks)

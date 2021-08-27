@@ -7,10 +7,12 @@ import pytrec_eval
 
 from capreolus.searcher import Searcher
 from capreolus.utils.loginit import get_logger
+from capreolus.eval.msmarco_eval import compute_metrics_from_files
 from capreolus.utils.trec import pool_trec_passage_run
 
 logger = get_logger(__name__)
 
+MRR_10 = "MRR@10"
 DEFAULT_METRICS = [
     "P_1",
     "P_5",
@@ -26,6 +28,7 @@ DEFAULT_METRICS = [
     "recall_100",
     "recall_1000",
     "recip_rank",
+    MRR_10,
 ]
 
 
@@ -41,14 +44,18 @@ def judged(qrels, runs, n):
             continue
 
         topn = sorted(rundocs.keys(), key=rundocs.get, reverse=True)[:n]
-        score = sum(docid in qrels[q] for docid in topn) / len(topn)
+        score = sum(docid in qrels.get(q, {}) for docid in topn) / len(topn)
         scores.append(score)
 
     return sum(scores) / len(scores)
 
 
+def mrr_10(qrels, runs):
+    # qrels = {k: v for k, v in qrels.items() if k in runs}
+    return list(compute_metrics_from_files(trec_qrels=qrels, trec_runs=runs).values())[0]
+
+
 def _eval_runs(runs, qrels, metrics, relevance_level):
-    start = time.time()
     overlap_qids = set(qrels) & set(runs)
     if len(overlap_qids) == 0:
         logger.warning(f"No overlapping qids between qrels and runs. Skip the evaluation")
@@ -66,14 +73,17 @@ def _eval_runs(runs, qrels, metrics, relevance_level):
     calc_judged = [int(metric.split("_")[1]) for metric in metrics if metric.startswith("judged_")]
     for n in calc_judged:
         metrics.remove(f"judged_{n}")
+    trec_metrics = [m for m in metrics if m not in [MRR_10]]
 
-    evaluator = pytrec_eval.RelevanceEvaluator(qrels, metrics, relevance_level=int(relevance_level))
-    scores = [[metrics_dict.get(m, -1) for m in metrics] for metrics_dict in evaluator.evaluate(runs).values()]
+    evaluator = pytrec_eval.RelevanceEvaluator(qrels, trec_metrics, relevance_level=int(relevance_level))
+    scores = [[metrics_dict.get(m, -1) for m in trec_metrics] for metrics_dict in evaluator.evaluate(runs).values()]
     scores = np.array(scores).mean(axis=0).tolist()
-    scores = dict(zip(metrics, scores))
+    scores = dict(zip(trec_metrics, scores))
 
     for n in calc_judged:
         scores[f"judged_{n}"] = judged(qrels, runs, n)
+    if MRR_10 in metrics:
+        scores[MRR_10] = mrr_10(qrels, runs)
 
     return scores
 
