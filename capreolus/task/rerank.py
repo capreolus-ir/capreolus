@@ -2,10 +2,15 @@ import os
 from collections import defaultdict
 from pathlib import Path
 
+from ir_measures import *
+from ir_measures.measures import Measure
+
 from capreolus import ConfigOption, Dependency, evaluator
 from capreolus.sampler import PredSampler
 from capreolus.searcher import Searcher
+from capreolus.evaluator import log_metrics_verbose, format_metrics_string
 from capreolus.task import Task
+from capreolus.utils.trec import DEFAULT_METRICS
 from capreolus.utils.loginit import get_logger
 
 logger = get_logger(__name__)
@@ -16,7 +21,7 @@ class RerankTask(Task):
     module_name = "rerank"
     config_spec = [
         ConfigOption("fold", "s1", "fold to run"),
-        ConfigOption("optimize", "map", "metric to maximize on the dev set"),  # affects train() because we check to save weights
+        ConfigOption("optimize", "AP", "metric to maximize on the dev set"),  # affects train() because we check to save weights
         ConfigOption("metrics", "default", "metrics reported for evaluation", value_type="strlist"),
         ConfigOption("threshold", 100, "Number of docids per query to evaluate during prediction"),
         ConfigOption("testthreshold", 1000, "Number of docids per query to evaluate on test data"),
@@ -52,6 +57,7 @@ class RerankTask(Task):
             train_output_path = Path(train_output_path)
 
         fold = self.config["fold"]
+        optimize = self.config["optimize"] if isinstance(self.config["optimize"], Measure) else eval(self.config["optimize"])
         dev_output_path = train_output_path / "pred" / "dev"
         logger.debug("results path: %s", train_output_path)
 
@@ -91,8 +97,9 @@ class RerankTask(Task):
             dev_dataset,
             dev_output_path,
             dev_qrels,
-            self.config["optimize"],
-            self.benchmark.relevance_level,
+            optimize,
+            self.benchmark,
+            # self.benchmark.relevance_level,
         )
 
         self.reranker.trainer.load_best_model(self.reranker, train_output_path)
@@ -169,16 +176,15 @@ class RerankTask(Task):
         train_output_path = self.get_results_path()
         searcher_runs, reranker_runs = self.find_birch_crossvalidated_results()
 
-        fold_test_metrics = evaluator.eval_runs(
-            reranker_runs[fold]["test"], self.benchmark.qrels, evaluator.DEFAULT_METRICS, self.benchmark.relevance_level
-        )
+        fold_test_metrics = self.benchmark.evaluate(reranker_runs[fold]["test"], metrics=DEFAULT_METRICS)
         logger.info("rerank: fold=%s test metrics: %s", fold, fold_test_metrics)
 
     def evaluate(self):
         fold = self.config["fold"]
         train_output_path = self.get_results_path()
         logger.debug("results path: %s", train_output_path)
-        metrics = self.config["metrics"] if list(self.config["metrics"]) != ["default"] else evaluator.DEFAULT_METRICS
+        metrics = self.config["metrics"] if list(self.config["metrics"]) != ["default"] else DEFAULT_METRICS
+        optimize = self.config["optimize"] if isinstance(self.config["optimize"], Measure) else eval(self.config["optimize"])
 
         searcher_runs, reranker_runs = self.find_crossvalidated_results()
 
@@ -187,13 +193,13 @@ class RerankTask(Task):
             raise ValueError("could not find predictions; run the train command first")
 
         dev_qrels = {qid: self.benchmark.qrels.get(qid, {}) for qid in self.benchmark.folds[fold]["predict"]["dev"]}
-        fold_dev_metrics = evaluator.eval_runs(reranker_runs[fold]["dev"], dev_qrels, metrics, self.benchmark.relevance_level)
-        pretty_fold_dev_metrics = " ".join([f"{metric}={v:0.3f}" for metric, v in sorted(fold_dev_metrics.items())])
+        fold_dev_metrics = self.benchmark.evaluate(reranker_runs[fold]["dev"], dev_qrels, metrics)
+        pretty_fold_dev_metrics = format_metrics_string(fold_dev_metrics)
         logger.info("rerank: fold=%s dev metrics: %s", fold, pretty_fold_dev_metrics)
 
         test_qrels = {qid: self.benchmark.qrels.get(qid, {}) for qid in self.benchmark.folds[fold]["predict"]["test"]}
-        fold_test_metrics = evaluator.eval_runs(reranker_runs[fold]["test"], test_qrels, metrics, self.benchmark.relevance_level)
-        pretty_fold_test_metrics = " ".join([f"{metric}={v:0.3f}" for metric, v in sorted(fold_test_metrics.items())])
+        fold_test_metrics = self.benchmark.evaluate(reranker_runs[fold]["test"], test_qrels, metrics)
+        pretty_fold_test_metrics = format_metrics_string(fold_test_metrics)
         logger.info("rerank: fold=%s test metrics: %s", fold, pretty_fold_test_metrics)
 
         if len(reranker_runs) != len(self.benchmark.folds):
@@ -217,17 +223,11 @@ class RerankTask(Task):
                 for docid, score in docscores.items():
                     all_preds[qid][docid] = score
 
-        cv_metrics = evaluator.eval_runs(all_preds, self.benchmark.qrels, metrics, self.benchmark.relevance_level)
-        interpolated_results = evaluator.interpolated_eval(
-            searcher_runs, reranker_runs, self.benchmark, self.config["optimize"], metrics
-        )
+        cv_metrics = self.benchmark.evaluate(all_preds, metrics=metrics)
+        interpolated_results = evaluator.interpolated_eval(searcher_runs, reranker_runs, self.benchmark, optimize, metrics)
 
-        for metric, score in sorted(cv_metrics.items()):
-            logger.info("%25s: %0.4f", metric, score)
-
-        logger.info("interpolated with alphas = %s", sorted(interpolated_results["alphas"].values()))
-        for metric, score in sorted(interpolated_results["score"].items()):
-            logger.info("%25s: %0.4f", metric + " [interp]", score)
+        log_metrics_verbose(cv_metrics)
+        log_metrics_verbose(interpolated_results["score"])
 
         return {
             "fold_test_metrics": fold_test_metrics,

@@ -12,9 +12,10 @@ from tensorflow.python.keras import backend as K
 from tqdm import tqdm
 
 from capreolus.searcher import Searcher
-from capreolus import ConfigOption, evaluator
+from capreolus import ConfigOption
 from capreolus.trainer import Trainer
 from capreolus.utils.loginit import get_logger
+from capreolus.evaluator import log_metrics_verbose, format_metrics_string
 from capreolus.reranker.common import TFPairwiseHingeLoss, TFCategoricalCrossEntropyLoss, KerasPairModel, KerasTripletModel
 from tensorflow.keras.mixed_precision import experimental as mixed_precision
 
@@ -134,7 +135,7 @@ class TensorflowTrainer(Trainer):
         if self.tpu and self.config["tpuname"] != "LOCAL" and not self.config["storage"].startswith("gs://"):
             raise ValueError("For TPU utilization, the storage config should start with 'gs://'")
 
-    def train(self, reranker, train_dataset, train_output_path, dev_data, dev_output_path, qrels, metric, relevance_level=1):
+    def train(self, reranker, train_dataset, train_output_path, dev_data, dev_output_path, qrels, metric, benchmark):
         if self.tpu:
             # WARNING: not sure if pathlib is compatible with gs://
             train_output_path = Path(
@@ -292,8 +293,9 @@ class TensorflowTrainer(Trainer):
                             dev_predictions.extend(p)
 
                     trec_preds = self.get_preds_in_trec_format(dev_predictions, dev_data)
-                    metrics = evaluator.eval_runs(trec_preds, dict(qrels), evaluator.DEFAULT_METRICS, relevance_level)
-                    logger.info("dev metrics: %s", " ".join([f"{metric}={v:0.3f}" for metric, v in sorted(metrics.items())]))
+                    metrics = benchmark.evaluate(trec_preds, dict(qrels))
+                    logger.info("dev metrics: %s", format_metrics_string(metrics))
+
                     if metrics[metric] > dev_best_metric:
                         dev_best_metric = metrics[metric]
                         logger.info("new best dev metric: %0.4f", dev_best_metric)

@@ -7,168 +7,21 @@ from capreolus.searcher import Searcher
 from capreolus.utils.loginit import get_logger
 from capreolus.eval.msmarco_eval import compute_metrics_from_files
 
+from ir_measures import *
+from ir_measures.measures import Measure
+
 logger = get_logger(__name__)
 
-MRR_10 = "MRR@10"
-DEFAULT_METRICS = [
-    "P_1",
-    "P_5",
-    "P_10",
-    "P_20",
-    "judged_10",
-    "judged_20",
-    "judged_200",
-    "map",
-    "ndcg_cut_5",
-    "ndcg_cut_10",
-    "ndcg_cut_20",
-    "recall_100",
-    "recall_1000",
-    "recip_rank",
-    MRR_10,
-]
+
+def format_metrics_string(metrics_scores_dict):
+    return " ".join(
+        [f"{metric}={v:0.3f}" for metric, v in sorted(metrics_scores_dict.items(), key=lambda kv: (str(kv[0]), kv[1]))]
+    )
 
 
-def judged(qrels, runs, n):
-    scores = []
-    for q, rundocs in runs.items():
-        if q not in qrels:
-            logger.error(f"{q} in run files cannot be found in qrels")
-            continue
-
-        if len(rundocs) == 0:
-            scores.append(0)
-            continue
-
-        topn = sorted(rundocs.keys(), key=rundocs.get, reverse=True)[:n]
-        score = sum(docid in qrels.get(q, {}) for docid in topn) / len(topn)
-        scores.append(score)
-
-    return sum(scores) / len(scores)
-
-
-def mrr_10(qrels, runs):
-    # qrels = {k: v for k, v in qrels.items() if k in runs}
-    return list(compute_metrics_from_files(trec_qrels=qrels, trec_runs=runs).values())[0]
-
-
-def _eval_runs(runs, qrels, metrics, relevance_level):
-    overlap_qids = set(qrels) & set(runs)
-    if len(overlap_qids) == 0:
-        logger.warning(f"No overlapping qids between qrels and runs. Skip the evaluation")
-        return {m: -1 for m in metrics}
-
-    if set(runs) != set(qrels):
-        logger.warning(
-            f"Queries mismatch in qrels and runs: "
-            + f"Number of queries in qrels: {len(qrels)}; "
-            + f"Number of queries in runs: {len(runs)}; "
-            + f"Number of overlap queries: {len(overlap_qids)}."
-        )
-
-    assert isinstance(metrics, list)
-    calc_judged = [int(metric.split("_")[1]) for metric in metrics if metric.startswith("judged_")]
-    for n in calc_judged:
-        metrics.remove(f"judged_{n}")
-    trec_metrics = [m for m in metrics if m not in [MRR_10]]
-
-    evaluator = pytrec_eval.RelevanceEvaluator(qrels, trec_metrics, relevance_level=int(relevance_level))
-    scores = [[metrics_dict.get(m, -1) for m in trec_metrics] for metrics_dict in evaluator.evaluate(runs).values()]
-    scores = np.array(scores).mean(axis=0).tolist()
-    scores = dict(zip(trec_metrics, scores))
-
-    for n in calc_judged:
-        scores[f"judged_{n}"] = judged(qrels, runs, n)
-    if MRR_10 in metrics:
-        scores[MRR_10] = mrr_10(qrels, runs)
-
-    return scores
-
-
-def eval_runs(runs, qrels, metrics, relevance_level=1):
-    """
-    Evaluate runs produced by a ranker (or loaded with Searcher.load_trec_run)
-
-    Args:
-        runs: dict in the format ``{qid: {docid: score}}``
-        qrels: dict containing relevance judgements (e.g., ``benchmark.qrels``)
-        metrics (str or list): metrics to calculate (e.g., ``evaluator.DEFAULT_METRICS``)
-        relevance_level (int): relevance label threshold to use with non-graded metrics (equivalent to trec_eval's --level_for_rel)
-
-    Returns:
-           dict: a dict in the format ``{metric: score}`` containing the average score for each metric
-    """
-    metrics = [metrics] if isinstance(metrics, str) else list(metrics)
-    return _eval_runs(runs, qrels, metrics, relevance_level)
-
-
-def eval_runfile(runfile, qrels, metrics, relevance_level):
-    """
-    Evaluate a single runfile produced by ranker or reranker
-
-    Args:
-        runfile: str, path to runfile
-        qrels: dict, containing the judgements provided by benchmark
-        metrics: str or list, metrics expected to calculate, e.g. ndcg_cut_20, etc
-
-    Returns:
-        a dict with format {metric: score}, containing the evaluation score of specified metrics
-    """
-    metrics = [metrics] if isinstance(metrics, str) else list(metrics)
-    runs = Searcher.load_trec_run(runfile)
-    return _eval_runs(runs, qrels, metrics, relevance_level)
-
-
-def search_best_run(runfile_dirs, benchmark, primary_metric, metrics=None, folds=None):
-    """
-    Select the runfile with respect to the specified metric
-
-    Args:
-        runfile_dirs: the directory path to all the runfiles to select from
-        benchmark: Benchmark class
-        primary_metric: str, metric used to select the best runfile , e.g. ndcg_cut_20, etc
-        metrics: str or list, metric expected by be calculated on the best runs
-        folds: str, the name of fold to select from
-
-    Returns:
-       a dict storing specified metric score and path to the corresponding runfile
-    """
-    if not isinstance(runfile_dirs, (list, tuple)):
-        runfile_dirs = [runfile_dirs]
-
-    metrics = [] if not metrics else ([metrics] if isinstance(metrics, str) else list(metrics))
-    if primary_metric not in metrics:
-        metrics = [primary_metric] + metrics
-
-    folds = {s: benchmark.folds[s] for s in [folds]} if folds else benchmark.folds
-    runfiles = [
-        os.path.join(runfile_dir, f)
-        for runfile_dir in runfile_dirs
-        for f in os.listdir(runfile_dir)
-        if (f != "done" and not os.path.isdir(os.path.join(runfile_dir, f)))
-    ]
-
-    best_scores = {s: {primary_metric: 0, "path": None} for s in folds}
-    for runfile in runfiles:
-        runs = Searcher.load_trec_run(runfile)
-        for fold_name in folds:
-            dev_qrels = {qid: benchmark.qrels[qid] for qid in benchmark.non_nn_dev[fold_name] if qid in benchmark.qrels}
-            score = _eval_runs(runs, dev_qrels, [primary_metric], benchmark.relevance_level)[primary_metric]
-            if score > best_scores[fold_name][primary_metric]:
-                best_scores[fold_name] = {primary_metric: score, "path": runfile}
-
-    for fold, scores in best_scores.items():
-        logger.info(f"Best dev score on fold {fold}: {primary_metric}={scores[primary_metric]}")
-
-    test_runs = {}
-    for s, score_dict in best_scores.items():
-        test_qids = folds[s]["predict"]["test"]
-        # any empty (no results) queries need to be added so they contribute zeros to the average
-        test_runs.update({qid: {} for qid in test_qids})
-        test_runs.update({qid: v for qid, v in Searcher.load_trec_run(score_dict["path"]).items() if qid in test_qids})
-
-    scores = eval_runs(test_runs, benchmark.qrels, metrics, benchmark.relevance_level)
-    return {"score": scores, "path": {s: v["path"] for s, v in best_scores.items()}}
+def log_metrics_verbose(metrics_scores_dict):
+    for metric, score in sorted(metrics_scores_dict.items(), key=lambda kv: (str(kv[0]), kv[1])):
+        logger.info("%25s: %0.4f", metric, score)
 
 
 def interpolate_runs(run1, run2, qids, alpha):
@@ -204,9 +57,11 @@ def interpolate_runs(run1, run2, qids, alpha):
 
 
 def interpolated_eval(run1, run2, benchmark, primary_metric, metrics=None):
+    assert isinstance(primary_metric, Measure)
     metrics = [] if not metrics else ([metrics] if isinstance(metrics, str) else list(metrics))
     if primary_metric not in metrics:
         metrics = [primary_metric] + metrics
+    assert all(isinstance(m, Measure) for m in metrics)
 
     test_runs = {}
     alphas = {}
@@ -217,10 +72,11 @@ def interpolated_eval(run1, run2, benchmark, primary_metric, metrics=None):
 
         for alpha in np.arange(0, 1.001, 0.05):
             interpolated_run = interpolate_runs(dev1, dev2, dev_qids, alpha)
-            metrics = eval_runs(interpolated_run, benchmark.qrels, metrics, benchmark.relevance_level)
+            # metrics = eval_runs(interpolated_run, benchmark.qrels, metrics, benchmark.relevance_level)
+            scores = benchmark.evaluate(interpolated_run, metrics=metrics)
 
-            if best_metric is None or metrics[primary_metric] > best_metric:
-                best_metric = metrics[primary_metric]
+            if best_metric is None or scores[primary_metric] > best_metric:
+                best_metric = scores[primary_metric]
                 alphas[s] = alpha
 
         test_qids = set(v["predict"]["test"])
@@ -230,5 +86,10 @@ def interpolated_eval(run1, run2, benchmark, primary_metric, metrics=None):
             assert qid not in test_runs
             test_runs[qid] = interpolated_test_run[qid].copy()
 
-    scores = eval_runs(test_runs, benchmark.qrels, metrics, benchmark.relevance_level)
+    # scores = eval_runs(test_runs, benchmark.qrels, metrics, benchmark.relevance_level)
+    scores = benchmark.evaluate(
+        test_runs,
+        metrics=metrics,
+    )
+
     return {"score": scores, "alphas": alphas}

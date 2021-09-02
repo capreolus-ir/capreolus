@@ -2,6 +2,7 @@ import os
 import json
 
 import numpy as np
+from ir_measures import *
 from capreolus import Dependency, ModuleBase, get_logger
 
 logger = get_logger(__name__)  # pylint: disable=invalid-name
@@ -50,7 +51,8 @@ class Trainer(ModuleBase):
     @staticmethod
     def load_metric(fn):
         with fn.open(mode="rt") as f:
-            return json.load(f)
+            metrics = json.load(f)
+            return {eval(k): v for k, v in metrics}
 
     @staticmethod
     def load_best_metric(fn, metric):
@@ -63,6 +65,7 @@ class Trainer(ModuleBase):
     @staticmethod
     def write_to_metric_file(fn, metrics):
         assert isinstance(metrics, dict)
+        metrics = {str(k): v for k, v in metrics.items()}
         json.dump(metrics, open(fn, "wt"))
 
     @staticmethod

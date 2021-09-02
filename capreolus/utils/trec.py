@@ -2,6 +2,63 @@ import gzip
 import os
 import xml.etree.ElementTree as ET
 from collections import defaultdict
+from ir_measures import *
+
+DEFAULT_METRICS = [
+    P @ 1,
+    P @ 5,
+    P @ 10,
+    P @ 20,
+    # "judged_10",
+    # "judged_20",
+    # "judged_200",
+    AP,
+    NDCG @ 5,
+    NDCG @ 10,
+    NDCG @ 20,
+    # "recall_100",
+    # "recall_1000",
+    # "recip_rank",
+    RR,
+    RR @ 10,
+]
+
+
+def convert_metric(metric_str):
+    if isinstance(metric_str, str):
+        return eval(metric_str.upper())
+    return metric_str
+
+
+def load_trec_run(fn):
+    # Docids in the run file appear according to decreasing score, hence it makes sense to preserve this order
+    run = OrderedDefaultDict()
+
+    with open(fn, "rt") as f:
+        for i, line in enumerate(f):
+            line = line.strip()
+            if len(line) > 0:
+                try:
+                    qid, _, docid, rank, score, desc = line.split()
+                except ValueError as e:
+                    logger.error(
+                        f"Encountered malformated line when reading {fn} [Line #{i}], possibly because the writing to runfile was interruptded."
+                    )
+                    raise e
+                run[qid][docid] = float(score)
+    return run
+
+
+def write_trec_run(preds, outfn, mode="wt"):
+    count = 0
+    with open(outfn, mode) as outf:
+        qids = sorted(preds.keys(), key=lambda k: int(k))
+        for qid in qids:
+            rank = 1
+            for docid, score in sorted(preds[qid].items(), key=lambda x: x[1], reverse=True):
+                print(f"{qid} Q0 {docid} {rank} {score} capreolus", file=outf)
+                rank += 1
+                count += 1
 
 
 def threshold_trec_run(run, fold, k):

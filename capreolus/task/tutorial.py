@@ -29,8 +29,9 @@ class TutorialTask(Task):
         # using the benchmark's folds, which each contain train/validation/test queries,
         # choose the best run in `output_dir` for the fold based on the validation queries
         # and return metrics calculated on the test queries
-        best_results = evaluator.search_best_run(
-            searcher_results, self.benchmark, primary_metric=self.config["optimize"], metrics=evaluator.DEFAULT_METRICS
+        # best_results = evaluator.search_best_run(
+        best_results = self.benchmark.search_best_run(
+            searcher_results, primary_metric=self.config["optimize"], metrics=evaluator.DEFAULT_METRICS
         )
 
         for fold, path in best_results["path"].items():
