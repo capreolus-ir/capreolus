@@ -301,7 +301,7 @@ class TensorflowTrainer(Trainer):
                         logger.info("new best dev metric: %0.4f", dev_best_metric)
 
                         self.write_to_metric_file(metric_fn, metrics)
-                        wrapped_model.save_weights(dev_best_weight_fn)
+                        wrapped_model.save_weights(str(dev_best_weight_fn))
                         Searcher.write_trec_run(trec_preds, outfn=(dev_output_path / "best").as_posix())
                         best_trec_preds = trec_preds
 
