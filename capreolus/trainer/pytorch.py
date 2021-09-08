@@ -285,7 +285,6 @@ class PytorchTrainer(Trainer):
                     self.write_to_metric_file(metric_fn, metrics)
 
             # write train_loss to file
-            # loss_fn.write_text("\n".join(f"{idx} {loss}" for idx, loss in enumerate(train_loss)))
             self.write_to_loss_file(loss_fn, train_loss)
 
             summary_writer.add_scalar("training_loss", iter_loss_tensor.item(), niter)

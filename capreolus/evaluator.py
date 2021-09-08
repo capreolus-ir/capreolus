@@ -1,4 +1,5 @@
 import os
+from collections.abc import Iterable
 
 import numpy as np
 import pytrec_eval
@@ -57,8 +58,14 @@ def interpolate_runs(run1, run2, qids, alpha):
 
 
 def interpolated_eval(run1, run2, benchmark, primary_metric, metrics=None):
-    assert isinstance(primary_metric, Measure)
-    metrics = [] if not metrics else ([metrics] if isinstance(metrics, str) else list(metrics))
+    assert isinstance(primary_metric, Measure), f"Expect primary metric to be ir_measures.measures.Meature, but got str: {primary_metric}"
+    assert (
+        (metrics is None) or
+        isinstance(metrics, Measure) or 
+        (isinstance(metrics, Iterable) and all(isinstance(m, Measure) for m in metrics))
+    ), f"Expect metrics to be either ir_measures.measures.Meature or a series of ir_measures.measures.Meature, but got str: {metrics}"
+
+    metrics = [] if not metrics else ([metrics] if isinstance(metrics, Measure) else list(metrics))
     if primary_metric not in metrics:
         metrics = [primary_metric] + metrics
     assert all(isinstance(m, Measure) for m in metrics)
@@ -72,7 +79,6 @@ def interpolated_eval(run1, run2, benchmark, primary_metric, metrics=None):
 
         for alpha in np.arange(0, 1.001, 0.05):
             interpolated_run = interpolate_runs(dev1, dev2, dev_qids, alpha)
-            # metrics = eval_runs(interpolated_run, benchmark.qrels, metrics, benchmark.relevance_level)
             scores = benchmark.evaluate(interpolated_run, metrics=metrics)
 
             if best_metric is None or scores[primary_metric] > best_metric:
@@ -86,10 +92,6 @@ def interpolated_eval(run1, run2, benchmark, primary_metric, metrics=None):
             assert qid not in test_runs
             test_runs[qid] = interpolated_test_run[qid].copy()
 
-    # scores = eval_runs(test_runs, benchmark.qrels, metrics, benchmark.relevance_level)
-    scores = benchmark.evaluate(
-        test_runs,
-        metrics=metrics,
-    )
+    scores = benchmark.evaluate(test_runs, metrics=metrics)
 
     return {"score": scores, "alphas": alphas}

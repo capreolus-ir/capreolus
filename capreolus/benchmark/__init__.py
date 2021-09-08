@@ -3,6 +3,7 @@ import json
 from pathlib import Path
 from copy import deepcopy
 from collections import defaultdict
+from collections.abc import Iterable
 
 import ir_datasets
 import ir_measures
@@ -205,17 +206,20 @@ class Benchmark(ModuleBase):
         return
 
     def evaluate(self, runs_or_runfile, qrels=None, metrics=None):
-        """Evaluate a runs dictionary or runfile"""
-        # todo: relevant level
-
+        """Evaluate a runs dictionary or runfile. The benchmark.relevance_level would be applied silently in this function."""
         if qrels is None:
             qrels = self.qrels
 
         if metrics is None:
             metrics = DEFAULT_METRICS
 
+        print(metrics)
+        metrics_rel2ori = {}
         assert all(isinstance(m, Measure) for m in metrics)
-        # metrics = [eval(metric_str.upper()) if isinstance(metric_str, str) else metric_str for metric_str in metrics]
+        for metric in metrics:
+            rel_metric = metric(rel=self.relevance_level) if "rel" in metric.SUPPORTED_PARAMS else metric
+            metrics_rel2ori[rel_metric] = metric
+        assert set(metrics_rel2ori.values()) == set(metrics)
 
         # prepare runs dictionary
         if isinstance(runs_or_runfile, Path) or isinstance(runs_or_runfile, str):
@@ -225,15 +229,17 @@ class Benchmark(ModuleBase):
         else:
             runs = runs_or_runfile
 
-        scores = ir_measures.calc_aggregate(metrics, qrels, runs)
-        return scores
+        scores = ir_measures.calc_aggregate(list(metrics_rel2ori.keys()), qrels, runs)
+        scores = {metrics_rel2ori[k]: v for k, v in scores.items()}
+        return scores 
 
     def search_best_run(self, runfile_dirs, primary_metric, metrics=DEFAULT_METRICS, folds=None):
         if not isinstance(runfile_dirs, (list, tuple)):
+            assert isinstance(runfile_dirs, Path)
             runfile_dirs = [runfile_dirs]
 
-        # metrics = [] if not metrics else ([metrics] if isinstance(metrics, str) else list(metrics))
-        assert isinstance(metrics, list)
+        assert isinstance(metrics, Iterable)
+        metrics = list(metrics) if not isinstance(metrics, list) else metrics
         if primary_metric not in metrics:
             metrics = [primary_metric] + metrics
 
