@@ -12,7 +12,7 @@ class RankTask(Task):
     requires_random_seed = False
     config_spec = [
         ConfigOption("filter", False),
-        ConfigOption("optimize", "map", "metric to maximize on the dev set"),
+        ConfigOption("optimize", "AP", "metric to maximize on the dev set"),
         ConfigOption("metrics", "default", "metrics reported for evaluation", value_type="strlist"),
     ]
     config_keys_not_in_path = ["optimize", "metrics"]  # affect only evaluation but not search()
@@ -53,14 +53,12 @@ class RankTask(Task):
         optimize = convert_metric(self.config["optimize"])
         metrics = list(map(convert_metric, metrics))
 
-        # best_results = evaluator.search_best_run(
         best_results = self.benchmark.search_best_run(self.get_results_path(), primary_metric=optimize, metrics=metrics)
 
         for fold, path in best_results["path"].items():
             logger.info("rank: fold=%s best run: %s", fold, path)
 
         logger.info("rank: cross-validated results when optimizing for '%s':", optimize)
-        for metric, score in sorted(best_results["score"].items(), key=lambda kv: str(kv[0])):
-            logger.info("%25s: %0.4f", metric, score)
+        log_metrics_verbose(best_results["score"])
 
         return best_results

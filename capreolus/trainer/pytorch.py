@@ -274,9 +274,9 @@ class PytorchTrainer(Trainer):
                 # log dev metrics
                 metrics = benchmark.evaluate(preds, qrels)
                 logger.info("dev metrics: %s", format_metrics_string(metrics))
-                summary_writer.add_scalar("ndcg_cut_20", metrics[NDCG @ 20], niter)
+                summary_writer.add_scalar("ndcg_cut_20", metrics[NDCG@20], niter)
                 summary_writer.add_scalar("map", metrics[AP], niter)
-                summary_writer.add_scalar("P_20", metrics[P @ 20], niter)
+                summary_writer.add_scalar("P_20", metrics[P@20], niter)
                 # write best dev weights to file
                 if metrics[metric] > dev_best_metric:
                     dev_best_metric = metrics[metric]

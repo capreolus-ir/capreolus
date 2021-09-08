@@ -5,22 +5,21 @@ from collections import defaultdict
 from ir_measures import *
 
 DEFAULT_METRICS = [
-    P @ 1,
-    P @ 5,
-    P @ 10,
-    P @ 20,
-    # "judged_10",
-    # "judged_20",
-    # "judged_200",
+    P@1,
+    P@5,
+    P@10,
+    P@20,
+    Judged@10,
+    Judged@20,
+    Judged@200,
     AP,
-    NDCG @ 5,
-    NDCG @ 10,
-    NDCG @ 20,
-    # "recall_100",
-    # "recall_1000",
-    # "recip_rank",
+    NDCG@5,
+    NDCG@10,
+    NDCG@20,
+    Recall@100,
+    Recall@1000,
     RR,
-    RR @ 10,
+    RR@10,
 ]
 
 

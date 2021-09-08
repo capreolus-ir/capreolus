@@ -58,11 +58,13 @@ def interpolate_runs(run1, run2, qids, alpha):
 
 
 def interpolated_eval(run1, run2, benchmark, primary_metric, metrics=None):
-    assert isinstance(primary_metric, Measure), f"Expect primary metric to be ir_measures.measures.Meature, but got str: {primary_metric}"
+    assert isinstance(
+        primary_metric, Measure
+    ), f"Expect primary metric to be ir_measures.measures.Meature, but got str: {primary_metric}"
     assert (
-        (metrics is None) or
-        isinstance(metrics, Measure) or 
-        (isinstance(metrics, Iterable) and all(isinstance(m, Measure) for m in metrics))
+        (metrics is None)
+        or isinstance(metrics, Measure)
+        or (isinstance(metrics, Iterable) and all(isinstance(m, Measure) for m in metrics))
     ), f"Expect metrics to be either ir_measures.measures.Meature or a series of ir_measures.measures.Meature, but got str: {metrics}"
 
     metrics = [] if not metrics else ([metrics] if isinstance(metrics, Measure) else list(metrics))

@@ -231,7 +231,7 @@ class Benchmark(ModuleBase):
 
         scores = ir_measures.calc_aggregate(list(metrics_rel2ori.keys()), qrels, runs)
         scores = {metrics_rel2ori[k]: v for k, v in scores.items()}
-        return scores 
+        return scores
 
     def search_best_run(self, runfile_dirs, primary_metric, metrics=DEFAULT_METRICS, folds=None):
         if not isinstance(runfile_dirs, (list, tuple)):

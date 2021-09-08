@@ -16,7 +16,7 @@ class ReRerankTask(Task):
     module_name = "rererank"
     config_spec = [
         ConfigOption("fold", "s1", "fold to run"),
-        ConfigOption("optimize", "map", "metric to maximize on the dev set"),
+        ConfigOption("optimize", "AP", "metric to maximize on the dev set"),
         ConfigOption("topn", 100, "number of stage two results to rerank"),
     ]
     dependencies = [
