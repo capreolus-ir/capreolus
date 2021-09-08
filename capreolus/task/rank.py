@@ -1,6 +1,7 @@
 from capreolus import ConfigOption, Dependency, evaluator
 from capreolus.task import Task
 from capreolus.utils.loginit import get_logger
+from capreolus.evaluator import log_metrics_verbose
 from capreolus.utils.trec import load_qrels, convert_metric, DEFAULT_METRICS
 
 logger = get_logger(__name__)  # pylint: disable=invalid-name

@@ -10,7 +10,7 @@ from capreolus.sampler import PredSampler
 from capreolus.searcher import Searcher
 from capreolus.evaluator import log_metrics_verbose, format_metrics_string
 from capreolus.task import Task
-from capreolus.utils.trec import DEFAULT_METRICS
+from capreolus.utils.trec import convert_metric, DEFAULT_METRICS
 from capreolus.utils.loginit import get_logger
 
 logger = get_logger(__name__)

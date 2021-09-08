@@ -6,7 +6,6 @@ import pytrec_eval
 
 from capreolus.searcher import Searcher
 from capreolus.utils.loginit import get_logger
-from capreolus.eval.msmarco_eval import compute_metrics_from_files
 
 from ir_measures import *
 from ir_measures.measures import Measure

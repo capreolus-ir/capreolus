@@ -3,27 +3,28 @@ import os
 import xml.etree.ElementTree as ET
 from collections import defaultdict
 from ir_measures import *
+from ir_measures.measures import Measure
 
 from capreolus.utils.loginit import get_logger
 
 logger = get_logger(__name__)
 
 DEFAULT_METRICS = [
-    P@1,
-    P@5,
-    P@10,
-    P@20,
-    Judged@10,
-    Judged@20,
-    Judged@200,
-    AP,
-    NDCG@5,
-    NDCG@10,
-    NDCG@20,
-    Recall@100,
-    Recall@1000,
-    RR,
-    RR@10,
+    "P@1",
+    "P@5",
+    "P@10",
+    "P@20",
+    "Judged@10",
+    "Judged@20",
+    "Judged@200",
+    "AP",
+    "NDCG@5",
+    "NDCG@10",
+    "NDCG@20",
+    "R@100",
+    "R@1000",
+    "RR",
+    "RR@10",
 ]
 
 
