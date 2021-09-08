@@ -212,10 +212,10 @@ class Benchmark(ModuleBase):
 
         if metrics is None:
             metrics = DEFAULT_METRICS
-
-        print(metrics)
-        metrics_rel2ori = {}
+        metrics = list(map(convert_metric, metrics))
         assert all(isinstance(m, Measure) for m in metrics)
+
+        metrics_rel2ori = {}
         for metric in metrics:
             rel_metric = metric(rel=self.relevance_level) if "rel" in metric.SUPPORTED_PARAMS else metric
             metrics_rel2ori[rel_metric] = metric

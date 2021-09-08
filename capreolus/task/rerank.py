@@ -99,7 +99,6 @@ class RerankTask(Task):
             dev_qrels,
             optimize,
             self.benchmark,
-            # self.benchmark.relevance_level,
         )
 
         self.reranker.trainer.load_best_model(self.reranker, train_output_path)
@@ -184,7 +183,8 @@ class RerankTask(Task):
         train_output_path = self.get_results_path()
         logger.debug("results path: %s", train_output_path)
         metrics = self.config["metrics"] if list(self.config["metrics"]) != ["default"] else DEFAULT_METRICS
-        optimize = self.config["optimize"] if isinstance(self.config["optimize"], Measure) else eval(self.config["optimize"])
+        metrics = list(map(convert_metric, metrics))
+        optimize = convert_metric(self.config["optimize"])
 
         searcher_runs, reranker_runs = self.find_crossvalidated_results()
 

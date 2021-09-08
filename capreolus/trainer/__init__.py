@@ -2,8 +2,8 @@ import os
 import json
 
 import numpy as np
-from ir_measures import *
 from capreolus import Dependency, ModuleBase, get_logger
+from capreolus.utils.trec import convert_metric
 
 logger = get_logger(__name__)  # pylint: disable=invalid-name
 
@@ -52,7 +52,7 @@ class Trainer(ModuleBase):
     def load_metric(fn):
         with fn.open(mode="rt") as f:
             metrics = json.load(f)
-            return {eval(k): v for k, v in metrics}
+            return {convert_metric(k): v for k, v in metrics}
 
     @staticmethod
     def load_best_metric(fn, metric):

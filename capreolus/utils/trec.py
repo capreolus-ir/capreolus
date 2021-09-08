@@ -4,6 +4,10 @@ import xml.etree.ElementTree as ET
 from collections import defaultdict
 from ir_measures import *
 
+from capreolus.utils.loginit import get_logger
+
+logger = get_logger(__name__)
+
 DEFAULT_METRICS = [
     P@1,
     P@5,
@@ -23,10 +27,18 @@ DEFAULT_METRICS = [
 ]
 
 
-def convert_metric(metric_str):
-    if isinstance(metric_str, str):
-        return eval(metric_str.upper())
-    return metric_str
+def convert_metric(metric_or_str):
+    """Convert the metric string into ir-measures if applicable."""
+
+    if isinstance(metric_or_str, str):
+        try:
+            return eval(metric_or_str)
+        except NameError as e:
+            logger.error(f"Cannot find metic {metric_or_str}:")
+            logger.error(e)
+
+    assert isinstance(metric_or_str, Measure)
+    return metric_or_str
 
 
 def load_trec_run(fn):
