@@ -229,7 +229,12 @@ class Benchmark(ModuleBase):
         else:
             runs = runs_or_runfile
 
-        scores = ir_measures.calc_aggregate(list(metrics_rel2ori.keys()), qrels, runs)
+        try:
+            scores = ir_measures.calc_aggregate(list(metrics_rel2ori.keys()), qrels, runs)
+        except OSError as e:
+            logger.warning(e)
+            scores = {k: -1 for k in metrics_rel2ori}
+
         scores = {metrics_rel2ori[k]: v for k, v in scores.items()}
         return scores
 
