@@ -68,7 +68,8 @@ class RerankTask(Task):
         self.reranker.build_model()
         self.reranker.searcher_scores = best_search_run
 
-        train_run = {qid: docs for qid, docs in best_search_run.items() if qid in self.benchmark.folds[fold]["train_qids"]}
+        train_qids = set(self.benchmark.folds[fold]["train_qids"])
+        train_run = {qid: docs for qid, docs in best_search_run.items() if qid in train_qids}
         # For each qid, select the top 100 (defined by config["threshold") docs to be used in validation
         dev_run = defaultdict(dict)
         # This is possible because best_search_run is an OrderedDict
@@ -215,7 +216,6 @@ class RerankTask(Task):
                 "interpolated_cv_metrics": None,
             }
 
-        logger.info("rerank: average cross-validated metrics when choosing iteration based on '%s':", self.config["optimize"])
         all_preds = {}
         for preds in reranker_runs.values():
             for qid, docscores in preds["test"].items():
@@ -226,7 +226,9 @@ class RerankTask(Task):
         cv_metrics = self.benchmark.evaluate(all_preds, metrics=metrics)
         interpolated_results = evaluator.interpolated_eval(searcher_runs, reranker_runs, self.benchmark, optimize, metrics)
 
+        logger.info("rerank: average cross-validated metrics when choosing iteration based on '%s':", self.config["optimize"])
         log_metrics_verbose(cv_metrics)
+        logger.info("interpolated with alphas = %s", sorted(interpolated_results["alphas"].values()))
         log_metrics_verbose(interpolated_results["score"])
 
         return {

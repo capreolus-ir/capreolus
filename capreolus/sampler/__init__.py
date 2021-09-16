@@ -25,7 +25,7 @@ class Sampler(ModuleBase):
         self.extractor = extractor
 
         self.qid_to_docids = qid_to_docids
-        n_unfound_queries = len([qid for qid in qid_to_docids if qid not in qrels])
+        n_unfound_queries = len([qid for qid in tqdm(qid_to_docids, desc="Examining if all queries could be found.") if qid not in qrels])
         if n_unfound_queries > 0:
             logger.warning(f"There are {n_unfound_queries} missing from the qrels in total.")
 
@@ -107,7 +107,7 @@ class TrainTripletSampler(Sampler, TrainingSamplerMixin, torch.utils.data.Iterab
         """
         Generates triplets infinitely.
         """
-        all_qids = sorted(self.qid_to_reldocs)
+        all_qids = list(self.qid_to_reldocs)
         if len(all_qids) == 0:
             raise RuntimeError("TrainDataset has no valid qids")
 
@@ -146,7 +146,7 @@ class TrainPairSampler(Sampler, TrainingSamplerMixin, torch.utils.data.IterableD
         return "pair_{0}".format(key)
 
     def generate_samples(self):
-        all_qids = sorted(self.qid_to_reldocs)
+        all_qids = list(self.qid_to_reldocs)
         if len(all_qids) == 0:
             raise RuntimeError("TrainDataset has no valid training pairs")
 
