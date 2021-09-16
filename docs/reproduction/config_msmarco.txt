@@ -1,4 +1,4 @@
-optimize=MRR@10
+optimize=RR@10
 threshold=100
 
 benchmark.name=msmarcopsg
@@ -13,7 +13,7 @@ reranker.extractor.maxseqlen=512
 reranker.extractor.maxqlen=50
 reranker.extractor.tokenizer.pretrained=bert-base-uncased
 
-reranker.trainer.usecache=True
+# reranker.trainer.usecache=True
 reranker.trainer.niters=1
 reranker.trainer.batch=4
 reranker.trainer.evalbatch=256
@@ -22,4 +22,4 @@ reranker.trainer.warmupiters=1
 reranker.trainer.decayiters=1
 reranker.trainer.decaytype=linear
 
-reranker.trainer.loss=pairwise_hinge_loss
+# reranker.trainer.loss=pairwise_hinge_loss
