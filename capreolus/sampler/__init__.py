@@ -25,7 +25,7 @@ class Sampler(ModuleBase):
         self.extractor = extractor
 
         self.qid_to_docids = qid_to_docids
-        n_unfound_queries = len([qid for qid in tqdm(qid_to_docids, desc="Examining if all queries could be found.") if qid not in qrels])
+        n_unfound_queries = len([qid for qid in qid_to_docids if qid not in qrels])
         if n_unfound_queries > 0:
             logger.warning(f"There are {n_unfound_queries} missing from the qrels in total.")
 
