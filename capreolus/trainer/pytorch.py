@@ -12,6 +12,7 @@ from ir_measures import *
 from capreolus.evaluator import log_metrics_verbose, format_metrics_string
 from capreolus import ConfigOption, Searcher, constants, get_logger
 from capreolus.reranker.common import pair_hinge_loss, pair_softmax_loss
+from capreolus.utils.trec import convert_metric
 
 from . import Trainer
 
