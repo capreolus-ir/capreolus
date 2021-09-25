@@ -398,7 +398,7 @@ class TensorflowTrainer(Trainer):
         return self.load_tf_train_records_from_file(reranker, filenames, self.config["batch"])
 
     def load_tf_train_records_from_file(self, reranker, filenames, batch_size):
-        raw_dataset = tf.data.TFRecordDataset(filenames)
+        raw_dataset = tf.data.TFRecordDataset(filenames).shuffle(100_000)
         tf_records_dataset = raw_dataset.batch(batch_size, drop_remainder=True).map(
             reranker.extractor.parse_tf_train_example, num_parallel_calls=tf.data.experimental.AUTOTUNE
         )
