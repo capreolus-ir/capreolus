@@ -69,6 +69,8 @@ class TFBERTMaxP_Class(nn.Module):
 
             # todo: fix the empty passage issue 
             passage_i = [random.randint(0, max(x - 1, 0)) for x in passage_valid_number] # max(x - 1, 0) as a few passages seems to be empty
+            # passage_i = [0 for x in passage_valid_number] # max(x - 1, 0) as a few passages seems to be empty
+            # <-- runnable, and takes half time only, but it would decrease MRR@10 for 3 points
 
             batch_i = torch.arange(batch_size)
             passage_scores = self.bert(
