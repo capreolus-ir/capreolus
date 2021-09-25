@@ -153,12 +153,20 @@ class TrainPairSampler(Sampler, TrainingSamplerMixin, torch.utils.data.IterableD
         while True:
             self.rng.shuffle(all_qids)
             for qid in all_qids:
+                posdocid = self.rng.choice(self.qid_to_reldocs[qid])
+                negdocid = self.rng.choice(self.qid_to_negdocs[qid])
+
                 # Convention for label - [1, 0] indicates that doc belongs to class 1 (i.e relevant
+                # I think it should be [0, 1] ^^^ here? As the second position will match to the class 1 later in monobert
                 # ^ This is used with categorical cross entropy loss
+                '''
                 for docid in self.qid_to_reldocs[qid]:
                     yield self.extractor.id2vec(qid, docid, negid=None, label=[0, 1])
                 for docid in self.qid_to_negdocs[qid]:
                     yield self.extractor.id2vec(qid, docid, negid=None, label=[1, 0])
+                '''
+                yield self.extractor.id2vec(qid, posdocid, negid=None, label=[0, 1])
+                yield self.extractor.id2vec(qid, negdocid, negid=None, label=[1, 0])
                 # REF-TODO returning all docs in a row does not make sense w/ pytorch
                 #          (with TF the dataset itself is shuffled, so this is okay)
                 # REF-TODO make sure always negid empty is ok
