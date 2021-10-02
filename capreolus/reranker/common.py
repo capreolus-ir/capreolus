@@ -49,8 +49,10 @@ class TFCategoricalCrossEntropyLoss(CategoricalCrossentropy):
     def call(self, ytrue, ypred):
         """Shape: (batch_size, 2) """
         tf.debugging.assert_equal(tf.shape(ytrue), tf.shape(ypred))
+        batch_size = tf.shape(ypred)[0]
 
-        return super(TFCategoricalCrossEntropyLoss, self).call(ytrue, ypred)
+        losses = super(TFCategoricalCrossEntropyLoss, self).call(ytrue, ypred)
+        return losses / tf.cast(batch_size, losses.dtype)
 
 
 def pair_softmax_loss(pos_neg_scores, *args, **kwargs):
