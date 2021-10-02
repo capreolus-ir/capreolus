@@ -85,7 +85,7 @@ class TensorflowTrainer(Trainer):
         ConfigOption("decay", 0.0, "learning rate decay"),
         ConfigOption("decayiters", 3),
         ConfigOption("decaytype", None),
-        ConfigOption("amp", False, "use automatic mixed precision"),
+        ConfigOption("amp", None, "Automatic mixed precision mode; one of: None, both"),
     ]
     config_keys_not_in_path = ["fastforward", "boardname", "usecache", "tpuname", "tpuzone", "storage"]
 
@@ -121,7 +121,7 @@ class TensorflowTrainer(Trainer):
         else:  # default strategy that works on CPU and single GPU
             self.strategy = tf.distribute.get_strategy()
 
-        self.amp = self.config["amp"]
+        self.amp = (self.config["amp"] == "both")
         if self.amp:
             policy = mixed_precision.Policy("mixed_bfloat16" if self.tpu else "mixed_float16")
             mixed_precision.set_policy(policy)
