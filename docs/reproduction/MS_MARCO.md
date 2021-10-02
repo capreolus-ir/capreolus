@@ -7,11 +7,14 @@ first follow [this](../setup/setup-cc.md) guide to set up the environment on CC 
 Once the environment is set, you can verify the installation with [these instructions](./PARADE.md#testing-installation).
 
 ## Running MS MARCO 
-This requires GPU(s) with 48GB memory (e.g. 3 V100 or a RTX 8000) or a TPU. 
-1. Make sure you are in the top-level `capreolus` directory;
-2. Use the following script to run a "mini" version of the MS MARCO fine-tuning, testing if everything is working. 
+This requires GPU(s) with 48GB memory (e.g. 3 V100 or a RTX 8000) or a TPU. Before replication, make sure you are in the top-level `capreolus` directory;
+### TensorFlow version 
+1. Use the following script to run a "mini" version of the MS MARCO fine-tuning, testing if everything is working. 
     ```bash
-    python -m capreolus.run rerank.train with file=docs/reproduction/config_msmarco.txt
+    python -m capreolus.run rerank.train with \
+        file=docs/reproduction/config_msmarco.txt \
+        reranker.name=TFBERTMaxP \
+        reranker.trainer.usecache=True
     ``` 
     This would train the monoBERT for only 3k steps with batch size to be 4, then rerank the *top100* documents per query. 
     The script should take no more than 24 hours to finish, and could be fit into a single `v100l`.
@@ -27,6 +30,8 @@ This requires GPU(s) with 48GB memory (e.g. 3 V100 or a RTX 8000) or a TPU.
 
     python -m capreolus.run rerank.train with \
         file=docs/reproduction/config_msmarco.txt  \
+        reranker.name=TFBERTMaxP \
+        reranker.trainer.bertlr=1e-5 \
         threshold=$threshold \
         reranker.trainer.niters=$niters \
         reranker.trainer.batch=$batch_size \
@@ -37,6 +42,34 @@ This requires GPU(s) with 48GB memory (e.g. 3 V100 or a RTX 8000) or a TPU.
     The data preparation time may vary a lot on different machines.
     After data is prepared, it would take 4~6 hours to train and 6～10 hours to inference with *4 V100s* for BERT-base. 
     This should achieve `MRR@10=0.35+`.
+
+### PyTorch version 
+Similar with reproduction with TensorFlow:
+1. To fine-tune a "mini" version of the MS MARCO:
+    ```bash
+    python -m capreolus.run rerank.train with \
+        file=docs/reproduction/config_msmarco.txt \
+        reranker.name=ptBERTMaxP
+    ``` 
+
+2. To fine-tune a full version on MS MARCO Passage:
+    ```bash
+    niters=10
+    batch_size=16
+    validatefreq=$niters # to ensure the validation is run only at the end of training
+    decayiters=$niters   # either same with $itersize or 0
+    threshold=1000       # the top-k documents to rerank
+
+    python -m capreolus.run rerank.train with \
+        file=docs/reproduction/config_msmarco.txt  \
+        reranker.name=ptBERTMaxP \
+        threshold=$threshold \
+        reranker.trainer.niters=$niters \
+        reranker.trainer.batch=$batch_size \
+        reranker.trainer.decayiters=$decayiters \
+        reranker.trainer.validatefreq=$validatefreq \
+        fold=s1
+    ```
 
 ### For CC slurm users:
 In case you are new to [slurm](https://slurm.schedmd.com/documentation.html), a sample slurm script for the *full version* fine-tuning could be found under `docs/reproduction/sample_slurm_script.sh`.
@@ -51,4 +84,4 @@ To adapt it to the `mini` version, simply change the GPU number and request time
 + Results (with hypperparameter-0) replicated by [@crystina-z](https://github.com/crystina-z) on 2020-12-06 (commit [`6c3759f`](https://github.com/crystina-z/capreolus-1/commit/6c3759fe620f18f8939670176a18c744752bc9240)) (Tesla V100 on Compute Canada)
 + Results (with hypperparameter-6) replicated by [@Dahlia-Chehata](https://github.com/Dahlia-Chehata) on 2021-03-29 (commit [`7915aad`](https://github.com/capreolus-ir/capreolus/commit/7915aad75406527a3b88498926cff85259808696)) (Tesla V100 on Compute Canada)
 + Results (with hypperparameter-7) replicated by [@larryli1999](https://github.com/larryli1999) on 2021-05-16 (commit [`6d1aed2`](https://github.com/capreolus-ir/capreolus/commit/6d1aed29de7828ceb94560a8bf7c87f1af5458b5)) (Tesla V100 on Compute Canada)
-+ Results (MRR@10=0.356) replicated by [@andrewyguo](https://github.com/andrewyguo) on 2021-05-29 (commit [`1ce71d9`](https://github.com/capreolus-ir/capreolus/commit/1ce71d93ab5473b40d4ae02768fd053261b27320)) (Tesla V100 on Compute Canada)
++ Results (MRR@10=0.356) replicated by [@andrewyguo](https://github.com/andrewyguo) on 2021-05-29 (commit [`1ce71d9`](https://github.com/capreolus-ir/capreolus/commit/1ce71d93ab5473b40d4ae02768fd053261b27320)) (Tesla V100 on Compute Canada)\
