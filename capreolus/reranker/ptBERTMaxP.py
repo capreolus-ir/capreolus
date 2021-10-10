@@ -26,9 +26,9 @@ class ElectraRelevanceHead(nn.Module):
         return x
 
 
-class TFBERTMaxP_Class(nn.Module):
+class PTBERTMaxP_Class(nn.Module):
     def __init__(self, extractor, config, *args, **kwargs):
-        super(TFBERTMaxP_Class, self).__init__(*args, **kwargs)
+        super(PTBERTMaxP_Class, self).__init__(*args, **kwargs)
         self.extractor = extractor
 
         # TODO hidden prob missing below?
@@ -104,14 +104,14 @@ class TFBERTMaxP_Class(nn.Module):
 
         if self.config["aggregation"] == "max":
             passage_scores = passage_scores.max(dim=1)[0] # (batch size, )
-        # elif self.config["aggregation"] == "first":
-        #     passage_scores = passage_scores[:, 0]
-        # elif self.config["aggregation"] == "sum":
-        #     passage_scores = tf.math.reduce_sum(passage_mask * passage_scores, axis=1)
-        # elif self.config["aggregation"] == "avg":
-        #     passage_scores = tf.math.reduce_sum(passage_mask * passage_scores, axis=1) / tf.reduce_sum(passage_mask)
-        # else:
-        #     raise ValueError("Unknown aggregation method: {}".format(self.config["aggregation"]))
+        elif self.config["aggregation"] == "first":
+            passage_scores = passage_scores[:, 0]
+        elif self.config["aggregation"] == "sum":
+            passage_scores = torch.sum(passage_mask * passage_scores, dim=1)
+        elif self.config["aggregation"] == "avg":
+            passage_scores = torch.sum(passage_mask * passage_scores, dim=1) / torch.sum(passage_mask)
+        else:
+            raise ValueError("Unknown aggregation method: {}".format(self.config["aggregation"]))
 
         return passage_scores
 
@@ -142,7 +142,7 @@ class PTBERTMaxP(Reranker):
     ]
 
     def build_model(self):
-        self.model = TFBERTMaxP_Class(self.extractor, self.config)
+        self.model = PTBERTMaxP_Class(self.extractor, self.config)
         return self.model
 
     def score(self, d):
