@@ -7,6 +7,8 @@ from time import time
 from capreolus.utils.common import download_file
 from capreolus.utils.loginit import get_logger
 from capreolus.utils.trec import document_to_trectxt
+from capreolus.utils.caching import cached_file, TargetFileExists
+
 from . import Collection
 
 logger = get_logger(__name__)
@@ -83,9 +85,13 @@ class MSMarcoPsg(Collection, MSMarcoMixin):
         # convert to trec file
         coll_tsv_fn = self.download_raw() / "collection.tsv"
         coll_fn.parent.mkdir(exist_ok=True, parents=True)
-        with open(coll_tsv_fn, "r") as fin, open(coll_fn, "w", encoding="utf-8") as fout:
-            for line in fin:
-                docid, doc = line.strip().split("\t")
-                fout.write(document_to_trectxt(docid, doc))
+        try:
+            with cached_file(coll_fn) as tmp_fn:
+                with open(coll_tsv_fn, "r") as fin, open(tmp_fn, "w", encoding="utf-8") as fout:
+                    for line in fin:
+                        docid, doc = line.strip().split("\t")
+                        fout.write(document_to_trectxt(docid, doc))
+        except TargetFileExists as e:
+            pass
 
         return coll_dir
