@@ -12,7 +12,7 @@
 
 
 # Modify the following lines according to your setup process
-module load arch/avx512 StdEnv/2018.3 java/11 python/3.7 scipy-stack
+module load arch/avx512 StdEnv/2020 java/11.0.2 python/3.7 scipy-stack
 ENVDIR=$HOME/venv/capreolus-env
 source $ENVDIR/bin/activate
 
