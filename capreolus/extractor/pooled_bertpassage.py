@@ -117,7 +117,7 @@ class PooledBertPassage(BertPassage):
 
         return (pos_bert_input, pos_mask, pos_seg, neg_bert_input, neg_mask, neg_seg), label
 
-    def id2vec(self, qid, posid, negid=None, label=None):
+    def id2vec(self, qid, posid, negid=None, label=None, *args, **kwargs):
         """
         See parent class for docstring
         """

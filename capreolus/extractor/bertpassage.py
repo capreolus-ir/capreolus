@@ -59,6 +59,7 @@ class BertPassage(Extractor):
         self.cls_tok = self.tokenizer.bert_tokenizer.cls_token
         self.sep_tok = self.tokenizer.bert_tokenizer.sep_token
 
+
     def load_state(self, qids, docids):
         cache_fn = self.get_state_cache_file_path(qids, docids)
         logger.debug("loading state from: %s", cache_fn)
@@ -111,33 +112,30 @@ class BertPassage(Extractor):
             sample["neg_seg"],
         )
         label = sample["label"]
-        features = []
+        # features = []
+        # for i in range(num_passages):
+        #     # Always use the first passage, then sample from the remaining passages
+        #     if i > 0 and self.rng.random() > self.config["prob"]:
+        #         continue
 
-        for i in range(num_passages):
-            # Always use the first passage, then sample from the remaining passages
-            if i > 0 and self.rng.random() > self.config["prob"]:
-                continue
+        #     bert_input_line = posdoc[i]
+        #     bert_input_line = " ".join(self.tokenizer.bert_tokenizer.convert_ids_to_tokens(list(bert_input_line)))
+        #     passage = bert_input_line.split(self.sep_tok)[-2]
 
-            bert_input_line = posdoc[i]
-            bert_input_line = " ".join(self.tokenizer.bert_tokenizer.convert_ids_to_tokens(list(bert_input_line)))
-            passage = bert_input_line.split(self.sep_tok)[-2]
-
-            # Ignore empty passages as well
-            if passage.strip() == self.pad_tok:
-                continue
-
-            feature = {
-                "pos_bert_input": _bytes_feature(tf.io.serialize_tensor(posdoc[i])),
-                "pos_mask": _bytes_feature(tf.io.serialize_tensor(posdoc_mask[i])),
-                "pos_seg": _bytes_feature(tf.io.serialize_tensor(posdoc_seg[i])),
-                "neg_bert_input": _bytes_feature(tf.io.serialize_tensor(negdoc[i])),
-                "neg_mask": _bytes_feature(tf.io.serialize_tensor(negdoc_mask[i])),
-                "neg_seg": _bytes_feature(tf.io.serialize_tensor(negdoc_seg[i])),
-                "label": _bytes_feature(tf.io.serialize_tensor(label[i])),
-            }
-            features.append(feature)
-
-        return features
+        #     # Ignore empty passages as well
+        #     if passage.strip() == self.pad_tok:
+        #         continue
+        feature = {
+            "pos_bert_input": _bytes_feature(tf.io.serialize_tensor(posdoc)),
+            "pos_mask": _bytes_feature(tf.io.serialize_tensor(posdoc_mask)),
+            "pos_seg": _bytes_feature(tf.io.serialize_tensor(posdoc_seg)),
+            "neg_bert_input": _bytes_feature(tf.io.serialize_tensor(negdoc)),
+            "neg_mask": _bytes_feature(tf.io.serialize_tensor(negdoc_mask)),
+            "neg_seg": _bytes_feature(tf.io.serialize_tensor(negdoc_seg)),
+            "label": _bytes_feature(tf.io.serialize_tensor(label)),
+        }
+        # features.append(feature)
+        return [feature]
 
     def create_tf_dev_feature(self, sample):
         """
@@ -209,7 +207,8 @@ class BertPassage(Extractor):
 
         def parse_label_tensor(x):
             parsed_tensor = tf.io.parse_tensor(x, tf.float32)
-            parsed_tensor.set_shape([self.config["numpassages"], 2])
+            # parsed_tensor.set_shape([self.config["numpassages"], 2])
+            parsed_tensor.set_shape([2])
 
             return parsed_tensor
 
@@ -222,6 +221,30 @@ class BertPassage(Extractor):
         label = tf.map_fn(parse_label_tensor, parsed_example["label"], dtype=tf.float32)
 
         return (pos_bert_input, pos_mask, pos_seg, neg_bert_input, neg_mask, neg_seg), label
+    
+    def _filter_inputs(self, bert_inputs, bert_masks, bert_segs, n_valid_psg):
+        """Preserve only one passage from all available passages."""
+        assert n_valid_psg <= len(bert_inputs), f"Passages only have {len(bert_inputs)} entries, but got {n_valid_psg} valid passages."
+        valid_indexes = list(range(0, n_valid_psg))
+        if len(valid_indexes) == 0:
+            valid_indexes = [0]
+        random_i = self.rng.choice(valid_indexes)
+        return list(map(lambda arr: arr[random_i], [bert_inputs, bert_masks, bert_segs]))
+ 
+    def _encode_inputs(self, query_toks, passages):
+        """Convert the query and passages into BERT inputs, mask, segments."""
+        bert_inputs, bert_masks, bert_segs = [], [], [] 
+        n_valid_psg = 0
+        for tokenized_passage in passages:
+            if tokenized_passage != [self.pad_tok]:  # end of the passage
+                n_valid_psg += 1
+
+            inp, mask, seg = self._prepare_bert_input(query_toks, tokenized_passage)
+            bert_inputs.append(inp)
+            bert_masks.append(mask)
+            bert_segs.append(seg)
+
+        return bert_inputs, bert_masks, bert_segs, n_valid_psg
 
     def _get_passages(self, docid):
         doc = self.index.get_doc(docid)
@@ -330,51 +353,61 @@ class BertPassage(Extractor):
         mask = [1] * len(input_line) + [0] * (len(padded_input_line) - len(input_line))
         seg = [0] * (len(query_toks) + 2) + [1] * (len(padded_input_line) - len(query_toks) - 2)
         return inp, mask, seg
-
-    def id2vec(self, qid, posid, negid=None, label=None):
+ 
+    def id2vec(self, qid, posid, negid=None, label=None, *args, **kwargs):
         """
         See parent class for docstring
         """
+        training = kwargs.get("training", True) # default to be training
+
         assert label is not None
         maxseqlen = self.config["maxseqlen"]
         numpassages = self.config["numpassages"]
 
         query_toks = self.qid2toks[qid]
-        pos_bert_inputs, pos_bert_masks, pos_bert_segs = [], [], []
 
         # N.B: The passages in self.docid2passages are not bert tokenized
         pos_passages = self._get_passages(posid)
-        for tokenized_passage in pos_passages:
-            inp, mask, seg = self._prepare_bert_input(query_toks, tokenized_passage)
-            pos_bert_inputs.append(inp)
-            pos_bert_masks.append(mask)
-            pos_bert_segs.append(seg)
+        pos_bert_inputs, pos_bert_masks, pos_bert_segs, n_valid_psg = self._encode_inputs(query_toks, pos_passages)
+        if training:
+            pos_bert_inputs, pos_bert_masks, pos_bert_segs = self._filter_inputs(pos_bert_inputs, pos_bert_masks, pos_bert_segs, n_valid_psg)
+        else:
+            # inp_shape, exp_shape = pos_bert_inputs.shape, (numpassages, maxseqlen)
+            # assert inp_shape ==  exp_shape, f"Inference data should be have shape {exp_shape}, but got {inp_shape}."
+            assert len(pos_bert_inputs) == numpassages
+
+        pos_bert_inputs, pos_bert_masks, pos_bert_segs = map(
+            lambda lst: np.array(lst, dtype=np.long), [pos_bert_inputs, pos_bert_masks, pos_bert_segs])
+        # import pdb
+        # pdb.set_trace()
 
         # TODO: Rename the posdoc key in the below dict to 'pos_bert_input'
         data = {
             "qid": qid,
             "posdocid": posid,
-            "pos_bert_input": np.array(pos_bert_inputs, dtype=np.long),
-            "pos_mask": np.array(pos_bert_masks, dtype=np.long),
-            "pos_seg": np.array(pos_bert_segs, dtype=np.long),
+            "pos_bert_input": pos_bert_inputs,
+            "pos_mask": pos_bert_masks,
+            "pos_seg": pos_bert_segs,
             "negdocid": "",
-            "neg_bert_input": np.zeros((numpassages, maxseqlen), dtype=np.long),
-            "neg_mask": np.zeros((numpassages, maxseqlen), dtype=np.long),
-            "neg_seg": np.zeros((numpassages, maxseqlen), dtype=np.long),
-            "label": np.repeat(np.array([label], dtype=np.float32), numpassages, 0),
+            "neg_bert_input": np.zeros_like(pos_bert_inputs, dtype=np.long),
+            "neg_mask": np.zeros_like(pos_bert_masks, dtype=np.long),
+            "neg_seg": np.zeros_like(pos_bert_segs, dtype=np.long),
+            # "label": np.repeat(np.array([label], dtype=np.float32), numpassages, 0), 
+            "label": np.array(label, dtype=np.float32), 
+            # ^^^ not change the shape of the label as it is only needed during training
         }
 
         if not negid:
             return data
 
-        neg_bert_inputs, neg_bert_masks, neg_bert_segs = [], [], []
         neg_passages = self._get_passages(negid)
-
-        for tokenized_passage in neg_passages:
-            inp, mask, seg = self._prepare_bert_input(query_toks, tokenized_passage)
-            neg_bert_inputs.append(inp)
-            neg_bert_masks.append(mask)
-            neg_bert_segs.append(seg)
+        neg_bert_inputs, neg_bert_masks, neg_bert_segs, n_valid_psg = self._encode_inputs(query_toks, neg_passages)
+        if training:
+            neg_bert_inputs, neg_bert_masks, neg_bert_segs = self._filter_inputs(neg_bert_inputs, neg_bert_masks, neg_bert_segs, n_valid_psg)
+        else:
+            # inp_shape, exp_shape = neg_bert_inputs.shape, (numpassages, maxseqlen)
+            # assert inp_shape ==  exp_shape, f"Inference data should be have shape {exp_shape}, but got {inp_shape}."
+            assert len(neg_bert_inputs) == numpassages
 
         if not neg_bert_inputs:
             raise MissingDocError(qid, negid)
