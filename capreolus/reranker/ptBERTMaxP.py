@@ -58,26 +58,7 @@ class PTBERTMaxP_Class(nn.Module):
             doc_seg = torch.zeros_like(doc_mask)  # since roberta does not have segment input
 
         if self.training:
-            # select one of the passages from extractor.config["num_passages"] for training
-            passage_position = (doc_mask * doc_seg).sum(dim=-1)  # (B, P)
-            passage_valid_number = (passage_position > 2).sum(dim=-1)  # (B, )
-            # explanation about the '2'
-            # empty doc_input: [[CLS], Q1, Q2, [SEP], [PAD], [SEP], [PAD], [PAD], [PAD], [PAD]]
-            # empty doc_mask:  [1, 1, 1, 1, 1, 1, 0, 0, 0, 0]
-            # empty doc_seg:   [0, 0, 0, 0, 1, 1, 1, 1, 1, 1]
-            # empty passage_position: [0, 0, 0, 0, 1, 1, 0, 0, 0, 0]
-
-            # todo: fix the empty passage issue 
-            passage_i = [random.randint(0, max(x - 1, 0)) for x in passage_valid_number] # max(x - 1, 0) as a few passages seems to be empty
-            # passage_i = [0 for x in passage_valid_number] # max(x - 1, 0) as a few passages seems to be empty
-            # <-- runnable, and takes half time only, but it would decrease MRR@10 for 3 points
-
-            batch_i = torch.arange(batch_size)
-            passage_scores = self.bert(
-                doc_input[batch_i, passage_i],
-                attention_mask=doc_mask[batch_i, passage_i],
-                token_type_ids=doc_seg[batch_i, passage_i],
-            )[0]
+            passage_scores = self.bert(doc_input, attention_mask=doc_mask, token_type_ids=doc_seg)[0]
         else:
             passage_scores = self.predict_step(doc_input, doc_mask, doc_seg)
 
