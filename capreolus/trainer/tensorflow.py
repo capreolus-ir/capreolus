@@ -85,6 +85,8 @@ class TensorflowTrainer(Trainer):
         ConfigOption("decayiters", 3),
         ConfigOption("decaytype", None),
         ConfigOption("amp", False, "use automatic mixed precision"),
+        ConfigOption("disableposition", False, "Whether to disable the positional embedding"),
+        ConfigOption("disablesegment", False, "Whether to disable the segment embedding"),
     ]
     config_keys_not_in_path = ["fastforward", "boardname", "usecache", "tpuname", "tpuzone", "storage"]
 
@@ -524,6 +526,8 @@ class TensorflowTrainer(Trainer):
                 loss = TFPairwiseHingeLoss(reduction=tf.keras.losses.Reduction.NONE)
             elif loss_name == "crossentropy":
                 loss = TFCategoricalCrossEntropyLoss(from_logits=True, reduction=tf.keras.losses.Reduction.NONE)
+            elif loss_name == "lce":
+                loss = TFLCELoss(from_logits=True, reduction=tf.keras.losses.Reduction.NONE)
             else:
                 loss = tfr.keras.losses.get(loss_name)
         except ValueError:
@@ -543,6 +547,8 @@ class TensorflowTrainer(Trainer):
         """
         if self.config["loss"] == "crossentropy":
             return KerasPairModel(model)
+        elif self.config["loss"] == "lce":
+            return KerasLCEModel(model)
 
         return KerasTripletModel(model)
 
