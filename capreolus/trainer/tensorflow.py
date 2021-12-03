@@ -15,7 +15,7 @@ from capreolus.searcher import Searcher
 from capreolus import ConfigOption, evaluator
 from capreolus.trainer import Trainer
 from capreolus.utils.loginit import get_logger
-from capreolus.reranker.common import TFPairwiseHingeLoss, TFCategoricalCrossEntropyLoss, KerasPairModel, KerasTripletModel
+from capreolus.reranker.common import TFPairwiseHingeLoss, TFCategoricalCrossEntropyLoss, KerasPairModel, KerasTripletModel, KerasLCEModel, TFLCELoss
 from tensorflow.keras.mixed_precision import experimental as mixed_precision
 
 
