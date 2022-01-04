@@ -22,7 +22,6 @@ class Anserini:
         # Go through sys.path hoping to find the pyserini install dir
         for path in sys.path:
             jar_path = "{0}/pyserini/resources/jars/".format(path)
-            print(jar_path)
             if os.path.exists(jar_path):
                 fat_jar_path = glob(os.path.join(jar_path, "anserini-0.13*-fatjar.jar"))
                 if fat_jar_path:
