@@ -64,7 +64,11 @@ class RerankTask(Task):
         self.reranker.searcher_scores = best_search_run
 
         train_set = set(self.benchmark.folds[fold]["train_qids"])
-        train_run = {qid: docs for qid, docs in tqdm(best_search_run.items(), desc="Parsing first-stage results for training set.")if qid in train_set}
+        train_run = {
+            qid: docs
+            for qid, docs in tqdm(best_search_run.items(), desc="Parsing first-stage results for training set.")
+            if qid in train_set
+        }
 
         # For each qid, select the top 100 (defined by config["threshold") docs to be used in validation
         dev_run = defaultdict(dict)

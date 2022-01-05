@@ -27,22 +27,18 @@ class LCEBertPassage(BertPassage):
             0.1,
             "The probability that a passage from the document will be used for training " "(the first passage is always used)",
         ),
-
         # tokens
         ConfigOption("cls", None, "The token used as [CLS] special token"),
         ConfigOption("sep1", None, "The token used as [SEP] special token"),
         ConfigOption("sep2", None, "The token used as [SEP] special token"),
-
         # CLS numbers and position
         ConfigOption("ncls", 1, "Number of [CLS] pre-pend to the sequence"),
         ConfigOption("cls_start", 0, "The start idx of [CLS]. All idx ahead would be filled with [PAD]"),
         ConfigOption("cls_end", 1, "The end idx of [CLS]."),
-
         # SEP numbers and position
         ConfigOption("nsep1", 1, "Number of [SEP] append to the query, 0 or 1"),
         ConfigOption("nsep2", 1, "Number of [SEP] append to the document, 0 or 1"),
         ConfigOption("frontsep", False, "Whether to place [SEP] before query (right after [CLS])"),
-
         # position of Q and D
         ConfigOption("swapqd", False, "Whether to swap the position of query and document"),
         ConfigOption("shuffle", False, "Whether to randomly shuffle the input sequence order"),
@@ -60,7 +56,7 @@ class LCEBertPassage(BertPassage):
         }
 
         return feature_description
-    
+
     def create_tf_train_feature(self, sample):
         """
         Returns a set of features from a doc.
@@ -87,12 +83,12 @@ class LCEBertPassage(BertPassage):
         )
         label = sample["label"]
         features = []
-        nneg= len(sample["negdocid"])
-        negdoc = tf.transpose(negdoc,perm=[1, 0, 2])
+        nneg = len(sample["negdocid"])
+        negdoc = tf.transpose(negdoc, perm=[1, 0, 2])
         negdoc = tf.cast(negdoc, tf.int64)
-        negdoc_mask = tf.transpose(negdoc_mask,perm=[1, 0, 2])
+        negdoc_mask = tf.transpose(negdoc_mask, perm=[1, 0, 2])
         negdoc_mask = tf.cast(negdoc_mask, tf.int64)
-        negdoc_seg = tf.transpose(negdoc_seg,perm=[1, 0, 2])
+        negdoc_seg = tf.transpose(negdoc_seg, perm=[1, 0, 2])
         negdoc_seg = tf.cast(negdoc_seg, tf.int64)
 
         for i in range(num_passages):
@@ -120,7 +116,7 @@ class LCEBertPassage(BertPassage):
             features.append(feature)
 
         return features
-    
+
     def parse_tf_train_example(self, example_proto):
         feature_description = self.get_tf_feature_description()
         parsed_example = tf.io.parse_example(example_proto, feature_description)
@@ -134,12 +130,11 @@ class LCEBertPassage(BertPassage):
         def parse_neg_tensor_as_int(x):
             parsed_tensor = tf.io.parse_tensor(x, tf.int64)
             parsed_tensor.set_shape([self.config["nneg"], self.config["maxseqlen"]])
-            print(parsed_tensor.shape)
             return parsed_tensor
 
         def parse_label_tensor(x):
             parsed_tensor = tf.io.parse_tensor(x, tf.float32)
-            parsed_tensor.set_shape([self.config["nneg"]+1])
+            parsed_tensor.set_shape([self.config["nneg"] + 1])
 
             return parsed_tensor
 
@@ -152,7 +147,6 @@ class LCEBertPassage(BertPassage):
         label = tf.map_fn(parse_label_tensor, parsed_example["label"], dtype=tf.float32)
 
         return (pos_bert_input, pos_mask, pos_seg, neg_bert_input, neg_mask, neg_seg), label
-
 
     def id2vec(self, qid, posid, negids=None, nneg=0, label=None):
         """
@@ -187,8 +181,9 @@ class LCEBertPassage(BertPassage):
             "label": np.repeat(np.array([label], dtype=np.float32), numpassages, 0),
         }
 
-        if nneg ==0 :
+        if nneg == 0:
             return data
+
         data["negdocid"] = []
         data["neg_bert_input"] = []
         data["neg_mask"] = []

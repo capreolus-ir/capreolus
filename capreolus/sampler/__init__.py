@@ -244,8 +244,8 @@ class LCETrainTripletSampler(TrainTripletSampler):
 
             for qid in all_qids:
                 posdocid = self.rng.choice(self.qid_to_reldocs[qid])
-                negdocids = self.rng.choice(self.qid_to_negdocs[qid],self.config["nneg"])
-                label=[1] + [0] * self.config["nneg"]
+                negdocids = self.rng.choice(self.qid_to_negdocs[qid], self.config["nneg"])
+                label = [1] + [0] * self.config["nneg"]
 
                 try:
                     yield self.extractor.id2vec(qid, posdocid, negdocids, self.config["nneg"], label)

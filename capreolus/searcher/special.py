@@ -217,7 +217,11 @@ class Tct2Marco(Searcher, MsmarcoPsgSearcherMixin):
     module_name = "msptop200"
     dependencies = [Dependency(key="benchmark", module="benchmark", name="msmarcopsg")]
     config_spec = [
-        ConfigOption("firststage", "tct", "Options: tct, bm25, tct>bm25, bm25>tct. where config before > stands for training set source, and that after > stands for dev and test source.")
+        ConfigOption(
+            "firststage",
+            "tct",
+            "Options: tct, bm25, tct>bm25, bm25>tct. where config before > stands for training set source, and that after > stands for dev and test source.",
+        )
     ]
 
     def get_train_url(self):
@@ -225,8 +229,7 @@ class Tct2Marco(Searcher, MsmarcoPsgSearcherMixin):
 
         url_template = "https://drive.google.com/uc?id="
         assert train_first_stage in {"bm25", "tct"}
-        file_id = "10VjzcDUtZwJWoWUlVnjtyI4j5K6c-882" if train_first_stage == "tct" else \
-            "1ZgrxqdbV3-YbF9PnOVtSIx04RqG-YOMW"
+        file_id = "10VjzcDUtZwJWoWUlVnjtyI4j5K6c-882" if train_first_stage == "tct" else "1ZgrxqdbV3-YbF9PnOVtSIx04RqG-YOMW"
         return url_template + file_id
 
     def get_dev_url(self):
@@ -236,8 +239,7 @@ class Tct2Marco(Searcher, MsmarcoPsgSearcherMixin):
 
         url_template = "https://drive.google.com/uc?id="
         assert dev_first_stage in {"bm25", "tct"}
-        file_id = "1WBUashNhtJKNsKYBzeR4IxcMzbjqiqg6" if dev_first_stage == "tct" else \
-            "1PWuDcr8c4EIB-mxdFY7-KkTezJ7aN0Fq"
+        file_id = "1WBUashNhtJKNsKYBzeR4IxcMzbjqiqg6" if dev_first_stage == "tct" else "1PWuDcr8c4EIB-mxdFY7-KkTezJ7aN0Fq"
         return url_template + file_id
 
     def get_test_url(self):
@@ -269,7 +271,7 @@ class Tct2Marco(Searcher, MsmarcoPsgSearcherMixin):
         if tag == "tct":
             url_lists.append(self.get_test_url())
 
-        for set_name, url in zip(["train", "dev", "test"],  url_lists):
+        for set_name, url in zip(["train", "dev", "test"], url_lists):
             if set_name == "test":
                 assert tag == "tct"
 
