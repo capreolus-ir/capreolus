@@ -194,6 +194,7 @@ class LCETrainSampler(TrainTripletSampler):
                         "skipping training pair with missing features: qid=%s posid=%s negid=%s", qid, posdocid, negdocids
                     )
 
+
 @Sampler.register
 class PredSampler(Sampler, torch.utils.data.IterableDataset):
     """
