@@ -86,20 +86,20 @@ class LCEBertPassage(BertPassage):
 
     def parse_tf_train_example(self, example_proto):
         nneg = self.config["nneg"]
-        num_passages = self.config["numpassages"]
+        maxseqlen = self.config["maxseqlen"]
 
         feature_description = self.get_tf_feature_description()
         parsed_example = tf.io.parse_example(example_proto, feature_description)
 
         def parse_tensor_as_int(x):
             parsed_tensor = tf.io.parse_tensor(x, tf.int64)
-            parsed_tensor.set_shape([num_passages])
+            parsed_tensor.set_shape([maxseqlen])
 
             return parsed_tensor
 
         def parse_neg_tensor_as_int(x):
             parsed_tensor = tf.io.parse_tensor(x, tf.int64)
-            parsed_tensor.set_shape([nneg, num_passages])
+            parsed_tensor.set_shape([nneg, maxseqlen])
             return parsed_tensor
 
         def parse_label_tensor(x):
