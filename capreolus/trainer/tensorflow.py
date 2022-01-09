@@ -92,8 +92,6 @@ class TensorflowTrainer(Trainer):
         ConfigOption("decayiters", 3),
         ConfigOption("decaytype", None),
         ConfigOption("amp", False, "use automatic mixed precision"),
-        ConfigOption("disableposition", False, "Whether to disable the positional embedding"),
-        ConfigOption("disablesegment", False, "Whether to disable the segment embedding"),
     ]
     config_keys_not_in_path = ["fastforward", "boardname", "usecache", "tpuname", "tpuzone", "storage"]
 

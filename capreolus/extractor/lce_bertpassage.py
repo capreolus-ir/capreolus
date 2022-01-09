@@ -48,13 +48,9 @@ class LCEBertPassage(BertPassage):
         label = sample["label"]
         features = []
 
-        assert nneg == len(sample["negdocid"]), f"Received number of negative examples does not match config (where nneg={nneg})."
-        # negdoc = tf.transpose(negdoc, perm=[1, 0, 2])
-        # negdoc = tf.cast(negdoc, tf.int64)
-        # negdoc_mask = tf.transpose(negdoc_mask, perm=[1, 0, 2])
-        # negdoc_mask = tf.cast(negdoc_mask, tf.int64)
-        # negdoc_seg = tf.transpose(negdoc_seg, perm=[1, 0, 2])
-        # negdoc_seg = tf.cast(negdoc_seg, tf.int64)
+        if nneg != len(sample["negdocid"]):
+            raise ValueError(f"Received number of negative examples does not match config (where nneg={nneg}).")
+
         negdoc = transpose_neg_input(negdoc)
         negdoc_seg = transpose_neg_input(negdoc_seg)
         negdoc_mask = transpose_neg_input(negdoc_mask)
@@ -155,10 +151,11 @@ class LCEBertPassage(BertPassage):
         if negids is None:
             return data
 
-        assert nneg == len(negids), (
-            f"Number of the given negative ids does not match nneg={nneg} as in {self.module_name}.config."
-            f"Are you sure nneg is set the same number in Sampler and {self.module_name}?"
-        )
+        if nneg != len(negids):
+            raise ValueError(
+                f"Number of the given negative ids does not match nneg={nneg} as in {self.module_name}.config. "
+                f"Are you sure nneg is set the same number in Sampler and {self.module_name}?"
+            )
 
         data["negdocid"] = []
         data["neg_bert_input"] = []
