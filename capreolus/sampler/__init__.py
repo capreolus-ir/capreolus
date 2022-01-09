@@ -248,7 +248,7 @@ class LCETrainTripletSampler(TrainTripletSampler):
                 label = [1] + [0] * self.config["nneg"]
 
                 try:
-                    yield self.extractor.id2vec(qid, posdocid, negdocids, self.config["nneg"], label)
+                    yield self.extractor.id2vec(qid, posdocid, negdocids, label)
                 except MissingDocError:
                     # at training time we warn but ignore on missing docs
                     logger.warning(
