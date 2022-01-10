@@ -83,8 +83,8 @@ class MsmarcoPsg(Searcher, MsmarcoPsgSearcherMixin):
 
     def _query_from_file(self, topicsfn, output_path, cfg):
         """only query results in dev and test set are saved"""
-        final_runfn = output_path / "searcher"
-        final_donefn = output_path / "done"
+        final_runfn = Path(output_path) / "searcher"
+        final_donefn = Path(output_path) / "done"
         if os.path.exists(final_donefn):
             return output_path
 
@@ -180,8 +180,9 @@ class StaticTctColBertDev(Searcher, MsmarcoPsgSearcherMixin):
     ]
 
     def _query_from_file(self, topicsfn, output_path, cfg):
-        outfn = output_path / "static.run"
-        if outfn.exists():
+        outfn = Path(output_path) / "static.run"
+        done_fn = Path(output_path) / "done"
+        if done_fn.exists():
             return outfn
 
         tmp_dir = self.get_cache_path() / "tmp"
@@ -204,11 +205,15 @@ class StaticTctColBertDev(Searcher, MsmarcoPsgSearcherMixin):
             for line in f:
                 qid, docid, rank, score = line.strip().split("\t")
                 fout.write(f"{qid} Q0 {docid} {rank} {score} tct_colbert\n")
+
+        with open(done_fn, "wt") as f:
+            print("done", file=f)
+
         return outfn
 
 
 @Searcher.register
-class Tct2Marco(Searcher, MsmarcoPsgSearcherMixin):
+class MsmarcoPsgTop200(Searcher, MsmarcoPsgSearcherMixin):
     """
     Skip the searching on training set by converting the official training triplet into a "fake" runfile.
     Use the runfile pre-prepared using TCT-ColBERT (https://cs.uwaterloo.ca/~jimmylin/publications/Lin_etal_2021_RepL4NLP.pdf)
@@ -253,8 +258,8 @@ class Tct2Marco(Searcher, MsmarcoPsgSearcherMixin):
         return url_template + file_id
 
     def _query_from_file(self, topicsfn, output_path, cfg):
-        outfn = output_path / "static.run"
-        done_fn = output_path / "done"
+        outfn = Path(output_path) / "static.run"
+        done_fn = Path(output_path) / "done"
 
         if done_fn.exists():
             assert outfn.exists()
