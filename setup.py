@@ -73,7 +73,7 @@ setuptools.setup(
         "oauth2client",
         "tensorflow>=2.3,<2.5",
         "transformers==4.6.0",
-        "tensorflow-ranking<0.5",
+        "tensorflow-ranking==0.3.3",
         "Pillow",
         "beautifulsoup4",
         "lxml",
