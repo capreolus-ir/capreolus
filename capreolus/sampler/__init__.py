@@ -172,6 +172,13 @@ class LCETrainSampler(TrainTripletSampler):
         ConfigOption("nneg", 7, "Number of negative samples to include"),
     ]
 
+    def get_hash(self):
+        nneg = self.config["nneg"]
+        sorted_rep = sorted([(qid, docids) for qid, docids in self.qid_to_docids.items()])
+        key_content = "{0}{1}".format(self.extractor.get_cache_path(), str(sorted_rep))
+        key = hashlib.md5(key_content.encode("utf-8")).hexdigest()
+        return f"lce_{key}_nneg_{nneg}"
+
     def generate_samples(self):
         """Generates (pos, neg * n) infinitely."""
         all_qids = sorted(self.qid_to_reldocs)

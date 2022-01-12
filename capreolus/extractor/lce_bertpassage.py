@@ -1,3 +1,5 @@
+import os
+
 import tensorflow as tf
 import numpy as np
 
@@ -13,9 +15,7 @@ logger = get_logger(__name__)
 class LCEBertPassage(BertPassage):
     module_name = "LCEbertpassage"
 
-    config_spec = BertPassage.config_spec + [
-        ConfigOption("nneg", 7, "Maximum Number of negative samples to include"),
-    ]
+    config_spec = BertPassage.config_spec
 
     def create_tf_train_feature(self, sample):
         """
@@ -26,7 +26,6 @@ class LCEBertPassage(BertPassage):
         Returns a list of features. Each feature is a dict, and each value in the dict has the shape [batch_size, maxseqlen].
         Yes, the output shape is different to the input shape because we sample from the passages.
         """
-        nneg = self.config["nneg"]
         num_passages = self.config["numpassages"]
 
         def _bytes_feature(value):
@@ -47,9 +46,6 @@ class LCEBertPassage(BertPassage):
         )
         label = sample["label"]
         features = []
-
-        if nneg != len(sample["negdocid"]):
-            raise ValueError(f"Received number of negative examples does not match config (where nneg={nneg}).")
 
         negdoc = transpose_neg_input(negdoc)
         negdoc_seg = transpose_neg_input(negdoc_seg)
@@ -80,8 +76,25 @@ class LCEBertPassage(BertPassage):
 
         return features
 
+    # def load_tf_train_records_from_file(self, reranker, filenames, batch_size):
+    #     file_dirs = {os.basename(os.path.dirname(fn)) for fn in filenames} 
+    #     assert len(file_dirs) == 1, f"train TF records are scatters in {len(file_dirs)} directories: \n\t{file_dirs}"
+    #     file_dir = list(file_dirs)[0]
+    #     assert "nneg" in file_dir, f"Expect keyword 'nneg' in {file_dir} but not found."
+    #     file_dir = file_dir.split("_")
+    #     self.nneg = int(file_dir[file_dir.index("nneg") + 1])  
+    #     import pdb
+    #     pdb.set_trace()
+    #     # assume the number after nneg is the nneg value.
+    #     # it has to be LCE train sampler tho..
+
+    #     raw_dataset = tf.data.TFRecordDataset(filenames)
+    #     tf_records_dataset = raw_dataset.batch(batch_size, drop_remainder=True).map(
+    #         reranker.extractor.parse_tf_train_example, num_parallel_calls=tf.data.experimental.AUTOTUNE
+    #     )
+    #     return tf_records_dataset
+
     def parse_tf_train_example(self, example_proto):
-        nneg = self.config["nneg"]
         maxseqlen = self.config["maxseqlen"]
 
         feature_description = self.get_tf_feature_description()
@@ -90,18 +103,14 @@ class LCEBertPassage(BertPassage):
         def parse_tensor_as_int(x):
             parsed_tensor = tf.io.parse_tensor(x, tf.int64)
             parsed_tensor.set_shape([maxseqlen])
-
             return parsed_tensor
 
         def parse_neg_tensor_as_int(x):
             parsed_tensor = tf.io.parse_tensor(x, tf.int64)
-            parsed_tensor.set_shape([nneg, maxseqlen])
             return parsed_tensor
 
         def parse_label_tensor(x):
             parsed_tensor = tf.io.parse_tensor(x, tf.float32)
-            parsed_tensor.set_shape([nneg + 1])
-
             return parsed_tensor
 
         pos_bert_input = tf.map_fn(parse_tensor_as_int, parsed_example["pos_bert_input"], dtype=tf.int64)
@@ -119,7 +128,6 @@ class LCEBertPassage(BertPassage):
         See parent class for docstring
         """
         assert label is not None
-        nneg = self.config["nneg"]
         maxseqlen = self.config["maxseqlen"]
         numpassages = self.config["numpassages"]
 
@@ -151,11 +159,14 @@ class LCEBertPassage(BertPassage):
         if negids is None:
             return data
 
+        '''
         if nneg != len(negids):
             raise ValueError(
                 f"Number of the given negative ids does not match nneg={nneg} as in {self.module_name}.config. "
                 f"Are you sure nneg is set the same number in Sampler and {self.module_name}?"
             )
+        '''
+        # nneg = len(negids)
 
         data["negdocid"] = []
         data["neg_bert_input"] = []
