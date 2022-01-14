@@ -76,24 +76,6 @@ class LCEBertPassage(BertPassage):
 
         return features
 
-    # def load_tf_train_records_from_file(self, reranker, filenames, batch_size):
-    #     file_dirs = {os.basename(os.path.dirname(fn)) for fn in filenames} 
-    #     assert len(file_dirs) == 1, f"train TF records are scatters in {len(file_dirs)} directories: \n\t{file_dirs}"
-    #     file_dir = list(file_dirs)[0]
-    #     assert "nneg" in file_dir, f"Expect keyword 'nneg' in {file_dir} but not found."
-    #     file_dir = file_dir.split("_")
-    #     self.nneg = int(file_dir[file_dir.index("nneg") + 1])  
-    #     import pdb
-    #     pdb.set_trace()
-    #     # assume the number after nneg is the nneg value.
-    #     # it has to be LCE train sampler tho..
-
-    #     raw_dataset = tf.data.TFRecordDataset(filenames)
-    #     tf_records_dataset = raw_dataset.batch(batch_size, drop_remainder=True).map(
-    #         reranker.extractor.parse_tf_train_example, num_parallel_calls=tf.data.experimental.AUTOTUNE
-    #     )
-    #     return tf_records_dataset
-
     def parse_tf_train_example(self, example_proto):
         maxseqlen = self.config["maxseqlen"]
 
@@ -158,15 +140,6 @@ class LCEBertPassage(BertPassage):
 
         if negids is None:
             return data
-
-        '''
-        if nneg != len(negids):
-            raise ValueError(
-                f"Number of the given negative ids does not match nneg={nneg} as in {self.module_name}.config. "
-                f"Are you sure nneg is set the same number in Sampler and {self.module_name}?"
-            )
-        '''
-        # nneg = len(negids)
 
         data["negdocid"] = []
         data["neg_bert_input"] = []
