@@ -34,5 +34,4 @@ reranker.extractor.maxseqlen=256
 reranker.extractor.maxqlen=50
 reranker.extractor.numpassages=1
 
-sampler.nneg=4
-reranker.extractor.nneg=4
+sampler.nneg=3
