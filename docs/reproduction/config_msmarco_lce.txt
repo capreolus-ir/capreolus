@@ -1,16 +1,23 @@
+optimize=MRR@10
 threshold=1000
 testthreshold=1
-optimize=MRR@10
-benchmark.name=msmarcopsg
 
+benchmark.name=msmarcopsg
 rank.optimize=MRR@10
 rank.searcher.name=msptop200
 rank.searcher.firststage=tct
 
 sampler.name=LCE
+sampler.nneg=3
 
 reranker.name=TFBERTMaxP
 reranker.pretrained=google/electra-base-discriminator
+
+reranker.extractor.name=LCEbertpassage
+reranker.extractor.usecache=True
+reranker.extractor.maxseqlen=256
+reranker.extractor.maxqlen=50
+reranker.extractor.numpassages=1
 
 reranker.trainer.name=tensorflow
 reranker.trainer.usecache=True
@@ -27,11 +34,3 @@ reranker.trainer.decayiters=10
 reranker.trainer.decaytype=linear
 reranker.trainer.warmupiters=1
 reranker.trainer.validatefreq=10
-
-reranker.extractor.name=LCEbertpassage
-reranker.extractor.usecache=True
-reranker.extractor.maxseqlen=256
-reranker.extractor.maxqlen=50
-reranker.extractor.numpassages=1
-
-sampler.nneg=3
