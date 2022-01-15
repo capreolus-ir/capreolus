@@ -1,9 +1,7 @@
-import os
-
 import tensorflow as tf
 import numpy as np
 
-from capreolus import Dependency, ConfigOption, get_logger
+from capreolus import get_logger
 from capreolus.utils.exceptions import MissingDocError
 from . import Extractor
 from .bertpassage import BertPassage

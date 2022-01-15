@@ -53,7 +53,6 @@ class KerasLCEModel(tf.keras.Model):
         negdoc_seg = tf.transpose(negdoc_seg, perm=[1, 0, 2])
         negdoc_seg = tf.cast(negdoc_seg, tf.int64)
 
-        neg_x = (negdoc_bert_input, negdoc_mask, negdoc_seg)
         all_scores = [pos_score]
 
         for i in range(0, len(negdoc_bert_input)):
