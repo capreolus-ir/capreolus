@@ -31,7 +31,7 @@ class ConvKNRM_class(nn.Module):
                 self.convs[-1].append(nn.Conv1d(self.embeddings.weight.shape[1], config["filters"], conv_size))
 
         channels = config["maxngram"] ** 2 if config["crossmatch"] else config["maxngram"]
-        channels *= 1 ** 2 if config["crossmatch"] else 1
+        channels *= 1**2 if config["crossmatch"] else 1
         if config["singlefc"]:
             combine_steps = [nn.Linear(self.kernels.count() * channels, 1)]
         else:
