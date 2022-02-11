@@ -17,7 +17,7 @@ PACKAGE_PATH = constants["PACKAGE_PATH"]
 class DL19(IRDBenchmark):
     module_name = "dl19"
     query_type = "text"
-    ird_dataset_names = ["msmarco-passage/trec-dl-2019"]
+    ird_dataset_names = ["msmarco-passage/trec-dl-2019", "msmarco-passage/dev/small", "msmarco-passage/train" ]
     dependencies = [Dependency(key="collection", module="collection", name="msmarcopsg")]
 
     # File paths are same as MSMarcoPassage
