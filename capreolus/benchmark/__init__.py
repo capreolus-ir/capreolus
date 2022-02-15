@@ -16,7 +16,7 @@ logger = get_logger(__name__)
 
 def validate(build_f):
     def validate_folds_file(self):
-        if not hasattr(self, "fold_file"):
+        if not hasattr(self, "fold_file") or self.fold_file is None:
             logger.warning(f"Folds file is not found for Module {self.module_name}")
             return
 
@@ -35,7 +35,7 @@ def validate(build_f):
         logger.info("Folds file validation finishes.")
 
     def validate_qrels_file(self):
-        if not hasattr(self, "qrel_file"):
+        if not hasattr(self, "qrel_file") or self.qrel_file is None:
             logger.warning(f"Qrel file is not found for Module {self.module_name}")
             return
 
