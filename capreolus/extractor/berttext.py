@@ -1,4 +1,5 @@
 import os
+import torch
 import pickle
 from collections import defaultdict
 
@@ -13,10 +14,16 @@ from capreolus.utils.exceptions import MissingDocError
 from . import Extractor
 
 logger = get_logger(__name__)
+faiss_logger = get_logger("faiss")
 
 
 @Extractor.register
 class BertText(Extractor):
+    """
+    Returns documents in the format [CLS] doc tokens [SEP]
+    N.B: Right now works only with searcher=faiss. Cannot be used with the regular re-ranking pipeline. See bertpassage.py if you are looking for something that works with a reranker
+    """
+
     module_name = "berttext"
     dependencies = [
         Dependency(key="benchmark", module="benchmark", name=None),
@@ -28,66 +35,18 @@ class BertText(Extractor):
     config_spec = [ConfigOption("maxqlen", 4), ConfigOption("maxdoclen", 800), ConfigOption("usecache", False)]
 
     pad = 0
-    pad_tok = "<pad>"
+    pad_tok = "[PAD]"
 
     def load_state(self, qids, docids):
         with open(self.get_state_cache_file_path(qids, docids), "rb") as f:
             state_dict = pickle.load(f)
             self.qid2toks = state_dict["qid2toks"]
-            self.docid2toks = state_dict["docid2toks"]
-            self.clsidx = state_dict["clsidx"]
-            self.sepidx = state_dict["sepidx"]
 
     def cache_state(self, qids, docids):
         os.makedirs(self.get_cache_path(), exist_ok=True)
         with open(self.get_state_cache_file_path(qids, docids), "wb") as f:
-            state_dict = {"qid2toks": self.qid2toks, "docid2toks": self.docid2toks, "clsidx": self.clsidx, "sepidx": self.sepidx}
+            state_dict = {"qid2toks": self.qid2toks}
             pickle.dump(state_dict, f, protocol=-1)
-
-    def get_tf_feature_description(self):
-        feature_description = {
-            "query": tf.io.FixedLenFeature([self.config["maxqlen"]], tf.int64),
-            "query_mask": tf.io.FixedLenFeature([self.config["maxqlen"]], tf.int64),
-            "posdoc": tf.io.FixedLenFeature([self.config["maxdoclen"]], tf.int64),
-            "posdoc_mask": tf.io.FixedLenFeature([self.config["maxdoclen"]], tf.int64),
-            "negdoc": tf.io.FixedLenFeature([self.config["maxdoclen"]], tf.int64),
-            "negdoc_mask": tf.io.FixedLenFeature([self.config["maxdoclen"]], tf.int64),
-            "label": tf.io.FixedLenFeature([2], tf.float32, default_value=tf.convert_to_tensor([1, 0], dtype=tf.float32)),
-        }
-
-        return feature_description
-
-    def create_tf_feature(self, sample):
-        """
-        sample - output from self.id2vec()
-        return - a tensorflow feature
-        """
-        query, posdoc, negdoc, negdoc_id = sample["query"], sample["posdoc"], sample["negdoc"], sample["negdocid"]
-        query_mask, posdoc_mask, negdoc_mask = sample["query_mask"], sample["posdoc_mask"], sample["negdoc_mask"]
-
-        feature = {
-            "query": tf.train.Feature(int64_list=tf.train.Int64List(value=query)),
-            "query_mask": tf.train.Feature(int64_list=tf.train.Int64List(value=query_mask)),
-            "posdoc": tf.train.Feature(int64_list=tf.train.Int64List(value=posdoc)),
-            "posdoc_mask": tf.train.Feature(int64_list=tf.train.Int64List(value=posdoc_mask)),
-            "negdoc": tf.train.Feature(int64_list=tf.train.Int64List(value=negdoc)),
-            "negdoc_mask": tf.train.Feature(int64_list=tf.train.Int64List(value=negdoc_mask)),
-        }
-
-        return feature
-
-    def parse_tf_example(self, example_proto):
-        feature_description = self.get_tf_feature_description()
-        parsed_example = tf.io.parse_example(example_proto, feature_description)
-        posdoc = parsed_example["posdoc"]
-        posdoc_mask = parsed_example["posdoc_mask"]
-        negdoc = parsed_example["negdoc"]
-        negdoc_mask = parsed_example["negdoc_mask"]
-        query = parsed_example["query"]
-        query_mask = parsed_example["query_mask"]
-        label = parsed_example["label"]
-
-        return (posdoc, posdoc_mask, negdoc, negdoc_mask, query, query_mask), label
 
     def _build_vocab(self, qids, docids, topics):
         if self.is_state_cached(qids, docids) and self.config["usecache"]:
@@ -97,71 +56,90 @@ class BertText(Extractor):
             logger.info("Building bertext vocabulary")
             tokenize = self.tokenizer.tokenize
             self.qid2toks = {qid: tokenize(topics[qid]) for qid in tqdm(qids, desc="querytoks")}
-            self.docid2toks = {docid: tokenize(self.index.get_doc(docid)) for docid in tqdm(docids, desc="doctoks")}
-            self.clsidx, self.sepidx = self.tokenizer.convert_tokens_to_ids(["CLS", "SEP"])
 
             self.cache_state(qids, docids)
 
     def exist(self):
-        return hasattr(self, "docid2toks") and len(self.docid2toks)
+        return hasattr(self, "qid2toks") and len(self.qid2toks)
 
     def preprocess(self, qids, docids, topics):
-        if self.exist():
-            return
 
         self.index.create_index()
         self.qid2toks = defaultdict(list)
-        self.docid2toks = defaultdict(list)
-        self.clsidx = None
-        self.sepidx = None
 
         self._build_vocab(qids, docids, topics)
 
-    def id2vec(self, qid, posid, negid=None):
+    def get_tokenized_doc(self, doc_id):
+        doc = self.index.get_doc(doc_id)
+
+        if not doc:
+            raise MissingDocError(doc_id, doc_id)
+
+        return self.tokenizer.tokenize(doc)
+
+    def id2vec_for_triplets(self, qid, posid, negid=None, label=None):
+        assert posid is not None
         tokenizer = self.tokenizer
-        qlen, doclen = self.config["maxqlen"], self.config["maxdoclen"]
+        max_doc_length = 510
+        max_query_length = 20
+        posdoc_toks = self.get_tokenized_doc(posid)
 
-        query_toks = tokenizer.convert_tokens_to_ids(self.qid2toks[qid])
-        query_mask = self.get_mask(query_toks, qlen)
-        query = padlist(query_toks, qlen)
+        posdoc = [101] + tokenizer.convert_tokens_to_ids(posdoc_toks)[:max_doc_length] + [102]
 
-        posdoc_toks = tokenizer.convert_tokens_to_ids(self.docid2toks[posid])
-        posdoc_mask = self.get_mask(posdoc_toks, doclen)
-        posdoc = padlist(posdoc_toks, doclen)
+        posdoc = padlist(posdoc, 512, 0)
 
-        data = {
-            "qid": qid,
-            "posdocid": posid,
-            "idfs": np.zeros(qlen, dtype=np.float32),
-            "query": np.array(query, dtype=np.long),
-            "query_mask": np.array(query_mask, dtype=np.long),
-            "posdoc": np.array(posdoc, dtype=np.long),
-            "posdoc_mask": np.array(posdoc_mask, dtype=np.long),
-            "query_idf": np.array(query, dtype=np.float32),
-            "negdocid": "",
-            "negdoc": np.zeros(doclen, dtype=np.long),
-            "negdoc_mask": np.zeros(doclen, dtype=np.long),
-        }
+        # faiss_logger.debug("Posdocid: {}, doctoks: {}".format(posid, posdoc_toks))
+        # faiss_logger.debug("Numericalized posdoc: {}".format(posdoc))
+        data = {"posdocid": posid, "posdoc": np.array(posdoc, dtype=np.long), "posdoc_mask": self.get_mask(posdoc)}
+
+        if qid:
+            query_toks = self.qid2toks[qid]
+            query = [101] + tokenizer.convert_tokens_to_ids(query_toks)[:max_query_length] + [102]
+            query = padlist(query, 512, 0)
+            data["qid"] = qid
+            data["query"] = np.array(query, dtype=np.long)
+            data["query_mask"] = self.get_mask(query)
+            # faiss_logger.debug("qid: {}, query toks: {}".format(qid, query_toks))
+            # faiss_logger.debug("Numericalized query: {}".format(query))
 
         if negid:
-            negdoc_toks = tokenizer.convert_tokens_to_ids(self.docid2toks.get(negid, None))
-            negdoc_mask = self.get_mask(negdoc_toks, doclen)
-            negdoc = padlist(negdoc_toks, doclen)
-
-            if not negdoc:
-                raise MissingDocError(qid, negid)
+            negdoc_toks = self.get_tokenized_doc(negid)
+            negdoc = [101] + tokenizer.convert_tokens_to_ids(negdoc_toks)[:max_doc_length] + [102]
+            negdoc = padlist(negdoc, 512, 0)
 
             data["negdocid"] = negid
             data["negdoc"] = np.array(negdoc, dtype=np.long)
-            data["negdoc_mask"] = np.array(negdoc_mask, dtype=np.long)
+            data["negdoc_mask"] = self.get_mask(negdoc)
+            # faiss_logger.debug("neg docid: {}, doctoks: {}".format(negid, negdoc_toks))
+            # faiss_logger.debug("Numericalized_doc: {}".format(negdoc))
 
         return data
 
-    def get_mask(self, doc, to_len):
+    def id2vec_for_pairs(self, qid, posid, negid=None, label=None, reldocs=None):
+        assert posid is not None
+        assert qid is not None
+        assert reldocs is not None
+
+        max_doc_length = 488
+        max_query_length = 20
+        tokenizer = self.tokenizer
+
+        posdoc_toks = self.get_tokenized_doc(posid)
+        posdoc = [101] + tokenizer.convert_tokens_to_ids(posdoc_toks)[:max_doc_length] + [102]
+
+        # faiss_logger.debug("Posdocid: {}, doctoks: {}".format(posid, posdoc_toks))
+        # faiss_logger.debug("Numericalized posdoc: {}".format(posdoc))
+        data = {"posdocid": posid, "posdoc": posdoc, "is_relevant": label, "rel_docs": reldocs}
+
+        query_toks = self.qid2toks[qid]
+        query = [101] + tokenizer.convert_tokens_to_ids(query_toks)[:max_query_length] + [102]
+        data["qid"] = qid
+        data["query"] = query
+
+        return data
+
+    def get_mask(self, numericalized_text):
         """
         Returns a mask where it is 1 for actual toks and 0 for pad toks
         """
-        s = doc[:to_len]
-        padlen = to_len - len(s)
-        mask = [1 for _ in s] + [0 for _ in range(padlen)]
-        return mask
+        return torch.tensor([1 if t != 0 else 0 for t in numericalized_text], dtype=torch.long)

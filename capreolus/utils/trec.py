@@ -1,5 +1,6 @@
 import gzip
 import os
+import numpy as np
 import xml.etree.ElementTree as ET
 from collections import defaultdict
 
@@ -203,3 +204,68 @@ def anserini_index_to_trec_docs(index_dir, output_dir, expected_doc_count):
 
     for handle in output_handles:
         handle.close()
+
+
+def pool_trec_passage_run(run, strategy="max", separator="_"):
+    if strategy == "max":
+        return max_pool_trec_passage_run(run, separator)
+    elif strategy == "sum":
+        return sum_pool_trec_passage_run(run, separator)
+    elif strategy == "mean":
+        return mean_pool_trec_passage_run(run, separator)
+    else:
+        raise ValueError("Unknown strategy: {}".format(strategy))
+
+
+def sum_pool_trec_passage_run(run, separator):
+    docid_to_score = defaultdict(lambda: defaultdict(lambda: 0))
+
+    for qid, passageid_to_score in run.items():
+        for passageid, score in passageid_to_score.items():
+            if len(passageid.split(separator)) == 2:
+                docid, passage_idx = passageid.split(separator)
+            elif len(passageid.split(separator)) == 1:
+                docid = passageid.split(separator)[0]
+
+            docid_to_score[qid][docid] += score
+
+    return docid_to_score
+
+
+def mean_pool_trec_passage_run(run, separator):
+    docid_to_scores_dict = defaultdict(lambda: defaultdict(list))
+
+    for qid, passageid_to_score in run.items():
+        for passageid, score in passageid_to_score.items():
+            if len(passageid.split(separator)) == 2:
+                docid, passage_idx = passageid.split(separator)
+            elif len(passageid.split(separator)) == 1:
+                docid = passageid.split(separator)[0]
+
+            docid_to_scores_dict[qid][docid].append(score)
+
+    docid_to_score = defaultdict(lambda: defaultdict(lambda: 0))
+    for qid, docid_to_scores in docid_to_scores_dict.items():
+        for docid, scores_list in docid_to_scores.items():
+            docid_to_score[qid][docid] = np.mean(scores_list)
+
+    return docid_to_score
+
+
+def max_pool_trec_passage_run(run, separator):
+    pooled_run = defaultdict(dict)
+    for qid, passageid_to_score in run.items():
+        for passageid, score in passageid_to_score.items():
+            if len(passageid.split(separator)) == 2:
+                docid, passage_idx = passageid.split(separator)
+            elif len(passageid.split(separator)) == 1:
+                docid = passageid.split(separator)[0]
+            else:
+                raise ValueError("Unknown document id format: {}".format(passageid))
+
+            if docid not in pooled_run[qid]:
+                pooled_run[qid][docid] = score
+            elif score > pooled_run[qid][docid]:
+                pooled_run[qid][docid] = score
+
+    return pooled_run

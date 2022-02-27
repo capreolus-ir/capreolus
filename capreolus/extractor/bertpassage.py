@@ -59,16 +59,16 @@ class BertPassage(Extractor):
         self.cls_tok = self.tokenizer.bert_tokenizer.cls_token
         self.sep_tok = self.tokenizer.bert_tokenizer.sep_token
 
-    def load_state(self, qids, docids):
-        cache_fn = self.get_state_cache_file_path(qids, docids)
+    def load_state(self, qids, docids=None):
+        cache_fn = self.get_state_cache_file_path(qids, qids)
         logger.debug("loading state from: %s", cache_fn)
         with open(cache_fn, "rb") as f:
             state_dict = pickle.load(f)
             self.qid2toks = state_dict["qid2toks"]
 
-    def cache_state(self, qids, docids):
+    def cache_state(self, qids, docids=None):
         os.makedirs(self.get_cache_path(), exist_ok=True)
-        with open(self.get_state_cache_file_path(qids, docids), "wb") as f:
+        with open(self.get_state_cache_file_path(qids, qids), "wb") as f:
             state_dict = {"qid2toks": self.qid2toks}
             pickle.dump(state_dict, f, protocol=-1)
 
@@ -260,7 +260,6 @@ class BertPassage(Extractor):
         passages = []
         numpassages = self.config["numpassages"]
         doc = self.tokenizer.tokenize(doc)
-
         for i in range(0, len(doc), self.config["stride"]):
             if i >= len(doc):
                 assert len(passages) > 0, f"no passage can be built from empty document {doc}"
@@ -331,7 +330,10 @@ class BertPassage(Extractor):
         seg = [0] * (len(query_toks) + 2) + [1] * (len(padded_input_line) - len(query_toks) - 2)
         return inp, mask, seg
 
-    def id2vec(self, qid, posid, negid=None, label=None):
+    def id2vec_for_pairs(self, qid, posid, negid=None, label=None, reldocs=None):
+        return self.id2vec_for_triplets(qid, posid, negid=negid, label=label)
+
+    def id2vec_for_triplets(self, qid, posid, negid=None, label=None):
         """
         See parent class for docstring
         """

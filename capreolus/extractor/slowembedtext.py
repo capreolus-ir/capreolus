@@ -65,7 +65,7 @@ class SlowEmbedText(Extractor):
 
     def create_tf_train_feature(self, sample):
         """
-        sample - output from self.id2vec()
+        sample - output from self.id2vec_for_triplets()
         return - a tensorflow feature
         """
         query, query_idf, posdoc, negdoc = (sample["query"], sample["query_idf"], sample["posdoc"], sample["negdoc"])
@@ -168,7 +168,10 @@ class SlowEmbedText(Extractor):
         # return [self.embeddings[self.stoi[tok]] for tok in toks]
         return [self.stoi[tok] for tok in toks]
 
-    def id2vec(self, qid, posid, negid=None, label=None):
+    def id2vec_for_pairs(self, qid, posid, negid=None, label=None, reldocs=None):
+        return self.id2vec_for_triplets(qid, posid, negid=negid, label=label)
+
+    def id2vec_for_triplets(self, qid, posid, negid=None, label=None):
         assert label is not None
         query = self.qid2toks[qid]
 

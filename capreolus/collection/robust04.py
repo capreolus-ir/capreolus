@@ -2,7 +2,7 @@ import os
 import shutil
 import tarfile
 
-from capreolus import ConfigOption, constants
+from capreolus import ConfigOption, constants, Dependency
 from capreolus.utils.common import download_file
 from capreolus.utils.loginit import get_logger
 from capreolus.utils.trec import anserini_index_to_trec_docs
@@ -100,3 +100,54 @@ class Robust04(Collection):
             print("", file=outf)
 
         return document_dir
+
+
+@Collection.register
+class Robust04Passages(Collection):
+    """
+    TREC Robust04 (TREC disks 4 and 5 without the Congressional Record documents).
+    Splits each document in Robust04 into passages and indexes them separately.
+    """
+
+    module_name = "robust04passages"
+    collection_type = "TrecCollection"
+    generator_type = "DefaultLuceneDocumentGenerator"
+    config_keys_not_in_path = ["path"]
+    config_spec = [ConfigOption("path", "Aquaint-TREC-3-4", "path to corpus")]
+    dependencies = [Dependency(key="task", module="task", name="robust04passages")]
+
+    def download_if_missing(self):
+        target_dir = os.path.join(self.task.get_cache_path(), "generated")
+        if os.path.isdir(target_dir):
+            return target_dir
+
+        return self.download_index()
+
+    def _validate_document_path(self, path):
+        """Validate that the document path appears to contain robust04's documents (Aquaint-TREC-3-4).
+
+        Validation is performed by looking for four directories (case-insensitive): `FBIS`, `FR94`, `FT`, and `LATIMES`.
+        These directories may either be at the root of `path` or they may be in `path/NEWS_data` (case-insensitive).
+
+        Returns:
+            True if the Aquaint-TREC-3-4 document directories are found or False if not
+        """
+
+        if not os.path.isdir(path):
+            return False
+
+        contents = {fn.lower(): fn for fn in os.listdir(path)}
+
+        if "generated" in contents:
+            return True
+
+        return False
+
+    def download_index(self):
+        self.task.generate()
+
+        return os.path.join(self.task.get_cache_path(), "generated")
+
+
+# Download the collection from URL and extract into a path in the cache directory.
+# To avoid re-downloading every call, we create an empty '/done' file in this directory on success.

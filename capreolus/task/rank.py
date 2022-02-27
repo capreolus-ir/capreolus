@@ -4,6 +4,7 @@ from capreolus.utils.loginit import get_logger
 from capreolus.utils.trec import load_qrels
 
 logger = get_logger(__name__)  # pylint: disable=invalid-name
+faiss_logger = get_logger("faiss")
 
 
 @Task.register
@@ -11,6 +12,7 @@ class RankTask(Task):
     module_name = "rank"
     requires_random_seed = False
     config_spec = [
+        ConfigOption("fold", None, "fold to run"),
         ConfigOption("filter", False),
         ConfigOption("optimize", "map", "metric to maximize on the dev set"),
         ConfigOption("metrics", "default", "metrics reported for evaluation", value_type="strlist"),
@@ -36,24 +38,34 @@ class RankTask(Task):
         output_dir = self.get_results_path()
 
         if hasattr(self.searcher, "index"):
-            self.searcher.index.create_index()
+            # All anserini indexes ignore the "fold" parameter. This is required for FAISS though, since we have to train an encoder
+            self.searcher.index.create_index(fold=self.config["fold"])
 
         if self.config["filter"]:
             qrels = load_qrels(self.benchmark.qrel_ignore)
             docs_to_remove = {q: list(d.keys()) for q, d in qrels.items()}
-            search_results_folder = self.searcher.query_from_file(topics_fn, output_dir, docs_to_remove)
+            # TODO: This will break for most searchers - only certain anserini searchers support `docs_to_remove` feature
+            search_results_folder = self.searcher.query_from_file(
+                topics_fn, output_dir, docs_to_remove, folds=self.config["fold"]
+            )
         else:
-            search_results_folder = self.searcher.query_from_file(topics_fn, output_dir)
+            search_results_folder = self.searcher.query_from_file(topics_fn, output_dir, fold=self.config["fold"])
 
         logger.info("searcher results written to: %s", search_results_folder)
         return search_results_folder
 
     def evaluate(self):
         metrics = self.config["metrics"] if list(self.config["metrics"]) != ["default"] else evaluator.DEFAULT_METRICS
+        faiss_logger.info("Evaluator looks for stuff in {}".format(self.get_results_path()))
 
         best_results = evaluator.search_best_run(
-            self.get_results_path(), self.benchmark, primary_metric=self.config["optimize"], metrics=metrics
+            self.get_results_path(),
+            self.benchmark,
+            primary_metric=self.config["optimize"],
+            metrics=metrics,
+            folds=self.config["fold"],
         )
+        logger.error("Done searching for best results")
 
         for fold, path in best_results["path"].items():
             logger.info("rank: fold=%s best run: %s", fold, path)

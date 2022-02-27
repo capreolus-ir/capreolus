@@ -1,4 +1,6 @@
 import os
+import time
+from tqdm import tqdm
 
 import numpy as np
 import pytrec_eval
@@ -6,6 +8,7 @@ import pytrec_eval
 from capreolus.searcher import Searcher
 from capreolus.utils.loginit import get_logger
 from capreolus.eval.msmarco_eval import compute_metrics_from_files
+from capreolus.utils.trec import pool_trec_passage_run
 
 logger = get_logger(__name__)
 
@@ -151,11 +154,14 @@ def search_best_run(runfile_dirs, benchmark, primary_metric, metrics=None, folds
     best_scores = {s: {primary_metric: 0, "path": None} for s in folds}
     for runfile in runfiles:
         runs = Searcher.load_trec_run(runfile)
+        if hasattr(benchmark, "need_pooling") and benchmark.need_pooling:
+            runs = pool_trec_passage_run(runs, strategy=benchmark.config["pool"])
+
         for fold_name in folds:
             dev_qrels = {qid: benchmark.qrels[qid] for qid in benchmark.non_nn_dev[fold_name] if qid in benchmark.qrels}
             score = _eval_runs(runs, dev_qrels, [primary_metric], benchmark.relevance_level)[primary_metric]
             if score > best_scores[fold_name][primary_metric]:
-                best_scores[fold_name] = {primary_metric: score, "path": runfile}
+                best_scores[fold_name] = {primary_metric: score, "path": runfile, "runs": runs}
 
     for fold, scores in best_scores.items():
         logger.info(f"Best dev score on fold {fold}: {primary_metric}={scores[primary_metric]}")
@@ -163,11 +169,21 @@ def search_best_run(runfile_dirs, benchmark, primary_metric, metrics=None, folds
     test_runs = {}
     for s, score_dict in best_scores.items():
         test_qids = folds[s]["predict"]["test"]
-        # any empty (no results) queries need to be added so they contribute zeros to the average
-        test_runs.update({qid: {} for qid in test_qids})
-        test_runs.update({qid: v for qid, v in Searcher.load_trec_run(score_dict["path"]).items() if qid in test_qids})
 
+        # TODO: any empty (no results) queries need to be added so they contribute zeros to the average
+        # test_runs = {qid: docids_to_score for qid, docids_to_score in score_dict["runs"].items() if qid in test_qids}
+        test_runs.update(
+            {
+                qid: docids_to_score
+                for qid, docids_to_score in Searcher.load_trec_run(score_dict["path"]).items()
+                if qid in test_qids
+            }
+        )
+
+    if hasattr(benchmark, "need_pooling") and benchmark.need_pooling:
+        test_runs = pool_trec_passage_run(test_runs, strategy=benchmark.config["pool"])
     scores = eval_runs(test_runs, benchmark.qrels, metrics, benchmark.relevance_level)
+
     return {"score": scores, "path": {s: v["path"] for s, v in best_scores.items()}}
 
 

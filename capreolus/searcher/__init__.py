@@ -1,12 +1,14 @@
 import os
+import time
 from collections import defaultdict, OrderedDict
 
-from capreolus import ModuleBase, constants
+from capreolus import ModuleBase, constants, ConfigOption
 from capreolus.utils.loginit import get_logger
 from capreolus.utils.trec import topic_to_trectxt
-from capreolus.utils.common import OrderedDefaultDict
 
 logger = get_logger(__name__)  # pylint: disable=invalid-name
+faiss_logger = get_logger("faiss")
+
 MAX_THREADS = constants["MAX_THREADS"]
 
 
@@ -26,10 +28,13 @@ class Searcher(ModuleBase):
 
     module_type = "searcher"
 
+    config_spec = [ConfigOption("hits", 100, "number of results to return")]
+
     @staticmethod
     def load_trec_run(fn):
         # Docids in the run file appear according to decreasing score, hence it makes sense to preserve this order
-        run = OrderedDefaultDict()
+        # ^ Python 3.6+ dicts preserve insertion order. Hurray!
+        run = defaultdict(dict)
 
         with open(fn, "rt") as f:
             for i, line in enumerate(f):
@@ -57,11 +62,13 @@ class Searcher(ModuleBase):
                     rank += 1
                     count += 1
 
-    def _query_from_file(self, topicsfn, output_path, cfg):
+    def _query_from_file(self, *args, **kwargs):
         raise NotImplementedError()
 
-    def query_from_file(self, topicsfn, output_path):
-        return self._query_from_file(topicsfn, output_path, self.config)
+    def query_from_file(self, topicsfn, output_path, fold=None):
+        output_path = self._query_from_file(topicsfn, output_path, self.config)
+
+        return output_path
 
     def query(self, query, **kwargs):
         """

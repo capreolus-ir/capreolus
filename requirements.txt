@@ -42,3 +42,4 @@ xxhash
 annoy
 fasteners
 ir_datasets
+faiss-cpu

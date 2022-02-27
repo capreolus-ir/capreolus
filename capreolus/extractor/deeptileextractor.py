@@ -249,7 +249,7 @@ class DeepTileExtractor(Extractor):
         self._build_vocab(qids, docids, topics)
         self._build_embedding_matrix()
 
-    def id2vec(self, qid, posdocid, negdocid=None, **kwargs):
+    def id2vec_for_triplets(self, qid, posdocid, negdocid=None, **kwargs):
         query_toks = padlist(self.qid2toks[qid], self.config["maxqlen"], pad_token=self.pad_tok)
         posdoc_tilebar = self.create_visualization_matrix(query_toks, self.docid2segments[posdocid], self.embeddings)
 

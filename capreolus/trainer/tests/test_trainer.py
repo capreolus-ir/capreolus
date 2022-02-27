@@ -24,7 +24,7 @@ def test_tf_get_tf_dataset(monkeypatch):
 
     reranker = collections.namedtuple("reranker", "extractor")(extractor=extractor)
 
-    def mock_id2vec(*args, **kwargs):
+    def mock_id2vec_for_triplets(*args, **kwargs):
         return {
             "query": np.array([1, 2, 3, 4], dtype=np.long),
             "posdoc": np.array([1, 1, 1, 1], dtype=np.long),
@@ -35,7 +35,7 @@ def test_tf_get_tf_dataset(monkeypatch):
             "query_idf": np.array([0.1, 0.1, 0.2, 0.1], dtype=np.float),
         }
 
-    monkeypatch.setattr(SlowEmbedText, "id2vec", mock_id2vec)
+    monkeypatch.setattr(SlowEmbedText, "id2vec_for_triplets", mock_id2vec_for_triplets)
     trainer = TensorflowTrainer(
         {
             "name": "tensorflow",

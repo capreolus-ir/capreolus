@@ -230,7 +230,9 @@ class TensorflowTrainer(Trainer):
         def distributed_test_step(dataset_inputs):
             return self.strategy.run(test_step, args=(dataset_inputs,))
 
-        train_records = train_records.shuffle(100_000)
+        epoch = 0
+
+        train_records = train_records.shuffle(100000)
         train_dist_dataset = self.strategy.experimental_distribute_dataset(train_records)
 
         initial_iter, metrics = (
@@ -299,7 +301,7 @@ class TensorflowTrainer(Trainer):
                         logger.info("new best dev metric: %0.4f", dev_best_metric)
 
                         self.write_to_metric_file(metric_fn, metrics)
-                        wrapped_model.save_weights(dev_best_weight_fn)
+                        wrapped_model.save_weights(str(dev_best_weight_fn))
                         Searcher.write_trec_run(trec_preds, outfn=(dev_output_path / "best").as_posix())
                         best_trec_preds = trec_preds
 
@@ -457,6 +459,7 @@ class TensorflowTrainer(Trainer):
         tf_records_dataset = raw_dataset.batch(batch_size, drop_remainder=True).map(
             reranker.extractor.parse_tf_dev_example, num_parallel_calls=tf.data.experimental.AUTOTUNE
         )
+
         return tf_records_dataset
 
     def convert_to_tf_dev_record(self, reranker, dataset):

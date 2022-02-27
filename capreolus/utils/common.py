@@ -1,4 +1,5 @@
 import hashlib
+import torch
 import logging
 import os
 import sys
@@ -23,7 +24,7 @@ class Anserini:
         for path in sys.path:
             jar_path = "{0}/pyserini/resources/jars/".format(path)
             if os.path.exists(jar_path):
-                fat_jar_path = glob(os.path.join(jar_path, "anserini-0.12*-fatjar.jar"))
+                fat_jar_path = glob(os.path.join(jar_path, "anserini-*-fatjar.jar"))
                 if fat_jar_path:
                     return max(fat_jar_path, key=os.path.getctime)
 
@@ -591,8 +592,11 @@ def get_udel_query_expander():
     return expand_query
 
 
-class OrderedDefaultDict(OrderedDict):
-    def __missing__(self, key):
-        self[key] = value = OrderedDefaultDict()
+def pack_tensor_2D(lstlst, default, dtype, length=None):
+    batch_size = len(lstlst)
+    length = length if length is not None else max(len(l) for l in lstlst)
+    tensor = default * torch.ones((batch_size, length), dtype=dtype)
+    for i, l in enumerate(lstlst):
+        tensor[i, : len(l)] = torch.tensor(l, dtype=dtype)
 
-        return value
+    return tensor

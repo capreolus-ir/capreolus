@@ -59,7 +59,7 @@ class EmbedText(Extractor):
 
     def create_tf_feature(self, sample):
         """
-        sample - output from self.id2vec()
+        sample - output from self.id2vec_for_triplets()
         return - a tensorflow feature
         """
         query, query_idf, posdoc, negdoc = (sample["query"], sample["query_idf"], sample["posdoc"], sample["negdoc"])
@@ -125,7 +125,7 @@ class EmbedText(Extractor):
     def _tok2vec(self, toks):
         return [self.stoi[tok] for tok in toks]
 
-    def id2vec(self, qid, posid, negid=None, **kwargs):
+    def id2vec_for_triplets(self, qid, posid, negid=None, **kwargs):
         query = self.qid2toks[qid]
 
         # TODO find a way to calculate qlen/doclen stats earlier, so we can log them and check sanity of our values

@@ -129,9 +129,12 @@ class Benchmark(ModuleBase):
     relevance_level = 1
     """ Documents with a relevance label >= relevance_level will be considered relevant.
     This corresponds to trec_eval's --level_for_rel (and is passed to pytrec_eval as relevance_level). """
-    use_train_as_dev = True
-    """ Whether to use training set as validate set when there is no training needed,
+    use_train_as_dev = False
+    """ Whether to use training set as validate set when there is no training needed, 
     e.g. for traditional IR algorithms like BM25 """
+    need_pooling = False
+    """Some benchmarks consists of documents that are really passages, and the final score will have to aggregate 
+    scores from all passages belonging to the same document. This property indicates if such pooling is required"""
 
     @property
     def qrels(self):
@@ -188,6 +191,8 @@ class Benchmark(ModuleBase):
             with cached_file(fn) as tmp_fn:
                 with open(tmp_fn, "wt") as outf:
                     for qid, query in self.topics[self.query_type].items():
+                        if not query.strip():
+                            continue
                         if query_sets == "all" or qid in valid_qids:
                             print(f"{qid}\t{query}", file=outf)
         except TargetFileExists as e:

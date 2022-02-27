@@ -7,6 +7,8 @@ from capreolus import Collection, constants, module_registry
 from capreolus.tests.common_fixtures import tmpdir_as_cache
 
 collections = set(module_registry.get_module_names("collection"))
+# TODO: Allow the below collections too to be tested
+collections = collections - {"gov2passages", "robust04passages"}
 
 
 @pytest.mark.parametrize("collection_name", collections)

@@ -112,7 +112,7 @@ class BagOfWords(Extractor):
 
         self._build_vocab(qids, docids, topics)
 
-    def id2vec(self, q_id, posdoc_id, negdoc_id=None, **kwargs):
+    def id2vec_for_triplets(self, q_id, posdoc_id, negdoc_id=None, **kwargs):
         query_toks = self.qid2toks[q_id]
         posdoc_toks = self.docid2toks.get(posdoc_id)
 
