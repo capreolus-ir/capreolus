@@ -165,6 +165,44 @@ class TrainPairSampler(Sampler, TrainingSamplerMixin, torch.utils.data.IterableD
 
 
 @Sampler.register
+class LCETrainSampler(TrainTripletSampler):
+    module_name = "LCE"
+
+    config_spec = [
+        ConfigOption("nneg", 7, "Number of negative samples to include"),
+    ]
+
+    def get_hash(self):
+        nneg = self.config["nneg"]
+        sorted_rep = sorted([(qid, docids) for qid, docids in self.qid_to_docids.items()])
+        key_content = "{0}{1}".format(self.extractor.get_cache_path(), str(sorted_rep))
+        key = hashlib.md5(key_content.encode("utf-8")).hexdigest()
+        return f"lce_{key}_nneg_{nneg}"
+
+    def generate_samples(self):
+        """Generates (pos, neg * n) infinitely."""
+        all_qids = sorted(self.qid_to_reldocs)
+        if len(all_qids) == 0:
+            raise RuntimeError("TrainDataset has no valid qids")
+
+        while True:
+            self.rng.shuffle(all_qids)
+
+            for qid in all_qids:
+                posdocid = self.rng.choice(self.qid_to_reldocs[qid])
+                negdocids = self.rng.choice(self.qid_to_negdocs[qid], self.config["nneg"])
+                label = [1] + [0] * self.config["nneg"]
+
+                try:
+                    yield self.extractor.id2vec(qid, posdocid, negdocids, label)
+                except MissingDocError:
+                    # at training time we warn but ignore on missing docs
+                    logger.warning(
+                        "skipping training pair with missing features: qid=%s posid=%s negid=%s", qid, posdocid, negdocids
+                    )
+
+
+@Sampler.register
 class PredSampler(Sampler, torch.utils.data.IterableDataset):
     """
     Creates a Dataset for evaluation (test) data to be used with a pytorch DataLoader

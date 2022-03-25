@@ -1,6 +1,7 @@
 import os
 from collections import defaultdict
 from pathlib import Path
+from tqdm import tqdm
 
 from capreolus import ConfigOption, Dependency, evaluator
 from capreolus.sampler import PredSampler
@@ -62,7 +63,13 @@ class RerankTask(Task):
         self.reranker.build_model()
         self.reranker.searcher_scores = best_search_run
 
-        train_run = {qid: docs for qid, docs in best_search_run.items() if qid in self.benchmark.folds[fold]["train_qids"]}
+        train_set = set(self.benchmark.folds[fold]["train_qids"])
+        train_run = {
+            qid: docs
+            for qid, docs in tqdm(best_search_run.items(), desc="Parsing first-stage results for training set.")
+            if qid in train_set
+        }
+
         # For each qid, select the top 100 (defined by config["threshold") docs to be used in validation
         dev_run = defaultdict(dict)
         # This is possible because best_search_run is an OrderedDict
