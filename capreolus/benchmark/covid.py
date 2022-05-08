@@ -38,10 +38,10 @@ class COVID(Benchmark):
         data_dir = self.get_cache_path() / "documents"
         data_dir.mkdir(exist_ok=True, parents=True)
 
-        self.qrel_ignore = data_dir / "ignore.qrel.txt"
-        self.qrel_file = data_dir / "qrel.txt"
-        self.topic_file = data_dir / "topic.txt"
-        self.fold_file = data_dir / "fold.json"
+        self.qrel_ignore = f"{data_dir}/ignore.qrel.txt"
+        self.qrel_file = f"{data_dir}/qrel.txt"
+        self.topic_file = f"{data_dir}/topic.txt"
+        self.fold_file = f"{data_dir}/fold.json"
 
         self.download_if_missing()
 

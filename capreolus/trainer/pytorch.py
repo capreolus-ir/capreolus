@@ -7,12 +7,9 @@ import numpy as np
 import torch
 from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
-from ir_measures import *
 
-from capreolus.evaluator import log_metrics_verbose, format_metrics_string
-from capreolus import ConfigOption, Searcher, constants, get_logger
+from capreolus import ConfigOption, Searcher, constants, evaluator, get_logger
 from capreolus.reranker.common import pair_hinge_loss, pair_softmax_loss
-from capreolus.utils.trec import convert_metric
 
 from . import Trainer
 
@@ -186,7 +183,7 @@ class PytorchTrainer(Trainer):
         msg = f"Validation is scheduled on iterations: {validation_schedule}"
         return msg
 
-    def train(self, reranker, train_dataset, train_output_path, dev_data, dev_output_path, qrels, metric, benchmark):
+    def train(self, reranker, train_dataset, train_output_path, dev_data, dev_output_path, qrels, metric, relevance_level=1):
         """Train a model following the trainer's config (specifying batch size, number of iterations, etc).
 
         Args:
@@ -273,12 +270,11 @@ class PytorchTrainer(Trainer):
                 preds = self.predict(reranker, dev_data, pred_fn)
 
                 # log dev metrics
-                metrics = benchmark.evaluate(preds, qrels)
-                logger.info("dev metrics: %s", format_metrics_string(metrics))
-                for metric_str in ["AP", "P@20", "NDCG@20"]:
-                    metric = convert_metric(metric_str)
-                    summary_writer.add_scalar(metric_str, metrics[metric], niter)
-
+                metrics = evaluator.eval_runs(preds, qrels, evaluator.DEFAULT_METRICS, relevance_level)
+                logger.info("dev metrics: %s", " ".join([f"{metric}={v:0.3f}" for metric, v in sorted(metrics.items())]))
+                summary_writer.add_scalar("ndcg_cut_20", metrics["ndcg_cut_20"], niter)
+                summary_writer.add_scalar("map", metrics["map"], niter)
+                summary_writer.add_scalar("P_20", metrics["P_20"], niter)
                 # write best dev weights to file
                 if metrics[metric] > dev_best_metric:
                     dev_best_metric = metrics[metric]
@@ -287,6 +283,7 @@ class PytorchTrainer(Trainer):
                     self.write_to_metric_file(metric_fn, metrics)
 
             # write train_loss to file
+            # loss_fn.write_text("\n".join(f"{idx} {loss}" for idx, loss in enumerate(train_loss)))
             self.write_to_loss_file(loss_fn, train_loss)
 
             summary_writer.add_scalar("training_loss", iter_loss_tensor.item(), niter)

@@ -12,11 +12,17 @@ from tensorflow.python.keras import backend as K
 from tqdm import tqdm
 
 from capreolus.searcher import Searcher
-from capreolus import ConfigOption
+from capreolus import ConfigOption, evaluator
 from capreolus.trainer import Trainer
 from capreolus.utils.loginit import get_logger
-from capreolus.evaluator import log_metrics_verbose, format_metrics_string
-from capreolus.reranker.common import TFPairwiseHingeLoss, TFCategoricalCrossEntropyLoss, KerasPairModel, KerasTripletModel
+from capreolus.reranker.common import (
+    TFPairwiseHingeLoss,
+    TFCategoricalCrossEntropyLoss,
+    KerasPairModel,
+    KerasTripletModel,
+    KerasLCEModel,
+    TFLCELoss,
+)
 from tensorflow.keras.mixed_precision import experimental as mixed_precision
 
 
@@ -85,7 +91,7 @@ class TensorflowTrainer(Trainer):
         ConfigOption("decay", 0.0, "learning rate decay"),
         ConfigOption("decayiters", 3),
         ConfigOption("decaytype", None),
-        ConfigOption("amp", None, "Automatic mixed precision mode; one of: None, both"),
+        ConfigOption("amp", False, "use automatic mixed precision"),
     ]
     config_keys_not_in_path = ["fastforward", "boardname", "usecache", "tpuname", "tpuzone", "storage"]
 
@@ -121,7 +127,7 @@ class TensorflowTrainer(Trainer):
         else:  # default strategy that works on CPU and single GPU
             self.strategy = tf.distribute.get_strategy()
 
-        self.amp = (self.config["amp"] == "both")
+        self.amp = self.config["amp"]
         if self.amp:
             policy = mixed_precision.Policy("mixed_bfloat16" if self.tpu else "mixed_float16")
             mixed_precision.set_policy(policy)
@@ -135,7 +141,7 @@ class TensorflowTrainer(Trainer):
         if self.tpu and self.config["tpuname"] != "LOCAL" and not self.config["storage"].startswith("gs://"):
             raise ValueError("For TPU utilization, the storage config should start with 'gs://'")
 
-    def train(self, reranker, train_dataset, train_output_path, dev_data, dev_output_path, qrels, metric, benchmark):
+    def train(self, reranker, train_dataset, train_output_path, dev_data, dev_output_path, qrels, metric, relevance_level=1):
         if self.tpu:
             # WARNING: not sure if pathlib is compatible with gs://
             train_output_path = Path(
@@ -293,9 +299,8 @@ class TensorflowTrainer(Trainer):
                             dev_predictions.extend(p)
 
                     trec_preds = self.get_preds_in_trec_format(dev_predictions, dev_data)
-                    metrics = benchmark.evaluate(trec_preds, dict(qrels))
-                    logger.info("dev metrics: %s", format_metrics_string(metrics))
-
+                    metrics = evaluator.eval_runs(trec_preds, dict(qrels), evaluator.DEFAULT_METRICS, relevance_level)
+                    logger.info("dev metrics: %s", " ".join([f"{metric}={v:0.3f}" for metric, v in sorted(metrics.items())]))
                     if metrics[metric] > dev_best_metric:
                         dev_best_metric = metrics[metric]
                         logger.info("new best dev metric: %0.4f", dev_best_metric)
@@ -398,7 +403,7 @@ class TensorflowTrainer(Trainer):
         return self.load_tf_train_records_from_file(reranker, filenames, self.config["batch"])
 
     def load_tf_train_records_from_file(self, reranker, filenames, batch_size):
-        raw_dataset = tf.data.TFRecordDataset(filenames).shuffle(100_000)
+        raw_dataset = tf.data.TFRecordDataset(filenames)
         tf_records_dataset = raw_dataset.batch(batch_size, drop_remainder=True).map(
             reranker.extractor.parse_tf_train_example, num_parallel_calls=tf.data.experimental.AUTOTUNE
         )
@@ -526,6 +531,8 @@ class TensorflowTrainer(Trainer):
                 loss = TFPairwiseHingeLoss(reduction=tf.keras.losses.Reduction.NONE)
             elif loss_name == "crossentropy":
                 loss = TFCategoricalCrossEntropyLoss(from_logits=True, reduction=tf.keras.losses.Reduction.NONE)
+            elif loss_name == "lce":
+                loss = TFLCELoss(from_logits=True, reduction=tf.keras.losses.Reduction.NONE)
             else:
                 loss = tfr.keras.losses.get(loss_name)
         except ValueError:
@@ -545,6 +552,8 @@ class TensorflowTrainer(Trainer):
         """
         if self.config["loss"] == "crossentropy":
             return KerasPairModel(model)
+        elif self.config["loss"] == "lce":
+            return KerasLCEModel(model)
 
         return KerasTripletModel(model)
 

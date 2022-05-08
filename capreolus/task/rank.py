@@ -1,8 +1,7 @@
 from capreolus import ConfigOption, Dependency, evaluator
 from capreolus.task import Task
 from capreolus.utils.loginit import get_logger
-from capreolus.evaluator import log_metrics_verbose
-from capreolus.utils.trec import load_qrels, convert_metric, DEFAULT_METRICS
+from capreolus.utils.trec import load_qrels
 
 logger = get_logger(__name__)  # pylint: disable=invalid-name
 
@@ -13,7 +12,7 @@ class RankTask(Task):
     requires_random_seed = False
     config_spec = [
         ConfigOption("filter", False),
-        ConfigOption("optimize", "AP", "metric to maximize on the dev set"),
+        ConfigOption("optimize", "map", "metric to maximize on the dev set"),
         ConfigOption("metrics", "default", "metrics reported for evaluation", value_type="strlist"),
     ]
     config_keys_not_in_path = ["optimize", "metrics"]  # affect only evaluation but not search()
@@ -50,16 +49,17 @@ class RankTask(Task):
         return search_results_folder
 
     def evaluate(self):
-        metrics = self.config["metrics"] if list(self.config["metrics"]) != ["default"] else DEFAULT_METRICS
-        optimize = convert_metric(self.config["optimize"])
-        metrics = list(map(convert_metric, metrics))
+        metrics = self.config["metrics"] if list(self.config["metrics"]) != ["default"] else evaluator.DEFAULT_METRICS
 
-        best_results = self.benchmark.search_best_run(self.get_results_path(), primary_metric=optimize, metrics=metrics)
+        best_results = evaluator.search_best_run(
+            self.get_results_path(), self.benchmark, primary_metric=self.config["optimize"], metrics=metrics
+        )
 
         for fold, path in best_results["path"].items():
             logger.info("rank: fold=%s best run: %s", fold, path)
 
-        logger.info("rank: cross-validated results when optimizing for '%s':", optimize)
-        log_metrics_verbose(best_results["score"])
+        logger.info("rank: cross-validated results when optimizing for '%s':", self.config["optimize"])
+        for metric, score in sorted(best_results["score"].items()):
+            logger.info("%25s: %0.4f", metric, score)
 
         return best_results

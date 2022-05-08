@@ -1,19 +1,13 @@
 import os
 import json
-from pathlib import Path
 from copy import deepcopy
 from collections import defaultdict
-from collections.abc import Iterable
 
 import ir_datasets
-import ir_measures
-from ir_measures import *
-from ir_measures.measures import Measure
-from capreolus.searcher import Searcher
 
 from capreolus import ModuleBase
 from capreolus.utils.caching import cached_file, TargetFileExists
-from capreolus.utils.trec import convert_metric, DEFAULT_METRICS, write_qrels, load_qrels, load_trec_topics
+from capreolus.utils.trec import write_qrels, load_qrels, load_trec_topics
 from capreolus.utils.loginit import get_logger
 
 
@@ -22,7 +16,7 @@ logger = get_logger(__name__)
 
 def validate(build_f):
     def validate_folds_file(self):
-        if not hasattr(self, "fold_file"):
+        if not hasattr(self, "fold_file") or self.fold_file is None:
             logger.warning(f"Folds file is not found for Module {self.module_name}")
             return
 
@@ -41,7 +35,7 @@ def validate(build_f):
         logger.info("Folds file validation finishes.")
 
     def validate_qrels_file(self):
-        if not hasattr(self, "qrel_file"):
+        if not hasattr(self, "qrel_file") or self.qrel_file is None:
             logger.warning(f"Qrel file is not found for Module {self.module_name}")
             return
 
@@ -204,79 +198,6 @@ class Benchmark(ModuleBase):
     @validate
     def build(self):
         return
-
-    def evaluate(self, runs_or_runfile, qrels=None, metrics=None):
-        """Evaluate a runs dictionary or runfile. The benchmark.relevance_level would be applied silently in this function."""
-        if qrels is None:
-            qrels = self.qrels
-
-        if metrics is None:
-            metrics = DEFAULT_METRICS
-        metrics = list(map(convert_metric, metrics))
-        assert all(isinstance(m, Measure) for m in metrics)
-
-        metrics_rel2ori = {}
-        for metric in metrics:
-            rel_metric = metric(rel=self.relevance_level) if "rel" in metric.SUPPORTED_PARAMS else metric
-            metrics_rel2ori[rel_metric] = metric
-        assert set(metrics_rel2ori.values()) == set(metrics)
-
-        # prepare runs dictionary
-        if isinstance(runs_or_runfile, Path) or isinstance(runs_or_runfile, str):
-            if not os.path.exists(runs_or_runfile):
-                raise ValueError(f"Cannot find run file {runs_or_runfile}")
-            runs = ir_measures.read_trec_run(runs_or_runfile)
-        else:
-            runs = runs_or_runfile
-
-        try:
-            scores = ir_measures.calc_aggregate(list(metrics_rel2ori.keys()), qrels, runs)
-        except OSError as e:
-            logger.warning(e)
-            scores = {k: -1 for k in metrics_rel2ori}
-
-        scores = {metrics_rel2ori[k]: v for k, v in scores.items()}
-        return scores
-
-    def search_best_run(self, runfile_dirs, primary_metric, metrics=DEFAULT_METRICS, folds=None):
-        if not isinstance(runfile_dirs, (list, tuple)):
-            assert isinstance(runfile_dirs, Path)
-            runfile_dirs = [runfile_dirs]
-
-        assert isinstance(metrics, Iterable)
-        metrics = list(metrics) if not isinstance(metrics, list) else metrics
-        if primary_metric not in metrics:
-            metrics = [primary_metric] + metrics
-
-        folds = {s: self.folds[s] for s in [folds]} if folds else self.folds
-        runfiles = [
-            os.path.join(runfile_dir, f)
-            for runfile_dir in runfile_dirs
-            for f in os.listdir(runfile_dir)
-            if (f != "done" and not os.path.isdir(os.path.join(runfile_dir, f)))
-        ]
-
-        best_scores = {s: {primary_metric: 0, "path": None} for s in folds}
-        for runfile in runfiles:
-            for fold_name in folds:
-                dev_qrels = {qid: self.qrels[qid] for qid in self.non_nn_dev[fold_name] if qid in self.qrels}
-                runs = ir_measures.read_trec_run(runfile)
-                score = self.evaluate(runs, dev_qrels, [primary_metric])[primary_metric]
-                if score > best_scores[fold_name][primary_metric]:
-                    best_scores[fold_name] = {primary_metric: score, "path": runfile}
-
-        for fold, scores in best_scores.items():
-            logger.info(f"Best dev score on fold {fold}: {primary_metric}={scores[primary_metric]}")
-
-        test_runs = {}
-        for s, score_dict in best_scores.items():
-            test_qids = folds[s]["predict"]["test"]
-            # any empty (no results) queries need to be added so they contribute zeros to the average
-            test_runs.update({qid: {} for qid in test_qids})
-            test_runs.update({qid: v for qid, v in Searcher.load_trec_run(score_dict["path"]).items() if qid in test_qids})
-
-        scores = self.evaluate(test_runs, metrics=metrics)
-        return {"score": scores, "path": {s: v["path"] for s, v in best_scores.items()}}
 
 
 class IRDBenchmark(Benchmark):
