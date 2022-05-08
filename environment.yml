@@ -30,7 +30,7 @@ dependencies:
     - pymagnitude>=0.1.143
     - pytest-mock
     - mock
-    - pyserini==0.12.0
+    - pyserini==0.13.0
     - sphinx
     - sphinxcontrib-apidoc
     - recommonmark
@@ -38,7 +38,7 @@ dependencies:
     - oauth2client
     - tensorflow>=2.3,<2.5
     - transformers==4.6.1
-    - tensorflow-ranking
+    - tensorflow-ranking==0.3.2
     - Pillow
     - beautifulsoup4
     - lxml

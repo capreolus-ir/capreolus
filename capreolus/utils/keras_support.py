@@ -204,14 +204,11 @@ class AdamMultilr(optimizer_v2.OptimizerV2):
 
         if lr_idx == -1:  # unfound pattern
             lr = coefficients["lr_t"]
-            # print(">>>>>> DEFAULT LR: ", lr, var.name)
         else:
             lr = coefficients[f"lr-{lr_idx}_t"]
-            # print("bert LR: ", lr, var.name)
         return lr
 
     def _resource_apply_dense(self, grad, var, apply_state=None):
-        # print("grad: ", grad.name, grad.shape, "var: ", var.name, var.shape)
         var_device, var_dtype = var.device, var.dtype.base_dtype
         coefficients = (apply_state or {}).get((var_device, var_dtype)) or self._fallback_apply_state(var_device, var_dtype)
         lr = self._find_lr(var.name, coefficients)
@@ -227,10 +224,8 @@ class AdamMultilr(optimizer_v2.OptimizerV2):
         #
         # if lr_idx == -1:  # unfound pattern
         #     lr = coefficients["lr_t"]
-        #     # print(">>>>>> DEFAULT LR: ", lr, var.name)
         # else:
         #     lr = coefficients[f"lr-{lr_idx}_t"]
-        #     # print("bert LR: ", lr, var.name)
         m = self.get_slot(var, "m")
         v = self.get_slot(var, "v")
 

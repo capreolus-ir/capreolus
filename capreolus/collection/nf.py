@@ -49,7 +49,6 @@ class NF(Collection):
         tmp_corpus_dir = self.download_raw()
 
         inp_fns = [tmp_corpus_dir / f"{set_name}.docs" for set_name in ["train", "dev", "test"]]
-        print(inp_fns)
         with open(coll_filename, "w", encoding="utf-8") as outp_file:
             self._convert_to_trec(inp_fns, outp_file)
         logger.info(f"nf collection file prepared, stored at {coll_filename}")
