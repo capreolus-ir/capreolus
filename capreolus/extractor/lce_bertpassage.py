@@ -103,10 +103,11 @@ class LCEBertPassage(BertPassage):
 
         return (pos_bert_input, pos_mask, pos_seg, neg_bert_input, neg_mask, neg_seg), label
 
-    def id2vec(self, qid, posid, negids=None, label=None):
+    def id2vec(self, qid, posid, negids=None, label=None, **kwargs):
         """
         See parent class for docstring
         """
+        training = kwargs.get("training", True) # default to be training
         assert label is not None
         maxseqlen = self.config["maxseqlen"]
         numpassages = self.config["numpassages"]
@@ -122,6 +123,7 @@ class LCEBertPassage(BertPassage):
             pos_bert_masks.append(mask)
             pos_bert_segs.append(seg)
 
+        label = [label] if training else label
         # TODO: Rename the posdoc key in the below dict to 'pos_bert_input'
         data = {
             "qid": qid,
@@ -133,7 +135,7 @@ class LCEBertPassage(BertPassage):
             "neg_bert_input": np.zeros((numpassages, maxseqlen), dtype=np.long),
             "neg_mask": np.zeros((numpassages, maxseqlen), dtype=np.long),
             "neg_seg": np.zeros((numpassages, maxseqlen), dtype=np.long),
-            "label": np.repeat(np.array([label], dtype=np.float32), numpassages, 0),
+            "label": np.repeat(np.array(label, dtype=np.float32), numpassages, 0)
         }
 
         if negids is None:
