@@ -112,19 +112,6 @@ class BertPassage(Extractor):
             sample["neg_seg"],
         )
         label = sample["label"]
-        # features = []
-        # for i in range(num_passages):
-        #     # Always use the first passage, then sample from the remaining passages
-        #     if i > 0 and self.rng.random() > self.config["prob"]:
-        #         continue
-
-        #     bert_input_line = posdoc[i]
-        #     bert_input_line = " ".join(self.tokenizer.bert_tokenizer.convert_ids_to_tokens(list(bert_input_line)))
-        #     passage = bert_input_line.split(self.sep_tok)[-2]
-
-        #     # Ignore empty passages as well
-        #     if passage.strip() == self.pad_tok:
-        #         continue
         feature = {
             "pos_bert_input": _bytes_feature(tf.io.serialize_tensor(posdoc)),
             "pos_mask": _bytes_feature(tf.io.serialize_tensor(posdoc_mask)),
@@ -134,7 +121,6 @@ class BertPassage(Extractor):
             "neg_seg": _bytes_feature(tf.io.serialize_tensor(negdoc_seg)),
             "label": _bytes_feature(tf.io.serialize_tensor(label)),
         }
-        # features.append(feature)
         return [feature]
 
     def create_tf_dev_feature(self, sample):
@@ -378,8 +364,6 @@ class BertPassage(Extractor):
 
         pos_bert_inputs, pos_bert_masks, pos_bert_segs = map(
             lambda lst: np.array(lst, dtype=np.long), [pos_bert_inputs, pos_bert_masks, pos_bert_segs])
-        # import pdb
-        # pdb.set_trace()
 
         # TODO: Rename the posdoc key in the below dict to 'pos_bert_input'
         data = {
