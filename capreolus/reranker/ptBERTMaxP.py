@@ -79,7 +79,6 @@ class PTBERTMaxP_Class(nn.Module):
         doc_mask = doc_mask.reshape([batch_size * num_passages, maxseqlen])
         doc_seg = doc_seg.reshape([batch_size * num_passages, maxseqlen])
 
-        # passage_scores = self.call((doc_input, doc_mask, doc_seg), training=False)[:, 1]
         passage_scores = self.bert(doc_input, attention_mask=doc_mask, token_type_ids=doc_seg)[0][:, 1]
         passage_scores = passage_scores.reshape([batch_size, num_passages])
 
