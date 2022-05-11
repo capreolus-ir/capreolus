@@ -193,7 +193,6 @@ class BertPassage(Extractor):
 
         def parse_label_tensor(x):
             parsed_tensor = tf.io.parse_tensor(x, tf.float32)
-            # parsed_tensor.set_shape([self.config["numpassages"], 2])
             parsed_tensor.set_shape([2])
 
             return parsed_tensor
@@ -365,8 +364,6 @@ class BertPassage(Extractor):
                 pos_bert_inputs, pos_bert_masks, pos_bert_segs, n_valid_psg
             )
         else:
-            # inp_shape, exp_shape = pos_bert_inputs.shape, (numpassages, maxseqlen)
-            # assert inp_shape ==  exp_shape, f"Inference data should be have shape {exp_shape}, but got {inp_shape}."
             assert len(pos_bert_inputs) == numpassages
 
         pos_bert_inputs, pos_bert_masks, pos_bert_segs = map(
@@ -384,7 +381,6 @@ class BertPassage(Extractor):
             "neg_bert_input": np.zeros_like(pos_bert_inputs, dtype=np.long),
             "neg_mask": np.zeros_like(pos_bert_masks, dtype=np.long),
             "neg_seg": np.zeros_like(pos_bert_segs, dtype=np.long),
-            # "label": np.repeat(np.array([label], dtype=np.float32), numpassages, 0),
             "label": np.array(label, dtype=np.float32),
             # ^^^ not change the shape of the label as it is only needed during training
         }
@@ -399,8 +395,6 @@ class BertPassage(Extractor):
                 neg_bert_inputs, neg_bert_masks, neg_bert_segs, n_valid_psg
             )
         else:
-            # inp_shape, exp_shape = neg_bert_inputs.shape, (numpassages, maxseqlen)
-            # assert inp_shape ==  exp_shape, f"Inference data should be have shape {exp_shape}, but got {inp_shape}."
             assert len(neg_bert_inputs) == numpassages
 
         if not neg_bert_inputs:

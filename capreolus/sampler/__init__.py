@@ -157,7 +157,6 @@ class TrainPairSampler(Sampler, TrainingSamplerMixin, torch.utils.data.IterableD
                 negdocid = self.rng.choice(self.qid_to_negdocs[qid])
 
                 # Convention for label - [1, 0] indicates that doc belongs to class 1 (i.e relevant
-                # I think it should be [0, 1] ^^^ here? As the second position will match to the class 1 later in monobert
                 # ^ This is used with categorical cross entropy loss
                 yield self.extractor.id2vec(qid, posdocid, negid=None, label=[0, 1], training=True)
                 yield self.extractor.id2vec(qid, negdocid, negid=None, label=[1, 0], training=True)

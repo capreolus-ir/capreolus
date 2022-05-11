@@ -114,8 +114,7 @@ class PytorchTrainer(Trainer):
 
             if (bi + 1) % self.n_batch_per_iter == 0:
                 break
-            #     # REF-TODO: save scheduler state along with optimizer
-            #     self.lr_scheduler.step()
+            # REF-TODO: save scheduler state along with optimizer
             # hacky: use step instead the internally calculated epoch to support step-wise lr update
             self.lr_scheduler.step(epoch=cur_step)
             cur_step += 1
@@ -214,7 +213,6 @@ class PytorchTrainer(Trainer):
 
         # REF-TODO how to handle interactions between fastforward and schedule? --> just save its state
         self.lr_scheduler = torch.optim.lr_scheduler.LambdaLR(
-            # self.optimizer, lambda epoch: self.lr_multiplier(step=epoch * self.n_batch_per_iter)
             self.optimizer,
             lambda step: self.lr_multiplier(step=step),
         )
