@@ -73,7 +73,7 @@ class PytorchTrainer(Trainer):
         torch.manual_seed(self.config["seed"])
         torch.cuda.manual_seed_all(self.config["seed"])
 
-    def single_train_iteration(self, reranker, train_dataloader):
+    def single_train_iteration(self, reranker, train_dataloader, cur_iter):
         """Train model for one iteration using instances from train_dataloader.
 
         Args:
@@ -86,6 +86,7 @@ class PytorchTrainer(Trainer):
         """
 
         iter_loss = []
+        cur_step = cur_iter * self.n_batch_per_iter
         batches_since_update = 0
         batches_per_step = self.config["gradacc"]
 
@@ -112,9 +113,12 @@ class PytorchTrainer(Trainer):
                 self.optimizer.zero_grad()
 
             if (bi + 1) % self.n_batch_per_iter == 0:
-                # REF-TODO: save scheduler state along with optimizer
-                self.lr_scheduler.step()
                 break
+            #     # REF-TODO: save scheduler state along with optimizer
+            #     self.lr_scheduler.step()
+            # hacky: use step instead the internally calculated epoch to support step-wise lr update
+            self.lr_scheduler.step(epoch=cur_step)
+            cur_step += 1
 
         return torch.stack(iter_loss).mean()
 
@@ -210,7 +214,8 @@ class PytorchTrainer(Trainer):
 
         # REF-TODO how to handle interactions between fastforward and schedule? --> just save its state
         self.lr_scheduler = torch.optim.lr_scheduler.LambdaLR(
-            self.optimizer, lambda epoch: self.lr_multiplier(step=epoch * self.n_batch_per_iter)
+            # self.optimizer, lambda epoch: self.lr_multiplier(step=epoch * self.n_batch_per_iter)
+            self.optimizer, lambda step: self.lr_multiplier(step=step)
         )
 
         if self.config["softmaxloss"]:
@@ -254,7 +259,7 @@ class PytorchTrainer(Trainer):
             model.train()
 
             iter_start_time = time.time()
-            iter_loss_tensor = self.single_train_iteration(reranker, train_dataloader)
+            iter_loss_tensor = self.single_train_iteration(reranker, train_dataloader, cur_iter=niter)
             logger.info("A single iteration takes {}".format(time.time() - iter_start_time))
             train_loss.append(iter_loss_tensor.item())
             logger.info("iter = %d loss = %f", niter, train_loss[-1])
