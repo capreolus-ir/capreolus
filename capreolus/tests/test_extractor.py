@@ -612,7 +612,8 @@ def test_bertpassage_build_vocab(monkeypatch):
 def test_bertpassage_id2vec(monkeypatch):
     benchmark = DummyBenchmark()
     extractor = BertPassage(
-        {"numpassages": 5, "passagelen": 5, "maxseqlen": 15, "stride": 3, "index": {"collection": {"name": "dummy"}}},
+        # cannot test the numpassages > 1 cases, as the passages were randomly selected
+        {"numpassages": 1, "passagelen": 5, "maxseqlen": 15, "stride": 3, "index": {"collection": {"name": "dummy"}}},
         provide=benchmark,
     )
 
@@ -627,7 +628,7 @@ def test_bertpassage_id2vec(monkeypatch):
 
     tokenizer = extractor.tokenizer.bert_tokenizer
 
-    assert tokenizer.convert_ids_to_tokens(data["pos_bert_input"][0]) == [
+    assert tokenizer.convert_ids_to_tokens(data["pos_bert_input"]) == [
         "[CLS]",
         "sc",
         "##oo",
@@ -644,59 +645,7 @@ def test_bertpassage_id2vec(monkeypatch):
         "we",
         "[SEP]",
     ]
-    assert tokenizer.convert_ids_to_tokens(data["pos_bert_input"][1]) == [
-        "[CLS]",
-        "sc",
-        "##oo",
-        "##by",
-        "doo",
-        "##by",
-        "doo",
-        "where",
-        "are",
-        "you",
-        "[SEP]",
-        "now",
-        "had",
-        "here",
-        "[SEP]",
-    ]
-    assert tokenizer.convert_ids_to_tokens(data["pos_bert_input"][2]) == [
-        "[CLS]",
-        "sc",
-        "##oo",
-        "##by",
-        "doo",
-        "##by",
-        "doo",
-        "where",
-        "are",
-        "you",
-        "[SEP]",
-        "but",
-        "one",
-        "ten",
-        "[SEP]",
-    ]
-    assert tokenizer.convert_ids_to_tokens(data["pos_bert_input"][3]) == [
-        "[CLS]",
-        "sc",
-        "##oo",
-        "##by",
-        "doo",
-        "##by",
-        "doo",
-        "where",
-        "are",
-        "you",
-        "[SEP]",
-        "thousand",
-        "of",
-        "those",
-        "[SEP]",
-    ]
-
-    assert tokenizer.convert_ids_to_tokens(data["neg_bert_input"][0]) == [
+    assert tokenizer.convert_ids_to_tokens(data["neg_bert_input"]) == [
         "[CLS]",
         "sc",
         "##oo",
@@ -711,57 +660,6 @@ def test_bertpassage_id2vec(monkeypatch):
         "o",
         "that",
         "we",
-        "[SEP]",
-    ]
-    assert tokenizer.convert_ids_to_tokens(data["neg_bert_input"][1]) == [
-        "[CLS]",
-        "sc",
-        "##oo",
-        "##by",
-        "doo",
-        "##by",
-        "doo",
-        "where",
-        "are",
-        "you",
-        "[SEP]",
-        "now",
-        "had",
-        "here",
-        "[SEP]",
-    ]
-    assert tokenizer.convert_ids_to_tokens(data["neg_bert_input"][2]) == [
-        "[CLS]",
-        "sc",
-        "##oo",
-        "##by",
-        "doo",
-        "##by",
-        "doo",
-        "where",
-        "are",
-        "you",
-        "[SEP]",
-        "but",
-        "one",
-        "ten",
-        "[SEP]",
-    ]
-    assert tokenizer.convert_ids_to_tokens(data["neg_bert_input"][3]) == [
-        "[CLS]",
-        "sc",
-        "##oo",
-        "##by",
-        "doo",
-        "##by",
-        "doo",
-        "where",
-        "are",
-        "you",
-        "[SEP]",
-        "thousand",
-        "of",
-        "those",
         "[SEP]",
     ]
 
@@ -769,7 +667,7 @@ def test_bertpassage_id2vec(monkeypatch):
 def test_bertpassage_id2vec_with_pad(monkeypatch):
     benchmark = DummyBenchmark()
     extractor = BertPassage(
-        {"numpassages": 5, "passagelen": 5, "maxseqlen": 20, "stride": 3, "index": {"collection": {"name": "dummy"}}},
+        {"numpassages": 1, "passagelen": 5, "maxseqlen": 20, "stride": 3, "index": {"collection": {"name": "dummy"}}},
         provide=benchmark,
     )
 
@@ -784,7 +682,37 @@ def test_bertpassage_id2vec_with_pad(monkeypatch):
 
     tokenizer = extractor.tokenizer.bert_tokenizer
 
-    assert tokenizer.convert_ids_to_tokens(data["pos_bert_input"][0]) == [
+    assert tokenizer.convert_ids_to_tokens(data["pos_bert_input"]) == [
+        "[CLS]",
+        "sc",
+        "##oo",
+        "##by",
+        "doo",
+        "##by",
+        "doo",
+        "where",
+        "are",
+        "you",
+        "[SEP]",
+        "o",
+        "that",
+        "we",
+        "now",
+        "had",
+        "[SEP]",
+        "[PAD]",
+        "[PAD]",
+        "[PAD]",
+    ]
+
+    tf.debugging.assert_equal(
+        data["pos_mask"], tf.constant([1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0], dtype=tf.int64)
+    )
+    tf.debugging.assert_equal(
+        data["pos_seg"], tf.constant([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1], dtype=tf.int64)
+    )
+
+    assert tokenizer.convert_ids_to_tokens(data["neg_bert_input"]) == [
         "[CLS]",
         "sc",
         "##oo",
@@ -807,211 +735,8 @@ def test_bertpassage_id2vec_with_pad(monkeypatch):
         "[PAD]",
     ]
     tf.debugging.assert_equal(
-        data["pos_mask"][0], tf.constant([1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0], dtype=tf.int64)
+        data["neg_mask"], tf.constant([1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0], dtype=tf.int64)
     )
     tf.debugging.assert_equal(
-        data["pos_seg"][0], tf.constant([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1], dtype=tf.int64)
-    )
-
-    assert tokenizer.convert_ids_to_tokens(data["pos_bert_input"][1]) == [
-        "[CLS]",
-        "sc",
-        "##oo",
-        "##by",
-        "doo",
-        "##by",
-        "doo",
-        "where",
-        "are",
-        "you",
-        "[SEP]",
-        "now",
-        "had",
-        "here",
-        "but",
-        "one",
-        "[SEP]",
-        "[PAD]",
-        "[PAD]",
-        "[PAD]",
-    ]
-    tf.debugging.assert_equal(
-        data["pos_mask"][1], tf.constant([1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0], dtype=tf.int64)
-    )
-    tf.debugging.assert_equal(
-        data["pos_seg"][1], tf.constant([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1], dtype=tf.int64)
-    )
-
-    assert tokenizer.convert_ids_to_tokens(data["pos_bert_input"][2]) == [
-        "[CLS]",
-        "sc",
-        "##oo",
-        "##by",
-        "doo",
-        "##by",
-        "doo",
-        "where",
-        "are",
-        "you",
-        "[SEP]",
-        "but",
-        "one",
-        "ten",
-        "thousand",
-        "of",
-        "[SEP]",
-        "[PAD]",
-        "[PAD]",
-        "[PAD]",
-    ]
-    tf.debugging.assert_equal(
-        data["pos_mask"][2], tf.constant([1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0], dtype=tf.int64)
-    )
-    tf.debugging.assert_equal(
-        data["pos_seg"][2], tf.constant([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1], dtype=tf.int64)
-    )
-
-    assert tokenizer.convert_ids_to_tokens(data["pos_bert_input"][3]) == [
-        "[CLS]",
-        "sc",
-        "##oo",
-        "##by",
-        "doo",
-        "##by",
-        "doo",
-        "where",
-        "are",
-        "you",
-        "[SEP]",
-        "thousand",
-        "of",
-        "those",
-        "men",
-        "in",
-        "[SEP]",
-        "[PAD]",
-        "[PAD]",
-        "[PAD]",
-    ]
-    tf.debugging.assert_equal(
-        data["pos_mask"][3], tf.constant([1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0], dtype=tf.int64)
-    )
-    tf.debugging.assert_equal(
-        data["pos_seg"][3], tf.constant([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1], dtype=tf.int64)
-    )
-
-    assert tokenizer.convert_ids_to_tokens(data["neg_bert_input"][0]) == [
-        "[CLS]",
-        "sc",
-        "##oo",
-        "##by",
-        "doo",
-        "##by",
-        "doo",
-        "where",
-        "are",
-        "you",
-        "[SEP]",
-        "o",
-        "that",
-        "we",
-        "now",
-        "had",
-        "[SEP]",
-        "[PAD]",
-        "[PAD]",
-        "[PAD]",
-    ]
-    tf.debugging.assert_equal(
-        data["neg_mask"][0], tf.constant([1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0], dtype=tf.int64)
-    )
-    tf.debugging.assert_equal(
-        data["neg_seg"][0], tf.constant([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1], dtype=tf.int64)
-    )
-
-    assert tokenizer.convert_ids_to_tokens(data["neg_bert_input"][1]) == [
-        "[CLS]",
-        "sc",
-        "##oo",
-        "##by",
-        "doo",
-        "##by",
-        "doo",
-        "where",
-        "are",
-        "you",
-        "[SEP]",
-        "now",
-        "had",
-        "here",
-        "but",
-        "one",
-        "[SEP]",
-        "[PAD]",
-        "[PAD]",
-        "[PAD]",
-    ]
-    tf.debugging.assert_equal(
-        data["neg_mask"][1], tf.constant([1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0], dtype=tf.int64)
-    )
-    tf.debugging.assert_equal(
-        data["neg_seg"][1], tf.constant([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1], dtype=tf.int64)
-    )
-
-    assert tokenizer.convert_ids_to_tokens(data["neg_bert_input"][2]) == [
-        "[CLS]",
-        "sc",
-        "##oo",
-        "##by",
-        "doo",
-        "##by",
-        "doo",
-        "where",
-        "are",
-        "you",
-        "[SEP]",
-        "but",
-        "one",
-        "ten",
-        "thousand",
-        "of",
-        "[SEP]",
-        "[PAD]",
-        "[PAD]",
-        "[PAD]",
-    ]
-    tf.debugging.assert_equal(
-        data["neg_mask"][2], tf.constant([1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0], dtype=tf.int64)
-    )
-    tf.debugging.assert_equal(
-        data["neg_seg"][2], tf.constant([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1], dtype=tf.int64)
-    )
-
-    assert tokenizer.convert_ids_to_tokens(data["neg_bert_input"][3]) == [
-        "[CLS]",
-        "sc",
-        "##oo",
-        "##by",
-        "doo",
-        "##by",
-        "doo",
-        "where",
-        "are",
-        "you",
-        "[SEP]",
-        "thousand",
-        "of",
-        "those",
-        "men",
-        "in",
-        "[SEP]",
-        "[PAD]",
-        "[PAD]",
-        "[PAD]",
-    ]
-    tf.debugging.assert_equal(
-        data["neg_mask"][3], tf.constant([1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0], dtype=tf.int64)
-    )
-    tf.debugging.assert_equal(
-        data["neg_seg"][3], tf.constant([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1], dtype=tf.int64)
+        data["neg_seg"], tf.constant([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1], dtype=tf.int64)
     )
