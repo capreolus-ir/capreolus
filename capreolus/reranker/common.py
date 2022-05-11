@@ -78,7 +78,7 @@ class TFPairwiseHingeLoss(PairwiseHingeLoss):
 
 class TFCategoricalCrossEntropyLoss(CategoricalCrossentropy):
     def call(self, ytrue, ypred):
-        """Shape: (batch_size, 2) """
+        """Shape: (batch_size, 2)"""
         tf.debugging.assert_equal(tf.shape(ytrue), tf.shape(ypred))
         batch_size = tf.shape(ypred)[0]
 

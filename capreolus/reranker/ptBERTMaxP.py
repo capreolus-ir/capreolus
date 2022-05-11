@@ -83,7 +83,7 @@ class PTBERTMaxP_Class(nn.Module):
         passage_scores = passage_scores.reshape([batch_size, num_passages])
 
         if self.config["aggregation"] == "max":
-            passage_scores = passage_scores.max(dim=1)[0] # (batch size, )
+            passage_scores = passage_scores.max(dim=1)[0]  # (batch size, )
         elif self.config["aggregation"] == "first":
             passage_scores = passage_scores[:, 0]
         elif self.config["aggregation"] == "sum":

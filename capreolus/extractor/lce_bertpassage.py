@@ -107,7 +107,7 @@ class LCEBertPassage(BertPassage):
         """
         See parent class for docstring
         """
-        training = kwargs.get("training", True) # default to be training
+        training = kwargs.get("training", True)  # default to be training
         assert label is not None
         maxseqlen = self.config["maxseqlen"]
         numpassages = self.config["numpassages"]
@@ -135,7 +135,7 @@ class LCEBertPassage(BertPassage):
             "neg_bert_input": np.zeros((numpassages, maxseqlen), dtype=np.long),
             "neg_mask": np.zeros((numpassages, maxseqlen), dtype=np.long),
             "neg_seg": np.zeros((numpassages, maxseqlen), dtype=np.long),
-            "label": np.repeat(np.array(label, dtype=np.float32), numpassages, 0)
+            "label": np.repeat(np.array(label, dtype=np.float32), numpassages, 0),
         }
 
         if negids is None:

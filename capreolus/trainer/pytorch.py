@@ -215,7 +215,8 @@ class PytorchTrainer(Trainer):
         # REF-TODO how to handle interactions between fastforward and schedule? --> just save its state
         self.lr_scheduler = torch.optim.lr_scheduler.LambdaLR(
             # self.optimizer, lambda epoch: self.lr_multiplier(step=epoch * self.n_batch_per_iter)
-            self.optimizer, lambda step: self.lr_multiplier(step=step)
+            self.optimizer,
+            lambda step: self.lr_multiplier(step=step),
         )
 
         if self.config["softmaxloss"]:

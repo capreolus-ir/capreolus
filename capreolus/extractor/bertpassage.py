@@ -207,19 +207,21 @@ class BertPassage(Extractor):
         label = tf.map_fn(parse_label_tensor, parsed_example["label"], dtype=tf.float32)
 
         return (pos_bert_input, pos_mask, pos_seg, neg_bert_input, neg_mask, neg_seg), label
-    
+
     def _filter_inputs(self, bert_inputs, bert_masks, bert_segs, n_valid_psg):
         """Preserve only one passage from all available passages."""
-        assert n_valid_psg <= len(bert_inputs), f"Passages only have {len(bert_inputs)} entries, but got {n_valid_psg} valid passages."
+        assert n_valid_psg <= len(
+            bert_inputs
+        ), f"Passages only have {len(bert_inputs)} entries, but got {n_valid_psg} valid passages."
         valid_indexes = list(range(0, n_valid_psg))
         if len(valid_indexes) == 0:
             valid_indexes = [0]
         random_i = self.rng.choice(valid_indexes)
         return list(map(lambda arr: arr[random_i], [bert_inputs, bert_masks, bert_segs]))
- 
+
     def _encode_inputs(self, query_toks, passages):
         """Convert the query and passages into BERT inputs, mask, segments."""
-        bert_inputs, bert_masks, bert_segs = [], [], [] 
+        bert_inputs, bert_masks, bert_segs = [], [], []
         n_valid_psg = 0
         for tokenized_passage in passages:
             if tokenized_passage != [self.pad_tok]:  # end of the passage
@@ -342,12 +344,12 @@ class BertPassage(Extractor):
         mask = [0 if tok != self.pad_tok else 1 for tok in input_line] + [0] * (len(padded_input_line) - len(input_line))
         seg = [0] * (len(query_toks) + 2) + [1] * (len(padded_input_line) - len(query_toks) - 2)
         return inp, mask, seg
- 
+
     def id2vec(self, qid, posid, negid=None, label=None, *args, **kwargs):
         """
         See parent class for docstring
         """
-        training = kwargs.get("training", True) # default to be training
+        training = kwargs.get("training", True)  # default to be training
 
         assert label is not None
         maxseqlen = self.config["maxseqlen"]
@@ -359,14 +361,17 @@ class BertPassage(Extractor):
         pos_passages = self._get_passages(posid)
         pos_bert_inputs, pos_bert_masks, pos_bert_segs, n_valid_psg = self._encode_inputs(query_toks, pos_passages)
         if training:
-            pos_bert_inputs, pos_bert_masks, pos_bert_segs = self._filter_inputs(pos_bert_inputs, pos_bert_masks, pos_bert_segs, n_valid_psg)
+            pos_bert_inputs, pos_bert_masks, pos_bert_segs = self._filter_inputs(
+                pos_bert_inputs, pos_bert_masks, pos_bert_segs, n_valid_psg
+            )
         else:
             # inp_shape, exp_shape = pos_bert_inputs.shape, (numpassages, maxseqlen)
             # assert inp_shape ==  exp_shape, f"Inference data should be have shape {exp_shape}, but got {inp_shape}."
             assert len(pos_bert_inputs) == numpassages
 
         pos_bert_inputs, pos_bert_masks, pos_bert_segs = map(
-            lambda lst: np.array(lst, dtype=np.long), [pos_bert_inputs, pos_bert_masks, pos_bert_segs])
+            lambda lst: np.array(lst, dtype=np.long), [pos_bert_inputs, pos_bert_masks, pos_bert_segs]
+        )
 
         # TODO: Rename the posdoc key in the below dict to 'pos_bert_input'
         data = {
@@ -379,8 +384,8 @@ class BertPassage(Extractor):
             "neg_bert_input": np.zeros_like(pos_bert_inputs, dtype=np.long),
             "neg_mask": np.zeros_like(pos_bert_masks, dtype=np.long),
             "neg_seg": np.zeros_like(pos_bert_segs, dtype=np.long),
-            # "label": np.repeat(np.array([label], dtype=np.float32), numpassages, 0), 
-            "label": np.array(label, dtype=np.float32), 
+            # "label": np.repeat(np.array([label], dtype=np.float32), numpassages, 0),
+            "label": np.array(label, dtype=np.float32),
             # ^^^ not change the shape of the label as it is only needed during training
         }
 
@@ -390,7 +395,9 @@ class BertPassage(Extractor):
         neg_passages = self._get_passages(negid)
         neg_bert_inputs, neg_bert_masks, neg_bert_segs, n_valid_psg = self._encode_inputs(query_toks, neg_passages)
         if training:
-            neg_bert_inputs, neg_bert_masks, neg_bert_segs = self._filter_inputs(neg_bert_inputs, neg_bert_masks, neg_bert_segs, n_valid_psg)
+            neg_bert_inputs, neg_bert_masks, neg_bert_segs = self._filter_inputs(
+                neg_bert_inputs, neg_bert_masks, neg_bert_segs, n_valid_psg
+            )
         else:
             # inp_shape, exp_shape = neg_bert_inputs.shape, (numpassages, maxseqlen)
             # assert inp_shape ==  exp_shape, f"Inference data should be have shape {exp_shape}, but got {inp_shape}."
