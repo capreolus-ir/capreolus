@@ -339,8 +339,9 @@ class BertPassage(Extractor):
         psg_toks = " ".join(psg_toks).split()  # in case that psg_toks is np.array
         input_line = [self.cls_tok] + query_toks + [self.sep_tok] + psg_toks + [self.sep_tok]
         padded_input_line = padlist(input_line, padlen=maxseqlen, pad_token=self.pad_tok)
+        print("PAD TOK: ", self.pad_tok, len(padded_input_line), len(input_line))
         inp = self.tokenizer.convert_tokens_to_ids(padded_input_line)
-        mask = [0 if tok != self.pad_tok else 1 for tok in input_line] + [0] * (len(padded_input_line) - len(input_line))
+        mask = [1 if tok != self.pad_tok else 0 for tok in input_line] + [0] * (len(padded_input_line) - len(input_line))
         seg = [0] * (len(query_toks) + 2) + [1] * (len(padded_input_line) - len(query_toks) - 2)
         return inp, mask, seg
 
