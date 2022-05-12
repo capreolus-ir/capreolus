@@ -11,11 +11,13 @@ from capreolus.utils.common import padlist
 from capreolus.utils.exceptions import MissingDocError
 from capreolus.tokenizer.punkt import PunktTokenizer
 
+from .common import SingleTrainingPassagesMixin
+
 logger = get_logger(__name__)
 
 
 @Extractor.register
-class BertPassage(Extractor):
+class BertPassage(Extractor, SingleTrainingPassagesMixin):
     """
     Extracts passages from the document to be later consumed by a BERT based model.
     Does NOT use all the passages. The first passages is always used. Use the `prob` config to control the probability
@@ -86,43 +88,6 @@ class BertPassage(Extractor):
 
         return feature_description
 
-    def create_tf_train_feature(self, sample):
-        """
-        Returns a set of features from a doc.
-        Of the num_passages passages that are present in a document, we use only a subset of it.
-        params:
-        sample - A dict where each entry has the shape [batch_size, num_passages, maxseqlen]
-
-        Returns a list of features. Each feature is a dict, and each value in the dict has the shape [batch_size, maxseqlen].
-        Yes, the output shape is different to the input shape because we sample from the passages.
-        """
-        num_passages = self.config["numpassages"]
-
-        def _bytes_feature(value):
-            """Returns a bytes_list from a string / byte. Our features are multi-dimensional tensors."""
-            if isinstance(value, type(tf.constant(0))):  # if value ist tensor
-                value = value.numpy()  # get value of tensor
-            return tf.train.Feature(bytes_list=tf.train.BytesList(value=[value]))
-
-        posdoc, negdoc, negdoc_id = sample["pos_bert_input"], sample["neg_bert_input"], sample["negdocid"]
-        posdoc_mask, posdoc_seg, negdoc_mask, negdoc_seg = (
-            sample["pos_mask"],
-            sample["pos_seg"],
-            sample["neg_mask"],
-            sample["neg_seg"],
-        )
-        label = sample["label"]
-        feature = {
-            "pos_bert_input": _bytes_feature(tf.io.serialize_tensor(posdoc)),
-            "pos_mask": _bytes_feature(tf.io.serialize_tensor(posdoc_mask)),
-            "pos_seg": _bytes_feature(tf.io.serialize_tensor(posdoc_seg)),
-            "neg_bert_input": _bytes_feature(tf.io.serialize_tensor(negdoc)),
-            "neg_mask": _bytes_feature(tf.io.serialize_tensor(negdoc_mask)),
-            "neg_seg": _bytes_feature(tf.io.serialize_tensor(negdoc_seg)),
-            "label": _bytes_feature(tf.io.serialize_tensor(label)),
-        }
-        return [feature]
-
     def create_tf_dev_feature(self, sample):
         """
         Unlike the train feature, the dev set uses all passages. Both the input and the output are dicts with the shape
@@ -154,32 +119,6 @@ class BertPassage(Extractor):
         }
 
         return [feature]
-
-    def parse_tf_train_example(self, example_proto):
-        feature_description = self.get_tf_feature_description()
-        parsed_example = tf.io.parse_example(example_proto, feature_description)
-
-        def parse_tensor_as_int(x):
-            parsed_tensor = tf.io.parse_tensor(x, tf.int64)
-            parsed_tensor.set_shape([self.config["maxseqlen"]])
-
-            return parsed_tensor
-
-        def parse_label_tensor(x):
-            parsed_tensor = tf.io.parse_tensor(x, tf.float32)
-            parsed_tensor.set_shape([2])
-
-            return parsed_tensor
-
-        pos_bert_input = tf.map_fn(parse_tensor_as_int, parsed_example["pos_bert_input"], dtype=tf.int64)
-        pos_mask = tf.map_fn(parse_tensor_as_int, parsed_example["pos_mask"], dtype=tf.int64)
-        pos_seg = tf.map_fn(parse_tensor_as_int, parsed_example["pos_seg"], dtype=tf.int64)
-        neg_bert_input = tf.map_fn(parse_tensor_as_int, parsed_example["neg_bert_input"], dtype=tf.int64)
-        neg_mask = tf.map_fn(parse_tensor_as_int, parsed_example["neg_mask"], dtype=tf.int64)
-        neg_seg = tf.map_fn(parse_tensor_as_int, parsed_example["neg_seg"], dtype=tf.int64)
-        label = tf.map_fn(parse_label_tensor, parsed_example["label"], dtype=tf.float32)
-
-        return (pos_bert_input, pos_mask, pos_seg, neg_bert_input, neg_mask, neg_seg), label
 
     def parse_tf_dev_example(self, example_proto):
         feature_description = self.get_tf_feature_description()
@@ -339,7 +278,6 @@ class BertPassage(Extractor):
         psg_toks = " ".join(psg_toks).split()  # in case that psg_toks is np.array
         input_line = [self.cls_tok] + query_toks + [self.sep_tok] + psg_toks + [self.sep_tok]
         padded_input_line = padlist(input_line, padlen=maxseqlen, pad_token=self.pad_tok)
-        print("PAD TOK: ", self.pad_tok, len(padded_input_line), len(input_line))
         inp = self.tokenizer.convert_tokens_to_ids(padded_input_line)
         mask = [1 if tok != self.pad_tok else 0 for tok in input_line] + [0] * (len(padded_input_line) - len(input_line))
         seg = [0] * (len(query_toks) + 2) + [1] * (len(padded_input_line) - len(query_toks) - 2)
