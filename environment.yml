@@ -49,3 +49,4 @@ dependencies:
     - ir_datasets
     - gdown
     - six==1.16.0
+    - trecrun~=0.1.0
