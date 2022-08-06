@@ -31,6 +31,7 @@ class PooledBertPassage(BertPassage):
     config_spec = [
         ConfigOption("maxseqlen", 256, "Maximum input length (query+document)"),
         ConfigOption("maxqlen", 20, "Maximum query length"),
+        ConfigOption("padq", False, "Always pad queries to maxqlen"),
         ConfigOption("usecache", False, "Should the extracted features be cached?"),
         ConfigOption("passagelen", 150, "Length of the extracted passage"),
         ConfigOption("stride", 100, "Stride"),
@@ -117,7 +118,7 @@ class PooledBertPassage(BertPassage):
 
         return (pos_bert_input, pos_mask, pos_seg, neg_bert_input, neg_mask, neg_seg), label
 
-    def id2vec(self, qid, posid, negid=None, label=None):
+    def id2vec(self, qid, posid, negid=None, label=None, *args, **kwargs):
         """
         See parent class for docstring
         """

@@ -117,7 +117,7 @@ class BertText(Extractor):
 
         self._build_vocab(qids, docids, topics)
 
-    def id2vec(self, qid, posid, negid=None):
+    def id2vec(self, qid, posid, negid=None, *args, **kwargs):
         tokenizer = self.tokenizer
         qlen, doclen = self.config["maxqlen"], self.config["maxdoclen"]
 

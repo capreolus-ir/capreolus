@@ -125,7 +125,7 @@ class EmbedText(Extractor):
     def _tok2vec(self, toks):
         return [self.stoi[tok] for tok in toks]
 
-    def id2vec(self, qid, posid, negid=None, **kwargs):
+    def id2vec(self, qid, posid, negid=None, *args, **kwargs):
         query = self.qid2toks[qid]
 
         # TODO find a way to calculate qlen/doclen stats earlier, so we can log them and check sanity of our values

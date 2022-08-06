@@ -68,7 +68,7 @@ class Extractor(ModuleBase):
     def build_from_benchmark(self, *args, **kwargs):
         raise NotImplementedError
 
-    def id2vec(self, qid, posdocid, negdocid=None, label=None):
+    def id2vec(self, qid, posdocid, negdocid=None, label=None, *args, **kwargs):
         """
         Creates a feature from the (qid, docid) pair.
         If negdocid is supplied, that's also included in the feature (needed for training with pairwise hinge loss)

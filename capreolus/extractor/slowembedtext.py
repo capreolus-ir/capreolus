@@ -168,7 +168,7 @@ class SlowEmbedText(Extractor):
         # return [self.embeddings[self.stoi[tok]] for tok in toks]
         return [self.stoi[tok] for tok in toks]
 
-    def id2vec(self, qid, posid, negid=None, label=None):
+    def id2vec(self, qid, posid, negid=None, label=None, *args, **kwargs):
         assert label is not None
         query = self.qid2toks[qid]
 

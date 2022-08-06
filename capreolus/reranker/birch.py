@@ -141,7 +141,7 @@ class Birch(Reranker):
         Dependency(
             key="extractor",
             module="extractor",
-            name="bertpassage",
+            name="birchbertpassage",
             default_config_overrides={"tokenizer": {"pretrained": "bert-large-uncased"}},
         ),
         Dependency(key="trainer", module="trainer", name="pytorch"),

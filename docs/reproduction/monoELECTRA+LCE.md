@@ -6,10 +6,24 @@ Basically reproduce the results in [this](to-be-added) paper.
 For the set-up and monoBERT w/ hinge loss experiments, please refer to [this](MS_MARCO.md) page
 
 ## Running MS MARCO 
-The config file (config_msmarco_lce.txt)[config_msmarco_lce.txt] could be used out-of-box, with the following command: 
-
+1. Use the following script to run a "mini" version of the MS MARCO fine-tuning, testing if everything is working. 
 ```bash
 python -m capreolus.run rerank.train with file=docs/reproduction/config_msmarco_lce.txt
+```
+This would train the monoBERT for only 3k steps with batch size to be 16,
+then rerank the *top100* documents per query. 
+The script should take no more than 24 hours to finish,
+At the end of execusion, it would display a bunch of metrics, where `MRR@10` should be around `0.359`.
+
+2. Once the above is done, we can fine-tune a full version on MS MARCO Passage using the following scripts: 
+Once the above is done, we can fine-tune a full version on MS MARCO Passage using the following scripts: 
+```bash
+python -m capreolus.run rerank.train with \
+    file=docs/reproduction/config_msmarco_lce.txt \
+    threshold=1000 \
+    reranker.trainer.niters=10 \
+    reranker.trainer.decayiters=10 \
+    reranker.trainer.validatefreq=10
 ```
 
 The config would achieve `MRR@10` around `0.395~0.4` (maybe <0.01 points fluctuation).
@@ -18,7 +32,13 @@ To experiments with different hard negative example, simply spcify `sampler.nneg
 For example, the following command would run the same config but with 7 hard negatives per query,
 which should gives `MRR@10` around `0.405~0.41` 
 ```bash
-python -m capreolus.run rerank.train with file=docs/reproduction/config_msmarco_lce.txt sampler.nneg=7
+python -m capreolus.run rerank.train with \
+    file=docs/reproduction/config_msmarco_lce.txt \
+    threshold=1000 \
+    reranker.trainer.niters=10 \
+    reranker.trainer.decayiters=10 \
+    reranker.trainer.validatefreq=10 \
+    sampler.nneg=7
 ```
 
 ## Replication Logs
