@@ -136,6 +136,9 @@ class RerankTask(Task):
 
         return preds
 
+    def predict_train(self):
+        return self._predict(set_name="train")
+
     def predict_dev(self):
         return self._predict(set_name="dev")
 
@@ -143,7 +146,7 @@ class RerankTask(Task):
         return self._predict(set_name="test")
 
     def _predict(self, set_name):
-        assert set_name in {"dev", "test"}
+        assert set_name in {"train", "dev", "test"}
 
         fold = self.config["fold"]
         self.rank.search()
@@ -166,7 +169,9 @@ class RerankTask(Task):
         threshold = self.config["testthreshold"] if set_name == "test" else self.config["threshold"]
         # This is possible because best_search_run is an OrderedDict
         for qid, docs in best_search_run.items():
-            if qid in self.benchmark.folds[fold]["predict"][set_name]:
+            fold_qids = self.benchmark.folds[fold]["train_qids"] if set_name == "train" \
+                else self.benchmark.folds[fold]["predict"][set_name]
+            if qid in fold_qids:
                 for idx, (docid, score) in enumerate(docs.items()):
                     if idx >= threshold:
                         break
