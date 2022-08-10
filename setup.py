@@ -69,7 +69,7 @@ setuptools.setup(
         "google-api-python-client",
         "oauth2client",
         "tensorflow>=2.3,<2.5",
-        "transformers==4.6.0",
+        "transformers~=4.9.2",
         "tensorflow-ranking==0.3.2",
         "Pillow",
         "beautifulsoup4",
