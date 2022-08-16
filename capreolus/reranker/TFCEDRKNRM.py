@@ -137,11 +137,8 @@ class TFCEDRKNRM_Class(tf.keras.layers.Layer):
         doc_seg = tf.reshape(doc_seg, [batch_size * self.num_passages, self.maxseqlen])
 
         # get BERT embeddings (including CLS) for each passage
-        # TODO switch to hgf's ModelOutput after bumping tranformers version
         outputs = self.bert(doc_input, attention_mask=doc_mask, token_type_ids=doc_seg)
-        if self.config["pretrained"].startswith("bert-"):
-            outputs = (outputs[0], outputs[2])
-        bert_output, all_layer_output = outputs
+        bert_output, all_layer_output = outputs.last_hidden_state, outputs.hidden_states
 
         #  embeddings to create the CLS feature
         cls = bert_output[:, 0, :]
