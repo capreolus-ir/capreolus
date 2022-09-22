@@ -23,7 +23,7 @@ from capreolus.reranker.common import (
     KerasLCEModel,
     TFLCELoss,
 )
-from tensorflow.keras.mixed_precision import experimental as mixed_precision
+import tensorflow.keras.mixed_precision as mixed_precision
 
 
 logger = get_logger(__name__)
@@ -34,29 +34,6 @@ from tensorflow.python.client import device_lib
 def get_available_gpus():
     local_device_protos = device_lib.list_local_devices()
     return [x.name for x in local_device_protos if x.device_type == "GPU"]
-
-
-class LocalTPUClusterResolver(tf.distribute.cluster_resolver.TPUClusterResolver):
-    """LocalTPUClusterResolver."""
-
-    def __init__(self):
-        self._tpu = ""
-        self.task_type = "worker"
-        self.task_id = 0
-
-    def master(self, task_type=None, task_id=None, rpc_layer=None):
-        return None
-
-    def cluster_spec(self):
-        return tf.train.ClusterSpec({})
-
-    def get_tpu_system_metadata(self):
-        return tf.tpu.experimental.TPUSystemMetadata(
-            num_cores=8, num_hosts=1, num_of_cores_per_host=8, topology=None, devices=tf.config.list_logical_devices()
-        )
-
-    def num_accelerators(self, task_type=None, task_id=None, config_proto=None):
-        return {"TPU": 8}
 
 
 @Trainer.register
@@ -106,10 +83,10 @@ class TensorflowTrainer(Trainer):
         # Use TPU if available, otherwise resort to GPU/CPU
         if self.config["tpuname"]:
             if self.config["tpuname"] == "LOCAL":
-                logger.debug("using TPU VM with LocalTPUClusterResolver")
-                self.tpu = LocalTPUClusterResolver()
+                logger.debug("using TPU VM")
+                self.tpu = tf.distribute.cluster_resolver.TPUClusterResolver(tpu="local")
             else:
-                logger.debug("using TPU with TPUClusterResolver")
+                logger.debug("using Cloud TPU")
                 self.tpu = tf.distribute.cluster_resolver.TPUClusterResolver(
                     tpu=self.config["tpuname"], zone=self.config["tpuzone"]
                 )
