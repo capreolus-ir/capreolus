@@ -59,13 +59,51 @@ class COVID(Collection):
             download_file(url, tar_file)
 
         with tarfile.open(tar_file) as f:
-            f.extractall(path=cachedir)  # emb.tar.gz, metadata.csv, doc.tar.gz, changelog
+            def is_within_directory(directory, target):
+                
+                abs_directory = os.path.abspath(directory)
+                abs_target = os.path.abspath(target)
+            
+                prefix = os.path.commonprefix([abs_directory, abs_target])
+                
+                return prefix == abs_directory
+            
+            def safe_extract(tar, path=".", members=None, *, numeric_owner=False):
+            
+                for member in tar.getmembers():
+                    member_path = os.path.join(path, member.name)
+                    if not is_within_directory(path, member_path):
+                        raise Exception("Attempted Path Traversal in Tar File")
+            
+                tar.extractall(path, members, numeric_owner=numeric_owner) 
+                
+            
+            safe_extract(f, path=cachedir)
             os.rename(cachedir / self.date, document_dir)
 
         doc_fn = "document_parses"
         if f"{doc_fn}.tar.gz" in os.listdir(document_dir):
             with tarfile.open(document_dir / f"{doc_fn}.tar.gz") as f:
-                f.extractall(path=document_dir)
+                def is_within_directory(directory, target):
+                    
+                    abs_directory = os.path.abspath(directory)
+                    abs_target = os.path.abspath(target)
+                
+                    prefix = os.path.commonprefix([abs_directory, abs_target])
+                    
+                    return prefix == abs_directory
+                
+                def safe_extract(tar, path=".", members=None, *, numeric_owner=False):
+                
+                    for member in tar.getmembers():
+                        member_path = os.path.join(path, member.name)
+                        if not is_within_directory(path, member_path):
+                            raise Exception("Attempted Path Traversal in Tar File")
+                
+                    tar.extractall(path, members, numeric_owner=numeric_owner) 
+                    
+                
+                safe_extract(f, path=document_dir)
         else:
             self.transform_metadata(document_dir)
 
@@ -108,7 +146,26 @@ class COVID(Collection):
                 continue
 
             with tarfile.open(str(tar_fn)) as f:
-                f.extractall(path=root_path)
+                def is_within_directory(directory, target):
+                    
+                    abs_directory = os.path.abspath(directory)
+                    abs_target = os.path.abspath(target)
+                
+                    prefix = os.path.commonprefix([abs_directory, abs_target])
+                    
+                    return prefix == abs_directory
+                
+                def safe_extract(tar, path=".", members=None, *, numeric_owner=False):
+                
+                    for member in tar.getmembers():
+                        member_path = os.path.join(path, member.name)
+                        if not is_within_directory(path, member_path):
+                            raise Exception("Attempted Path Traversal in Tar File")
+                
+                    tar.extractall(path, members, numeric_owner=numeric_owner) 
+                    
+                
+                safe_extract(f, path=root_path)
                 os.remove(tar_fn)
 
         metadata = pd.read_csv(metadata_csv, header=0)

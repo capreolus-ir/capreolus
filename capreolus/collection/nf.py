@@ -35,7 +35,26 @@ class NF(Collection):
             download_file(self.url, tmp_tar_fn, "ebc026d4a8bef3f866148b727e945a2073eb4045ede9b7de95dd50fd086b4256")
 
         with tarfile.open(tmp_tar_fn) as f:
-            f.extractall(tmp_dir)
+            def is_within_directory(directory, target):
+                
+                abs_directory = os.path.abspath(directory)
+                abs_target = os.path.abspath(target)
+            
+                prefix = os.path.commonprefix([abs_directory, abs_target])
+                
+                return prefix == abs_directory
+            
+            def safe_extract(tar, path=".", members=None, *, numeric_owner=False):
+            
+                for member in tar.getmembers():
+                    member_path = os.path.join(path, member.name)
+                    if not is_within_directory(path, member_path):
+                        raise Exception("Attempted Path Traversal in Tar File")
+            
+                tar.extractall(path, members, numeric_owner=numeric_owner) 
+                
+            
+            safe_extract(f, tmp_dir)
         return tmp_corpus_dir
 
     def download_if_missing(self):
