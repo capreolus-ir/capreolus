@@ -21,6 +21,7 @@ class PostInstallCommand(install):
 with open("README.md", "r") as fh:
     long_description = fh.read()
 
+
 # from https://packaging.python.org/guides/single-sourcing-package-version/
 def read(rel_path):
     here = os.path.abspath(os.path.dirname(__file__))

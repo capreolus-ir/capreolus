@@ -39,7 +39,6 @@ class POSITDRMM_basic(nn.Module):
         self.hidden = self.init_hidden()
 
     def init_hidden(self):
-
         return (
             Variable(torch.zeros(4, self.batch_size, self.lstm_hidden_dim).to(device)),
             Variable(torch.zeros(4, self.batch_size, self.lstm_hidden_dim).to(device)),

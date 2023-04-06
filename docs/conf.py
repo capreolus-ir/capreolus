@@ -18,6 +18,7 @@ import sys
 sys.path.insert(0, os.path.abspath("../"))
 assert os.path.exists(os.path.abspath("../capreolus"))
 
+
 # from https://packaging.python.org/guides/single-sourcing-package-version/
 def read(rel_path):
     here = os.path.abspath(os.path.dirname(__file__))
