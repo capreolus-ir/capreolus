@@ -61,7 +61,7 @@ setuptools.setup(
         "pyjnius==1.2.1",
         "pymagnitude==0.1.143",
         "h5py==2.10.0",
-        "nltk==3.4.5",
+        "nltk==3.6.6",
         "pytest-mock",
         "mock",
         "pyserini==0.13.0",
